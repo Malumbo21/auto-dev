@@ -67,20 +67,20 @@ class CodingAgentExecutor(
             try {
                 renderer.renderLLMResponseStart()
 
-                val messageToSend = if (currentIteration == 1) {
-                    initialUserMessage
+                if (currentIteration == 1) {
+                    conversationManager.sendMessage(initialUserMessage, compileDevIns = true).cancellable().collect { chunk ->
+                        llmResponse.append(chunk)
+                        renderer.renderLLMResponseChunk(chunk)
+                    }
                 } else {
-                    buildContinuationMessage()
-                }
-
-                conversationManager.sendMessage(messageToSend).cancellable().collect { chunk ->
-                    llmResponse.append(chunk)
-                    renderer.renderLLMResponseChunk(chunk)
+                    conversationManager.sendMessage(buildContinuationMessage(), compileDevIns = false).cancellable().collect { chunk ->
+                        llmResponse.append(chunk)
+                        renderer.renderLLMResponseChunk(chunk)
+                    }
                 }
 
                 renderer.renderLLMResponseEnd()
                 conversationManager.addAssistantResponse(llmResponse.toString())
-
             } catch (e: Exception) {
                 renderer.renderError("LLM call failed: ${e.message}")
                 break
@@ -142,7 +142,6 @@ class CodingAgentExecutor(
     private suspend fun executeToolCalls(toolCalls: List<ToolCall>): List<Triple<String, Map<String, Any>, ToolExecutionResult>> = coroutineScope {
         val results = mutableListOf<Triple<String, Map<String, Any>, ToolExecutionResult>>()
         
-        // 预检查阶段：检查所有工具是否重复
         val toolsToExecute = mutableListOf<ToolCall>()
         var hasRepeatError = false
         
@@ -156,7 +155,6 @@ class CodingAgentExecutor(
             }
             val toolSignature = "$toolName:$paramsStr"
             
-            // 更新最近调用历史
             recentToolCalls.add(toolSignature)
             if (recentToolCalls.size > 10) {
                 recentToolCalls.removeAt(0)
@@ -169,7 +167,7 @@ class CodingAgentExecutor(
                 ToolType.Shell -> 2
                 else -> when (toolName) {
                     ToolType.ReadFile.name, ToolType.WriteFile.name -> 3
-                    "shell" -> 2
+                    ToolType.Shell.name -> 2
                     else -> 2
                 }
             }
@@ -197,25 +195,26 @@ class CodingAgentExecutor(
             toolsToExecute.add(toolCall)
         }
         
-        // 如果有重复错误，直接返回
         if (hasRepeatError) {
             return@coroutineScope results
         }
         
-        // 并行执行阶段：同时启动所有工具
-        if (toolsToExecute.size > 1) {
-            println("🔄 Executing ${toolsToExecute.size} tools in parallel...")
-        }
-        
-        val executionJobs = toolsToExecute.map { toolCall ->
+        // Step 1: 先渲染所有工具调用（顺序显示）
+        for (toolCall in toolsToExecute) {
             val toolName = toolCall.toolName
             val params = toolCall.params.mapValues { it.value as Any }
             val paramsStr = params.entries.joinToString(" ") { (key, value) ->
                 "$key=\"$value\""
             }
+            renderer.renderToolCall(toolName, paramsStr)
+        }
+        
+        // Step 2: 并行执行所有工具（不输出日志）
+        val executionJobs = toolsToExecute.map { toolCall ->
+            val toolName = toolCall.toolName
+            val params = toolCall.params.mapValues { it.value as Any }
             
             async {
-                renderer.renderToolCall(toolName, paramsStr)
                 yield()
                 
                 val executionContext = OrchestratorContext(
@@ -233,7 +232,7 @@ class CodingAgentExecutor(
             }
         }
         
-        // 等待所有工具执行完成
+        // Step 3: 等待所有工具执行完成
         val executionResults = executionJobs.awaitAll()
         results.addAll(executionResults)
         

@@ -10,21 +10,18 @@ import cc.unitmesh.agent.tool.impl.ShellParams
 import cc.unitmesh.agent.tool.registry.ToolRegistry
 import cc.unitmesh.agent.tool.shell.JsShellExecutor
 import cc.unitmesh.devins.compiler.DevInsCompilerFacade
+import cc.unitmesh.devins.completion.CompletionContext
+import cc.unitmesh.devins.completion.CompletionItem
+import cc.unitmesh.devins.completion.CompletionManager
+import cc.unitmesh.devins.completion.CompletionTriggerType
+import cc.unitmesh.devins.filesystem.DefaultFileSystem
 import cc.unitmesh.devins.filesystem.EmptyFileSystem
-import cc.unitmesh.devins.filesystem.ProjectFileSystem
 import cc.unitmesh.devins.llm.Message
 import cc.unitmesh.devins.llm.MessageRole
-import cc.unitmesh.devins.completion.CompletionManager
-import cc.unitmesh.devins.completion.CompletionContext
-import cc.unitmesh.devins.completion.CompletionTriggerType
-import cc.unitmesh.devins.completion.CompletionItem
 import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.promise
-import kotlin.js.JsExport
-import kotlin.js.JsName
 import kotlin.js.Promise
 
 /**
@@ -173,7 +170,7 @@ data class JsModelConfig(
     val modelName: String,
     val apiKey: String = "",
     val temperature: Double = 0.7,
-    val maxTokens: Int = 8192,
+    val maxTokens: Int = 128000,
     val baseUrl: String = ""
 ) {
     fun toKotlinConfig(): ModelConfig {
@@ -227,7 +224,7 @@ data class JsNamedModelConfig(
     val modelName: String,
     val apiKey: String = "",
     val temperature: Double = 0.7,
-    val maxTokens: Int = 8192,
+    val maxTokens: Int = 128000,
     val baseUrl: String = ""
 ) {
     fun toKotlin(): NamedModelConfig {
@@ -243,8 +240,8 @@ data class JsNamedModelConfig(
         
         return NamedModelConfig(
             name = name,
-            provider = provider,
-            modelName = modelName,
+            provider = provider.toString(),
+            model = modelName,
             apiKey = apiKey,
             temperature = temperature,
             maxTokens = maxTokens,
@@ -257,8 +254,8 @@ data class JsNamedModelConfig(
         fun fromKotlin(config: NamedModelConfig): JsNamedModelConfig {
             return JsNamedModelConfig(
                 name = config.name,
-                providerName = config.provider.name,
-                modelName = config.modelName,
+                providerName = config.provider,
+                modelName = config.model,
                 apiKey = config.apiKey,
                 temperature = config.temperature,
                 maxTokens = config.maxTokens,
@@ -268,40 +265,6 @@ data class JsNamedModelConfig(
     }
 }
 
-/**
- * JavaScript-friendly ConfigFile
- */
-@JsExport
-data class JsConfigFile(
-    val active: String,
-    val configs: Array<JsNamedModelConfig>
-) {
-    fun toKotlin(): ConfigFile {
-        return ConfigFile(
-            active = active,
-            configs = configs.map { it.toKotlin() }
-        )
-    }
-    
-    companion object {
-        @JsName("fromKotlin")
-        fun fromKotlin(configFile: ConfigFile): JsConfigFile {
-            return JsConfigFile(
-                active = configFile.active,
-                configs = configFile.configs.map { JsNamedModelConfig.fromKotlin(it) }.toTypedArray()
-            )
-        }
-        
-        @JsName("empty")
-        fun empty(): JsConfigFile {
-            return JsConfigFile(active = "", configs = emptyArray())
-        }
-    }
-}
-
-/**
- * JavaScript-friendly result wrapper
- */
 @JsExport
 data class JsResult(
     val success: Boolean,
@@ -951,7 +914,7 @@ class JsChatCompressionInfo(
 class JsDomainDictGenerator(
     private val projectPath: String,
     private val modelConfig: JsModelConfig,
-    private val maxTokenLength: Int = 8192
+    private val maxTokenLength: Int = 128000
 ) {
     private val fileSystem = cc.unitmesh.devins.filesystem.DefaultProjectFileSystem(projectPath)
     private val generator = cc.unitmesh.indexer.DomainDictGenerator(
@@ -1052,7 +1015,7 @@ data class JsDomainDictResult(
  */
 @JsExport
 class JsDomainDictService(
-    private val fileSystem: ProjectFileSystem
+    private val fileSystem: DefaultFileSystem
 ) {
     private val service = cc.unitmesh.indexer.DomainDictService(fileSystem)
 
@@ -1082,7 +1045,7 @@ class JsDomainDictService(
 @JsExport
 class JsPromptEnhancer(
     private val llmService: KoogLLMService,
-    private val fileSystem: ProjectFileSystem,
+    private val fileSystem: DefaultFileSystem,
     private val jsDomainDictService: JsDomainDictService
 ) {
     private val enhancer = PromptEnhancer(llmService, fileSystem, cc.unitmesh.indexer.DomainDictService(fileSystem))
@@ -1108,7 +1071,7 @@ class JsPromptEnhancer(
 @OptIn(kotlinx.coroutines.DelicateCoroutinesApi::class)
 fun createPromptEnhancer(
     llmService: KoogLLMService,
-    fileSystem: ProjectFileSystem,
+    fileSystem: DefaultFileSystem,
     jsDomainDictService: JsDomainDictService
 ): JsPromptEnhancer {
     return JsPromptEnhancer(llmService, fileSystem, jsDomainDictService)
