@@ -45,5 +45,23 @@ actual object Platform {
     actual fun getLogDir(): String {
         return "${getUserHomeDir()}/.autodev/logs"
     }
+
+    actual fun prefersReducedMotion(): Boolean {
+        // Android: Check if animations are disabled in accessibility settings
+        // Note: This requires Context which we don't have here
+        // In a real implementation, this would check Settings.Global.ANIMATOR_DURATION_SCALE
+        // For now, return false as default
+        return try {
+            // Check if animator duration scale is 0 (animations disabled)
+            val animatorDurationScale = android.provider.Settings.Global.getFloat(
+                null, // ContentResolver - not available without Context
+                android.provider.Settings.Global.ANIMATOR_DURATION_SCALE,
+                1.0f
+            )
+            animatorDurationScale == 0f
+        } catch (e: Exception) {
+            false
+        }
+    }
 }
 

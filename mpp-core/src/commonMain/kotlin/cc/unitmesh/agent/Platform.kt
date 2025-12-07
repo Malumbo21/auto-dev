@@ -27,6 +27,12 @@ expect object Platform {
      * Default: ~/.autodev/logs
      */
     fun getLogDir(): String
+
+    /**
+     * Check if user prefers reduced motion (accessibility setting)
+     * Used to disable or simplify animations for users who are sensitive to motion
+     */
+    fun prefersReducedMotion(): Boolean
 }
 
 /**

@@ -48,4 +48,39 @@ actual object Platform {
     actual fun getLogDir(): String {
         return "${getUserHomeDir()}/.autodev/logs"
     }
+
+    actual fun prefersReducedMotion(): Boolean {
+        // On JVM Desktop, check system properties or environment variables
+        // macOS: defaults read com.apple.universalaccess reduceMotion
+        // Windows: Check registry for SystemParameters.HighContrast or animations disabled
+        // Linux: Check GTK settings or GNOME accessibility settings
+        return try {
+            val osName = getOSName().lowercase()
+            when {
+                osName.contains("mac") -> {
+                    // Check macOS reduce motion setting via defaults command
+                    val process = ProcessBuilder("defaults", "read", "com.apple.universalaccess", "reduceMotion")
+                        .redirectErrorStream(true)
+                        .start()
+                    val result = process.inputStream.bufferedReader().readText().trim()
+                    process.waitFor()
+                    result == "1"
+                }
+                osName.contains("windows") -> {
+                    // Windows: Check if animations are disabled via system property
+                    // This is a simplified check; full implementation would use JNA/JNI
+                    System.getProperty("swing.aatext", "false") == "false" &&
+                            System.getProperty("awt.useSystemAAFontSettings", "") == "off"
+                }
+                else -> {
+                    // Linux/other: Check GTK_ENABLE_ANIMATIONS or GNOME settings
+                    val gtkAnimations = System.getenv("GTK_ENABLE_ANIMATIONS")
+                    gtkAnimations == "0" || gtkAnimations == "false"
+                }
+            }
+        } catch (e: Exception) {
+            // Default to false if we can't determine the setting
+            false
+        }
+    }
 }

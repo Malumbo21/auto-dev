@@ -41,4 +41,11 @@ actual object Platform {
         // WASM typically runs in browser, use a virtual path
         return "~/.autodev/logs"
     }
+
+    actual fun prefersReducedMotion(): Boolean {
+        // WASM runs in browser, but accessing window.matchMedia is complex
+        // For now, return false as default
+        // TODO: Implement proper browser media query check for WASM
+        return false
+    }
 }
