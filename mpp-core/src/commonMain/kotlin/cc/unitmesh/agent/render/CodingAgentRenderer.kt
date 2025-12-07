@@ -128,4 +128,23 @@ interface CodingAgentRenderer {
         // Default: return error for renderers that don't support async sessions
         return ToolResult.Error("Async session not supported by this renderer")
     }
+
+    /**
+     * Render generated NanoDSL UI code.
+     * Called when NanoDSLAgent generates UI code.
+     * 
+     * JVM platforms (Compose, Jewel) can render a live UI preview using NanoIR.
+     * Non-JVM platforms (CLI, VSCode) show the source code with syntax highlighting.
+     *
+     * @param source The generated NanoDSL source code
+     * @param irJson Optional IR JSON for rendering (available on JVM platforms)
+     * @param metadata Additional metadata (componentName, attempts, isValid, etc.)
+     */
+    fun renderNanoDSL(
+        source: String,
+        irJson: String? = null,
+        metadata: Map<String, String> = emptyMap()
+    ) {
+        // Default: no-op for renderers that don't support NanoDSL rendering
+    }
 }

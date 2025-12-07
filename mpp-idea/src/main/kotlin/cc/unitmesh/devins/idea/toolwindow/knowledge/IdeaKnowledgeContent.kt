@@ -797,6 +797,52 @@ private fun ChatMessageItem(item: TimelineItem) {
                 }
             }
         }
+
+        is TimelineItem.NanoDSLItem -> {
+            // NanoDSL item display
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(AutoDevColors.Energy.aiDim)
+                    .padding(8.dp)
+            ) {
+                Column {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "🎨",
+                            style = JewelTheme.defaultTextStyle
+                        )
+                        Text(
+                            text = item.componentName ?: "Generated UI",
+                            style = JewelTheme.defaultTextStyle.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp
+                            )
+                        )
+                        if (item.generationAttempts > 1) {
+                            Text(
+                                text = "(${item.generationAttempts} attempts)",
+                                style = JewelTheme.defaultTextStyle.copy(
+                                    color = AutoDevColors.Neutral.c400,
+                                    fontSize = 11.sp
+                                )
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = item.source.take(300) + if (item.source.length > 300) "..." else "",
+                        style = JewelTheme.defaultTextStyle.copy(
+                            fontSize = 11.sp,
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                        )
+                    )
+                }
+            }
+        }
     }
 }
 

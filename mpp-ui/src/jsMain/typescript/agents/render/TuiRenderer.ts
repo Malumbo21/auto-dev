@@ -13,6 +13,8 @@
 import type { ModeContext } from '../../modes';
 import type { Message } from '../../ui/App.js';
 import {BaseRenderer} from "./BaseRenderer.js";
+import { cc } from 'autodev-mpp-core/autodev-mpp-core';
+import JsNanoDSLData = cc.unitmesh.agent.JsNanoDSLData;
 
 /**
  * TUI 渲染器
@@ -292,6 +294,33 @@ export class TuiRenderer extends BaseRenderer {
       showPrefix: true
     };
     this.context.addMessage(systemMessage);
+  }
+
+  /**
+   * Render generated NanoDSL UI code
+   */
+  renderNanoDSL(data: JsNanoDSLData): void {
+    const { source, componentName, generationAttempts, isValid, warnings } = data;
+    
+    const nameDisplay = componentName || 'UI Component';
+    const attemptsInfo = generationAttempts > 1 ? ` (${generationAttempts} attempts)` : '';
+    const validityIcon = isValid ? '✅' : '⚠️';
+    
+    let message = `🎨 **Generated NanoDSL UI**\n\n`;
+    message += `${validityIcon} **${nameDisplay}**${attemptsInfo}\n\n`;
+    
+    // Show warnings if any
+    if (warnings && warnings.length > 0) {
+      for (const warning of warnings) {
+        message += `⚠ ${warning}\n`;
+      }
+      message += '\n';
+    }
+    
+    // Display code
+    message += '```nanodsl\n' + source + '\n```';
+    
+    this.renderSystemMessage(message);
   }
 
   /**
