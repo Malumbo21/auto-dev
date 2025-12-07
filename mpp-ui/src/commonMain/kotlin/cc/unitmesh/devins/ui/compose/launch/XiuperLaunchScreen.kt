@@ -35,6 +35,7 @@ import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
 import kotlinx.coroutines.delay
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlin.math.PI
 
 /**
  * Xiuper Launch Screen - 启动动画
@@ -249,7 +250,7 @@ fun XiuperLaunchScreen(
                     val startX = center.x + 80f
                     val startY = center.y - 30f + i * 12f
 
-                    val radians = Math.toRadians(angle.toDouble())
+                    val radians = angle * PI / 180.0
                     val endX = startX + (lineLength * cos(radians)).toFloat()
                     val endY = startY + (lineLength * sin(radians)).toFloat()
 
