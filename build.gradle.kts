@@ -27,17 +27,18 @@ allprojects {
 // Only publishes JVM and multiplatform metadata publications (skips WASM/JS/iOS)
 tasks.register("publishDepsForIdea") {
     group = "publishing"
-    description = "Publish mpp-core and mpp-ui JVM artifacts to mavenLocal for mpp-idea"
-    
+    description = "Publish mpp-core, mpp-ui, and xuiper-ui JVM artifacts to mavenLocal for mpp-idea"
+
     dependsOn(
         ":mpp-core:publishJvmPublicationToMavenLocal",
         ":mpp-core:publishKotlinMultiplatformPublicationToMavenLocal",
         ":mpp-ui:publishJvmPublicationToMavenLocal",
-        ":mpp-ui:publishKotlinMultiplatformPublicationToMavenLocal"
+        ":mpp-ui:publishKotlinMultiplatformPublicationToMavenLocal",
+        ":xuiper-ui:publishMavenPublicationToMavenLocal"
     )
-    
+
     doLast {
-        println("✅ Published mpp-core and mpp-ui JVM artifacts to mavenLocal")
+        println("✅ Published mpp-core, mpp-ui, and xuiper-ui JVM artifacts to mavenLocal")
         println("Now you can build mpp-idea with: ./gradlew :mpp-idea:build")
     }
 }
