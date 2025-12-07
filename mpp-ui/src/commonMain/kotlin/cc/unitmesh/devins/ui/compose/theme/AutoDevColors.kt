@@ -149,100 +149,119 @@ object AutoDevColors {
     
     // ========================================================================
     // Legacy Compatibility - 向后兼容的旧色阶别名
+    // 所有旧色阶已映射到新的设计系统
     // ========================================================================
-    @Deprecated("Use Energy.xiu instead", ReplaceWith("Energy.xiu"))
+    
+    /**
+     * Indigo -> 电光青色阶 (主色)
+     * 原本的靛蓝色已替换为电光青
+     */
     object Indigo {
-        val c50 = Color(0xFFE0F7FA)
-        val c100 = Color(0xFFB2EBF2)
-        val c200 = Color(0xFF80DEEA)
-        val c300 = Energy.xiu                 // 暗黑模式主色 -> 电光青
-        val c400 = Energy.xiuHover            // 暗黑模式悬停
-        val c500 = Color(0xFF00ACC1)
-        val c600 = Energy.xiuLight            // 亮色模式主色
-        val c700 = Color(0xFF00838F)          // 亮色模式悬停
-        val c800 = Color(0xFF006064)
-        val c900 = Color(0xFF004D40)
+        val c50 = Color(0xFFE0FCFF)           // 最浅
+        val c100 = Color(0xFFB3F5FF)
+        val c200 = Color(0xFF80EEFF)
+        val c300 = Energy.xiu                 // 暗黑模式主色 -> 电光青 #00F3FF
+        val c400 = Energy.xiuHover            // 暗黑模式悬停 -> #33F5FF
+        val c500 = Color(0xFF00D4E0)
+        val c600 = Energy.xiuLight            // 亮色模式主色 -> #00BCD4
+        val c700 = Color(0xFF0097A7)          // 亮色模式悬停
+        val c800 = Color(0xFF00838F)
+        val c900 = Color(0xFF006064)          // 最深
     }
 
-    @Deprecated("Use Energy.ai instead", ReplaceWith("Energy.ai"))
+    /**
+     * Cyan -> 霓虹紫色阶 (AI 辅色)
+     * 原本的青色已替换为霓虹紫，用于区分 AI 生成内容
+     */
     object Cyan {
-        val c50 = Color(0xFFFCE4EC)
-        val c100 = Color(0xFFF8BBD9)
-        val c200 = Color(0xFFF48FB1)
-        val c300 = Color(0xFFF06292)
-        val c400 = Energy.ai                  // 暗黑模式辅色 -> 霓虹紫
-        val c500 = Energy.aiLight             // 亮色模式辅色
-        val c600 = Color(0xFF8E24AA)
+        val c50 = Color(0xFFFCE4F6)           // 最浅
+        val c100 = Color(0xFFF8BBE8)
+        val c200 = Color(0xFFF48FDB)
+        val c300 = Color(0xFFEE63CE)
+        val c400 = Energy.ai                  // 暗黑模式辅色 -> 霓虹紫 #D946EF
+        val c500 = Energy.aiLight             // 亮色模式辅色 -> #AB47BC
+        val c600 = Color(0xFF9C27B0)
         val c700 = Color(0xFF7B1FA2)
         val c800 = Color(0xFF6A1B9A)
-        val c900 = Color(0xFF4A148C)
+        val c900 = Color(0xFF4A148C)          // 最深
     }
 
-    @Deprecated("Use Void instead", ReplaceWith("Void"))
+    /**
+     * Neutral -> 虚空灰色阶
+     * 映射到带冷色调的虚空色阶
+     */
     object Neutral {
-        val c50 = Void.lightBg                // 亮色模式背景
-        val c100 = Text.primary               // 暗黑模式主文本
-        val c200 = Void.lightSurface3         // 亮色模式边框
-        val c300 = Text.secondary             // 暗黑模式辅文本
-        val c400 = Color(0xFF78909C)
-        val c500 = Text.tertiary
+        val c50 = Void.lightBg                // #F8FAFC 亮色模式背景
+        val c100 = Void.lightSurface2         // #F1F5F9
+        val c200 = Void.lightSurface3         // #E2E8F0 亮色模式边框
+        val c300 = Text.secondary             // #B0BEC5 暗黑模式辅文本
+        val c400 = Text.tertiary              // #78909C
+        val c500 = Color(0xFF607D8B)
         val c600 = Color(0xFF546E7A)
-        val c700 = Void.surface3              // 暗黑模式边框
-        val c800 = Void.surface1              // 暗黑模式卡片
-        val c900 = Void.bg                    // 暗黑模式背景
+        val c700 = Void.surface3              // #2A3040 暗黑模式边框
+        val c800 = Void.surface1              // #151922 暗黑模式卡片
+        val c900 = Void.bg                    // #0B0E14 暗黑模式背景
     }
 
-    @Deprecated("Use Signal.success instead", ReplaceWith("Signal.success"))
+    /**
+     * Green -> 高亮绿色阶 (成功状态)
+     */
     object Green {
-        val c50 = Signal.successBg
-        val c100 = Signal.successBg
-        val c200 = Signal.success.copy(alpha = 0.4f)
-        val c300 = Signal.success             // 暗黑模式成功色
-        val c400 = Signal.success
-        val c500 = Signal.success
-        val c600 = Signal.successLight        // 亮色模式成功色
-        val c700 = Color(0xFF00A844)
-        val c800 = Color(0xFF008C39)
-        val c900 = Color(0xFF00662A)
+        val c50 = Color(0xFFE8F5E9)           // 淡背景
+        val c100 = Color(0xFFC8E6C9)
+        val c200 = Color(0xFFA5D6A7)
+        val c300 = Color(0xFF81C784)
+        val c400 = Signal.success             // 暗黑模式成功色 -> #00E676
+        val c500 = Signal.success             // #00E676
+        val c600 = Signal.successLight        // 亮色模式成功色 -> #00C853
+        val c700 = Color(0xFF388E3C)
+        val c800 = Color(0xFF2E7D32)
+        val c900 = Color(0xFF1B5E20)
     }
 
-    @Deprecated("Use Signal.warn instead", ReplaceWith("Signal.warn"))
+    /**
+     * Amber -> 赛博黄色阶 (警告状态)
+     */
     object Amber {
-        val c50 = Signal.warnBg
-        val c100 = Signal.warnBg
-        val c200 = Signal.warn.copy(alpha = 0.4f)
-        val c300 = Signal.warn                // 暗黑模式警告色
-        val c400 = Signal.warn
-        val c500 = Signal.warnLight           // 亮色模式警告色
+        val c50 = Color(0xFFFFFDE7)           // 淡背景
+        val c100 = Color(0xFFFFF9C4)
+        val c200 = Color(0xFFFFF59D)
+        val c300 = Signal.warn                // 暗黑模式警告色 -> #FFEA00
+        val c400 = Signal.warn                // #FFEA00
+        val c500 = Signal.warnLight           // 亮色模式警告色 -> #FFD600
         val c600 = Color(0xFFFFC400)
         val c700 = Color(0xFFFFAB00)
         val c800 = Color(0xFFFF8F00)
         val c900 = Color(0xFFFF6F00)
     }
 
-    @Deprecated("Use Signal.error instead", ReplaceWith("Signal.error"))
+    /**
+     * Red -> 高亮红色阶 (错误状态)
+     */
     object Red {
-        val c50 = Signal.errorBg
-        val c100 = Signal.errorBg
-        val c200 = Signal.error.copy(alpha = 0.4f)
-        val c300 = Signal.error               // 暗黑模式错误色
-        val c400 = Signal.error
-        val c500 = Signal.error
-        val c600 = Signal.errorLight          // 亮色模式错误色
-        val c700 = Color(0xFFB71C1C)
-        val c800 = Color(0xFF8E0000)
-        val c900 = Color(0xFF5D0000)
+        val c50 = Color(0xFFFFEBEE)           // 淡背景
+        val c100 = Color(0xFFFFCDD2)
+        val c200 = Color(0xFFEF9A9A)
+        val c300 = Color(0xFFE57373)
+        val c400 = Signal.error               // 暗黑模式错误色 -> #FF1744
+        val c500 = Signal.error               // #FF1744
+        val c600 = Signal.errorLight          // 亮色模式错误色 -> #D50000
+        val c700 = Color(0xFFC62828)
+        val c800 = Color(0xFFB71C1C)
+        val c900 = Color(0xFF8E0000)
     }
 
-    @Deprecated("Use Signal.info instead", ReplaceWith("Signal.info"))
+    /**
+     * Blue -> 信息蓝色阶 (信息状态)
+     */
     object Blue {
-        val c50 = Signal.infoBg
-        val c100 = Signal.infoBg
-        val c200 = Signal.info.copy(alpha = 0.4f)
-        val c300 = Signal.info                // 暗黑模式信息色
-        val c400 = Signal.info
-        val c500 = Signal.info                // 亮色模式信息色
-        val c600 = Signal.infoLight
+        val c50 = Color(0xFFE3F2FD)           // 淡背景
+        val c100 = Color(0xFFBBDEFB)
+        val c200 = Color(0xFF90CAF9)
+        val c300 = Signal.info                // 暗黑模式信息色 -> #2196F3
+        val c400 = Signal.info                // #2196F3
+        val c500 = Signal.info                // #2196F3
+        val c600 = Signal.infoLight           // 亮色模式信息色 -> #1976D2
         val c700 = Color(0xFF1565C0)
         val c800 = Color(0xFF0D47A1)
         val c900 = Color(0xFF0A3D91)

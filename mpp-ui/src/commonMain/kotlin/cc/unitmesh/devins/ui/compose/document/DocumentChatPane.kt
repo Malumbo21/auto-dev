@@ -183,23 +183,6 @@ private fun WelcomeMessage(
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
-            text = "欢迎使用 AI 代码助手",
-            style = MaterialTheme.typography.headlineSmall,
-            color = MaterialTheme.colorScheme.primary
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            text = "我可以帮你理解项目代码、查找类和方法、解释代码逻辑",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-        )
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        Text(
             text = "💡 试试这些查询：",
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurface

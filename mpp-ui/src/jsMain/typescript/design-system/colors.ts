@@ -187,82 +187,86 @@ export const lightTheme = {
 
 // ============================================================================
 // Legacy Compatibility - 向后兼容的旧色阶
+// 所有旧色阶已映射到新的设计系统
 // ============================================================================
 
 /**
- * @deprecated Use energy.xiu instead
+ * Indigo -> 电光青色阶 (主色)
+ * 原本的靛蓝色已替换为电光青
  */
 export const indigo = {
-  50: '#E0F7FA',
-  100: '#B2EBF2',
-  200: '#80DEEA',
-  300: energy.xiu,         // 暗黑模式主色 -> 电光青
-  400: energy.xiuHover,    // 暗黑模式悬停
-  500: '#00ACC1',
-  600: energy.xiuLight,    // 亮色模式主色
-  700: '#00838F',          // 亮色模式悬停
-  800: '#006064',
-  900: '#004D40',
+  50: '#E0FCFF',           // 最浅
+  100: '#B3F5FF',
+  200: '#80EEFF',
+  300: energy.xiu,         // 暗黑模式主色 -> 电光青 #00F3FF
+  400: energy.xiuHover,    // 暗黑模式悬停 -> #33F5FF
+  500: '#00D4E0',
+  600: energy.xiuLight,    // 亮色模式主色 -> #00BCD4
+  700: '#0097A7',          // 亮色模式悬停
+  800: '#00838F',
+  900: '#006064',          // 最深
 } as const;
 
 /**
- * @deprecated Use energy.ai instead
+ * Cyan -> 霓虹紫色阶 (AI 辅色)
+ * 原本的青色已替换为霓虹紫，用于区分 AI 生成内容
  */
 export const cyan = {
-  50: '#FCE4EC',
-  100: '#F8BBD9',
-  200: '#F48FB1',
-  300: '#F06292',
-  400: energy.ai,          // 暗黑模式辅色 -> 霓虹紫
-  500: energy.aiLight,     // 亮色模式辅色
-  600: '#8E24AA',
+  50: '#FCE4F6',           // 最浅
+  100: '#F8BBE8',
+  200: '#F48FDB',
+  300: '#EE63CE',
+  400: energy.ai,          // 暗黑模式辅色 -> 霓虹紫 #D946EF
+  500: energy.aiLight,     // 亮色模式辅色 -> #AB47BC
+  600: '#9C27B0',
   700: '#7B1FA2',
   800: '#6A1B9A',
-  900: '#4A148C',
+  900: '#4A148C',          // 最深
 } as const;
 
 /**
- * @deprecated Use void_ instead
+ * Neutral -> 虚空灰色阶
+ * 映射到带冷色调的虚空色阶
  */
 export const neutral = {
-  50: void_.lightBg,       // 亮色模式背景
-  100: text.primary,       // 暗黑模式主文本
-  200: void_.lightSurface3, // 亮色模式边框
-  300: text.secondary,     // 暗黑模式辅文本
-  400: '#78909C',
-  500: text.tertiary,
+  50: void_.lightBg,       // #F8FAFC 亮色模式背景
+  100: void_.lightSurface2, // #F1F5F9
+  200: void_.lightSurface3, // #E2E8F0 亮色模式边框
+  300: text.secondary,     // #B0BEC5 暗黑模式辅文本
+  400: text.tertiary,      // #78909C
+  500: '#607D8B',
   600: '#546E7A',
-  700: void_.surface3,     // 暗黑模式边框
-  800: void_.surface1,     // 暗黑模式卡片
-  900: void_.bg,           // 暗黑模式背景
+  700: void_.surface3,     // #2A3040 暗黑模式边框
+  800: void_.surface1,     // #151922 暗黑模式卡片
+  900: void_.bg,           // #0B0E14 暗黑模式背景
 } as const;
 
 /**
- * @deprecated Use signal.success instead
+ * Green -> 高亮绿色阶 (成功状态)
  */
 export const green = {
-  50: signal.successBg,
-  100: signal.successBg,
-  200: 'rgba(0, 230, 118, 0.4)',
-  300: signal.success,     // 暗黑模式成功色
-  400: signal.success,
-  500: signal.success,
-  600: signal.successLight, // 亮色模式成功色
-  700: '#00A844',
-  800: '#008C39',
-  900: '#00662A',
+  50: '#E8F5E9',           // 淡背景
+  100: '#C8E6C9',
+  200: '#A5D6A7',
+  300: '#81C784',
+  400: signal.success,     // 暗黑模式成功色 -> #00E676
+  500: signal.success,     // #00E676
+  600: signal.successLight, // 亮色模式成功色 -> #00C853
+  700: '#388E3C',
+  800: '#2E7D32',
+  900: '#1B5E20',
 } as const;
 
 /**
- * @deprecated Use signal.warn instead
+ * Amber -> 赛博黄色阶 (警告状态)
  */
 export const amber = {
-  50: signal.warnBg,
-  100: signal.warnBg,
-  200: 'rgba(255, 234, 0, 0.4)',
-  300: signal.warn,        // 暗黑模式警告色
-  400: signal.warn,
-  500: signal.warnLight,   // 亮色模式警告色
+  50: '#FFFDE7',           // 淡背景
+  100: '#FFF9C4',
+  200: '#FFF59D',
+  300: signal.warn,        // 暗黑模式警告色 -> #FFEA00
+  400: signal.warn,        // #FFEA00
+  500: signal.warnLight,   // 亮色模式警告色 -> #FFD600
   600: '#FFC400',
   700: '#FFAB00',
   800: '#FF8F00',
@@ -270,32 +274,32 @@ export const amber = {
 } as const;
 
 /**
- * @deprecated Use signal.error instead
+ * Red -> 高亮红色阶 (错误状态)
  */
 export const red = {
-  50: signal.errorBg,
-  100: signal.errorBg,
-  200: 'rgba(255, 23, 68, 0.4)',
-  300: signal.error,       // 暗黑模式错误色
-  400: signal.error,
-  500: signal.error,
-  600: signal.errorLight,  // 亮色模式错误色
-  700: '#B71C1C',
-  800: '#8E0000',
-  900: '#5D0000',
+  50: '#FFEBEE',           // 淡背景
+  100: '#FFCDD2',
+  200: '#EF9A9A',
+  300: '#E57373',
+  400: signal.error,       // 暗黑模式错误色 -> #FF1744
+  500: signal.error,       // #FF1744
+  600: signal.errorLight,  // 亮色模式错误色 -> #D50000
+  700: '#C62828',
+  800: '#B71C1C',
+  900: '#8E0000',
 } as const;
 
 /**
- * @deprecated Use signal.info instead
+ * Blue -> 信息蓝色阶 (信息状态)
  */
 export const blue = {
-  50: signal.infoBg,
-  100: signal.infoBg,
-  200: 'rgba(33, 150, 243, 0.4)',
-  300: signal.info,        // 暗黑模式信息色
-  400: signal.info,
-  500: signal.info,        // 亮色模式信息色
-  600: signal.infoLight,
+  50: '#E3F2FD',           // 淡背景
+  100: '#BBDEFB',
+  200: '#90CAF9',
+  300: signal.info,        // 暗黑模式信息色 -> #2196F3
+  400: signal.info,        // #2196F3
+  500: signal.info,        // #2196F3
+  600: signal.infoLight,   // 亮色模式信息色 -> #1976D2
   700: '#1565C0',
   800: '#0D47A1',
   900: '#0A3D91',
@@ -383,7 +387,7 @@ export const colors = {
   signal,
   text,
   
-  // Legacy color scales (deprecated)
+  // Legacy color scales (mapped to new system)
   indigo,
   cyan,
   neutral,
