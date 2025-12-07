@@ -16,6 +16,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import cc.unitmesh.devins.idea.compose.IdeaCircularProgressIndicator
 import cc.unitmesh.devins.idea.toolwindow.IdeaComposeIcons
 import cc.unitmesh.devins.ui.compose.agent.codereview.CommitInfo
 import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
@@ -52,7 +53,7 @@ internal fun CommitListPanel(
 
         if (isLoading) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
+                IdeaCircularProgressIndicator()
             }
         } else if (commits.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -273,7 +274,7 @@ internal fun IdeaIssueIndicator(
 ) {
     when {
         commit.isLoadingIssue -> {
-            CircularProgressIndicator(modifier = Modifier.size(20.dp))
+            IdeaCircularProgressIndicator(modifier = Modifier, size = 20.dp)
         }
         commit.issueInfo != null -> {
             IssueInfoIndicator(

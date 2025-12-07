@@ -1,6 +1,16 @@
 package cc.unitmesh.devins.idea.compose
 
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import cc.unitmesh.devins.idea.services.CoroutineScopeHolder
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.service
@@ -9,6 +19,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import org.jetbrains.jewel.foundation.theme.JewelTheme
+import javax.swing.Timer
 
 /**
  * Compose effect utilities that avoid ClassLoader conflicts with IntelliJ's bundled Compose.
@@ -167,3 +179,49 @@ fun <T> collectAsIdeaStateOrNull(
     return state
 }
 
+/**
+ * Custom CircularProgressIndicator that avoids ClassLoader conflicts.
+ *
+ * Jewel's CircularProgressIndicator uses Dispatchers.getDefault() internally,
+ * which causes ClassLoader conflicts between the plugin's coroutines and
+ * IntelliJ's bundled Compose runtime.
+ *
+ * This implementation uses a Swing Timer for animation instead of coroutines.
+ */
+@Composable
+fun IdeaCircularProgressIndicator(
+    modifier: Modifier = Modifier,
+    size: Dp = 16.dp,
+    strokeWidth: Dp = 2.dp,
+    color: Color? = null
+) {
+    var rotation by remember { mutableStateOf(0f) }
+
+    // Use Swing Timer instead of coroutines to avoid ClassLoader conflicts
+    DisposableEffect(Unit) {
+        val timer = Timer(16) { // ~60fps
+            rotation = (rotation + 6f) % 360f
+        }
+        timer.start()
+        onDispose { timer.stop() }
+    }
+
+    val progressColor = color ?: JewelTheme.globalColors.text.info
+
+    Canvas(modifier = modifier.size(size)) {
+        val strokePx = strokeWidth.toPx()
+        val arcSize = Size(this.size.width - strokePx, this.size.height - strokePx)
+        val topLeft = Offset(strokePx / 2, strokePx / 2)
+
+        // Draw spinning arc
+        drawArc(
+            color = progressColor,
+            startAngle = rotation,
+            sweepAngle = 270f,
+            useCenter = false,
+            topLeft = topLeft,
+            size = arcSize,
+            style = Stroke(width = strokePx, cap = StrokeCap.Round)
+        )
+    }
+}

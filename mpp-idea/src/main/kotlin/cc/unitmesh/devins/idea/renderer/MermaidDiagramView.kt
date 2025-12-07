@@ -8,12 +8,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.awt.SwingPanel
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import cc.unitmesh.devins.idea.compose.IdeaCircularProgressIndicator
 import cc.unitmesh.devins.idea.compose.IdeaLaunchedEffect
 import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
 import com.intellij.openapi.Disposable
 import com.intellij.ui.jcef.JBCefApp
 import org.jetbrains.jewel.foundation.theme.JewelTheme
-import org.jetbrains.jewel.ui.component.CircularProgressIndicator
 import org.jetbrains.jewel.ui.component.Text
 
 /**
@@ -97,7 +97,7 @@ private fun LoadingOverlay() {
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        CircularProgressIndicator()
+        IdeaCircularProgressIndicator()
     }
 }
 
