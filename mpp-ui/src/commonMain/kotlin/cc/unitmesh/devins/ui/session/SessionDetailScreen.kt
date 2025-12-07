@@ -11,6 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
 import androidx.compose.ui.unit.dp
 import cc.unitmesh.session.SessionEventEnvelope
 import kotlinx.coroutines.launch
@@ -200,15 +201,15 @@ fun EventTimelineItem(envelope: SessionEventEnvelope) {
 
 private fun getEventInfo(eventType: String): Triple<String, Color, String> {
     return when (eventType) {
-        "iteration" -> Triple("🔄", Color(0xFF2196F3), "迭代")
-        "llm_chunk" -> Triple("💬", Color(0xFF4CAF50), "LLM 响应")
-        "tool_call" -> Triple("🔧", Color(0xFFFF9800), "工具调用")
-        "tool_result" -> Triple("✅", Color(0xFF8BC34A), "工具结果")
-        "clone_log" -> Triple("📥", Color(0xFF9C27B0), "克隆日志")
-        "clone_progress" -> Triple("📊", Color(0xFF9C27B0), "克隆进度")
-        "error" -> Triple("❌", Color(0xFFF44336), "错误")
-        "complete" -> Triple("🎉", Color(0xFF00BCD4), "完成")
-        else -> Triple("📌", Color(0xFF9E9E9E), eventType)
+        "iteration" -> Triple("🔄", AutoDevColors.Signal.info, "迭代")
+        "llm_chunk" -> Triple("💬", AutoDevColors.Signal.success, "LLM 响应")
+        "tool_call" -> Triple("🔧", AutoDevColors.Signal.warn, "工具调用")
+        "tool_result" -> Triple("✅", AutoDevColors.Signal.success, "工具结果")
+        "clone_log" -> Triple("📥", AutoDevColors.Energy.ai, "克隆日志")
+        "clone_progress" -> Triple("📊", AutoDevColors.Energy.ai, "克隆进度")
+        "error" -> Triple("❌", AutoDevColors.Signal.error, "错误")
+        "complete" -> Triple("🎉", AutoDevColors.Energy.xiu, "完成")
+        else -> Triple("📌", AutoDevColors.Text.tertiary, eventType)
     }
 }
 

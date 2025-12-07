@@ -11,9 +11,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import cc.unitmesh.agent.RemoteAgentEvent
+import androidx.compose.ui.graphics.Color
+import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
 import kotlinx.coroutines.launch
 
 /**
@@ -217,37 +218,37 @@ private fun getEventInfo(event: RemoteAgentEvent): Quadruple<String, Color, Stri
             } else {
                 event.stage
             }
-            Quadruple("📦", Color(0xFF9C27B0), "克隆进度", content)
+            Quadruple("📦", AutoDevColors.Energy.ai, "克隆进度", content)
         }
         is RemoteAgentEvent.CloneLog -> {
             Quadruple(
                 if (event.isError) "❌" else "📝",
-                if (event.isError) Color(0xFFF44336) else Color(0xFF9C27B0),
+                if (event.isError) AutoDevColors.Signal.error else AutoDevColors.Energy.ai,
                 "克隆日志",
                 event.message
             )
         }
         is RemoteAgentEvent.Iteration -> {
-            Quadruple("🔄", Color(0xFF2196F3), "迭代", "第 ${event.current}/${event.max} 次迭代")
+            Quadruple("🔄", AutoDevColors.Signal.info, "迭代", "第 ${event.current}/${event.max} 次迭代")
         }
         is RemoteAgentEvent.LLMChunk -> {
-            Quadruple("💬", Color(0xFF4CAF50), "AI 思考", event.chunk)
+            Quadruple("💬", AutoDevColors.Signal.success, "AI 思考", event.chunk)
         }
         is RemoteAgentEvent.ToolCall -> {
-            Quadruple("🔧", Color(0xFFFF9800), "工具调用", "调用: ${event.toolName}")
+            Quadruple("🔧", AutoDevColors.Signal.warn, "工具调用", "调用: ${event.toolName}")
         }
         is RemoteAgentEvent.ToolResult -> {
             val icon = if (event.success) "✅" else "❌"
-            val color = if (event.success) Color(0xFF8BC34A) else Color(0xFFF44336)
+            val color = if (event.success) AutoDevColors.Signal.success else AutoDevColors.Signal.error
             val content = event.output?.take(200) ?: "无输出"
             Quadruple(icon, color, "工具结果", content)
         }
         is RemoteAgentEvent.Error -> {
-            Quadruple("❌", Color(0xFFF44336), "错误", event.message)
+            Quadruple("❌", AutoDevColors.Signal.error, "错误", event.message)
         }
         is RemoteAgentEvent.Complete -> {
             val icon = if (event.success) "🎉" else "❌"
-            val color = if (event.success) Color(0xFF00BCD4) else Color(0xFFF44336)
+            val color = if (event.success) AutoDevColors.Energy.xiu else AutoDevColors.Signal.error
             val content = buildString {
                 append(event.message)
                 append("\n完成 ${event.iterations} 次迭代")

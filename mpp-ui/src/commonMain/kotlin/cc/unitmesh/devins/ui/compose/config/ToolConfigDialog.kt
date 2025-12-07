@@ -10,6 +10,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -550,13 +551,13 @@ private fun McpServerConfigTab(
                     Icon(
                         AutoDevComposeIcons.CheckCircle,
                         contentDescription = "Valid",
-                        tint = Color(0xFF4CAF50),
+                        tint = AutoDevColors.Signal.success,
                         modifier = Modifier.size(16.dp)
                     )
                     Text(
                         text = "Valid JSON",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF4CAF50)
+                        color = AutoDevColors.Signal.success
                     )
                 }
             }

@@ -14,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
 import androidx.compose.ui.unit.dp
 import cc.unitmesh.session.Session
 import cc.unitmesh.session.SessionStatus
@@ -214,12 +215,12 @@ fun SessionCard(session: Session, onClick: () -> Unit) {
 @Composable
 fun StatusBadge(status: SessionStatus) {
     val (color, text) = when (status) {
-        SessionStatus.PENDING -> Color(0xFFFFB74D) to "等待中"
-        SessionStatus.RUNNING -> Color(0xFF66BB6A) to "运行中"
-        SessionStatus.PAUSED -> Color(0xFFFF9800) to "暂停"
-        SessionStatus.COMPLETED -> Color(0xFF42A5F5) to "完成"
-        SessionStatus.FAILED -> Color(0xFFEF5350) to "失败"
-        SessionStatus.CANCELLED -> Color(0xFF9E9E9E) to "取消"
+        SessionStatus.PENDING -> AutoDevColors.Signal.warn to "等待中"
+        SessionStatus.RUNNING -> AutoDevColors.Signal.success to "运行中"
+        SessionStatus.PAUSED -> AutoDevColors.Signal.warn to "暂停"
+        SessionStatus.COMPLETED -> AutoDevColors.Signal.info to "完成"
+        SessionStatus.FAILED -> AutoDevColors.Signal.error to "失败"
+        SessionStatus.CANCELLED -> AutoDevColors.Text.tertiary to "取消"
     }
     
     Surface(

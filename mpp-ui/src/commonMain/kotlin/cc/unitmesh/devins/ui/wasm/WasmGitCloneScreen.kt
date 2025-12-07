@@ -13,8 +13,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
+import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -154,7 +154,7 @@ fun WasmGitCloneScreen(
                     if (uiState.cloneSuccess) {
                         Text(
                             text = "Repository cloned successfully!",
-                            color = Color(0xFF4CAF50),
+                            color = AutoDevColors.Signal.success,
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Bold
                         )
@@ -198,7 +198,7 @@ fun WasmGitCloneScreen(
                         state = logListState,
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(Color(0xFF1E1E1E))
+                            .background(AutoDevColors.Void.bg)
                             .padding(12.dp),
                         verticalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
@@ -206,7 +206,7 @@ fun WasmGitCloneScreen(
                             item {
                                 Text(
                                     text = "No logs yet. Clone a repository to see output.",
-                                    color = Color(0xFF808080),
+                                    color = AutoDevColors.Text.tertiary,
                                     fontFamily = FontFamily.Monospace,
                                     fontSize = 13.sp
                                 )
@@ -266,11 +266,11 @@ fun WasmGitCloneScreen(
 @Composable
 private fun LogItem(log: GitLog) {
     val color = when (log.type) {
-        LogType.ERROR -> Color(0xFFF44336)
-        LogType.WARNING -> Color(0xFFFF9800)
-        LogType.SUCCESS -> Color(0xFF4CAF50)
-        LogType.INFO -> Color(0xFF2196F3)
-        LogType.DEBUG -> Color(0xFF9E9E9E)
+        LogType.ERROR -> AutoDevColors.Signal.error
+        LogType.WARNING -> AutoDevColors.Signal.warn
+        LogType.SUCCESS -> AutoDevColors.Signal.success
+        LogType.INFO -> AutoDevColors.Signal.info
+        LogType.DEBUG -> AutoDevColors.Text.tertiary
     }
 
     Row(
@@ -291,7 +291,7 @@ private fun LogItem(log: GitLog) {
         )
         Text(
             text = log.message,
-            color = Color(0xFFCCCCCC),
+            color = AutoDevColors.Text.secondary,
             fontFamily = FontFamily.Monospace,
             fontSize = 13.sp,
             modifier = Modifier.weight(1f)

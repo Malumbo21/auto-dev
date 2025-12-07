@@ -10,6 +10,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
 
 /**
  * Mermaid diagram block renderer
@@ -54,7 +55,7 @@ fun MermaidBlockRenderer(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color(0xFF1E1E1E))
+                .background(AutoDevColors.Void.bg)
                 .padding(12.dp)
         ) {
             Text(
@@ -62,7 +63,7 @@ fun MermaidBlockRenderer(
                 style = MaterialTheme.typography.bodySmall.copy(
                     fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
                 ),
-                color = Color(0xFFD4D4D4)
+                color = AutoDevColors.Text.primary
             )
         }
     }
