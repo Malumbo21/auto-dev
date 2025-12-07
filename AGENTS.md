@@ -6,6 +6,7 @@
 - **Module Clean**: Use `./gradlew :module:clean` instead of global clean
 - **Test Scripts**: Put temporary scripts under `docs/test-scripts`
 - **Logs**: Check `~/.autodev/logs/autodev-app.log` for debugging
+- Code comments should be in English, for documentation and user-facing strings should be followed user's langauge 
 
 ## KMP Best Practices
 
