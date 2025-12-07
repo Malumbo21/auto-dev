@@ -57,6 +57,8 @@
         <projectService serviceImplementation="cc.unitmesh.devins.idea.services.CoroutineScopeHolder"/>
         <!-- Project-level service for tool configuration state management -->
         <projectService serviceImplementation="cc.unitmesh.devins.idea.services.IdeaToolConfigService"/>
+        <!-- Project-level service for Omnibar data provider -->
+        <projectService serviceImplementation="cc.unitmesh.devins.idea.omnibar.IdeaOmnibarDataProvider"/>
         <!-- ToolWindow for Agent UI with tab-based navigation (Advanced version) -->
         <toolWindow factoryClass="cc.unitmesh.devins.idea.toolwindow.IdeaAgentToolWindowFactory"
                     id="AutoDev Agent"
@@ -64,6 +66,19 @@
                     secondary="false"
                     icon="cc.unitmesh.devins.idea.AutoDevIcons.ToolWindow"/>
     </extensions>
+
+    <actions>
+        <!-- Omnibar Command Palette -->
+        <action id="cc.unitmesh.devins.idea.omnibar.IdeaOmnibarAction"
+                class="cc.unitmesh.devins.idea.omnibar.IdeaOmnibarAction"
+                text="Open Omnibar"
+                description="Open the Omnibar command palette">
+            <keyboard-shortcut keymap="$default" first-keystroke="ctrl shift P"/>
+            <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta shift P"/>
+            <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta shift P"/>
+            <add-to-group group-id="ToolsMenu" anchor="first"/>
+        </action>
+    </actions>
 
     <!-- Include DevIn language extensions -->
     <xi:include href="/cc.unitmesh.devti.language.xml" xpointer="xpointer(/idea-plugin/*)"/>

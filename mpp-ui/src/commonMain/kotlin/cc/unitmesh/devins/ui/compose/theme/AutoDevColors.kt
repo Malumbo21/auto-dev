@@ -22,7 +22,10 @@ object AutoDevColors {
         val surface2 = Color(0xFF1F2430)     // 悬停、输入框、代码块
         val surface3 = Color(0xFF2A3040)     // 边框、分割线
         val overlay = Color(0x800B0E14)      // 模态遮罩 (50% opacity)
-        
+        val surfaceElevated = Color(0xFF181D26) // 浮层背景（Omnibar 等）
+        val surfaceHover = Color(0xFF242A36)  // 悬停背景
+        val border = Color(0xFF2A3040)        // 边框颜色
+
         // 亮色模式的虚空色阶
         val lightBg = Color(0xFFF8FAFC)      // 亮色背景 - 冷白
         val lightSurface1 = Color(0xFFFFFFFF) // 卡片表面
@@ -38,12 +41,13 @@ object AutoDevColors {
         val xiu = Color(0xFF00F3FF)
         val xiuHover = Color(0xFF33F5FF)
         val xiuDim = Color(0x4000F3FF)        // 25% opacity - 光晕
+        val primary = xiu                      // 主色别名
 
         // 霓虹紫 - AI 生成内容
         val ai = Color(0xFFD946EF)
         val aiHover = Color(0xFFE066F5)
         val aiDim = Color(0x40D946EF)         // 25% opacity - 光晕
-        
+
         // 亮色模式下的能量色（略微降低亮度以保证对比度）
         val xiuLight = Color(0xFF00BCD4)      // 深青色
         val aiLight = Color(0xFFAB47BC)       // 深紫色
@@ -57,13 +61,13 @@ object AutoDevColors {
         val error = Color(0xFFFF1744)         // 高亮红
         val warn = Color(0xFFFFEA00)          // 赛博黄
         val info = Color(0xFF2196F3)          // 信息蓝
-        
+
         // 亮色模式下的信号色（略微加深以保证对比度）
         val successLight = Color(0xFF00C853)
         val errorLight = Color(0xFFD50000)
         val warnLight = Color(0xFFFFD600)
         val infoLight = Color(0xFF1976D2)
-        
+
         // 信号色的淡色背景（用于状态提示背景）
         val successBg = Color(0x1A00E676)     // 10% opacity
         val errorBg = Color(0x1AFF1744)
@@ -79,8 +83,9 @@ object AutoDevColors {
         val primary = Color(0xFFF5F5F5)       // 主文本
         val secondary = Color(0xFFB0BEC5)     // 辅助文本
         val tertiary = Color(0xFF78909C)      // 第三级文本
+        val quaternary = Color(0xFF546E7A)    // 第四级文本（最弱）
         val inverse = Color(0xFF0B0E14)       // 反色文本
-        
+
         // 亮色模式文本
         val lightPrimary = Color(0xFF1E293B)  // 主文本
         val lightSecondary = Color(0xFF475569) // 辅助文本
@@ -146,12 +151,12 @@ object AutoDevColors {
             lineNumber = Text.lightTertiary
         )
     }
-    
+
     // ========================================================================
     // Legacy Compatibility - 向后兼容的旧色阶别名
     // 所有旧色阶已映射到新的设计系统
     // ========================================================================
-    
+
     /**
      * Indigo -> 电光青色阶 (主色)
      * 原本的靛蓝色已替换为电光青

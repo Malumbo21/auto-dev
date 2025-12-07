@@ -1,10 +1,20 @@
 plugins {
     kotlin("jvm")
     kotlin("plugin.serialization")
+    `maven-publish`
 }
 
 group = "cc.unitmesh"
 version = project.findProperty("mppVersion") as String? ?: "0.1.5"
+
+publishing {
+    publications {
+        create<MavenPublication>("maven") {
+            from(components["java"])
+            artifactId = "xuiper-ui"
+        }
+    }
+}
 
 repositories {
     google()
