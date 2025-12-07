@@ -109,38 +109,3 @@ class OmnibarSearchEngine {
         return matchCount * 50
     }
 }
-
-/**
- * Extension function for fuzzy matching on strings.
- * Returns true if all characters in query appear in text in order.
- */
-fun String.fuzzyContains(query: String): Boolean {
-    if (query.isEmpty()) return true
-    var queryIndex = 0
-    for (char in this) {
-        if (char.lowercaseChar() == query[queryIndex].lowercaseChar()) {
-            queryIndex++
-            if (queryIndex == query.length) return true
-        }
-    }
-    return false
-}
-
-/**
- * Get fuzzy match positions for highlighting.
- * Returns list of character indices that match the query.
- */
-fun String.fuzzyMatchPositions(query: String): List<Int> {
-    if (query.isEmpty()) return emptyList()
-    val positions = mutableListOf<Int>()
-    var queryIndex = 0
-    for ((index, char) in this.withIndex()) {
-        if (queryIndex < query.length &&
-            char.lowercaseChar() == query[queryIndex].lowercaseChar()) {
-            positions.add(index)
-            queryIndex++
-        }
-    }
-    return if (queryIndex == query.length) positions else emptyList()
-}
-

@@ -20,13 +20,7 @@ class ComposeOmnibarDataProvider(
 
     override suspend fun getItems(): List<OmnibarItem> {
         val items = mutableListOf<OmnibarItem>()
-        
-        // Add built-in commands
-        items.addAll(getBuiltinCommands())
-        
-        // Add settings/actions
         items.addAll(getSettingsItems())
-        
         return items
     }
 
@@ -65,83 +59,6 @@ class ComposeOmnibarDataProvider(
         if (recentlyUsedItems.size > maxRecentItems) {
             recentlyUsedItems.removeAt(recentlyUsedItems.lastIndex)
         }
-    }
-
-    private fun getBuiltinCommands(): List<OmnibarItem> {
-        return listOf(
-            OmnibarItem(
-                id = "cmd_file",
-                title = "/file",
-                type = OmnibarItemType.COMMAND,
-                description = "Read file content from project",
-                category = "Commands",
-                weight = 100,
-                metadata = mapOf("commandName" to "file")
-            ),
-            OmnibarItem(
-                id = "cmd_write",
-                title = "/write",
-                type = OmnibarItemType.COMMAND,
-                description = "Write content to a file",
-                category = "Commands",
-                weight = 95,
-                metadata = mapOf("commandName" to "write")
-            ),
-            OmnibarItem(
-                id = "cmd_shell",
-                title = "/shell",
-                type = OmnibarItemType.COMMAND,
-                description = "Execute shell commands",
-                category = "Commands",
-                weight = 90,
-                metadata = mapOf("commandName" to "shell")
-            ),
-            OmnibarItem(
-                id = "cmd_search",
-                title = "/search",
-                type = OmnibarItemType.COMMAND,
-                description = "Search for files or content",
-                category = "Commands",
-                weight = 85,
-                metadata = mapOf("commandName" to "search")
-            ),
-            OmnibarItem(
-                id = "cmd_patch",
-                title = "/patch",
-                type = OmnibarItemType.COMMAND,
-                description = "Apply code patches",
-                category = "Commands",
-                weight = 80,
-                metadata = mapOf("commandName" to "patch")
-            ),
-            OmnibarItem(
-                id = "cmd_browse",
-                title = "/browse",
-                type = OmnibarItemType.COMMAND,
-                description = "Browse web pages",
-                category = "Commands",
-                weight = 75,
-                metadata = mapOf("commandName" to "browse")
-            ),
-            OmnibarItem(
-                id = "cmd_commit",
-                title = "/commit",
-                type = OmnibarItemType.COMMAND,
-                description = "Git commit changes",
-                category = "Commands",
-                weight = 70,
-                metadata = mapOf("commandName" to "commit")
-            ),
-            OmnibarItem(
-                id = "cmd_help",
-                title = "/help",
-                type = OmnibarItemType.COMMAND,
-                description = "Show available commands",
-                category = "Commands",
-                weight = 50,
-                metadata = mapOf("commandName" to "help")
-            )
-        )
     }
 
     private fun getSettingsItems(): List<OmnibarItem> {
