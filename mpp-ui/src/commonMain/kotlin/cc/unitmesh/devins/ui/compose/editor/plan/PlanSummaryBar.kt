@@ -25,7 +25,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -35,6 +34,7 @@ import cc.unitmesh.agent.plan.AgentPlan
 import cc.unitmesh.agent.plan.PlanStep
 import cc.unitmesh.agent.plan.PlanTask
 import cc.unitmesh.agent.plan.TaskStatus
+import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
 
 /**
  * Plan Summary Bar Component
@@ -194,25 +194,25 @@ private fun PlanStatusIcon(status: TaskStatus) {
             imageVector = Icons.Default.CheckCircle,
             contentDescription = "Completed",
             modifier = Modifier.size(18.dp),
-            tint = Color(0xFF4CAF50)
+            tint = AutoDevColors.Signal.success
         )
         TaskStatus.FAILED -> Icon(
             imageVector = Icons.Default.Error,
             contentDescription = "Failed",
             modifier = Modifier.size(18.dp),
-            tint = Color(0xFFF44336)
+            tint = AutoDevColors.Signal.error
         )
         TaskStatus.IN_PROGRESS -> Icon(
             imageVector = Icons.Default.Sync,
             contentDescription = "In Progress",
             modifier = Modifier.size(18.dp).rotate(rotation),
-            tint = Color(0xFF2196F3)
+            tint = AutoDevColors.Signal.info
         )
         TaskStatus.BLOCKED -> Icon(
             imageVector = Icons.Default.Warning,
             contentDescription = "Blocked",
             modifier = Modifier.size(18.dp),
-            tint = Color(0xFFFF9800)
+            tint = AutoDevColors.Signal.warn
         )
         else -> Icon(
             imageVector = Icons.Default.Assignment,
@@ -241,9 +241,9 @@ private fun PlanProgressBadge(plan: AgentPlan) {
                 .height(4.dp)
                 .clip(RoundedCornerShape(2.dp)),
             color = when (plan.status) {
-                TaskStatus.COMPLETED -> Color(0xFF4CAF50)
-                TaskStatus.FAILED -> Color(0xFFF44336)
-                else -> Color(0xFF2196F3)
+                TaskStatus.COMPLETED -> AutoDevColors.Signal.success
+                TaskStatus.FAILED -> AutoDevColors.Signal.error
+                else -> AutoDevColors.Signal.info
             },
             trackColor = MaterialTheme.colorScheme.surfaceVariant
         )
@@ -345,7 +345,7 @@ private fun StepItem(step: PlanStep) {
             style = MaterialTheme.typography.labelSmall,
             color = when (step.status) {
                 TaskStatus.COMPLETED -> MaterialTheme.colorScheme.onSurfaceVariant
-                TaskStatus.FAILED -> Color(0xFFF44336)
+                TaskStatus.FAILED -> AutoDevColors.Signal.error
                 else -> MaterialTheme.colorScheme.onSurface
             },
             maxLines = 1,
@@ -371,24 +371,24 @@ private fun StepStatusIcon(status: TaskStatus, size: Int = 14) {
             imageVector = Icons.Default.Check,
             contentDescription = "Completed",
             modifier = Modifier.size(size.dp),
-            tint = Color(0xFF4CAF50)
+            tint = AutoDevColors.Signal.success
         )
         TaskStatus.FAILED -> Icon(
             imageVector = Icons.Default.Close,
             contentDescription = "Failed",
             modifier = Modifier.size(size.dp),
-            tint = Color(0xFFF44336)
+            tint = AutoDevColors.Signal.error
         )
         TaskStatus.IN_PROGRESS -> Icon(
             imageVector = Icons.Default.Refresh,
             contentDescription = "In Progress",
             modifier = Modifier.size(size.dp).rotate(rotation),
-            tint = Color(0xFF2196F3)
+            tint = AutoDevColors.Signal.info
         )
         else -> Box(
             modifier = Modifier
                 .size((size - 4).dp)
-                .background(Color(0xFF9E9E9E).copy(alpha = 0.3f), CircleShape)
+                .background(AutoDevColors.Text.tertiary.copy(alpha = 0.3f), CircleShape)
         )
     }
 }
@@ -413,4 +413,3 @@ private fun findCurrentStep(plan: AgentPlan): String? {
     }
     return null
 }
-

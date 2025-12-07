@@ -135,7 +135,7 @@ object DiffSketchRenderer {
                             Icon(
                                 imageVector = AutoDevComposeIcons.CheckCircle,
                                 contentDescription = "接受修改",
-                                tint = Color(0xFF2EA043)
+                                tint = AutoDevColors.Signal.success
                             )
                         }
                     }
@@ -148,7 +148,7 @@ object DiffSketchRenderer {
                             Icon(
                                 imageVector = AutoDevComposeIcons.Close,
                                 contentDescription = "拒绝修改",
-                                tint = Color(0xFFDA3633)
+                                tint = AutoDevColors.Signal.error
                             )
                         }
                     }
@@ -240,13 +240,13 @@ object DiffSketchRenderer {
                         Text(
                             text = "新建文件",
                             style = MaterialTheme.typography.labelSmall,
-                            color = Color(0xFF2EA043)
+                            color = AutoDevColors.Signal.success
                         )
                     } else if (fileDiff.isDeletedFile) {
                         Text(
                             text = "删除文件",
                             style = MaterialTheme.typography.labelSmall,
-                            color = Color(0xFFDA3633)
+                            color = AutoDevColors.Signal.error
                         )
                     }
 
@@ -276,14 +276,14 @@ object DiffSketchRenderer {
                         Text(
                             text = "+${stats.first}",
                             style = MaterialTheme.typography.labelSmall,
-                            color = Color(0xFF2EA043)
+                            color = AutoDevColors.Signal.success
                         )
                     }
                     if (stats.second > 0) {
                         Text(
                             text = "-${stats.second}",
                             style = MaterialTheme.typography.labelSmall,
-                            color = Color(0xFFDA3633)
+                            color = AutoDevColors.Signal.error
                         )
                     }
                 }
@@ -462,8 +462,8 @@ object DiffSketchRenderer {
                     ),
                 color =
                     when (line.type) {
-                        DiffLineType.ADDED -> Color(0xFF2EA043)
-                        DiffLineType.DELETED -> Color(0xFFDA3633)
+                        DiffLineType.ADDED -> AutoDevColors.Signal.success
+                        DiffLineType.DELETED -> AutoDevColors.Signal.error
                         else -> LineNumberColor
                     },
                 modifier = Modifier.width(12.dp)

@@ -58,14 +58,15 @@ import cc.unitmesh.agent.plan.AgentPlan
 import cc.unitmesh.agent.plan.PlanStep
 import cc.unitmesh.agent.plan.PlanTask
 import cc.unitmesh.agent.plan.TaskStatus
+import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
 
 val TaskStatus.planColor: Color
     get() = when (this) {
-        TaskStatus.TODO -> Color(0xFF9E9E9E)
-        TaskStatus.IN_PROGRESS -> Color(0xFF2196F3)
-        TaskStatus.COMPLETED -> Color(0xFF4CAF50)
-        TaskStatus.FAILED -> Color(0xFFF44336)
-        TaskStatus.BLOCKED -> Color(0xFFFF9800)
+        TaskStatus.TODO -> AutoDevColors.Text.tertiary       // 灰色 - 待办
+        TaskStatus.IN_PROGRESS -> AutoDevColors.Signal.info  // 信息蓝 - 进行中
+        TaskStatus.COMPLETED -> AutoDevColors.Signal.success // 高亮绿 - 完成
+        TaskStatus.FAILED -> AutoDevColors.Signal.error      // 高亮红 - 失败
+        TaskStatus.BLOCKED -> AutoDevColors.Signal.warn      // 赛博黄 - 阻塞
     }
 
 @Composable
@@ -229,4 +230,3 @@ private fun PlanStepItem(step: PlanStep, onClick: (() -> Unit)?) {
         )
     }
 }
-

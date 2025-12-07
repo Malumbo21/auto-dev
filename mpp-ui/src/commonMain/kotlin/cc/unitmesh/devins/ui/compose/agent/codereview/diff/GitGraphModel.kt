@@ -1,6 +1,7 @@
 package cc.unitmesh.devins.ui.compose.agent.codereview.diff
 
 import androidx.compose.ui.graphics.Color
+import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
 
 /**
  * Git Graph visualization model
@@ -71,15 +72,16 @@ private data class Lane(
  */
 object GitGraphBuilder {
 
+    // 使用设计系统的颜色 - 能量色 + 信号色组合
     private val branchColors = listOf(
-        Color(0xFF5C6BC0), // Indigo
-        Color(0xFF66BB6A), // Green
-        Color(0xFFFF7043), // Deep Orange
-        Color(0xFF42A5F5), // Blue
-        Color(0xFFAB47BC), // Purple
-        Color(0xFF26C6DA), // Cyan
-        Color(0xFFFFCA28), // Amber
-        Color(0xFFEC407A), // Pink
+        AutoDevColors.Energy.xiuLight,    // 深青色 - main branch
+        AutoDevColors.Signal.success,     // 高亮绿
+        AutoDevColors.Signal.warn,        // 赛博黄
+        AutoDevColors.Signal.info,        // 信息蓝
+        AutoDevColors.Energy.aiLight,     // 深紫色
+        AutoDevColors.Energy.xiu,         // 电光青
+        AutoDevColors.Signal.error,       // 高亮红
+        AutoDevColors.Energy.ai,          // 霓虹紫
     )
 
     /**

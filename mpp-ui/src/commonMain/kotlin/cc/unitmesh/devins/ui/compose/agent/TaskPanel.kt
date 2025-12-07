@@ -37,11 +37,11 @@ fun TaskStatus.icon(): Unit = when (this) {
 
 val TaskStatus.color: Color
     get() = when (this) {
-        TaskStatus.PLANNING -> Color(0xFF9C27B0)
-        TaskStatus.WORKING -> Color(0xFF2196F3)
-        TaskStatus.COMPLETED -> Color(0xFF4CAF50)
-        TaskStatus.BLOCKED -> Color(0xFFFF9800)
-        TaskStatus.CANCELLED -> Color(0xFF9E9E9E)
+        TaskStatus.PLANNING -> AutoDevColors.Energy.ai      // 霓虹紫 - AI 相关
+        TaskStatus.WORKING -> AutoDevColors.Signal.info     // 信息蓝 - 进行中
+        TaskStatus.COMPLETED -> AutoDevColors.Signal.success // 高亮绿 - 完成
+        TaskStatus.BLOCKED -> AutoDevColors.Signal.warn     // 赛博黄 - 阻塞
+        TaskStatus.CANCELLED -> AutoDevColors.Text.tertiary // 灰色 - 取消
     }
 
 /**
@@ -259,4 +259,3 @@ private fun formatDuration(seconds: Long): String {
         else -> "${seconds / 3600}h ${(seconds % 3600) / 60}m"
     }
 }
-

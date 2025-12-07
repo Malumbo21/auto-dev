@@ -25,7 +25,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -35,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cc.unitmesh.agent.render.ToolCallInfo
 import cc.unitmesh.devins.ui.compose.icons.AutoDevComposeIcons
+import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
 
 @Composable
 fun ToolResultItem(
@@ -68,7 +68,7 @@ fun ToolResultItem(
                 Icon(
                     imageVector = if (success) AutoDevComposeIcons.Check else AutoDevComposeIcons.Error,
                     contentDescription = if (success) "Success" else "Error",
-                    tint = if (success) Color(0xFF4CAF50) else MaterialTheme.colorScheme.error,
+                    tint = if (success) AutoDevColors.Signal.success else MaterialTheme.colorScheme.error,
                     modifier = Modifier.size(16.dp)
                 )
                 Text(
@@ -86,7 +86,7 @@ fun ToolResultItem(
                     text = "→ $summary",
                     color =
                         if (success) {
-                            Color(0xFF4CAF50)
+                            AutoDevColors.Signal.success
                         } else {
                             MaterialTheme.colorScheme.onErrorContainer
                         },

@@ -58,14 +58,14 @@ class DevInSyntaxHighlighter {
         val colors = AutoDevColors.Syntax.Dark
 
         return when (type) {
-            // Agent 相关 - 使用醒目的青色（类似 Slack 提及）
+            // Agent 相关 - 使用电光青（用户意图）
             DevInsTokenType.AGENT_START ->
                 HighlightStyle(
                     color = colors.agent,
                     bold = true
                 )
 
-            // Command 相关 - 使用鲜艳的绿色（类似终端命令）
+            // Command 相关 - 使用高亮绿（命令）
             DevInsTokenType.COMMAND_START ->
                 HighlightStyle(
                     color = colors.command,
@@ -76,7 +76,7 @@ class DevInSyntaxHighlighter {
                     color = colors.command.copy(alpha = 0.8f)
                 )
 
-            // Variable 相关 - 使用洋红色/粉紫色（区别于其他）
+            // Variable 相关 - 使用霓虹紫（AI/变量）
             DevInsTokenType.VARIABLE_START ->
                 HighlightStyle(
                     color = colors.variable,
@@ -125,11 +125,11 @@ class DevInSyntaxHighlighter {
                     color = colors.keyword
                 )
 
-            // FrontMatter
+            // FrontMatter - 使用电光青
             DevInsTokenType.FRONTMATTER_START,
             DevInsTokenType.FRONTMATTER_END ->
                 HighlightStyle(
-                    color = AutoDevColors.Indigo.c300,
+                    color = AutoDevColors.Energy.xiu,
                     bold = true
                 )
 
@@ -159,33 +159,35 @@ class DevInSyntaxHighlighter {
         /**
          * 现代化高对比度配色方案
          * 参考：GitHub、Slack、VSCode 等现代应用
+         * 使用设计系统颜色
          */
         object ModernColors {
             // 特殊符号 - 高对比度、易区分
-            val AGENT = Color(0xFF00D9FF) // 青色 - Agent 提及（@）
-            val COMMAND = Color(0xFF00FF88) // 绿色 - 命令（/）
-            val VARIABLE = Color(0xFFFF6EC7) // 洋红 - 变量（$）
+            val AGENT = AutoDevColors.Energy.xiu      // 电光青 - Agent 提及（@）
+            val COMMAND = AutoDevColors.Signal.success // 高亮绿 - 命令（/）
+            val VARIABLE = AutoDevColors.Energy.ai    // 霓虹紫 - 变量（$）
 
             // 代码元素
-            val KEYWORD = Color(0xFFFF7F50) // 珊瑚橙 - 关键字
-            val STRING = Color(0xFF98C379) // 柔和绿 - 字符串
-            val NUMBER = Color(0xFFD19A66) // 橙黄色 - 数字
-            val COMMENT = Color(0xFF5C6370) // 灰色 - 注释
-            val IDENTIFIER = Color(0xFFABB2BF) // 浅灰 - 标识符
-            val CONSTANT = Color(0xFFE5C07B) // 金黄色 - 常量
+            val KEYWORD = AutoDevColors.Signal.warn   // 赛博黄 - 关键字
+            val STRING = AutoDevColors.Signal.success // 高亮绿 - 字符串
+            val NUMBER = AutoDevColors.Signal.info    // 信息蓝 - 数字
+            val COMMENT = AutoDevColors.Text.tertiary // 灰色 - 注释
+            val IDENTIFIER = AutoDevColors.Text.secondary // 浅灰 - 标识符
+            val CONSTANT = AutoDevColors.Signal.warn  // 赛博黄 - 常量
         }
 
         /**
          * 深色主题颜色方案 (保留向后兼容)
+         * 使用设计系统颜色
          */
         object DarculaColors {
-            val KEYWORD = Color(0xFFCC7832)
-            val STRING = Color(0xFF6A8759)
-            val NUMBER = Color(0xFF6897BB)
-            val COMMENT = Color(0xFF808080)
-            val IDENTIFIER = Color(0xFFA9B7C6)
-            val CONSTANT = Color(0xFF9876AA)
-            val TEXT = Color(0xFFA9B7C6)
+            val KEYWORD = AutoDevColors.Syntax.Dark.keyword
+            val STRING = AutoDevColors.Signal.success
+            val NUMBER = AutoDevColors.Signal.info
+            val COMMENT = AutoDevColors.Text.tertiary
+            val IDENTIFIER = AutoDevColors.Text.secondary
+            val CONSTANT = AutoDevColors.Energy.ai
+            val TEXT = AutoDevColors.Text.secondary
         }
     }
 }

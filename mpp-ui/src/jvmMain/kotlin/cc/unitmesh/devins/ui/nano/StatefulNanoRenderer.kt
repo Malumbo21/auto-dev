@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
 import cc.unitmesh.xuiper.ir.NanoActionIR
 import cc.unitmesh.xuiper.ir.NanoIR
 import cc.unitmesh.xuiper.ir.NanoStateIR
@@ -262,11 +263,11 @@ object StatefulNanoRenderer {
         val colorName = ir.props["color"]?.jsonPrimitive?.content
 
         val bgColor = when (colorName) {
-            "green" -> Color(0xFF4CAF50)
-            "red" -> Color(0xFFF44336)
-            "blue" -> Color(0xFF2196F3)
-            "yellow" -> Color(0xFFFFEB3B)
-            "orange" -> Color(0xFFFF9800)
+            "green" -> AutoDevColors.Signal.success
+            "red" -> AutoDevColors.Signal.error
+            "blue" -> AutoDevColors.Signal.info
+            "yellow" -> AutoDevColors.Signal.warn
+            "orange" -> AutoDevColors.Signal.warn
             else -> MaterialTheme.colorScheme.primaryContainer
         }
 

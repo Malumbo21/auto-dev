@@ -31,7 +31,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -44,6 +43,7 @@ import cc.unitmesh.devins.ui.compose.agent.knowledge.DocQLStatsSection
 import cc.unitmesh.devins.ui.compose.agent.codereview.FileViewerDialog
 import cc.unitmesh.devins.ui.compose.icons.AutoDevComposeIcons
 import cc.unitmesh.devins.ui.compose.sketch.TextBlockRenderer
+import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
 import cc.unitmesh.devins.ui.compose.terminal.PlatformTerminalDisplay
 
 /**
@@ -128,7 +128,7 @@ fun ToolItem(
                     },
                     tint = when {
                         isExecuting -> MaterialTheme.colorScheme.primary
-                        success -> Color(0xFF4CAF50)
+                        success -> AutoDevColors.Signal.success
                         else -> MaterialTheme.colorScheme.error
                     },
                     modifier = Modifier.Companion.size(16.dp)
@@ -163,7 +163,7 @@ fun ToolItem(
                     Text(
                         text = "-> $displaySummary",
                         color = when (success) {
-                            true -> Color(0xFF4CAF50)
+                            true -> AutoDevColors.Signal.success
                             false -> MaterialTheme.colorScheme.error
                             else -> MaterialTheme.colorScheme.onSurfaceVariant
                         },
@@ -490,12 +490,12 @@ fun TerminalOutputItem(
                     Icon(
                         imageVector = if (isSuccess) AutoDevComposeIcons.CheckCircle else AutoDevComposeIcons.Error,
                         contentDescription = if (isSuccess) "Success" else "Error",
-                        tint = if (isSuccess) Color(0xFF4CAF50) else MaterialTheme.colorScheme.error,
+                        tint = if (isSuccess) AutoDevColors.Signal.success else MaterialTheme.colorScheme.error,
                         modifier = Modifier.Companion.size(16.dp)
                     )
                     Text(
                         text = if (isSuccess) "Exit 0" else "Exit $exitCode",
-                        color = if (isSuccess) Color(0xFF4CAF50) else MaterialTheme.colorScheme.error,
+                        color = if (isSuccess) AutoDevColors.Signal.success else MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Companion.Medium
                     )

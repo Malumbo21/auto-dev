@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import cc.unitmesh.agent.scoring.ScoringBreakdown
 import cc.unitmesh.agent.tool.impl.docql.DocQLSearchStats
 import cc.unitmesh.devins.ui.compose.icons.AutoDevComposeIcons
+import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
 
 /**
  * Displays DocQL search statistics with detailed technical information
@@ -73,10 +74,10 @@ fun DocQLStatsSection(stats: DocQLSearchStats) {
                         DocQLSearchStats.SearchType.LLM_RERANKED -> "LLM Reranked"
                     },
                     color = when (stats.searchType) {
-                        DocQLSearchStats.SearchType.SMART_SEARCH -> Color(0xFF2196F3)
-                        DocQLSearchStats.SearchType.DIRECT_QUERY -> Color(0xFF4CAF50)
-                        DocQLSearchStats.SearchType.FALLBACK_CONTENT -> Color(0xFFFF9800)
-                        DocQLSearchStats.SearchType.LLM_RERANKED -> Color(0xFF9C27B0)  // Purple for LLM
+                        DocQLSearchStats.SearchType.SMART_SEARCH -> AutoDevColors.Signal.info
+                        DocQLSearchStats.SearchType.DIRECT_QUERY -> AutoDevColors.Signal.success
+                        DocQLSearchStats.SearchType.FALLBACK_CONTENT -> AutoDevColors.Signal.warn
+                        DocQLSearchStats.SearchType.LLM_RERANKED -> AutoDevColors.Energy.ai
                     }
                 )
 
@@ -84,7 +85,7 @@ fun DocQLStatsSection(stats: DocQLSearchStats) {
                     StatBadge(
                         label = "Mode",
                         value = "Fallback",
-                        color = Color(0xFFFF9800)
+                        color = AutoDevColors.Signal.warn
                     )
                 }
             }
@@ -133,7 +134,7 @@ fun DocQLStatsSection(stats: DocQLSearchStats) {
                     Text(
                         text = "(truncated)",
                         style = MaterialTheme.typography.labelSmall,
-                        color = Color(0xFFFF9800)
+                        color = AutoDevColors.Signal.warn
                     )
                 }
             }
@@ -208,19 +209,19 @@ fun DocQLStatsSection(stats: DocQLSearchStats) {
                             Icon(
                                 imageVector = AutoDevComposeIcons.Analytics,
                                 contentDescription = "LLM Reranking",
-                                tint = if (llm.success) Color(0xFF9C27B0) else MaterialTheme.colorScheme.error,
+                                tint = if (llm.success) AutoDevColors.Energy.ai else MaterialTheme.colorScheme.error,
                                 modifier = Modifier.Companion.size(14.dp)
                             )
                             Text(
                                 text = "LLM Reranking",
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Companion.Bold,
-                                color = if (llm.success) Color(0xFF9C27B0) else MaterialTheme.colorScheme.error
+                                color = if (llm.success) AutoDevColors.Energy.ai else MaterialTheme.colorScheme.error
                             )
 
                             // Cost warning badge
                             Surface(
-                                color = Color(0xFFFF9800).copy(alpha = 0.15f),
+                                color = AutoDevColors.Signal.warn.copy(alpha = 0.15f),
                                 shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
                             ) {
                                 Row(
@@ -235,7 +236,7 @@ fun DocQLStatsSection(stats: DocQLSearchStats) {
                                     Text(
                                         text = "Uses AI Tokens",
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = Color(0xFFFF9800)
+                                        color = AutoDevColors.Signal.warn
                                     )
                                 }
                             }
@@ -323,12 +324,12 @@ private fun StatBadge(label: String, value: String, color: Color) {
 @Composable
 private fun ChannelChip(channel: String) {
     val (icon, color) = when (channel) {
-        "class" -> AutoDevComposeIcons.Code to Color(0xFF9C27B0)
-        "function" -> AutoDevComposeIcons.Code to Color(0xFF673AB7)
-        "heading" -> AutoDevComposeIcons.Description to Color(0xFF3F51B5)
-        "toc" -> AutoDevComposeIcons.List to Color(0xFF2196F3)
-        "content_chunks" -> AutoDevComposeIcons.Description to Color(0xFF00BCD4)
-        else -> AutoDevComposeIcons.Search to Color(0xFF607D8B)
+        "class" -> AutoDevComposeIcons.Code to AutoDevColors.Energy.ai
+        "function" -> AutoDevComposeIcons.Code to AutoDevColors.Energy.aiLight
+        "heading" -> AutoDevComposeIcons.Description to AutoDevColors.Signal.info
+        "toc" -> AutoDevComposeIcons.List to AutoDevColors.Signal.info
+        "content_chunks" -> AutoDevComposeIcons.Description to AutoDevColors.Energy.xiu
+        else -> AutoDevComposeIcons.Search to AutoDevColors.Text.tertiary
     }
 
     Surface(
