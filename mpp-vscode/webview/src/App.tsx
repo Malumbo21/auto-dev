@@ -12,6 +12,7 @@ import { ModelConfig } from './components/ModelSelector';
 import { SelectedFile } from './components/FileChip';
 import { CompletionItem } from './components/CompletionPopup';
 import { PlanData } from './components/plan';
+import { Omnibar, OmnibarItem } from './components/Omnibar';
 import { useVSCode, ExtensionMessage } from './hooks/useVSCode';
 import type { AgentState, ToolCallInfo, TerminalOutput, ToolCallTimelineItem } from './types/timeline';
 import './App.css';
@@ -69,6 +70,9 @@ const App: React.FC = () => {
 
   // Plan state - mirrors mpp-idea's IdeaPlanSummaryBar
   const [currentPlan, setCurrentPlan] = useState<PlanData | null>(null);
+
+  // Omnibar state
+  const [showOmnibar, setShowOmnibar] = useState(false);
 
   const { postMessage, onMessage, isVSCode } = useVSCode();
 
@@ -378,6 +382,26 @@ const App: React.FC = () => {
     postMessage({ type: 'applyCompletion', data: { text, cursorPosition, completionIndex } });
   }, [postMessage]);
 
+  // Handle Omnibar action
+  const handleOmnibarAction = useCallback((item: OmnibarItem, action: string) => {
+    if (action === 'insertText' && (item.type === 'command' || item.type === 'custom_command')) {
+      // The ChatInput will receive this via extension message
+      postMessage({ type: 'omnibarInsertText', data: { text: item.title } });
+    }
+  }, [postMessage]);
+
+  // Keyboard shortcut for Omnibar (Cmd+K / Ctrl+K)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setShowOmnibar(true);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   // Check if we need to show config prompt
   const needsConfig = agentState.timeline.length === 0 &&
     agentState.currentStreamingContent.includes('No configuration found') ||
@@ -385,6 +409,12 @@ const App: React.FC = () => {
 
   return (
     <div className="app">
+      {/* Omnibar Command Palette */}
+      <Omnibar
+        isOpen={showOmnibar}
+        onClose={() => setShowOmnibar(false)}
+        onAction={handleOmnibarAction}
+      />
       <header className="app-header">
         <div className="header-title">
           <span className="header-icon">✨</span>
