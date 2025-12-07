@@ -4,6 +4,7 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.datetime.Clock
 import platform.Foundation.NSHomeDirectory
 import platform.Foundation.NSProcessInfo
+import platform.UIKit.UIAccessibilityIsReduceMotionEnabled
 
 @OptIn(ExperimentalForeignApi::class)
 actual object Platform {
@@ -42,6 +43,11 @@ actual object Platform {
 
     actual fun getLogDir(): String {
         return "${getUserHomeDir()}/.autodev/logs"
+    }
+
+    actual fun prefersReducedMotion(): Boolean {
+        // iOS: Check reduce motion accessibility setting
+        return UIAccessibilityIsReduceMotionEnabled()
     }
 }
 

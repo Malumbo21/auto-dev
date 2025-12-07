@@ -45,5 +45,12 @@ actual object Platform {
     actual fun getLogDir(): String {
         return "${getUserHomeDir()}/.autodev/logs"
     }
+
+    actual fun prefersReducedMotion(): Boolean {
+        // Android requires Context to check Settings.Global.ANIMATOR_DURATION_SCALE
+        // Since Platform is a static object without Context access, we return false.
+        // TODO: Consider providing a Context-aware initialization or companion method
+        return false
+    }
 }
 

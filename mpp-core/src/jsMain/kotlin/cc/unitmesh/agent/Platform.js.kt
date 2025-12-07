@@ -63,4 +63,20 @@ actual object Platform {
     actual fun getLogDir(): String {
         return "${getUserHomeDir()}/.autodev/logs"
     }
+
+    actual fun prefersReducedMotion(): Boolean {
+        // In browser, check prefers-reduced-motion media query
+        // In Node.js, return false as there's no UI
+        return try {
+            val isBrowser = js("typeof window !== 'undefined'") as Boolean
+            if (isBrowser) {
+                val matches = js("window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches") as Boolean
+                matches
+            } else {
+                false
+            }
+        } catch (e: Exception) {
+            false
+        }
+    }
 }

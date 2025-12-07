@@ -9,9 +9,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.*
+import cc.unitmesh.agent.Platform
 import cc.unitmesh.agent.logging.AutoDevLogger
 import cc.unitmesh.devins.ui.compose.AutoDevApp
+import cc.unitmesh.devins.ui.compose.launch.XiuperLaunchScreen
 import cc.unitmesh.devins.ui.compose.state.rememberDesktopUiState
+import cc.unitmesh.devins.ui.compose.theme.AutoDevTheme
+import cc.unitmesh.devins.ui.compose.theme.ThemeManager
 import cc.unitmesh.devins.ui.desktop.AutoDevMenuBar
 import cc.unitmesh.devins.ui.desktop.AutoDevTray
 import cc.unitmesh.devins.ui.desktop.DesktopWindowLayout
@@ -22,11 +26,17 @@ fun main(args: Array<String>) {
     AutoDevLogger.info("AutoDevMain") { "📁 Log files location: ${AutoDevLogger.getLogDirectory()}" }
 
     val mode = args.find { it.startsWith("--mode=") }?.substringAfter("--mode=") ?: "auto"
+    // 检查是否跳过启动动画（通过命令行参数）
+    val skipSplash = args.contains("--skip-splash")
 
     application {
         val trayState = rememberTrayState()
         var isWindowVisible by remember { mutableStateOf(true) }
         var triggerFileChooser by remember { mutableStateOf(false) }
+        // 启动动画状态
+        var showSplash by remember { mutableStateOf(!skipSplash) }
+        // Cache prefersReducedMotion result to avoid repeated system calls
+        val reducedMotion = remember { Platform.prefersReducedMotion() }
 
         val uiState = rememberDesktopUiState()
 
@@ -50,69 +60,82 @@ fun main(args: Array<String>) {
                 state = windowState,
                 undecorated = true,
             ) {
-                DesktopWindowLayout(
-                    onMinimize = { windowState.isMinimized = true },
-                    onMaximize = {
-                        windowState.placement = if (windowState.placement == WindowPlacement.Maximized) {
-                            WindowPlacement.Floating
-                        } else {
-                            WindowPlacement.Maximized
-                        }
-                    },
-                    onClose = { isWindowVisible = false },
-                    titleBarContent = {
-                        cc.unitmesh.devins.ui.compose.chat.DesktopTitleBarTabs(
-                            currentAgentType = uiState.currentAgentType,
-                            onAgentTypeChange = { newType ->
-                                uiState.updateAgentType(newType)
-                                AutoDevLogger.info("AutoDevMain") { "🔄 Switch Agent Type: $newType" }
+                // 显示启动动画或主界面
+                if (showSplash) {
+                    AutoDevTheme(themeMode = ThemeManager.ThemeMode.DARK) {
+                        XiuperLaunchScreen(
+                            onFinished = {
+                                showSplash = false
+                                AutoDevLogger.info("AutoDevMain") { "✨ Launch animation completed" }
                             },
-                            onConfigureRemote = {
-                                uiState.showRemoteConfigDialog = true
-                                AutoDevLogger.info("AutoDevMain") { "☁️ Configure Remote" }
-                            },
-                            onDoubleClick = {
-                                windowState.placement = if (windowState.placement == WindowPlacement.Maximized) {
-                                    WindowPlacement.Floating
-                                } else {
-                                    WindowPlacement.Maximized
-                                }
-                            }
+                            reducedMotion = reducedMotion
                         )
                     }
-                ) {
-                    Column(modifier = Modifier.fillMaxSize()) {
-                        AutoDevMenuBar(
-                            onOpenFile = {
-                                triggerFileChooser = true
-                                AutoDevLogger.info("AutoDevMain") { "Open File menu clicked" }
-                            },
-                            onExit = ::exitApplication
-                        )
-
-                        AutoDevApp(
-                            triggerFileChooser = triggerFileChooser,
-                            onFileChooserHandled = { triggerFileChooser = false },
-                            initialMode = mode,
-                            showTopBarInContent = false,
-                            initialAgentType = uiState.currentAgentType,
-                            initialTreeViewVisible = uiState.isTreeViewVisible,
-                            onAgentTypeChanged = { type ->
-                                uiState.updateAgentType(type)
-                            },
-                            onTreeViewVisibilityChanged = { visible ->
-                                // 已由全局状态管理，无需额外操作
-                            },
-                            onSidebarVisibilityChanged = { visible ->
-                                // 已由全局状态管理，无需额外操作
-                            },
-                            onWorkspacePathChanged = { path ->
-                                uiState.updateWorkspacePath(path)
-                            },
-                            onNotification = { title, message ->
-                                trayState.sendNotification(androidx.compose.ui.window.Notification(title, message))
+                } else {
+                    DesktopWindowLayout(
+                        onMinimize = { windowState.isMinimized = true },
+                        onMaximize = {
+                            windowState.placement = if (windowState.placement == WindowPlacement.Maximized) {
+                                WindowPlacement.Floating
+                            } else {
+                                WindowPlacement.Maximized
                             }
-                        )
+                        },
+                        onClose = { isWindowVisible = false },
+                        titleBarContent = {
+                            cc.unitmesh.devins.ui.compose.chat.DesktopTitleBarTabs(
+                                currentAgentType = uiState.currentAgentType,
+                                onAgentTypeChange = { newType ->
+                                    uiState.updateAgentType(newType)
+                                    AutoDevLogger.info("AutoDevMain") { "🔄 Switch Agent Type: $newType" }
+                                },
+                                onConfigureRemote = {
+                                    uiState.showRemoteConfigDialog = true
+                                    AutoDevLogger.info("AutoDevMain") { "☁️ Configure Remote" }
+                                },
+                                onDoubleClick = {
+                                    windowState.placement = if (windowState.placement == WindowPlacement.Maximized) {
+                                        WindowPlacement.Floating
+                                    } else {
+                                        WindowPlacement.Maximized
+                                    }
+                                }
+                            )
+                        }
+                    ) {
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            AutoDevMenuBar(
+                                onOpenFile = {
+                                    triggerFileChooser = true
+                                    AutoDevLogger.info("AutoDevMain") { "Open File menu clicked" }
+                                },
+                                onExit = ::exitApplication
+                            )
+
+                            AutoDevApp(
+                                triggerFileChooser = triggerFileChooser,
+                                onFileChooserHandled = { triggerFileChooser = false },
+                                initialMode = mode,
+                                showTopBarInContent = false,
+                                initialAgentType = uiState.currentAgentType,
+                                initialTreeViewVisible = uiState.isTreeViewVisible,
+                                onAgentTypeChanged = { type ->
+                                    uiState.updateAgentType(type)
+                                },
+                                onTreeViewVisibilityChanged = { visible ->
+                                    // 已由全局状态管理，无需额外操作
+                                },
+                                onSidebarVisibilityChanged = { visible ->
+                                    // 已由全局状态管理，无需额外操作
+                                },
+                                onWorkspacePathChanged = { path ->
+                                    uiState.updateWorkspacePath(path)
+                                },
+                                onNotification = { title, message ->
+                                    trayState.sendNotification(androidx.compose.ui.window.Notification(title, message))
+                                }
+                            )
+                        }
                     }
                 }
             }
