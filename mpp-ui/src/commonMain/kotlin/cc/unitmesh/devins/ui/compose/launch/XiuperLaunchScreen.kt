@@ -279,7 +279,7 @@ fun XiuperLaunchScreen(
                 .alpha(logoAlpha)
         ) {
             Text(
-                text = "Xuiper",
+                text = "Xiuper",
                 fontSize = 52.sp,
                 fontWeight = FontWeight.Bold,
                 color = AutoDevColors.Energy.xiu
@@ -288,13 +288,13 @@ fun XiuperLaunchScreen(
             Spacer(modifier = Modifier.height(12.dp))
 
             Text(
-                text = "AutoDev code, Xuiper Fast",
+                text = "AutoDev code, Xiuper Fast",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium,
                 letterSpacing = 4.sp,  // 增加字间距，更有科技感
                 color = AutoDevColors.Text.secondary,
                 modifier = Modifier
-                    .offset { IntOffset(0, textOffset.toInt()) }
+                    .offset(y = textOffset.dp)
                     .alpha(textAlpha)
             )
         }

@@ -35,6 +35,8 @@ fun main(args: Array<String>) {
         var triggerFileChooser by remember { mutableStateOf(false) }
         // 启动动画状态
         var showSplash by remember { mutableStateOf(!skipSplash) }
+        // Cache prefersReducedMotion result to avoid repeated system calls
+        val reducedMotion = remember { Platform.prefersReducedMotion() }
 
         val uiState = rememberDesktopUiState()
 
@@ -66,7 +68,7 @@ fun main(args: Array<String>) {
                                 showSplash = false
                                 AutoDevLogger.info("AutoDevMain") { "✨ Launch animation completed" }
                             },
-                            reducedMotion = Platform.prefersReducedMotion()
+                            reducedMotion = reducedMotion
                         )
                     }
                 } else {

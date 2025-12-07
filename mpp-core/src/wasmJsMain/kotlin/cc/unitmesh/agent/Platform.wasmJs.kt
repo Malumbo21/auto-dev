@@ -43,9 +43,17 @@ actual object Platform {
     }
 
     actual fun prefersReducedMotion(): Boolean {
-        // WASM runs in browser, but accessing window.matchMedia is complex
-        // For now, return false as default
-        // TODO: Implement proper browser media query check for WASM
-        return false
+        // WASM runs in browser, check prefers-reduced-motion media query
+        return try {
+            val isBrowser = js("typeof window !== 'undefined'") as Boolean
+            if (isBrowser) {
+                val matches = js("window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches") as Boolean
+                matches
+            } else {
+                false
+            }
+        } catch (e: Exception) {
+            false
+        }
     }
 }

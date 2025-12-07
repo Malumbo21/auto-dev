@@ -63,14 +63,18 @@ actual object Platform {
                         .redirectErrorStream(true)
                         .start()
                     val result = process.inputStream.bufferedReader().readText().trim()
-                    process.waitFor()
+                    val completed = process.waitFor(1, java.util.concurrent.TimeUnit.SECONDS)
+                    if (!completed) {
+                        process.destroyForcibly()
+                        return false
+                    }
                     result == "1"
                 }
                 osName.contains("windows") -> {
-                    // Windows: Check if animations are disabled via system property
-                    // This is a simplified check; full implementation would use JNA/JNI
-                    System.getProperty("swing.aatext", "false") == "false" &&
-                            System.getProperty("awt.useSystemAAFontSettings", "") == "off"
+                    // Windows: Proper implementation requires JNA/JNI to call
+                    // SystemParametersInfo(SPI_GETCLIENTAREAANIMATION) or read registry
+                    // For now, return false as a safe default
+                    false
                 }
                 else -> {
                     // Linux/other: Check GTK_ENABLE_ANIMATIONS or GNOME settings
