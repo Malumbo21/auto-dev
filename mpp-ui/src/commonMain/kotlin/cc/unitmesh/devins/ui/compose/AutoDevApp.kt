@@ -1,5 +1,6 @@
 package cc.unitmesh.devins.ui.compose
 
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -8,6 +9,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.*
 import androidx.compose.ui.unit.dp
 import cc.unitmesh.agent.Platform
 import cc.unitmesh.devins.filesystem.DefaultFileSystem
@@ -20,6 +24,9 @@ import cc.unitmesh.devins.ui.compose.chat.SessionSidebar
 import cc.unitmesh.devins.ui.compose.chat.TopBarMenu
 import cc.unitmesh.devins.ui.compose.chat.createChatCallbacks
 import cc.unitmesh.devins.ui.compose.editor.DevInEditorInput
+import cc.unitmesh.devins.ui.compose.omnibar.ComposeOmnibarDataProvider
+import cc.unitmesh.devins.ui.compose.omnibar.Omnibar
+import cc.unitmesh.devins.ui.compose.omnibar.OmnibarActionResult
 import cc.unitmesh.devins.ui.compose.theme.AutoDevTheme
 import cc.unitmesh.devins.ui.compose.theme.ThemeManager
 import cc.unitmesh.devins.ui.config.ConfigManager
@@ -111,7 +118,11 @@ private fun AutoDevContent(
     var errorMessage by remember { mutableStateOf("") }
     var showModelConfigDialog by remember { mutableStateOf(false) }
     var showToolConfigDialog by remember { mutableStateOf(false) }
+    var showOmnibar by remember { mutableStateOf(false) }
     var selectedAgent by remember { mutableStateOf("Default") }
+
+    // Text to insert from Omnibar action
+    var omnibarInsertText by remember { mutableStateOf<String?>(null) }
 
     // Unified Agent Type Selection (LOCAL, CODING, CODE_REVIEW, REMOTE)
     // Desktop: 由 Main.kt 管理，通过 initialAgentType 传递
@@ -370,8 +381,61 @@ private fun AutoDevContent(
         return
     }
 
+    // Omnibar data provider with action callbacks
+    val omnibarDataProvider = remember {
+        ComposeOmnibarDataProvider(
+            onInsertText = { text -> omnibarInsertText = text },
+            onOpenModelConfig = { showModelConfigDialog = true },
+            onOpenToolConfig = { showToolConfigDialog = true },
+            onOpenDirectory = { openDirectoryChooser() },
+            onClearHistory = {
+                chatHistoryManager.clearCurrentSession()
+                messages = emptyList()
+                currentStreamingOutput = ""
+            },
+            onToggleSidebar = { UIStateManager.toggleSessionSidebar() }
+        )
+    }
+
+    // Omnibar component
+    Omnibar(
+        visible = showOmnibar,
+        onDismiss = { showOmnibar = false },
+        dataProvider = omnibarDataProvider,
+        onActionResult = { result ->
+            when (result) {
+                is OmnibarActionResult.InsertText -> {
+                    omnibarInsertText = result.text
+                }
+                else -> { /* Handle other results if needed */ }
+            }
+        }
+    )
+
+    // Focus requester for keyboard shortcuts
+    val focusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(Unit) {
+        try { focusRequester.requestFocus() } catch (_: Exception) {}
+    }
+
     Scaffold(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .focusRequester(focusRequester)
+            .focusable()
+            .onKeyEvent { event ->
+                // Cmd+K (Mac) or Ctrl+K (Windows/Linux) to open Omnibar
+                if (event.type == KeyEventType.KeyDown &&
+                    event.key == Key.K &&
+                    (event.isMetaPressed || event.isCtrlPressed)
+                ) {
+                    showOmnibar = true
+                    true
+                } else {
+                    false
+                }
+            },
         containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Horizontal)
     ) { paddingValues ->
