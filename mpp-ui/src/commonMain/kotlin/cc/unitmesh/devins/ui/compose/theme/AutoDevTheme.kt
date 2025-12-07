@@ -7,78 +7,104 @@ import androidx.compose.ui.graphics.Color
 
 /**
  * AutoDev 暗色主题配色方案
- * 使用新的设计系统颜色
+ * 基于「霓虹暗夜」视觉语言 - 虚空色阶 + 能量色阶
  */
 private val DarkColorScheme =
     darkColorScheme(
-        // 主色 - Intelligent Indigo
-        primary = AutoDevColors.Indigo.c300,
-        onPrimary = AutoDevColors.Neutral.c900,
-        primaryContainer = AutoDevColors.Indigo.c800,
-        onPrimaryContainer = AutoDevColors.Indigo.c100,
-        // 辅色 - Spark Cyan
-        secondary = AutoDevColors.Cyan.c400,
-        onSecondary = AutoDevColors.Neutral.c900,
-        secondaryContainer = AutoDevColors.Cyan.c800,
-        onSecondaryContainer = AutoDevColors.Cyan.c100,
-        // 第三色
-        tertiary = AutoDevColors.Green.c300,
-        onTertiary = AutoDevColors.Neutral.c900,
-        tertiaryContainer = AutoDevColors.Green.c800,
-        onTertiaryContainer = AutoDevColors.Green.c100,
-        // 背景和表面
-        background = AutoDevColors.Neutral.c900,
-        onBackground = AutoDevColors.Neutral.c100,
-        surface = AutoDevColors.Neutral.c800,
-        onSurface = AutoDevColors.Neutral.c100,
-        surfaceVariant = AutoDevColors.Neutral.c700,
-        onSurfaceVariant = AutoDevColors.Neutral.c300,
-        // 错误
-        error = AutoDevColors.Red.c300,
-        onError = AutoDevColors.Neutral.c900,
-        errorContainer = AutoDevColors.Red.c900,
-        onErrorContainer = AutoDevColors.Red.c100,
-        // 轮廓
-        outline = AutoDevColors.Neutral.c700,
-        outlineVariant = AutoDevColors.Neutral.c800,
+        // 主色 - 电光青（用户意图）
+        primary = AutoDevColors.Energy.xiu,
+        onPrimary = AutoDevColors.Void.bg,
+        primaryContainer = AutoDevColors.Void.surface2,
+        onPrimaryContainer = AutoDevColors.Energy.xiu,
+        
+        // 辅色 - 霓虹紫（AI 生成）
+        secondary = AutoDevColors.Energy.ai,
+        onSecondary = AutoDevColors.Void.bg,
+        secondaryContainer = AutoDevColors.Void.surface2,
+        onSecondaryContainer = AutoDevColors.Energy.ai,
+        
+        // 第三色 - 成功绿
+        tertiary = AutoDevColors.Signal.success,
+        onTertiary = AutoDevColors.Void.bg,
+        tertiaryContainer = AutoDevColors.Signal.successBg,
+        onTertiaryContainer = AutoDevColors.Signal.success,
+        
+        // 背景和表面 - 虚空色阶
+        background = AutoDevColors.Void.bg,
+        onBackground = AutoDevColors.Text.primary,
+        surface = AutoDevColors.Void.surface1,
+        onSurface = AutoDevColors.Text.primary,
+        surfaceVariant = AutoDevColors.Void.surface2,
+        onSurfaceVariant = AutoDevColors.Text.secondary,
+        
+        // 错误 - 高亮红
+        error = AutoDevColors.Signal.error,
+        onError = AutoDevColors.Void.bg,
+        errorContainer = AutoDevColors.Signal.errorBg,
+        onErrorContainer = AutoDevColors.Signal.error,
+        
+        // 轮廓 - 虚空边框色
+        outline = AutoDevColors.Void.surface3,
+        outlineVariant = AutoDevColors.Void.surface2,
+        
+        // 反向表面
+        inverseSurface = AutoDevColors.Text.primary,
+        inverseOnSurface = AutoDevColors.Void.bg,
+        inversePrimary = AutoDevColors.Energy.xiuLight,
+        
+        // 剪贴薄
+        scrim = AutoDevColors.Void.overlay,
     )
 
 /**
  * AutoDev 亮色主题配色方案
- * 使用新的设计系统颜色
+ * 保持能量色阶的核心特征，适配亮色背景
  */
 private val LightColorScheme =
     lightColorScheme(
-        // 主色 - Intelligent Indigo
-        primary = AutoDevColors.Indigo.c600,
+        // 主色 - 电光青（亮色版本）
+        primary = AutoDevColors.Energy.xiuLight,
         onPrimary = Color.White,
-        primaryContainer = AutoDevColors.Indigo.c100,
-        onPrimaryContainer = AutoDevColors.Indigo.c900,
-        // 辅色 - Spark Cyan
-        secondary = AutoDevColors.Cyan.c500,
+        primaryContainer = Color(0xFFE0F7FA),
+        onPrimaryContainer = Color(0xFF006064),
+        
+        // 辅色 - 霓虹紫（亮色版本）
+        secondary = AutoDevColors.Energy.aiLight,
         onSecondary = Color.White,
-        secondaryContainer = AutoDevColors.Cyan.c100,
-        onSecondaryContainer = AutoDevColors.Cyan.c900,
-        // 第三色
-        tertiary = AutoDevColors.Green.c600,
+        secondaryContainer = Color(0xFFF3E5F5),
+        onSecondaryContainer = Color(0xFF4A148C),
+        
+        // 第三色 - 成功绿
+        tertiary = AutoDevColors.Signal.successLight,
         onTertiary = Color.White,
-        tertiaryContainer = AutoDevColors.Green.c100,
-        onTertiaryContainer = AutoDevColors.Green.c900,
-        // 背景和表面
-        background = AutoDevColors.Neutral.c50,
-        onBackground = AutoDevColors.Neutral.c900,
-        surface = Color.White,
-        onSurface = AutoDevColors.Neutral.c900,
-        surfaceVariant = AutoDevColors.Neutral.c100,
-        onSurfaceVariant = AutoDevColors.Neutral.c700,
-        // 错误
-        error = AutoDevColors.Red.c600,
+        tertiaryContainer = Color(0xFFE8F5E9),
+        onTertiaryContainer = Color(0xFF1B5E20),
+        
+        // 背景和表面 - 亮色虚空
+        background = AutoDevColors.Void.lightBg,
+        onBackground = AutoDevColors.Text.lightPrimary,
+        surface = AutoDevColors.Void.lightSurface1,
+        onSurface = AutoDevColors.Text.lightPrimary,
+        surfaceVariant = AutoDevColors.Void.lightSurface2,
+        onSurfaceVariant = AutoDevColors.Text.lightSecondary,
+        
+        // 错误 - 高亮红（亮色版本）
+        error = AutoDevColors.Signal.errorLight,
         onError = Color.White,
-        errorContainer = AutoDevColors.Red.c100,
-        onErrorContainer = AutoDevColors.Red.c900,
-        // 轮廓
-        outline = AutoDevColors.Neutral.c300,
-        outlineVariant = AutoDevColors.Neutral.c200,
+        errorContainer = Color(0xFFFFEBEE),
+        onErrorContainer = Color(0xFFB71C1C),
+        
+        // 轮廓 - 亮色边框
+        outline = AutoDevColors.Void.lightSurface3,
+        outlineVariant = Color(0xFFE2E8F0),
+        
+        // 反向表面
+        inverseSurface = AutoDevColors.Void.bg,
+        inverseOnSurface = AutoDevColors.Text.primary,
+        inversePrimary = AutoDevColors.Energy.xiu,
+        
+        // 剪贴薄
+        scrim = Color(0x80000000),
     )
 
 /**

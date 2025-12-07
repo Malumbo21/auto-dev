@@ -1,127 +1,100 @@
 /**
  * AutoDev Design System - Color Palette
  * 
- * 基于色彩心理学设计的双主题（亮色/暗色）色彩系统
+ * 基于「霓虹暗夜」与「气韵流动」的视觉语言设计的色彩系统
  * 
  * 设计原则：
- * 1. 主色（Intelligent Indigo）- 融合蓝色的稳定和紫色的创造力
- * 2. 辅色（Spark Cyan）- AI 的"火花"，用于关键操作
- * 3. 暗黑模式避免纯黑纯白，使用去饱和化颜色
+ * 1. 虚空色阶 (Void) - 带微量蓝色的冷色调背景，营造深邃空间感
+ * 2. 能量色阶 (Energy) - 区分用户意图（电光青）与 AI 响应（霓虹紫）
+ * 3. 信号色阶 (Signal) - 高饱和度的状态指示色，确保清晰可辨
  */
 
 // ============================================================================
-// Color Scales - 基础色阶
+// Void Scale - 虚空色阶（带微量蓝色的冷色调背景）
 // ============================================================================
 
 /**
- * Indigo Scale - 主色调（智能靛蓝）
- * 在暗黑模式下使用较浅、较低饱和度的变体
+ * 虚空色阶 - 暗色模式的基础背景色
+ * 带有微量蓝色的冷色调，营造深邃空间感
  */
-export const indigo = {
-  50: '#eef2ff',
-  100: '#e0e7ff',
-  200: '#c7d2fe',
-  300: '#a5b4fc',  // 暗黑模式主色
-  400: '#818cf8',  // 暗黑模式悬停
-  500: '#6366f1',
-  600: '#4f46e5',  // 亮色模式主色
-  700: '#4338ca',  // 亮色模式悬停
-  800: '#3730a3',
-  900: '#312e81',
+export const void_ = {
+  bg: '#0B0E14',           // 全局底层背景
+  surface1: '#151922',     // 侧边栏、面板
+  surface2: '#1F2430',     // 悬停、输入框、代码块
+  surface3: '#2A3040',     // 边框、分割线
+  overlay: 'rgba(11, 14, 20, 0.8)',  // 模态遮罩
+  
+  // 亮色模式的虚空色阶
+  lightBg: '#F8FAFC',      // 亮色背景 - 冷白
+  lightSurface1: '#FFFFFF', // 卡片表面
+  lightSurface2: '#F1F5F9', // 悬停状态
+  lightSurface3: '#E2E8F0', // 边框
 } as const;
+
+// ============================================================================
+// Energy Scale - 能量色阶（人机边界）
+// ============================================================================
 
 /**
- * Cyan Scale - 辅助色（活力青色）
- * AI "火花"，用于强调和关键操作
+ * 能量色阶 - 区分用户意图与 AI 响应
  */
-export const cyan = {
-  50: '#ecfeff',
-  100: '#cffafe',
-  200: '#a5f3fc',
-  300: '#67e8f9',
-  400: '#22d3ee',  // 暗黑模式辅色
-  500: '#06b6d4',  // 亮色模式辅色
-  600: '#0891b2',
-  700: '#0e7490',
-  800: '#155e75',
-  900: '#164e63',
+export const energy = {
+  // 电光青 - 用户意图、用户操作
+  xiu: '#00F3FF',
+  xiuHover: '#33F5FF',
+  xiuDim: 'rgba(0, 243, 255, 0.25)',   // 25% opacity - 光晕
+  
+  // 霓虹紫 - AI 生成内容
+  ai: '#D946EF',
+  aiHover: '#E066F5',
+  aiDim: 'rgba(217, 70, 239, 0.25)',   // 25% opacity - 光晕
+  
+  // 亮色模式下的能量色（略微降低亮度以保证对比度）
+  xiuLight: '#00BCD4',     // 深青色
+  aiLight: '#AB47BC',      // 深紫色
 } as const;
+
+// ============================================================================
+// Signal Scale - 信号色阶（状态指示）
+// ============================================================================
 
 /**
- * Neutral Scale - 中性色（灰度）
- * 精心设计的 10 级灰度，用于界面层次
+ * 信号色阶 - 高饱和度的状态指示色
  */
-export const neutral = {
-  50: '#fafafa',   // 亮色模式背景
-  100: '#f5f5f5',  // 暗黑模式主文本
-  200: '#e5e5e5',  // 亮色模式边框
-  300: '#d4d4d4',  // 暗黑模式辅文本
-  400: '#a3a3a3',
-  500: '#737373',
-  600: '#525252',
-  700: '#404040',  // 暗黑模式边框
-  800: '#262626',  // 暗黑模式卡片
-  900: '#171717',  // 暗黑模式背景（避免纯黑）
+export const signal = {
+  success: '#00E676',      // 高亮绿
+  error: '#FF1744',        // 高亮红
+  warn: '#FFEA00',         // 赛博黄
+  info: '#2196F3',         // 信息蓝
+  
+  // 亮色模式下的信号色（略微加深以保证对比度）
+  successLight: '#00C853',
+  errorLight: '#D50000',
+  warnLight: '#FFD600',
+  infoLight: '#1976D2',
+  
+  // 信号色的淡色背景（用于状态提示背景）
+  successBg: 'rgba(0, 230, 118, 0.1)',
+  errorBg: 'rgba(255, 23, 68, 0.1)',
+  warnBg: 'rgba(255, 234, 0, 0.1)',
+  infoBg: 'rgba(33, 150, 243, 0.1)',
 } as const;
 
-/**
- * Semantic Colors - 语义化颜色
- */
+// ============================================================================
+// Text Colors - 文本颜色
+// ============================================================================
 
-// Success - 成功状态（绿色）
-export const green = {
-  50: '#f0fdf4',
-  100: '#dcfce7',
-  200: '#bbf7d0',
-  300: '#86efac',  // 暗黑模式成功色
-  400: '#4ade80',
-  500: '#22c55e',
-  600: '#16a34a',  // 亮色模式成功色
-  700: '#15803d',
-  800: '#166534',
-  900: '#14532d',
-} as const;
-
-// Warning - 警告状态（琥珀色）
-export const amber = {
-  50: '#fffbeb',
-  100: '#fef3c7',
-  200: '#fde68a',
-  300: '#fcd34d',  // 暗黑模式警告色
-  400: '#fbbf24',
-  500: '#f59e0b',  // 亮色模式警告色
-  600: '#d97706',
-  700: '#b45309',
-  800: '#92400e',
-  900: '#78350f',
-} as const;
-
-// Error/Danger - 错误状态（红色）
-export const red = {
-  50: '#fef2f2',
-  100: '#fee2e2',
-  200: '#fecaca',
-  300: '#fca5a5',  // 暗黑模式错误色
-  400: '#f87171',
-  500: '#ef4444',
-  600: '#dc2626',  // 亮色模式错误色
-  700: '#b91c1c',
-  800: '#991b1b',
-  900: '#7f1d1d',
-} as const;
-
-// Info - 信息状态（蓝色）
-export const blue = {
-  50: '#eff6ff',
-  100: '#dbeafe',
-  200: '#bfdbfe',
-  300: '#93c5fd',  // 暗黑模式信息色
-  400: '#60a5fa',
-  500: '#3b82f6',  // 亮色模式信息色
-  600: '#2563eb',
-  700: '#1d4ed8',
-  800: '#1e40af',
-  900: '#1e3a8a',
+export const text = {
+  // 暗色模式文本
+  primary: '#F5F5F5',      // 主文本
+  secondary: '#B0BEC5',    // 辅助文本
+  tertiary: '#78909C',     // 第三级文本
+  inverse: '#0B0E14',      // 反色文本
+  
+  // 亮色模式文本
+  lightPrimary: '#1E293B',  // 主文本
+  lightSecondary: '#475569', // 辅助文本
+  lightTertiary: '#94A3B8', // 第三级文本
 } as const;
 
 // ============================================================================
@@ -129,86 +102,203 @@ export const blue = {
 // ============================================================================
 
 /**
- * 亮色模式色彩令牌
+ * 暗色模式色彩令牌
+ * 基于「霓虹暗夜」视觉语言
  */
-export const lightTheme = {
-  // Primary Colors
-  primary: indigo[600],
-  primaryHover: indigo[700],
-  primaryActive: indigo[800],
+export const darkTheme = {
+  // Primary Colors - 电光青（用户意图）
+  primary: energy.xiu,
+  primaryHover: energy.xiuHover,
+  primaryActive: energy.xiuDim,
   
-  // Accent Colors (AI Spark)
-  accent: cyan[500],
-  accentHover: cyan[600],
+  // Accent Colors - 霓虹紫（AI 生成）
+  accent: energy.ai,
+  accentHover: energy.aiHover,
   
   // Text Colors
-  textPrimary: neutral[900],
-  textSecondary: neutral[700],
-  textTertiary: neutral[500],
-  textInverse: neutral[50],
+  textPrimary: text.primary,
+  textSecondary: text.secondary,
+  textTertiary: text.tertiary,
+  textInverse: text.inverse,
   
-  // Surface Colors
-  surfaceBg: neutral[50],
-  surfaceCard: '#ffffff',
-  surfaceHover: neutral[100],
-  surfaceActive: neutral[200],
+  // Surface Colors - 虚空色阶
+  surfaceBg: void_.bg,
+  surfaceCard: void_.surface1,
+  surfaceHover: void_.surface2,
+  surfaceActive: void_.surface3,
   
   // Border Colors
-  border: neutral[200],
-  borderHover: neutral[300],
-  borderFocus: indigo[600],
+  border: void_.surface3,
+  borderHover: void_.surface2,
+  borderFocus: energy.xiu,
   
-  // Semantic Colors
-  success: green[600],
-  successLight: green[100],
-  warning: amber[500],
-  warningLight: amber[100],
-  error: red[600],
-  errorLight: red[100],
-  info: blue[500],
-  infoLight: blue[100],
+  // Semantic Colors - 信号色
+  success: signal.success,
+  successLight: signal.successBg,
+  warning: signal.warn,
+  warningLight: signal.warnBg,
+  error: signal.error,
+  errorLight: signal.errorBg,
+  info: signal.info,
+  infoLight: signal.infoBg,
 } as const;
 
 /**
- * 暗色模式色彩令牌
- * 注意：所有颜色都经过去饱和处理，避免视觉振动
+ * 亮色模式色彩令牌
+ * 保持能量色阶的核心特征，适配亮色背景
  */
-export const darkTheme = {
-  // Primary Colors (去饱和，更浅的色调)
-  primary: indigo[300],
-  primaryHover: indigo[400],
-  primaryActive: indigo[500],
+export const lightTheme = {
+  // Primary Colors - 电光青（亮色版本）
+  primary: energy.xiuLight,
+  primaryHover: '#0097A7',
+  primaryActive: '#00838F',
   
-  // Accent Colors (AI Spark)
-  accent: cyan[400],
-  accentHover: cyan[500],
+  // Accent Colors - 霓虹紫（亮色版本）
+  accent: energy.aiLight,
+  accentHover: '#9C27B0',
   
-  // Text Colors (避免纯白)
-  textPrimary: neutral[100],
-  textSecondary: neutral[300],
-  textTertiary: neutral[500],
-  textInverse: neutral[900],
+  // Text Colors
+  textPrimary: text.lightPrimary,
+  textSecondary: text.lightSecondary,
+  textTertiary: text.lightTertiary,
+  textInverse: text.primary,
   
-  // Surface Colors (避免纯黑)
-  surfaceBg: neutral[900],
-  surfaceCard: neutral[800],
-  surfaceHover: neutral[700],
-  surfaceActive: neutral[600],
+  // Surface Colors - 亮色虚空
+  surfaceBg: void_.lightBg,
+  surfaceCard: void_.lightSurface1,
+  surfaceHover: void_.lightSurface2,
+  surfaceActive: void_.lightSurface3,
   
   // Border Colors
-  border: neutral[700],
-  borderHover: neutral[600],
-  borderFocus: indigo[300],
+  border: void_.lightSurface3,
+  borderHover: '#CBD5E1',
+  borderFocus: energy.xiuLight,
   
-  // Semantic Colors (去饱和)
-  success: green[300],
-  successLight: green[900],
-  warning: amber[300],
-  warningLight: amber[900],
-  error: red[300],
-  errorLight: red[900],
-  info: blue[300],
-  infoLight: blue[900],
+  // Semantic Colors - 信号色（亮色版本）
+  success: signal.successLight,
+  successLight: '#E8F5E9',
+  warning: signal.warnLight,
+  warningLight: '#FFFDE7',
+  error: signal.errorLight,
+  errorLight: '#FFEBEE',
+  info: signal.infoLight,
+  infoLight: '#E3F2FD',
+} as const;
+
+// ============================================================================
+// Legacy Compatibility - 向后兼容的旧色阶
+// ============================================================================
+
+/**
+ * @deprecated Use energy.xiu instead
+ */
+export const indigo = {
+  50: '#E0F7FA',
+  100: '#B2EBF2',
+  200: '#80DEEA',
+  300: energy.xiu,         // 暗黑模式主色 -> 电光青
+  400: energy.xiuHover,    // 暗黑模式悬停
+  500: '#00ACC1',
+  600: energy.xiuLight,    // 亮色模式主色
+  700: '#00838F',          // 亮色模式悬停
+  800: '#006064',
+  900: '#004D40',
+} as const;
+
+/**
+ * @deprecated Use energy.ai instead
+ */
+export const cyan = {
+  50: '#FCE4EC',
+  100: '#F8BBD9',
+  200: '#F48FB1',
+  300: '#F06292',
+  400: energy.ai,          // 暗黑模式辅色 -> 霓虹紫
+  500: energy.aiLight,     // 亮色模式辅色
+  600: '#8E24AA',
+  700: '#7B1FA2',
+  800: '#6A1B9A',
+  900: '#4A148C',
+} as const;
+
+/**
+ * @deprecated Use void_ instead
+ */
+export const neutral = {
+  50: void_.lightBg,       // 亮色模式背景
+  100: text.primary,       // 暗黑模式主文本
+  200: void_.lightSurface3, // 亮色模式边框
+  300: text.secondary,     // 暗黑模式辅文本
+  400: '#78909C',
+  500: text.tertiary,
+  600: '#546E7A',
+  700: void_.surface3,     // 暗黑模式边框
+  800: void_.surface1,     // 暗黑模式卡片
+  900: void_.bg,           // 暗黑模式背景
+} as const;
+
+/**
+ * @deprecated Use signal.success instead
+ */
+export const green = {
+  50: signal.successBg,
+  100: signal.successBg,
+  200: 'rgba(0, 230, 118, 0.4)',
+  300: signal.success,     // 暗黑模式成功色
+  400: signal.success,
+  500: signal.success,
+  600: signal.successLight, // 亮色模式成功色
+  700: '#00A844',
+  800: '#008C39',
+  900: '#00662A',
+} as const;
+
+/**
+ * @deprecated Use signal.warn instead
+ */
+export const amber = {
+  50: signal.warnBg,
+  100: signal.warnBg,
+  200: 'rgba(255, 234, 0, 0.4)',
+  300: signal.warn,        // 暗黑模式警告色
+  400: signal.warn,
+  500: signal.warnLight,   // 亮色模式警告色
+  600: '#FFC400',
+  700: '#FFAB00',
+  800: '#FF8F00',
+  900: '#FF6F00',
+} as const;
+
+/**
+ * @deprecated Use signal.error instead
+ */
+export const red = {
+  50: signal.errorBg,
+  100: signal.errorBg,
+  200: 'rgba(255, 23, 68, 0.4)',
+  300: signal.error,       // 暗黑模式错误色
+  400: signal.error,
+  500: signal.error,
+  600: signal.errorLight,  // 亮色模式错误色
+  700: '#B71C1C',
+  800: '#8E0000',
+  900: '#5D0000',
+} as const;
+
+/**
+ * @deprecated Use signal.info instead
+ */
+export const blue = {
+  50: signal.infoBg,
+  100: signal.infoBg,
+  200: 'rgba(33, 150, 243, 0.4)',
+  300: signal.info,        // 暗黑模式信息色
+  400: signal.info,
+  500: signal.info,        // 亮色模式信息色
+  600: signal.infoLight,
+  700: '#1565C0',
+  800: '#0D47A1',
+  900: '#0A3D91',
 } as const;
 
 // ============================================================================
@@ -260,8 +350,8 @@ export function getTheme(mode: ThemeMode = 'dark'): ColorTheme {
  * 将设计令牌映射到 Ink 的颜色名称
  */
 export const inkColorMap = {
-  primary: 'blue' as const,      // Indigo 在终端中显示为 blue
-  accent: 'cyan' as const,
+  primary: 'cyan' as const,     // 电光青 -> cyan
+  accent: 'magenta' as const,   // 霓虹紫 -> magenta
   success: 'green' as const,
   warning: 'yellow' as const,
   error: 'red' as const,
@@ -273,8 +363,8 @@ export const inkColorMap = {
  * Chalk 颜色映射（用于终端输出）
  */
 export const chalkColorMap = {
-  primary: 'blue',
-  accent: 'cyan',
+  primary: 'cyan',              // 电光青
+  accent: 'magenta',            // 霓虹紫
   success: 'green',
   warning: 'yellow',
   error: 'red',
@@ -287,7 +377,13 @@ export const chalkColorMap = {
 // ============================================================================
 
 export const colors = {
-  // Color scales
+  // New color scales
+  void: void_,
+  energy,
+  signal,
+  text,
+  
+  // Legacy color scales (deprecated)
   indigo,
   cyan,
   neutral,
@@ -307,4 +403,3 @@ export const colors = {
 } as const;
 
 export default colors;
-
