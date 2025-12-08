@@ -155,7 +155,7 @@ class IdeaAgentViewModel(
      * Start MCP servers preloading in background.
      * Aligned with CodingAgentViewModel's startMcpPreloading().
      */
-    private suspend fun startMcpPreloading() {
+    private suspend fun startMcpPreloading() = withContext(Dispatchers.Default) {
         try {
             _mcpPreloadingMessage.value = "Loading MCP servers configuration..."
 
@@ -167,7 +167,7 @@ class IdeaAgentViewModel(
 
             if (toolConfig.mcpServers.isEmpty()) {
                 _mcpPreloadingMessage.value = "No MCP servers configured"
-                return
+                return@withContext
             }
 
             _mcpPreloadingMessage.value = "Initializing ${toolConfig.mcpServers.size} MCP servers..."
@@ -197,6 +197,9 @@ class IdeaAgentViewModel(
             } else {
                 "MCP servers initialization completed (no tools loaded)"
             }
+        } catch (e: CancellationException) {
+            // Cancellation is expected when configuration is reloaded, don't log as error
+            throw e
         } catch (e: Exception) {
             _mcpPreloadingMessage.value = "Failed to load MCP servers: ${e.message}"
         }

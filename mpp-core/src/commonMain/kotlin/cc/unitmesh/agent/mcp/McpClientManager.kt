@@ -190,6 +190,10 @@ class McpClientManager(
 
         try {
             return@withContext connectAndDiscoverTools(serverName, serverConfig)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            // Cancellation is expected, rethrow to propagate properly
+            logger.debug { "Tool discovery for server '$serverName' was cancelled" }
+            throw e
         } catch (e: Exception) {
             logger.error(e) { "Error discovering tools for server '$serverName': ${e.message}" }
             return@withContext emptyList()

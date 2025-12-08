@@ -94,63 +94,71 @@ object McpToolConfigManager {
                 try {
                     logger.info { "Starting MCP servers preloading for ${toolConfig.mcpServers.size} servers..." }
 
-                // Initialize client manager with MCP config
-                val mcpConfig = McpConfig(mcpServers = toolConfig.mcpServers)
-                clientManager.initialize(mcpConfig)
+                    // Initialize client manager with MCP config
+                    val mcpConfig = McpConfig(mcpServers = toolConfig.mcpServers)
+                    clientManager.initialize(mcpConfig)
 
-                // Create cache key for this configuration
-                val cacheKey = createCacheKey(toolConfig.mcpServers)
+                    // Create cache key for this configuration
+                    val cacheKey = createCacheKey(toolConfig.mcpServers)
 
-                // Preload tools from all enabled servers concurrently
-                val enabledMcpTools = toolConfig.enabledMcpTools.toSet()
-                val preloadResults = mutableMapOf<String, List<ToolItem>>()
+                    // Preload tools from all enabled servers concurrently
+                    val enabledMcpTools = toolConfig.enabledMcpTools.toSet()
+                    val preloadResults = mutableMapOf<String, List<ToolItem>>()
 
-                coroutineScope {
-                    val jobs = toolConfig.mcpServers.filter { !it.value.disabled }.map { (serverName, _) ->
-                        async {
-                            try {
-                                logger.info { "Preloading tools for MCP server: $serverName" }
-                                val discoveredTools = clientManager.discoverServerTools(serverName)
+                    coroutineScope {
+                        val jobs = toolConfig.mcpServers.filter { !it.value.disabled }.map { (serverName, _) ->
+                            async {
+                                try {
+                                    logger.info { "Preloading tools for MCP server: $serverName" }
+                                    val discoveredTools = clientManager.discoverServerTools(serverName)
 
-                                val tools = discoveredTools.map { toolInfo ->
-                                    ToolItem(
-                                        name = toolInfo.name, // Use actual tool name, not prefixed
-                                        displayName = toolInfo.name,
-                                        description = toolInfo.description,
-                                        category = "MCP",
-                                        source = ToolSource.MCP,
-                                        enabled = toolInfo.name in enabledMcpTools, // Check by actual tool name
-                                        serverName = serverName,
-                                        schema = toolInfo.inputSchema
-                                    )
+                                    val tools = discoveredTools.map { toolInfo ->
+                                        ToolItem(
+                                            name = toolInfo.name, // Use actual tool name, not prefixed
+                                            displayName = toolInfo.name,
+                                            description = toolInfo.description,
+                                            category = "MCP",
+                                            source = ToolSource.MCP,
+                                            enabled = toolInfo.name in enabledMcpTools, // Check by actual tool name
+                                            serverName = serverName,
+                                            schema = toolInfo.inputSchema
+                                        )
+                                    }
+
+                                    preloadResults[serverName] = tools
+                                    preloadedServers.add(serverName)
+                                    logger.info { "Successfully preloaded ${tools.size} tools from MCP server: $serverName" }
+
+                                } catch (e: CancellationException) {
+                                    // Cancellation is expected when init() is called again, rethrow to propagate
+                                    logger.debug { "Preloading for MCP server '$serverName' was cancelled" }
+                                    throw e
+                                } catch (e: Exception) {
+                                    logger.error(e) { "Failed to preload tools from MCP server '$serverName': ${e.message}" }
                                 }
-
-                                preloadResults[serverName] = tools
-                                preloadedServers.add(serverName)
-                                logger.info { "Successfully preloaded ${tools.size} tools from MCP server: $serverName" }
-
-                            } catch (e: Exception) {
-                                logger.error(e) { "Failed to preload tools from MCP server '$serverName': ${e.message}" }
                             }
                         }
+
+                        // Wait for all preloading jobs to complete
+                        jobs.awaitAll()
                     }
 
-                    // Wait for all preloading jobs to complete
-                    jobs.awaitAll()
-                }
+                    // Cache the preloaded results
+                    if (preloadResults.isNotEmpty()) {
+                        cached[cacheKey] = preloadResults
+                        lastDiscoveredToolsCount = preloadResults.values.sumOf { it.size }
+                        logger.info { "MCP servers preloading completed. Cached tools from ${preloadedServers.size} servers." }
+                    } else {
+                        lastDiscoveredToolsCount = 0
+                        logger.info { "MCP servers preloading completed but no tools were loaded." }
+                    }
 
-                // Cache the preloaded results
-                if (preloadResults.isNotEmpty()) {
-                    cached[cacheKey] = preloadResults
-                    lastDiscoveredToolsCount = preloadResults.values.sumOf { it.size }
-                    logger.info { "MCP servers preloading completed. Cached tools from ${preloadedServers.size} servers." }
-                } else {
-                    lastDiscoveredToolsCount = 0
-                    logger.info { "MCP servers preloading completed but no tools were loaded." }
-                }
-
-            } catch (e: Exception) {
-                logger.error(e) { "Error during MCP servers preloading: ${e.message}" }
+                } catch (e: CancellationException) {
+                    // Cancellation is expected when init() is called again, don't log as error
+                    logger.debug { "MCP servers preloading was cancelled" }
+                    throw e // Rethrow to properly cancel the coroutine
+                } catch (e: Exception) {
+                    logger.error(e) { "Error during MCP servers preloading: ${e.message}" }
                 } finally {
                     isPreloading = false
                 }
