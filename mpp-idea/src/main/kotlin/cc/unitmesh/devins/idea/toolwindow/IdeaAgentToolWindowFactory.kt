@@ -1,13 +1,13 @@
 package cc.unitmesh.devins.idea.toolwindow
 
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
-import cc.unitmesh.devins.idea.services.CoroutineScopeHolder
 import org.jetbrains.jewel.bridge.addComposeTab
 
 /**
@@ -39,9 +39,22 @@ class IdeaAgentToolWindowFactory : ToolWindowFactory {
     override fun shouldBeAvailable(project: Project): Boolean = true
 
     private fun createAgentPanel(project: Project, toolWindow: ToolWindow) {
+        val toolWindowDisposable = toolWindow.disposable
+
         toolWindow.addComposeTab("Agent") {
             val coroutineScope = rememberCoroutineScope()
-            val viewModel = IdeaAgentViewModel(project, coroutineScope)
+            val viewModel = remember { IdeaAgentViewModel(project, coroutineScope) }
+
+            // Register ViewModel with tool window's disposable to ensure proper cleanup
+            // This fixes the memory leak where ViewModel was registered with ROOT_DISPOSABLE
+            DisposableEffect(viewModel) {
+                Disposer.register(toolWindowDisposable, viewModel)
+                onDispose {
+                    // ViewModel will be disposed when toolWindowDisposable is disposed
+                    // No need to manually dispose here as Disposer handles the hierarchy
+                }
+            }
+
             IdeaAgentApp(viewModel, project, coroutineScope)
         }
     }
