@@ -9,7 +9,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.sp
-import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
+import cc.unitmesh.devins.idea.theme.IdeaAutoDevColors
 import cc.unitmesh.markdown.MarkdownTextParser
 import org.intellij.markdown.MarkdownElementTypes
 import org.intellij.markdown.MarkdownTokenTypes
@@ -87,7 +87,7 @@ object MarkdownInlineRenderer {
                     val url = child.getTextInNode(content).toString()
                     pushStringAnnotation("URL", url)
                     withStyle(SpanStyle(
-                        color = AutoDevColors.Blue.c400,
+                        color = IdeaAutoDevColors.Blue.c400,
                         textDecoration = TextDecoration.Underline
                     )) {
                         append(url)
@@ -122,7 +122,7 @@ object MarkdownInlineRenderer {
 
         pushStringAnnotation("URL", url)
         withStyle(SpanStyle(
-            color = AutoDevColors.Blue.c400,
+            color = IdeaAutoDevColors.Blue.c400,
             textDecoration = TextDecoration.Underline
         )) {
             append(text)
@@ -137,7 +137,7 @@ object MarkdownInlineRenderer {
         val url = MarkdownTextParser.extractAutoLinkUrl(node, content)
         pushStringAnnotation("URL", url)
         withStyle(SpanStyle(
-            color = AutoDevColors.Blue.c400,
+            color = IdeaAutoDevColors.Blue.c400,
             textDecoration = TextDecoration.Underline
         )) {
             append(url)

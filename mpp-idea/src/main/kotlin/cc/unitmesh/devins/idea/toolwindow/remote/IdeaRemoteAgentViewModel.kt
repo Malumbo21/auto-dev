@@ -2,7 +2,7 @@ package cc.unitmesh.devins.idea.toolwindow.remote
 
 import cc.unitmesh.agent.RemoteAgentEvent
 import cc.unitmesh.devins.idea.renderer.JewelRenderer
-import cc.unitmesh.devins.ui.config.ConfigManager
+import cc.unitmesh.config.ConfigManager
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.project.Project
 import kotlinx.coroutines.*
@@ -62,9 +62,10 @@ class IdeaRemoteAgentViewModel(
 
     /**
      * Check connection to server
+     * Uses Dispatchers.IO to avoid blocking EDT during network calls
      */
     fun checkConnection() {
-        coroutineScope.launch {
+        coroutineScope.launch(Dispatchers.IO) {
             try {
                 val health = client.healthCheck()
                 _isConnected.value = health.status == "ok"
@@ -99,7 +100,8 @@ class IdeaRemoteAgentViewModel(
         renderer.clearError()
         renderer.addUserMessage(task)
 
-        currentExecutionJob = coroutineScope.launch {
+        // Use Dispatchers.IO to avoid blocking EDT during network streaming
+        currentExecutionJob = coroutineScope.launch(Dispatchers.IO) {
             try {
                 val llmConfig = if (!useServerConfig) {
                     val config = ConfigManager.load()

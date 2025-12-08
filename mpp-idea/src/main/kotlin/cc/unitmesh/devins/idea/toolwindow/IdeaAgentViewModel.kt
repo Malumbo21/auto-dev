@@ -9,13 +9,13 @@ import cc.unitmesh.agent.config.PreloadingStatus
 import cc.unitmesh.agent.config.ToolConfigFile
 import cc.unitmesh.agent.tool.ToolType
 import cc.unitmesh.agent.tool.schema.ToolCategory
+import cc.unitmesh.config.AutoDevConfigWrapper
+import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.devins.compiler.service.DevInsCompilerService
 import cc.unitmesh.devins.idea.compiler.IdeaDevInsCompilerService
 import cc.unitmesh.devins.idea.renderer.JewelRenderer
 import cc.unitmesh.devins.idea.services.IdeaToolConfigService
 import cc.unitmesh.devins.idea.tool.IdeaToolProvider
-import cc.unitmesh.devins.ui.config.AutoDevConfigWrapper
-import cc.unitmesh.devins.ui.config.ConfigManager
 import cc.unitmesh.llm.KoogLLMService
 import cc.unitmesh.llm.ModelConfig
 import cc.unitmesh.llm.NamedModelConfig
@@ -120,9 +120,10 @@ class IdeaAgentViewModel(
 
     /**
      * Load configuration from ConfigManager (~/.autodev/config.yaml)
+     * Uses Dispatchers.IO to avoid blocking EDT
      */
     private fun loadConfiguration() {
-        coroutineScope.launch {
+        coroutineScope.launch(Dispatchers.IO) {
             try {
                 val wrapper = ConfigManager.load()
                 _configWrapper.value = wrapper
@@ -182,7 +183,8 @@ class IdeaAgentViewModel(
                 (System.currentTimeMillis() - startTime) < timeoutMs
             ) {
                 _mcpPreloadingStatus.value = McpToolConfigManager.getPreloadingStatus()
-                _mcpPreloadingMessage.value = "Loading MCP servers... (${_mcpPreloadingStatus.value.preloadedServers.size} completed)"
+                _mcpPreloadingMessage.value =
+                    "Loading MCP servers... (${_mcpPreloadingStatus.value.preloadedServers.size} completed)"
                 delay(500)
             }
 
@@ -197,6 +199,9 @@ class IdeaAgentViewModel(
             } else {
                 "MCP servers initialization completed (no tools loaded)"
             }
+        } catch (e: CancellationException) {
+            // Cancellation is expected when configuration is reloaded, don't log as error
+            throw e
         } catch (e: Exception) {
             _mcpPreloadingMessage.value = "Failed to load MCP servers: ${e.message}"
         }
@@ -228,13 +233,15 @@ class IdeaAgentViewModel(
                     AgentType.CODE_REVIEW -> "CodeReview"
                     AgentType.KNOWLEDGE -> "Documents"
                 }
-                cc.unitmesh.devins.ui.config.saveAgentTypePreference(typeString)
+
+                AutoDevConfigWrapper.saveAgentTypePreference(typeString)
             } catch (e: Exception) {
                 // Silently fail - not critical if we can't save preference
                 println("⚠️ Failed to save agent type preference: ${e.message}")
             }
         }
     }
+
 
     /**
      * Initialize the CodingAgent with tool configuration.
@@ -346,7 +353,8 @@ class IdeaAgentViewModel(
         renderer.clearError()
         renderer.addUserMessage(task)
 
-        currentJob = coroutineScope.launch {
+        // Use Dispatchers.IO to avoid blocking EDT during LLM streaming
+        currentJob = coroutineScope.launch(Dispatchers.IO) {
             try {
                 val agent = initializeCodingAgent()
                 val projectPath = project.basePath ?: System.getProperty("user.home")
@@ -418,8 +426,9 @@ class IdeaAgentViewModel(
                 }
 
                 // Treat as a regular task
+                // Use Dispatchers.IO to avoid blocking EDT during LLM streaming
                 _isExecuting.value = true
-                currentJob = coroutineScope.launch {
+                currentJob = coroutineScope.launch(Dispatchers.IO) {
                     try {
                         val agent = initializeCodingAgent()
                         val projectPath = project.basePath ?: System.getProperty("user.home")

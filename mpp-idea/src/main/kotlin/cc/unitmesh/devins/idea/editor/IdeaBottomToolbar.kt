@@ -7,7 +7,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cc.unitmesh.devins.idea.toolwindow.IdeaComposeIcons
-import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
+import cc.unitmesh.devins.idea.theme.IdeaAutoDevColors
 import cc.unitmesh.llm.NamedModelConfig
 import com.intellij.openapi.project.Project
 import org.jetbrains.jewel.foundation.theme.JewelTheme
@@ -124,13 +124,13 @@ fun IdeaBottomToolbar(
                         Icon(
                             imageVector = IdeaComposeIcons.Stop,
                             contentDescription = "Stop",
-                            tint = AutoDevColors.Red.c400,
+                            tint = IdeaAutoDevColors.Red.c400,
                             modifier = Modifier.size(14.dp)
                         )
                         Text(
                             text = "Stop",
                             style = JewelTheme.defaultTextStyle.copy(
-                                color = AutoDevColors.Red.c400
+                                color = IdeaAutoDevColors.Red.c400
                             )
                         )
                     }

@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cc.unitmesh.agent.render.TimelineItem
 import cc.unitmesh.devins.idea.toolwindow.IdeaComposeIcons
-import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
+import cc.unitmesh.devins.idea.theme.IdeaAutoDevColors
 import com.intellij.openapi.ide.CopyPasteManager
 import org.jetbrains.jewel.foundation.theme.JewelTheme
 import org.jetbrains.jewel.ui.component.Icon
@@ -95,9 +95,9 @@ fun IdeaToolCallBubble(
                     },
                     modifier = Modifier.size(16.dp),
                     tint = when {
-                        isExecuting -> AutoDevColors.Blue.c400
-                        item.success == true -> AutoDevColors.Green.c400
-                        else -> AutoDevColors.Red.c400
+                        isExecuting -> IdeaAutoDevColors.Blue.c400
+                        item.success == true -> IdeaAutoDevColors.Green.c400
+                        else -> IdeaAutoDevColors.Red.c400
                     }
                 )
 
@@ -115,8 +115,8 @@ fun IdeaToolCallBubble(
                         style = JewelTheme.defaultTextStyle.copy(
                             fontSize = 12.sp,
                             color = when {
-                                item.success == true -> AutoDevColors.Green.c400
-                                item.success == false -> AutoDevColors.Red.c400
+                                item.success == true -> IdeaAutoDevColors.Green.c400
+                                item.success == false -> IdeaAutoDevColors.Red.c400
                                 else -> JewelTheme.globalColors.text.info
                             }
                         ),
@@ -205,7 +205,7 @@ fun IdeaToolCallBubble(
                                         text = if (showFullParams) "Show Less" else "Show All",
                                         style = JewelTheme.defaultTextStyle.copy(
                                             fontSize = 11.sp,
-                                            color = AutoDevColors.Blue.c400
+                                            color = IdeaAutoDevColors.Blue.c400
                                         ),
                                         modifier = Modifier.clickable { showFullParams = !showFullParams }
                                     )
@@ -272,7 +272,7 @@ fun IdeaToolCallBubble(
                                         text = if (showFullOutput) "Show Less" else "Show Full",
                                         style = JewelTheme.defaultTextStyle.copy(
                                             fontSize = 11.sp,
-                                            color = AutoDevColors.Blue.c400
+                                            color = IdeaAutoDevColors.Blue.c400
                                         ),
                                         modifier = Modifier.clickable { showFullOutput = !showFullOutput }
                                     )
@@ -333,7 +333,7 @@ fun IdeaCurrentToolCallItem(
         modifier = modifier
             .fillMaxWidth()
             .background(
-                color = AutoDevColors.Blue.c400.copy(alpha = 0.15f),
+                color = IdeaAutoDevColors.Blue.c400.copy(alpha = 0.15f),
                 shape = RoundedCornerShape(8.dp)
             )
             .padding(horizontal = 12.dp, vertical = 8.dp)
@@ -346,7 +346,7 @@ fun IdeaCurrentToolCallItem(
             Text(
                 text = "...",
                 style = JewelTheme.defaultTextStyle.copy(
-                    color = AutoDevColors.Blue.c400,
+                    color = IdeaAutoDevColors.Blue.c400,
                     fontWeight = FontWeight.Bold
                 )
             )
@@ -371,7 +371,7 @@ fun IdeaCurrentToolCallItem(
             Box(
                 modifier = Modifier
                     .background(
-                        color = AutoDevColors.Blue.c400,
+                        color = IdeaAutoDevColors.Blue.c400,
                         shape = RoundedCornerShape(12.dp)
                     )
                     .padding(horizontal = 8.dp, vertical = 4.dp)
@@ -381,7 +381,7 @@ fun IdeaCurrentToolCallItem(
                     style = JewelTheme.defaultTextStyle.copy(
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
-                        color = AutoDevColors.Neutral.c50
+                        color = IdeaAutoDevColors.Neutral.c50
                     )
                 )
             }

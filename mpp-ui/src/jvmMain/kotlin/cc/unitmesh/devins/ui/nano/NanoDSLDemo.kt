@@ -14,7 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import cc.unitmesh.devins.parser.CodeFence
-import cc.unitmesh.devins.ui.config.ConfigManager
+import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.llm.KoogLLMService
 import cc.unitmesh.llm.ModelConfig
 import cc.unitmesh.xuiper.dsl.NanoDSL

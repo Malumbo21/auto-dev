@@ -23,7 +23,7 @@ import cc.unitmesh.devins.ui.compose.editor.DevInEditorInput
 import cc.unitmesh.devins.ui.compose.editor.ModelConfigDialog
 import cc.unitmesh.devins.ui.compose.theme.AutoDevTheme
 import cc.unitmesh.devins.ui.compose.theme.ThemeManager
-import cc.unitmesh.devins.ui.config.ConfigManager
+import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.devins.ui.session.SessionViewModel
 import cc.unitmesh.devins.ui.session.SessionClient
 import cc.unitmesh.devins.workspace.WorkspaceManager

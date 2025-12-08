@@ -29,7 +29,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import cc.unitmesh.devins.ui.compose.icons.AutoDevComposeIcons
 import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
-import cc.unitmesh.devins.ui.config.ConfigManager
+import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.devins.workspace.Workspace
 import cc.unitmesh.indexer.DomainDictGenerator
 import cc.unitmesh.indexer.DomainDictService

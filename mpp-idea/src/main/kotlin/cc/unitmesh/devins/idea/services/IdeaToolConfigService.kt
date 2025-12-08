@@ -1,7 +1,7 @@
 package cc.unitmesh.devins.idea.services
 
 import cc.unitmesh.agent.config.ToolConfigFile
-import cc.unitmesh.devins.ui.config.ConfigManager
+import cc.unitmesh.config.ConfigManager
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service

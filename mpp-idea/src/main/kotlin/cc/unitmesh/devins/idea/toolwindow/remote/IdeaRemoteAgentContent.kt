@@ -15,7 +15,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import cc.unitmesh.devins.idea.compose.IdeaLaunchedEffect
 import cc.unitmesh.devins.idea.components.timeline.IdeaTimelineContent
-import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
+import cc.unitmesh.devins.idea.theme.IdeaAutoDevColors
 import kotlinx.coroutines.flow.distinctUntilChanged
 import org.jetbrains.jewel.foundation.theme.JewelTheme
 import org.jetbrains.jewel.ui.component.*
@@ -294,7 +294,7 @@ private fun ConnectionStatusBar(
     modifier: Modifier = Modifier
 ) {
     val statusColor by animateColorAsState(
-        targetValue = if (isConnected) AutoDevColors.Green.c400 else AutoDevColors.Red.c400,
+        targetValue = if (isConnected) IdeaAutoDevColors.Green.c400 else IdeaAutoDevColors.Red.c400,
         label = "statusColor"
     )
 

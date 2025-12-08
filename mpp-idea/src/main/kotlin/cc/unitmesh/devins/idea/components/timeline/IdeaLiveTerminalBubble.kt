@@ -21,7 +21,7 @@ import cc.unitmesh.agent.tool.shell.ShellSessionManager
 import cc.unitmesh.devins.idea.compose.IdeaLaunchedEffect
 import cc.unitmesh.devins.idea.compose.rememberIdeaCoroutineScope
 import cc.unitmesh.devins.idea.renderer.terminal.IdeaAnsiTerminalRenderer
-import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
+import cc.unitmesh.devins.idea.theme.IdeaAutoDevColors
 import com.intellij.openapi.project.Project
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
@@ -220,7 +220,7 @@ fun IdeaLiveTerminalBubble(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(AutoDevColors.Neutral.c900, RoundedCornerShape(4.dp))
+            .background(IdeaAutoDevColors.Neutral.c900, RoundedCornerShape(4.dp))
             .padding(8.dp)
     ) {
         // Header row
@@ -237,9 +237,9 @@ fun IdeaLiveTerminalBubble(
                     .size(8.dp)
                     .clip(CircleShape)
                     .background(
-                        if (isRunning) AutoDevColors.Green.c400
-                        else if (actualExitCode == 0) AutoDevColors.Green.c400
-                        else AutoDevColors.Red.c400
+                        if (isRunning) IdeaAutoDevColors.Green.c400
+                        else if (actualExitCode == 0) IdeaAutoDevColors.Green.c400
+                        else IdeaAutoDevColors.Red.c400
                     )
             )
 
@@ -255,7 +255,7 @@ fun IdeaLiveTerminalBubble(
                 style = JewelTheme.defaultTextStyle.copy(
                     fontFamily = FontFamily.Monospace,
                     fontSize = 12.sp,
-                    color = AutoDevColors.Cyan.c400
+                    color = IdeaAutoDevColors.Cyan.c400
                 ),
                 modifier = Modifier.weight(1f),
                 maxLines = 1
@@ -263,9 +263,9 @@ fun IdeaLiveTerminalBubble(
 
             // Status badge
             val (statusText, statusColor) = when {
-                isRunning -> "RUNNING" to AutoDevColors.Green.c400
-                actualExitCode == 0 -> "EXIT 0" to AutoDevColors.Green.c400
-                else -> "EXIT ${actualExitCode ?: "?"}" to AutoDevColors.Red.c400
+                isRunning -> "RUNNING" to IdeaAutoDevColors.Green.c400
+                actualExitCode == 0 -> "EXIT 0" to IdeaAutoDevColors.Green.c400
+                else -> "EXIT ${actualExitCode ?: "?"}" to IdeaAutoDevColors.Red.c400
             }
 
             Box(
@@ -291,7 +291,7 @@ fun IdeaLiveTerminalBubble(
                 style = JewelTheme.defaultTextStyle.copy(
                     fontSize = 10.sp,
                     fontFamily = FontFamily.Monospace,
-                    color = AutoDevColors.Neutral.c400
+                    color = IdeaAutoDevColors.Neutral.c400
                 ),
                 modifier = Modifier.padding(start = 16.dp, top = 2.dp)
             )
@@ -313,14 +313,14 @@ fun IdeaLiveTerminalBubble(
                             .padding(top = 8.dp)
                             .heightIn(min = 60.dp, max = 300.dp),
                         maxHeight = 300,
-                        backgroundColor = AutoDevColors.Neutral.c900
+                        backgroundColor = IdeaAutoDevColors.Neutral.c900
                     )
                 } else if (isRunning) {
                     Text(
                         text = "Waiting for output...",
                         style = JewelTheme.defaultTextStyle.copy(
                             fontSize = 11.sp,
-                            color = AutoDevColors.Neutral.c400
+                            color = IdeaAutoDevColors.Neutral.c400
                         ),
                         modifier = Modifier.padding(top = 8.dp)
                     )
@@ -333,7 +333,7 @@ fun IdeaLiveTerminalBubble(
                             .align(Alignment.BottomEnd)
                             .padding(4.dp)
                             .background(
-                                AutoDevColors.Red.c600.copy(alpha = 0.9f),
+                                IdeaAutoDevColors.Red.c600.copy(alpha = 0.9f),
                                 RoundedCornerShape(4.dp)
                             )
                             .clickable { handleCancel() }
@@ -344,7 +344,7 @@ fun IdeaLiveTerminalBubble(
                             style = JewelTheme.defaultTextStyle.copy(
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Medium,
-                                color = AutoDevColors.Neutral.c50
+                                color = IdeaAutoDevColors.Neutral.c50
                             )
                         )
                     }

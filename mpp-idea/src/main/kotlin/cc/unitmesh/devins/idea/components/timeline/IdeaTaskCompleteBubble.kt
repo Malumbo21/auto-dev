@@ -10,7 +10,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import cc.unitmesh.agent.render.TimelineItem
 import cc.unitmesh.devins.idea.toolwindow.IdeaComposeIcons
-import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
+import cc.unitmesh.devins.idea.theme.IdeaAutoDevColors
 import org.jetbrains.jewel.foundation.theme.JewelTheme
 import org.jetbrains.jewel.ui.component.Icon
 import org.jetbrains.jewel.ui.component.Text
@@ -32,9 +32,9 @@ fun IdeaTaskCompleteBubble(
             modifier = Modifier
                 .background(
                     color = if (item.success)
-                        AutoDevColors.Green.c400.copy(alpha = 0.2f)
+                        IdeaAutoDevColors.Green.c400.copy(alpha = 0.2f)
                     else
-                        AutoDevColors.Red.c400.copy(alpha = 0.2f),
+                        IdeaAutoDevColors.Red.c400.copy(alpha = 0.2f),
                     shape = RoundedCornerShape(16.dp)
                 )
                 .padding(horizontal = 16.dp, vertical = 8.dp)
@@ -47,7 +47,7 @@ fun IdeaTaskCompleteBubble(
                     imageVector = if (item.success) IdeaComposeIcons.CheckCircle else IdeaComposeIcons.Error,
                     contentDescription = if (item.success) "Success" else "Failed",
                     modifier = Modifier.size(16.dp),
-                    tint = if (item.success) AutoDevColors.Green.c400 else AutoDevColors.Red.c400
+                    tint = if (item.success) IdeaAutoDevColors.Green.c400 else IdeaAutoDevColors.Red.c400
                 )
                 Text(
                     text = "${item.message} (${item.iterations} iterations)",

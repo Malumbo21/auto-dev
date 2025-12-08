@@ -23,8 +23,8 @@ import cc.unitmesh.devins.idea.toolwindow.remote.getEffectiveProjectId
 import cc.unitmesh.devins.idea.components.status.IdeaToolLoadingStatusBar
 import cc.unitmesh.devins.idea.components.timeline.IdeaEmptyStateMessage
 import cc.unitmesh.devins.idea.components.timeline.IdeaTimelineContent
-import cc.unitmesh.devins.ui.config.AutoDevConfigWrapper
-import cc.unitmesh.devins.ui.config.ConfigManager
+import cc.unitmesh.config.AutoDevConfigWrapper
+import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.llm.ModelConfig
 import cc.unitmesh.llm.NamedModelConfig
 import com.intellij.openapi.project.Project
@@ -121,11 +121,13 @@ fun IdeaAgentApp(
     var remoteGitUrl by remember { mutableStateOf("") }
 
     // Auto-scroll to bottom when new items arrive
+    // Note: Using scrollToItem instead of animateScrollToItem because IdeaLaunchedEffect
+    // uses a custom coroutine scope that doesn't have MonotonicFrameClock required for animations
     IdeaLaunchedEffect(timeline.size, streamingOutput, project = project) {
         if (timeline.isNotEmpty() || streamingOutput.isNotEmpty()) {
             val targetIndex = if (streamingOutput.isNotEmpty()) timeline.size else timeline.lastIndex.coerceAtLeast(0)
             if (targetIndex >= 0) {
-                listState.animateScrollToItem(targetIndex)
+                listState.scrollToItem(targetIndex)
             }
         }
     }
@@ -298,40 +300,45 @@ fun IdeaAgentApp(
     }
 
     // Model Configuration Dialog using DialogWrapper for proper z-index handling
-    IdeaLaunchedEffect(showConfigDialog, project = project) {
+    // Use DisposableEffect instead of IdeaLaunchedEffect to avoid coroutine context issues
+    // DialogWrapper must be created on EDT, so we use invokeLater
+    DisposableEffect(showConfigDialog) {
         if (showConfigDialog) {
             val dialogConfig = currentModelConfig ?: ModelConfig()
-            IdeaModelConfigDialogWrapper.show(
-                project = project,
-                currentConfig = dialogConfig,
-                currentConfigName = currentConfigName,
-                onSave = { configName, newModelConfig ->
-                    // If creating a new config (not editing current), ensure unique name
-                    val existingNames = availableConfigs.map { it.name }
-                    val finalConfigName =
-                        if (currentConfigName != configName && configName in existingNames) {
-                            // Auto-increment: my-glm -> my-glm-1 -> my-glm-2, etc.
-                            ConfigManager.generateUniqueConfigName(configName, existingNames)
-                        } else {
-                            configName
+            com.intellij.openapi.application.ApplicationManager.getApplication().invokeLater {
+                IdeaModelConfigDialogWrapper.show(
+                    project = project,
+                    currentConfig = dialogConfig,
+                    currentConfigName = currentConfigName,
+                    onSave = { configName, newModelConfig ->
+                        // If creating a new config (not editing current), ensure unique name
+                        val existingNames = availableConfigs.map { it.name }
+                        val finalConfigName =
+                            if (currentConfigName != configName && configName in existingNames) {
+                                // Auto-increment: my-glm -> my-glm-1 -> my-glm-2, etc.
+                                ConfigManager.generateUniqueConfigName(configName, existingNames)
+                            } else {
+                                configName
+                            }
+
+                        // Convert ModelConfig to NamedModelConfig
+                        val namedConfig = NamedModelConfig.fromModelConfig(
+                            name = finalConfigName,
+                            config = newModelConfig
+                        )
+
+                        // Save to file
+                        viewModel.saveModelConfig(namedConfig, setActive = true)
+
+                        if (finalConfigName != configName) {
+                            println("Config name already exists, auto-renamed to: $finalConfigName")
                         }
-
-                    // Convert ModelConfig to NamedModelConfig
-                    val namedConfig = NamedModelConfig.fromModelConfig(
-                        name = finalConfigName,
-                        config = newModelConfig
-                    )
-
-                    // Save to file
-                    viewModel.saveModelConfig(namedConfig, setActive = true)
-
-                    if (finalConfigName != configName) {
-                        println("✅ 配置名称已存在，自动重命名为: $finalConfigName")
                     }
-                }
-            )
-            viewModel.setShowConfigDialog(false)
+                )
+                viewModel.setShowConfigDialog(false)
+            }
         }
+        onDispose { }
     }
 }
 

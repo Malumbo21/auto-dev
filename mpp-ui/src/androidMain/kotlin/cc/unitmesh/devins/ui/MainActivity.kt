@@ -6,7 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import cc.unitmesh.devins.db.DatabaseDriverFactory
 import cc.unitmesh.devins.ui.compose.PlatformAutoDevApp
-import cc.unitmesh.devins.ui.config.ConfigManager
+import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.devins.ui.platform.AndroidActivityProvider
 
 class MainActivity : ComponentActivity() {

@@ -21,8 +21,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cc.unitmesh.agent.AgentType
+import cc.unitmesh.devins.idea.theme.IdeaAutoDevColors
 import cc.unitmesh.devins.idea.toolwindow.IdeaComposeIcons
-import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
 import org.jetbrains.jewel.foundation.theme.JewelTheme
 import org.jetbrains.jewel.ui.component.Icon
 import org.jetbrains.jewel.ui.component.IconButton
@@ -223,7 +223,7 @@ private fun FancyActionButton(
 
     val iconColor by animateColorAsState(
         targetValue = if (isHovered) {
-            AutoDevColors.Blue.c400
+            IdeaAutoDevColors.Blue.c400
         } else {
             JewelTheme.globalColors.text.normal.copy(alpha = 0.7f)
         },
@@ -253,10 +253,10 @@ private fun FancyActionButton(
  */
 @Composable
 private fun getAgentTypeColor(type: AgentType): Color = when (type) {
-    AgentType.CODING -> AutoDevColors.Blue.c400
-    AgentType.CODE_REVIEW -> AutoDevColors.Indigo.c400
-    AgentType.KNOWLEDGE -> AutoDevColors.Green.c400
-    AgentType.REMOTE -> AutoDevColors.Amber.c400
+    AgentType.CODING -> IdeaAutoDevColors.Blue.c400
+    AgentType.CODE_REVIEW -> IdeaAutoDevColors.Indigo.c400
+    AgentType.KNOWLEDGE -> IdeaAutoDevColors.Green.c400
+    AgentType.REMOTE -> IdeaAutoDevColors.Amber.c400
     AgentType.LOCAL_CHAT -> JewelTheme.globalColors.text.normal
 }
 

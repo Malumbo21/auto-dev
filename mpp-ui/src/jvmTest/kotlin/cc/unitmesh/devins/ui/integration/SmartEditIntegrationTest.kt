@@ -4,7 +4,7 @@ import cc.unitmesh.agent.tool.impl.SmartEditParams
 import cc.unitmesh.agent.tool.impl.SmartEditTool
 import cc.unitmesh.agent.tool.filesystem.ToolFileSystem
 import cc.unitmesh.agent.tool.filesystem.FileInfo
-import cc.unitmesh.devins.ui.config.ConfigManager
+import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.llm.KoogLLMService
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json

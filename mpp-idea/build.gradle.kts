@@ -332,6 +332,7 @@ project(":") {
 
         // Use compileOnly for coroutines - IntelliJ provides these at runtime
         // This ensures we compile against the same API but use IntelliJ's ClassLoader at runtime
+        // Note: We use Dispatchers.EDT from IntelliJ Platform instead of Dispatchers.Swing
         compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
 
         // mpp-core dependency for root project - use published artifact
@@ -363,53 +364,8 @@ project(":") {
             // Note: Heavy dependencies (AWS, Tika, POI, PDFBox, PlantUML, Jsoup) are excluded globally above
         }
 
-        // mpp-ui dependency - use Maven coordinates (requires publishToMavenLocal first)
-        // Exclude all Compose/androidx to use IntelliJ's bundled versions
-        implementation("cc.unitmesh:mpp-ui:${prop("mppVersion")}") {
-            // Exclude all Compose dependencies - IntelliJ provides its own via bundledModules
-            exclude(group = "org.jetbrains.compose")
-            exclude(group = "org.jetbrains.compose.runtime")
-            exclude(group = "org.jetbrains.compose.foundation")
-            exclude(group = "org.jetbrains.compose.material3")
-            exclude(group = "org.jetbrains.compose.material")
-            exclude(group = "org.jetbrains.compose.ui")
-            exclude(group = "org.jetbrains.compose.desktop")
-            exclude(group = "org.jetbrains.compose.components")
-            exclude(group = "org.jetbrains.compose.animation")
-            exclude(group = "org.jetbrains.skiko")
-            exclude(group = "org.jetbrains.skia")
-            // Exclude kotlinx libraries - IntelliJ provides its own
-            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core")
-            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core-jvm")
-            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-swing")
-            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json")
-            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json-jvm")
-            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json-io")
-            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json-io-jvm")
-            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-core")
-            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-core-jvm")
-            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-io-core")
-            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-io-core-jvm")
-            // Exclude webview/KCEF - not needed in IntelliJ and causes issues
-            exclude(group = "io.github.kevinnzou")
-            exclude(group = "dev.datlag")
-            // Exclude other UI libraries that may conflict
-            exclude(group = "com.mohamedrejeb.richeditor")
-            exclude(group = "cafe.adriel.bonsai")
-            exclude(group = "com.mikepenz")
-            exclude(group = "io.github.vinceglb")
-            // Exclude androidx dependencies
-            exclude(group = "org.jetbrains.androidx.lifecycle")
-            exclude(group = "androidx.lifecycle")
-            exclude(group = "androidx.annotation")
-            exclude(group = "androidx.collection")
-            exclude(group = "androidx.activity")
-            exclude(group = "androidx.core")
-            exclude(group = "androidx.appcompat")
-            // Exclude viewer web module
-            exclude(group = "cc.unitmesh.viewer.web", module = "mpp-viewer-web")
-            exclude(group = "cc.unitmesh", module = "mpp-viewer-web")
-        }
+        // Note: mpp-ui dependency removed - configuration management moved to mpp-core
+        // Color definitions moved to IdeaAutoDevColors in mpp-idea
 
         testImplementation(kotlin("test"))
     }

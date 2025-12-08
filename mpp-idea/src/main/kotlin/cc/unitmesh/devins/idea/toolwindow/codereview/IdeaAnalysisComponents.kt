@@ -27,10 +27,7 @@ import cc.unitmesh.agent.linter.LintIssue
 import cc.unitmesh.agent.linter.LintSeverity
 import cc.unitmesh.devins.idea.compose.IdeaCircularProgressIndicator
 import cc.unitmesh.devins.idea.renderer.sketch.IdeaSketchRenderer
-import cc.unitmesh.devins.ui.compose.agent.codereview.AnalysisStage
-import cc.unitmesh.devins.ui.compose.agent.codereview.CodeReviewState
-import cc.unitmesh.devins.ui.compose.agent.codereview.DiffFileInfo
-import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
+import cc.unitmesh.devins.idea.theme.IdeaAutoDevColors
 import com.intellij.openapi.Disposable
 import org.jetbrains.jewel.foundation.theme.JewelTheme
 import org.jetbrains.jewel.ui.Orientation
@@ -42,7 +39,7 @@ internal fun IdeaAIAnalysisPanel(state: CodeReviewState, viewModel: IdeaCodeRevi
     Column(modifier = modifier.background(JewelTheme.globalColors.panelBackground)) {
         IdeaAnalysisHeader(progress.stage, state.diffFiles.isNotEmpty(), { viewModel.startAnalysis() }, { viewModel.cancelAnalysis() })
         Divider(Orientation.Horizontal, modifier = Modifier.fillMaxWidth().height(1.dp))
-        state.error?.let { Text(it, style = JewelTheme.defaultTextStyle.copy(color = AutoDevColors.Red.c400, fontSize = 12.sp), modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) }
+        state.error?.let { Text(it, style = JewelTheme.defaultTextStyle.copy(color = Color(0xFFEF5350), fontSize = 12.sp), modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) }
         Box(modifier = Modifier.fillMaxSize().padding(8.dp)) {
             if (progress.stage == AnalysisStage.IDLE && progress.lintResults.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -60,7 +57,7 @@ internal fun IdeaAIAnalysisPanel(state: CodeReviewState, viewModel: IdeaCodeRevi
                         item { IdeaModificationPlanSection(progress.planOutput, progress.stage == AnalysisStage.GENERATING_PLAN, parentDisposable) }
                     }
                     if (progress.stage == AnalysisStage.WAITING_FOR_USER_INPUT) {
-                        item { IdeaUserInputSection({ viewModel.proceedToGenerateFixes(it) }, { viewModel.cancelAnalysis() }) }
+                        item { IdeaUserInputSection({ viewModel.proceedToGenerateFixes() }, { viewModel.cancelAnalysis() }) }
                     }
                     if (progress.fixRenderer != null || progress.stage == AnalysisStage.GENERATING_FIX) {
                         item { IdeaSuggestedFixesSection(progress.fixOutput, progress.stage == AnalysisStage.GENERATING_FIX, parentDisposable) }
@@ -78,13 +75,16 @@ internal fun IdeaAnalysisHeader(stage: AnalysisStage, hasDiffFiles: Boolean, onS
             Text("AI Code Review", style = JewelTheme.defaultTextStyle.copy(fontWeight = FontWeight.Bold, fontSize = 14.sp))
             val (statusText, statusColor) = when (stage) {
                 AnalysisStage.IDLE -> "Ready" to JewelTheme.globalColors.text.info
-                AnalysisStage.RUNNING_LINT -> "Linting..." to AutoDevColors.Amber.c400
-                AnalysisStage.ANALYZING_LINT -> "Analyzing..." to AutoDevColors.Blue.c400
-                AnalysisStage.GENERATING_PLAN -> "Planning..." to AutoDevColors.Blue.c400
-                AnalysisStage.WAITING_FOR_USER_INPUT -> "Awaiting Input" to AutoDevColors.Amber.c400
-                AnalysisStage.GENERATING_FIX -> "Fixing..." to AutoDevColors.Indigo.c400
-                AnalysisStage.COMPLETED -> "Done" to AutoDevColors.Green.c400
-                AnalysisStage.ERROR -> "Error" to AutoDevColors.Red.c400
+                AnalysisStage.RUNNING_LINT -> "Linting..." to IdeaAutoDevColors.Amber.c400
+                AnalysisStage.ANALYZING_LINT -> "Analyzing..." to IdeaAutoDevColors.Blue.c400
+                AnalysisStage.GENERATING_PLAN -> "Planning..." to IdeaAutoDevColors.Blue.c400
+                AnalysisStage.WAITING_FOR_USER_INPUT -> "Awaiting Input" to IdeaAutoDevColors.Amber.c400
+                AnalysisStage.GENERATING_FIX -> "Fixing..." to IdeaAutoDevColors.Indigo.c400
+                AnalysisStage.COMPLETED -> "Done" to IdeaAutoDevColors.Green.c400
+                AnalysisStage.ERROR -> "Error" to IdeaAutoDevColors.Red.c400
+                AnalysisStage.FETCHING_DIFF -> "Fetching Diff..." to IdeaAutoDevColors.Amber.c400
+                AnalysisStage.ANALYZING_CHANGES -> "Analyzing Changes..." to IdeaAutoDevColors.Amber.c400
+                AnalysisStage.GENERATING_REVIEW -> "Generating Review..." to IdeaAutoDevColors.Amber.c400
             }
             if (stage != AnalysisStage.IDLE) {
                 Box(modifier = Modifier.background(statusColor.copy(alpha = 0.15f), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp)) {
@@ -110,8 +110,8 @@ internal fun IdeaLintAnalysisCard(lintResults: List<LintFileResult>, lintOutput:
     IdeaCollapsibleCard("Lint Analysis", isExpanded, { isExpanded = it }, isActive, {
         if (totalErrors > 0 || totalWarnings > 0) {
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                if (totalErrors > 0) IdeaBadge("$totalErrors errors", AutoDevColors.Red.c400)
-                if (totalWarnings > 0) IdeaBadge("$totalWarnings warnings", AutoDevColors.Amber.c400)
+                if (totalErrors > 0) IdeaBadge("$totalErrors errors", IdeaAutoDevColors.Red.c400)
+                if (totalWarnings > 0) IdeaBadge("$totalWarnings warnings", IdeaAutoDevColors.Amber.c400)
             }
         }
     }) {
@@ -134,7 +134,7 @@ private fun IdeaLintFileCard(fileResult: LintFileResult, modifiedRanges: List<Mo
 @Composable
 private fun IdeaLintIssueRow(issue: LintIssue, modifiedRanges: List<ModifiedCodeRange>) {
     val isInModifiedRange = modifiedRanges.any { issue.line in it.startLine..it.endLine }
-    val severityColor = when (issue.severity) { LintSeverity.ERROR -> AutoDevColors.Red.c400; LintSeverity.WARNING -> AutoDevColors.Amber.c400; LintSeverity.INFO -> AutoDevColors.Blue.c400 }
+    val severityColor = when (issue.severity) { LintSeverity.ERROR -> Color(0xFFEF5350); LintSeverity.WARNING -> Color(0xFFFFC107); LintSeverity.INFO -> Color(0xFF42A5F5) }
     Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Top) {
         Text("L${issue.line}", style = JewelTheme.defaultTextStyle.copy(fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = if (isInModifiedRange) severityColor else JewelTheme.globalColors.text.info), modifier = Modifier.width(40.dp))
         Column(modifier = Modifier.weight(1f)) {
@@ -160,7 +160,7 @@ internal fun IdeaAIAnalysisSection(analysisOutput: String, isActive: Boolean, pa
 @Composable
 internal fun IdeaModificationPlanSection(planOutput: String, isActive: Boolean, parentDisposable: Disposable) {
     var isExpanded by remember { mutableStateOf(true) }
-    IdeaCollapsibleCard("Modification Plan", isExpanded, { isExpanded = it }, isActive, { if (isActive) IdeaBadge("Generating...", AutoDevColors.Blue.c400) }) {
+    IdeaCollapsibleCard("Modification Plan", isExpanded, { isExpanded = it }, isActive, { if (isActive) IdeaBadge("Generating...", IdeaAutoDevColors.Blue.c400) }) {
         IdeaSketchRenderer.RenderResponse(
             content = planOutput,
             isComplete = !isActive,
@@ -173,7 +173,7 @@ internal fun IdeaModificationPlanSection(planOutput: String, isActive: Boolean, 
 @Composable
 internal fun IdeaUserInputSection(onGenerate: (String) -> Unit, onCancel: () -> Unit) {
     var userInput by remember { mutableStateOf(TextFieldValue("")) }
-    IdeaCollapsibleCard("Your Feedback", true, {}, true, { IdeaBadge("Action Required", AutoDevColors.Amber.c400) }) {
+    IdeaCollapsibleCard("Your Feedback", true, {}, true, { IdeaBadge("Action Required", IdeaAutoDevColors.Amber.c400) }) {
         Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("Review the plan above and provide any additional instructions:", style = JewelTheme.defaultTextStyle.copy(fontSize = 12.sp))
             TextArea(value = userInput, onValueChange = { userInput = it }, modifier = Modifier.fillMaxWidth().height(80.dp), placeholder = { Text("Optional: Add specific instructions or constraints...") })
@@ -192,9 +192,9 @@ internal fun IdeaSuggestedFixesSection(fixOutput: String, isGenerating: Boolean,
         if (isGenerating) {
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
                 IdeaCircularProgressIndicator()
-                IdeaBadge("Generating...", AutoDevColors.Indigo.c400)
+                IdeaBadge("Generating...", IdeaAutoDevColors.Indigo.c400)
             }
-        } else if (fixOutput.isNotEmpty()) IdeaBadge("Complete", AutoDevColors.Green.c400)
+        } else if (fixOutput.isNotEmpty()) IdeaBadge("Complete", IdeaAutoDevColors.Green.c400)
     }) {
         when {
             fixOutput.isNotEmpty() -> IdeaSketchRenderer.RenderResponse(
@@ -211,7 +211,7 @@ internal fun IdeaSuggestedFixesSection(fixOutput: String, isGenerating: Boolean,
 
 @Composable
 internal fun IdeaCollapsibleCard(title: String, isExpanded: Boolean, onExpandChange: (Boolean) -> Unit, isActive: Boolean = false, badge: @Composable (() -> Unit)? = null, content: @Composable () -> Unit) {
-    val backgroundColor = if (isActive) AutoDevColors.Blue.c600.copy(alpha = 0.08f) else JewelTheme.globalColors.panelBackground
+    val backgroundColor = if (isActive) IdeaAutoDevColors.Blue.c600.copy(alpha = 0.08f) else JewelTheme.globalColors.panelBackground
     Column(modifier = Modifier.fillMaxWidth().background(backgroundColor, RoundedCornerShape(6.dp))) {
         Row(modifier = Modifier.fillMaxWidth().clickable { onExpandChange(!isExpanded) }.padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {

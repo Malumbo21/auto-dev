@@ -1,4 +1,4 @@
-package cc.unitmesh.devins.ui.config
+package cc.unitmesh.config
 
 import cc.unitmesh.agent.mcp.McpServerConfig
 import cc.unitmesh.agent.AgentType
@@ -85,6 +85,9 @@ data class IssueTrackerConfig(
     }
 }
 
+/**
+ * Configuration file wrapper with utility methods
+ */
 class AutoDevConfigWrapper(val configFile: ConfigFile) {
     fun getActiveConfig(): NamedModelConfig? {
         if (configFile.active.isEmpty() || configFile.configs.isEmpty()) {
@@ -142,4 +145,28 @@ class AutoDevConfigWrapper(val configFile: ConfigFile) {
     fun getIssueTracker(): IssueTrackerConfig {
         return configFile.issueTracker ?: IssueTrackerConfig()
     }
+
+    fun getLanguage(): String? {
+        return configFile.language.takeIf { it?.isNotEmpty() == true }
+    }
+
+    companion object {
+        /**
+         * Save agent type preference to config file
+         *
+         * This updates the agentType field in the config file and persists it.
+         */
+        suspend fun saveAgentTypePreference(agentType: String) {
+            try {
+                val currentConfig = ConfigManager.load()
+                val updatedConfig = currentConfig.configFile.copy(agentType = agentType)
+                ConfigManager.save(updatedConfig)
+                println("Agent type preference saved: $agentType")
+            } catch (e: Exception) {
+                println("Failed to save agent type preference: ${e.message}")
+                throw e
+            }
+        }
+    }
 }
+

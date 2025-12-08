@@ -13,7 +13,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cc.unitmesh.agent.diff.ChangeType
 import cc.unitmesh.agent.diff.FileChange
-import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
+import cc.unitmesh.devins.idea.theme.IdeaAutoDevColors
 import org.jetbrains.jewel.foundation.theme.JewelTheme
 import org.jetbrains.jewel.ui.component.Icon
 import org.jetbrains.jewel.ui.component.IconButton
@@ -57,10 +57,10 @@ fun IdeaFileChangeItem(
                 ChangeType.RENAME -> AllIconsKeys.Actions.Edit // Use Edit as fallback for Rename
             }
             val iconColor = when (change.changeType) {
-                ChangeType.CREATE -> AutoDevColors.Green.c400
-                ChangeType.EDIT -> AutoDevColors.Blue.c400
-                ChangeType.DELETE -> AutoDevColors.Red.c400
-                ChangeType.RENAME -> AutoDevColors.Indigo.c400 // Use Indigo instead of Purple
+                ChangeType.CREATE -> IdeaAutoDevColors.Green.c400
+                ChangeType.EDIT -> IdeaAutoDevColors.Blue.c400
+                ChangeType.DELETE -> IdeaAutoDevColors.Red.c400
+                ChangeType.RENAME -> IdeaAutoDevColors.Indigo.c400 // Use Indigo instead of Purple
             }
             
             Icon(
@@ -84,7 +84,7 @@ fun IdeaFileChangeItem(
                 text = "\u00B7", // Middle dot
                 style = JewelTheme.defaultTextStyle.copy(
                     fontSize = 11.sp,
-                    color = AutoDevColors.Neutral.c500
+                    color = IdeaAutoDevColors.Neutral.c500
                 )
             )
 
@@ -95,7 +95,7 @@ fun IdeaFileChangeItem(
                     text = parentPath.substringAfterLast('/'),
                     style = JewelTheme.defaultTextStyle.copy(
                         fontSize = 10.sp,
-                        color = AutoDevColors.Neutral.c500
+                        color = IdeaAutoDevColors.Neutral.c500
                     ),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -113,11 +113,11 @@ fun IdeaFileChangeItem(
                         text = "+${diffStats.addedLines}",
                         style = JewelTheme.defaultTextStyle.copy(
                             fontSize = 10.sp,
-                            color = AutoDevColors.Green.c400
+                            color = IdeaAutoDevColors.Green.c400
                         ),
                         modifier = Modifier
                             .clip(RoundedCornerShape(3.dp))
-                            .background(AutoDevColors.Green.c900.copy(alpha = 0.3f))
+                            .background(IdeaAutoDevColors.Green.c900.copy(alpha = 0.3f))
                             .padding(horizontal = 4.dp, vertical = 1.dp)
                     )
                 }
@@ -126,11 +126,11 @@ fun IdeaFileChangeItem(
                         text = "-${diffStats.deletedLines}",
                         style = JewelTheme.defaultTextStyle.copy(
                             fontSize = 10.sp,
-                            color = AutoDevColors.Red.c400
+                            color = IdeaAutoDevColors.Red.c400
                         ),
                         modifier = Modifier
                             .clip(RoundedCornerShape(3.dp))
-                            .background(AutoDevColors.Red.c900.copy(alpha = 0.3f))
+                            .background(IdeaAutoDevColors.Red.c900.copy(alpha = 0.3f))
                             .padding(horizontal = 4.dp, vertical = 1.dp)
                     )
                 }
@@ -150,7 +150,7 @@ fun IdeaFileChangeItem(
                     key = AllIconsKeys.Actions.Checked,
                     contentDescription = "Keep",
                     modifier = Modifier.size(12.dp),
-                    tint = AutoDevColors.Green.c400
+                    tint = IdeaAutoDevColors.Green.c400
                 )
             }
 
@@ -163,7 +163,7 @@ fun IdeaFileChangeItem(
                     key = AllIconsKeys.Actions.Rollback,
                     contentDescription = "Undo",
                     modifier = Modifier.size(12.dp),
-                    tint = AutoDevColors.Red.c400
+                    tint = IdeaAutoDevColors.Red.c400
                 )
             }
         }

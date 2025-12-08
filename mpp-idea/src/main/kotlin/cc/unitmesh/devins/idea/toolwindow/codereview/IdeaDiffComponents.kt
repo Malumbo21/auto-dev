@@ -27,9 +27,9 @@ import cc.unitmesh.agent.diff.DiffHunk
 import cc.unitmesh.agent.diff.DiffLine
 import cc.unitmesh.agent.diff.DiffLineType
 import cc.unitmesh.devins.idea.toolwindow.IdeaComposeIcons
-import cc.unitmesh.devins.ui.compose.agent.codereview.CommitInfo
-import cc.unitmesh.devins.ui.compose.agent.codereview.DiffFileInfo
-import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
+import cc.unitmesh.devins.idea.toolwindow.codereview.CommitInfo
+import cc.unitmesh.devins.idea.toolwindow.codereview.DiffFileInfo
+import cc.unitmesh.devins.idea.theme.IdeaAutoDevColors
 import org.jetbrains.jewel.foundation.theme.JewelTheme
 import org.jetbrains.jewel.ui.Orientation
 import org.jetbrains.jewel.ui.component.*
@@ -65,10 +65,10 @@ private fun DiffFilesHeader(fileCount: Int, viewMode: IdeaFileViewMode, onViewMo
         Text(text = "Files changed ($fileCount)", style = JewelTheme.defaultTextStyle.copy(fontWeight = FontWeight.Medium, fontSize = 13.sp))
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             IconButton(onClick = { onViewModeChange(IdeaFileViewMode.LIST) }, modifier = Modifier.size(28.dp)) {
-                Icon(IdeaComposeIcons.List, "List view", tint = if (viewMode == IdeaFileViewMode.LIST) AutoDevColors.Indigo.c600 else JewelTheme.globalColors.text.info, modifier = Modifier.size(16.dp))
+                Icon(IdeaComposeIcons.List, "List view", tint = if (viewMode == IdeaFileViewMode.LIST) Color(0xFF3F51B5) else JewelTheme.globalColors.text.info, modifier = Modifier.size(16.dp))
             }
             IconButton(onClick = { onViewModeChange(IdeaFileViewMode.TREE) }, modifier = Modifier.size(28.dp)) {
-                Icon(IdeaComposeIcons.AccountTree, "Tree view", tint = if (viewMode == IdeaFileViewMode.TREE) AutoDevColors.Indigo.c600 else JewelTheme.globalColors.text.info, modifier = Modifier.size(16.dp))
+                Icon(IdeaComposeIcons.AccountTree, "Tree view", tint = if (viewMode == IdeaFileViewMode.TREE) Color(0xFF3F51B5) else JewelTheme.globalColors.text.info, modifier = Modifier.size(16.dp))
             }
         }
     }
@@ -105,7 +105,7 @@ internal fun IdeaCompactFileListView(files: List<DiffFileInfo>, onViewFile: ((St
 
 @Composable
 private fun IdeaCompactFileDiffItem(file: DiffFileInfo, isExpanded: Boolean, onToggleExpand: () -> Unit, onViewFile: ((String) -> Unit)?) {
-    val changeColor = when (file.changeType) { ChangeType.CREATE -> AutoDevColors.Green.c400; ChangeType.DELETE -> AutoDevColors.Red.c400; ChangeType.RENAME -> AutoDevColors.Amber.c400; else -> AutoDevColors.Blue.c400 }
+    val changeColor = when (file.changeType) { ChangeType.CREATE -> Color(0xFF66BB6A); ChangeType.DELETE -> Color(0xFFEF5350); ChangeType.RENAME -> Color(0xFFFFC107); else -> Color(0xFF42A5F5) }
     val changeIcon = when (file.changeType) { ChangeType.CREATE -> IdeaComposeIcons.Add; ChangeType.DELETE -> IdeaComposeIcons.Delete; ChangeType.RENAME -> IdeaComposeIcons.DriveFileRenameOutline; else -> IdeaComposeIcons.Edit }
     Column(modifier = Modifier.fillMaxWidth()) {
         FileDiffItemHeader(file, isExpanded, changeColor, changeIcon, onToggleExpand, onViewFile)
@@ -138,15 +138,15 @@ private fun FileLineCountBadges(file: DiffFileInfo, onViewFile: ((String) -> Uni
         onViewFile?.let { IconButton(onClick = { it(file.path) }, modifier = Modifier.size(24.dp)) { Icon(IdeaComposeIcons.Visibility, "View file", tint = JewelTheme.globalColors.text.info, modifier = Modifier.size(14.dp)) } }
         val added = file.hunks.sumOf { h -> h.lines.count { it.type == DiffLineType.ADDED } }
         val deleted = file.hunks.sumOf { h -> h.lines.count { it.type == DiffLineType.DELETED } }
-        if (added > 0) Text("+$added", style = JewelTheme.defaultTextStyle.copy(fontSize = 10.sp, color = AutoDevColors.Green.c400, fontWeight = FontWeight.Bold))
-        if (deleted > 0) Text("-$deleted", style = JewelTheme.defaultTextStyle.copy(fontSize = 10.sp, color = AutoDevColors.Red.c400, fontWeight = FontWeight.Bold))
+        if (added > 0) Text("+$added", style = JewelTheme.defaultTextStyle.copy(fontSize = 10.sp, color = Color(0xFF66BB6A), fontWeight = FontWeight.Bold))
+        if (deleted > 0) Text("-$deleted", style = JewelTheme.defaultTextStyle.copy(fontSize = 10.sp, color = Color(0xFFEF5350), fontWeight = FontWeight.Bold))
     }
 }
 
 @Composable
 internal fun IdeaDiffHunkView(hunk: DiffHunk) {
     Column(modifier = Modifier.fillMaxWidth()) {
-        Text(hunk.header, style = JewelTheme.defaultTextStyle.copy(fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = AutoDevColors.Indigo.c400))
+        Text(hunk.header, style = JewelTheme.defaultTextStyle.copy(fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = Color(0xFF5C6BC0)))
         Spacer(modifier = Modifier.height(4.dp))
         hunk.lines.forEach { line -> if (line.type != DiffLineType.HEADER) IdeaDiffLineView(line) }
     }
@@ -155,8 +155,8 @@ internal fun IdeaDiffHunkView(hunk: DiffHunk) {
 @Composable
 private fun IdeaDiffLineView(line: DiffLine) {
     val (bgColor, textColor, prefix) = when (line.type) {
-        DiffLineType.ADDED -> Triple(AutoDevColors.Green.c400.copy(alpha = 0.15f), AutoDevColors.Green.c400, "+")
-        DiffLineType.DELETED -> Triple(AutoDevColors.Red.c400.copy(alpha = 0.15f), AutoDevColors.Red.c400, "-")
+        DiffLineType.ADDED -> Triple(Color(0xFF66BB6A).copy(alpha = 0.15f), Color(0xFF66BB6A), "+")
+        DiffLineType.DELETED -> Triple(Color(0xFFEF5350).copy(alpha = 0.15f), Color(0xFFEF5350), "-")
         DiffLineType.CONTEXT -> Triple(Color.Transparent, JewelTheme.globalColors.text.normal, " ")
         DiffLineType.HEADER -> return
     }
@@ -224,7 +224,7 @@ internal fun IdeaFileTreeView(files: List<DiffFileInfo>, onViewFile: ((String) -
 private fun IdeaDirectoryTreeItem(directory: FileTreeNode.Directory, isExpanded: Boolean, onToggle: () -> Unit) {
     Row(modifier = Modifier.fillMaxWidth().clickable { onToggle() }.padding(horizontal = 8.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
         Icon(if (isExpanded) IdeaComposeIcons.ExpandMore else IdeaComposeIcons.ChevronRight, if (isExpanded) "Collapse" else "Expand", tint = JewelTheme.globalColors.text.info, modifier = Modifier.size(16.dp))
-        Icon(if (isExpanded) IdeaComposeIcons.FolderOpen else IdeaComposeIcons.Folder, "Directory", tint = AutoDevColors.Amber.c400, modifier = Modifier.size(16.dp))
+        Icon(if (isExpanded) IdeaComposeIcons.FolderOpen else IdeaComposeIcons.Folder, "Directory", tint = Color(0xFFFFC107), modifier = Modifier.size(16.dp))
         Text(directory.name, style = JewelTheme.defaultTextStyle.copy(fontSize = 12.sp, fontWeight = FontWeight.Medium))
         Text("(${directory.files.size})", style = JewelTheme.defaultTextStyle.copy(fontSize = 11.sp, color = JewelTheme.globalColors.text.info.copy(alpha = 0.6f)))
     }
@@ -232,7 +232,7 @@ private fun IdeaDirectoryTreeItem(directory: FileTreeNode.Directory, isExpanded:
 
 @Composable
 private fun IdeaFileTreeItemCompact(file: DiffFileInfo, isExpanded: Boolean, onToggleExpand: () -> Unit, onViewFile: ((String) -> Unit)?, indentLevel: Int) {
-    val changeColor = when (file.changeType) { ChangeType.CREATE -> AutoDevColors.Green.c400; ChangeType.DELETE -> AutoDevColors.Red.c400; ChangeType.RENAME -> AutoDevColors.Amber.c400; else -> AutoDevColors.Blue.c400 }
+    val changeColor = when (file.changeType) { ChangeType.CREATE -> Color(0xFF66BB6A); ChangeType.DELETE -> Color(0xFFEF5350); ChangeType.RENAME -> Color(0xFFFFC107); else -> Color(0xFF42A5F5) }
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(modifier = Modifier.fillMaxWidth().clickable { onToggleExpand() }.padding(start = (8 + indentLevel * 16).dp, end = 8.dp, top = 4.dp, bottom = 4.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {

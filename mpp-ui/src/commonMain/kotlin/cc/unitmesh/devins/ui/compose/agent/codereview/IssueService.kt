@@ -6,8 +6,8 @@ import cc.unitmesh.agent.tracker.GitHubIssueTracker
 import cc.unitmesh.agent.tracker.IssueInfo
 import cc.unitmesh.agent.tracker.IssueTracker
 import cc.unitmesh.agent.tracker.NoOpIssueTracker
-import cc.unitmesh.devins.ui.config.ConfigManager
-import cc.unitmesh.devins.ui.config.IssueTrackerConfig
+import cc.unitmesh.config.ConfigManager
+import cc.unitmesh.config.IssueTrackerConfig
 import kotlinx.coroutines.*
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant

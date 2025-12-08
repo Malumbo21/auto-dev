@@ -17,7 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cc.unitmesh.devins.idea.renderer.sketch.actions.ExecutionResult
 import cc.unitmesh.devins.idea.renderer.sketch.actions.IdeaTerminalActions
-import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
+import cc.unitmesh.devins.idea.theme.IdeaAutoDevColors
 import cc.unitmesh.devti.util.AutoDevCoroutineScope
 import com.intellij.openapi.project.Project
 import kotlinx.coroutines.launch
@@ -97,13 +97,13 @@ private fun TerminalToolbar(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(AllIconsKeys.Debugger.Console, "Terminal", Modifier.size(14.dp), tint = AutoDevColors.Neutral.c400)
+            Icon(AllIconsKeys.Debugger.Console, "Terminal", Modifier.size(14.dp), tint = IdeaAutoDevColors.Neutral.c400)
             Text("Terminal", style = JewelTheme.defaultTextStyle.copy(fontSize = 12.sp, fontWeight = FontWeight.Bold))
             // Status indicator
             when (executionState) {
                 TerminalState.RUNNING -> CircularProgressIndicator(Modifier.size(14.dp))
-                TerminalState.SUCCESS -> Icon(AllIconsKeys.Actions.Checked, "Success", Modifier.size(14.dp), tint = AutoDevColors.Green.c400)
-                TerminalState.FAILED -> Icon(AllIconsKeys.General.Error, "Failed", Modifier.size(14.dp), tint = AutoDevColors.Red.c400)
+                TerminalState.SUCCESS -> Icon(AllIconsKeys.Actions.Checked, "Success", Modifier.size(14.dp), tint = IdeaAutoDevColors.Green.c400)
+                TerminalState.FAILED -> Icon(AllIconsKeys.General.Error, "Failed", Modifier.size(14.dp), tint = IdeaAutoDevColors.Red.c400)
                 else -> {}
             }
         }
@@ -129,9 +129,9 @@ private fun TerminalActionButton(tooltip: String, iconKey: org.jetbrains.jewel.u
     val isHovered by interactionSource.collectIsHoveredAsState()
     Tooltip(tooltip = { Text(tooltip) }) {
         IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(24.dp).hoverable(interactionSource)
-            .background(if (isHovered && enabled) AutoDevColors.Neutral.c700.copy(alpha = 0.3f) else Color.Transparent)) {
+            .background(if (isHovered && enabled) IdeaAutoDevColors.Neutral.c700.copy(alpha = 0.3f) else Color.Transparent)) {
             Icon(iconKey, tooltip, Modifier.size(16.dp), 
-                tint = if (enabled) AutoDevColors.Neutral.c300 else AutoDevColors.Neutral.c600)
+                tint = if (enabled) IdeaAutoDevColors.Neutral.c300 else IdeaAutoDevColors.Neutral.c600)
         }
     }
 }
@@ -140,16 +140,16 @@ private fun TerminalActionButton(tooltip: String, iconKey: org.jetbrains.jewel.u
 private fun CommandDisplay(command: String, isDangerous: Boolean, dangerReason: String) {
     Column(Modifier.fillMaxWidth().padding(8.dp)) {
         if (isDangerous) {
-            Row(Modifier.fillMaxWidth().background(AutoDevColors.Red.c900.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
+            Row(Modifier.fillMaxWidth().background(IdeaAutoDevColors.Red.c900.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
                 .padding(8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(AllIconsKeys.General.Warning, "Warning", Modifier.size(16.dp), tint = AutoDevColors.Red.c400)
+                Icon(AllIconsKeys.General.Warning, "Warning", Modifier.size(16.dp), tint = IdeaAutoDevColors.Red.c400)
                 Text("Dangerous command blocked: $dangerReason", 
-                    style = JewelTheme.defaultTextStyle.copy(fontSize = 11.sp, color = AutoDevColors.Red.c300))
+                    style = JewelTheme.defaultTextStyle.copy(fontSize = 11.sp, color = IdeaAutoDevColors.Red.c300))
             }
             Spacer(Modifier.height(8.dp))
         }
         Text(command, style = JewelTheme.defaultTextStyle.copy(fontFamily = FontFamily.Monospace, fontSize = 11.sp),
-            modifier = Modifier.fillMaxWidth().background(AutoDevColors.Neutral.c900, RoundedCornerShape(4.dp)).padding(8.dp))
+            modifier = Modifier.fillMaxWidth().background(IdeaAutoDevColors.Neutral.c900, RoundedCornerShape(4.dp)).padding(8.dp))
     }
 }
 
@@ -158,12 +158,12 @@ private fun OutputDisplay(result: ExecutionResult) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 8.dp).padding(bottom = 8.dp)) {
         Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
             Text("Output (Exit: ${result.exitCode})", style = JewelTheme.defaultTextStyle.copy(fontSize = 10.sp, 
-                color = if (result.isSuccess) AutoDevColors.Green.c400 else AutoDevColors.Red.c400))
+                color = if (result.isSuccess) IdeaAutoDevColors.Green.c400 else IdeaAutoDevColors.Red.c400))
         }
         Spacer(Modifier.height(4.dp))
         Text(result.displayOutput.ifBlank { "(no output)" }, 
-            style = JewelTheme.defaultTextStyle.copy(fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = AutoDevColors.Neutral.c300),
-            modifier = Modifier.fillMaxWidth().background(AutoDevColors.Neutral.c800, RoundedCornerShape(4.dp)).padding(8.dp))
+            style = JewelTheme.defaultTextStyle.copy(fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = IdeaAutoDevColors.Neutral.c300),
+            modifier = Modifier.fillMaxWidth().background(IdeaAutoDevColors.Neutral.c800, RoundedCornerShape(4.dp)).padding(8.dp))
     }
 }
 

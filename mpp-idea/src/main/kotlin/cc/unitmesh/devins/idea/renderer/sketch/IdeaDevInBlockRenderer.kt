@@ -14,7 +14,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cc.unitmesh.agent.parser.ToolCallParser
 import cc.unitmesh.devins.idea.toolwindow.IdeaComposeIcons
-import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
+import cc.unitmesh.devins.idea.theme.IdeaAutoDevColors
 import kotlinx.serialization.json.Json
 import org.jetbrains.jewel.foundation.theme.JewelTheme
 import org.jetbrains.jewel.ui.component.Icon
@@ -120,7 +120,7 @@ private fun IdeaDevInToolItem(
                     imageVector = IdeaComposeIcons.Build,
                     contentDescription = "Tool",
                     modifier = Modifier.size(16.dp),
-                    tint = AutoDevColors.Blue.c400
+                    tint = IdeaAutoDevColors.Blue.c400
                 )
 
                 // Tool name

@@ -50,6 +50,11 @@
         <extensionPoint qualifiedName="cc.unitmesh.customDevInsCompletionProvider"
                         interface="cc.unitmesh.devti.provider.devins.DevInsSymbolProvider"
                         dynamic="true"/>
+
+        <!-- Toolchain Function Provider - required by IdeaToolProvider -->
+        <extensionPoint qualifiedName="cc.unitmesh.toolchainFunctionProvider"
+                        interface="cc.unitmesh.devti.provider.toolchain.ToolchainFunctionProvider"
+                        dynamic="true"/>
     </extensionPoints>
 
     <extensions defaultExtensionNs="com.intellij">

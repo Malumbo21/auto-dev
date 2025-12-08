@@ -30,7 +30,7 @@ import cc.unitmesh.agent.plan.AgentPlan
 import cc.unitmesh.agent.plan.PlanStep
 import cc.unitmesh.agent.plan.PlanTask
 import cc.unitmesh.agent.plan.TaskStatus
-import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
+import cc.unitmesh.devins.idea.theme.IdeaAutoDevColors
 import org.jetbrains.jewel.foundation.theme.JewelTheme
 import org.jetbrains.jewel.ui.component.Icon
 import org.jetbrains.jewel.ui.component.IconButton
@@ -64,8 +64,8 @@ fun IdeaPlanSummaryBar(
     var isExpanded by remember { mutableStateOf(false) }
 
     val backgroundColor = when (plan.status) {
-        TaskStatus.FAILED -> AutoDevColors.Red.c900.copy(alpha = 0.2f)
-        TaskStatus.COMPLETED -> AutoDevColors.Green.c900.copy(alpha = 0.2f)
+        TaskStatus.FAILED -> IdeaAutoDevColors.Red.c900.copy(alpha = 0.2f)
+        TaskStatus.COMPLETED -> IdeaAutoDevColors.Green.c900.copy(alpha = 0.2f)
         else -> JewelTheme.globalColors.panelBackground
     }
 
@@ -131,7 +131,7 @@ private fun IdeaPlanSummaryHeader(
                 key = if (isExpanded) AllIconsKeys.General.ArrowDown else AllIconsKeys.General.ArrowRight,
                 contentDescription = if (isExpanded) "Collapse" else "Expand",
                 modifier = Modifier.size(12.dp),
-                tint = AutoDevColors.Neutral.c400
+                tint = IdeaAutoDevColors.Neutral.c400
             )
 
             // Title
@@ -162,7 +162,7 @@ private fun IdeaPlanSummaryHeader(
                     text = currentStep,
                     style = JewelTheme.defaultTextStyle.copy(
                         fontSize = 10.sp,
-                        color = AutoDevColors.Neutral.c400
+                        color = IdeaAutoDevColors.Neutral.c400
                     ),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -180,7 +180,7 @@ private fun IdeaPlanSummaryHeader(
                         key = AllIconsKeys.Actions.Close,
                         contentDescription = "Dismiss",
                         modifier = Modifier.size(12.dp),
-                        tint = AutoDevColors.Neutral.c400
+                        tint = IdeaAutoDevColors.Neutral.c400
                     )
                 }
             }
@@ -205,31 +205,31 @@ private fun IdeaPlanStatusIcon(status: TaskStatus) {
             key = AllIconsKeys.Actions.Checked,
             contentDescription = "Completed",
             modifier = Modifier.size(16.dp),
-            tint = AutoDevColors.Green.c400
+            tint = IdeaAutoDevColors.Green.c400
         )
         TaskStatus.FAILED -> Icon(
             key = AllIconsKeys.General.Error,
             contentDescription = "Failed",
             modifier = Modifier.size(16.dp),
-            tint = AutoDevColors.Red.c400
+            tint = IdeaAutoDevColors.Red.c400
         )
         TaskStatus.IN_PROGRESS -> Icon(
             key = AllIconsKeys.Actions.Refresh,
             contentDescription = "In Progress",
             modifier = Modifier.size(16.dp).rotate(rotation),
-            tint = AutoDevColors.Blue.c400
+            tint = IdeaAutoDevColors.Blue.c400
         )
         TaskStatus.BLOCKED -> Icon(
             key = AllIconsKeys.General.Warning,
             contentDescription = "Blocked",
             modifier = Modifier.size(16.dp),
-            tint = AutoDevColors.Amber.c400
+            tint = IdeaAutoDevColors.Amber.c400
         )
         else -> Icon(
             key = AllIconsKeys.General.TodoDefault,
             contentDescription = "Plan",
             modifier = Modifier.size(16.dp),
-            tint = AutoDevColors.Neutral.c400
+            tint = IdeaAutoDevColors.Neutral.c400
         )
     }
 }
@@ -250,12 +250,12 @@ private fun IdeaPlanProgressBadge(plan: AgentPlan) {
                 .width(60.dp)
                 .height(4.dp)
                 .clip(RoundedCornerShape(2.dp))
-                .background(AutoDevColors.Neutral.c700)
+                .background(IdeaAutoDevColors.Neutral.c700)
         ) {
             val progressColor = when (plan.status) {
-                TaskStatus.COMPLETED -> AutoDevColors.Green.c400
-                TaskStatus.FAILED -> AutoDevColors.Red.c400
-                else -> AutoDevColors.Blue.c400
+                TaskStatus.COMPLETED -> IdeaAutoDevColors.Green.c400
+                TaskStatus.FAILED -> IdeaAutoDevColors.Red.c400
+                else -> IdeaAutoDevColors.Blue.c400
             }
             Box(
                 modifier = Modifier
@@ -270,7 +270,7 @@ private fun IdeaPlanProgressBadge(plan: AgentPlan) {
             text = "$completedSteps/$totalSteps",
             style = JewelTheme.defaultTextStyle.copy(
                 fontSize = 10.sp,
-                color = AutoDevColors.Neutral.c400
+                color = IdeaAutoDevColors.Neutral.c400
             )
         )
     }
@@ -332,7 +332,7 @@ private fun IdeaTaskSummaryItem(task: PlanTask) {
                 text = "${task.completedStepCount}/${task.totalStepCount}",
                 style = JewelTheme.defaultTextStyle.copy(
                     fontSize = 10.sp,
-                    color = AutoDevColors.Neutral.c400
+                    color = IdeaAutoDevColors.Neutral.c400
                 )
             )
         }
@@ -364,9 +364,9 @@ private fun IdeaStepItem(step: PlanStep) {
             style = JewelTheme.defaultTextStyle.copy(
                 fontSize = 10.sp,
                 color = when (step.status) {
-                    TaskStatus.COMPLETED -> AutoDevColors.Neutral.c500
-                    TaskStatus.FAILED -> AutoDevColors.Red.c400
-                    else -> AutoDevColors.Neutral.c200
+                    TaskStatus.COMPLETED -> IdeaAutoDevColors.Neutral.c500
+                    TaskStatus.FAILED -> IdeaAutoDevColors.Red.c400
+                    else -> IdeaAutoDevColors.Neutral.c200
                 }
             ),
             maxLines = 1,
@@ -392,24 +392,24 @@ private fun IdeaStepStatusIcon(status: TaskStatus, size: Int = 14) {
             key = AllIconsKeys.Actions.Checked,
             contentDescription = "Completed",
             modifier = Modifier.size(size.dp),
-            tint = AutoDevColors.Green.c400
+            tint = IdeaAutoDevColors.Green.c400
         )
         TaskStatus.FAILED -> Icon(
             key = AllIconsKeys.Actions.Close,
             contentDescription = "Failed",
             modifier = Modifier.size(size.dp),
-            tint = AutoDevColors.Red.c400
+            tint = IdeaAutoDevColors.Red.c400
         )
         TaskStatus.IN_PROGRESS -> Icon(
             key = AllIconsKeys.Actions.Refresh,
             contentDescription = "In Progress",
             modifier = Modifier.size(size.dp).rotate(rotation),
-            tint = AutoDevColors.Blue.c400
+            tint = IdeaAutoDevColors.Blue.c400
         )
         else -> Box(
             modifier = Modifier
                 .size((size - 4).dp)
-                .background(AutoDevColors.Neutral.c600.copy(alpha = 0.3f), CircleShape)
+                .background(IdeaAutoDevColors.Neutral.c600.copy(alpha = 0.3f), CircleShape)
         )
     }
 }

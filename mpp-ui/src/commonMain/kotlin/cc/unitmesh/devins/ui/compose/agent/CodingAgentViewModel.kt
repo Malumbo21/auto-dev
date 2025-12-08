@@ -16,7 +16,7 @@ import cc.unitmesh.agent.tool.ToolType
 import cc.unitmesh.devins.filesystem.DefaultProjectFileSystem
 import cc.unitmesh.devins.llm.ChatHistoryManager
 import cc.unitmesh.devins.llm.MessageRole
-import cc.unitmesh.devins.ui.config.ConfigManager
+import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.indexer.DomainDictGenerator
 import cc.unitmesh.llm.KoogLLMService
 import kotlinx.coroutines.*

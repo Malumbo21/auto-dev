@@ -9,6 +9,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import cc.unitmesh.agent.Platform
+import cc.unitmesh.config.ConfigManager
+import cc.unitmesh.config.IssueTrackerConfig
 import cc.unitmesh.devins.ui.compose.agent.ComposeRenderer
 import cc.unitmesh.devins.ui.base.ResizableSplitPane
 import cc.unitmesh.devins.ui.compose.agent.codereview.diff.CommitListView
@@ -72,14 +74,14 @@ fun CodeReviewSideBySideView(viewModel: CodeReviewViewModel, modifier: Modifier 
     // Issue Tracker Configuration Dialog
     if (showConfigDialog) {
         var currentConfig by remember {
-            mutableStateOf(cc.unitmesh.devins.ui.config.IssueTrackerConfig())
+            mutableStateOf(IssueTrackerConfig())
         }
         var autoDetectedRepo by remember {
             mutableStateOf<Pair<String, String>?>(null)
         }
 
         LaunchedEffect(Unit) {
-            currentConfig = cc.unitmesh.devins.ui.config.ConfigManager.getIssueTracker()
+            currentConfig = ConfigManager.getIssueTracker()
             autoDetectedRepo = viewModel.detectRepositoryFromGit()
         }
 

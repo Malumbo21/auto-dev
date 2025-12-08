@@ -12,12 +12,12 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import cc.unitmesh.devins.idea.services.CoroutineScopeHolder
-import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.application.EDT
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import org.jetbrains.jewel.foundation.theme.JewelTheme
 import javax.swing.Timer
@@ -34,8 +34,9 @@ import javax.swing.Timer
  */
 
 // Application-level fallback scope for when no project is available
+// Uses Dispatchers.EDT (IntelliJ's EDT dispatcher) to ensure EDT execution for Compose animations
 private val appScope: CoroutineScope by lazy {
-    CoroutineScope(SupervisorJob())
+    CoroutineScope(SupervisorJob() + Dispatchers.EDT)
 }
 
 /**
@@ -118,65 +119,6 @@ fun IdeaLaunchedEffect(
         val job = scope.launch { block() }
         onDispose { job.cancel() }
     }
-}
-
-/**
- * Collects a StateFlow into Compose state without using collectAsState().
- * Uses DisposableEffect to avoid ClassLoader conflicts.
- *
- * @param flow The StateFlow to collect
- * @param project Optional project for project-scoped coroutines
- * @return The current value of the StateFlow as Compose State
- */
-@Composable
-fun <T> collectAsIdeaState(
-    flow: StateFlow<T>,
-    project: Project? = null
-): State<T> {
-    val state = remember { mutableStateOf(flow.value) }
-    val scope = getScope(project)
-
-    DisposableEffect(flow) {
-        val job = scope.launch {
-            flow.collect { value ->
-                ApplicationManager.getApplication().invokeLater {
-                    state.value = value
-                }
-            }
-        }
-        onDispose { job.cancel() }
-    }
-
-    return state
-}
-
-/**
- * Collects a nullable StateFlow into Compose state.
- */
-@Composable
-fun <T> collectAsIdeaStateOrNull(
-    flow: StateFlow<T>?,
-    initialValue: T,
-    project: Project? = null
-): State<T> {
-    val state = remember { mutableStateOf(flow?.value ?: initialValue) }
-
-    if (flow != null) {
-        val scope = getScope(project)
-
-        DisposableEffect(flow) {
-            val job = scope.launch {
-                flow.collect { value ->
-                    ApplicationManager.getApplication().invokeLater {
-                        state.value = value
-                    }
-                }
-            }
-            onDispose { job.cancel() }
-        }
-    }
-
-    return state
 }
 
 /**

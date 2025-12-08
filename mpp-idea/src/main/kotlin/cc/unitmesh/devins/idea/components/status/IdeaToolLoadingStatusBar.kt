@@ -13,7 +13,7 @@ import cc.unitmesh.agent.config.PreloadingStatus
 import cc.unitmesh.devins.idea.compose.IdeaLaunchedEffect
 import cc.unitmesh.devins.idea.services.IdeaToolConfigService
 import cc.unitmesh.devins.idea.toolwindow.IdeaAgentViewModel
-import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
+import cc.unitmesh.devins.idea.theme.IdeaAutoDevColors
 import com.intellij.openapi.project.Project
 import org.jetbrains.jewel.foundation.theme.JewelTheme
 import org.jetbrains.jewel.ui.component.Text
@@ -65,7 +65,7 @@ fun IdeaToolLoadingStatusBar(
             count = toolStatus.subAgentsEnabled,
             total = toolStatus.subAgentsTotal,
             isLoading = false,
-            color = AutoDevColors.Blue.c400
+            color = IdeaAutoDevColors.Blue.c400
         )
 
         // MCP Tools status
@@ -75,7 +75,7 @@ fun IdeaToolLoadingStatusBar(
             total = if (toolStatus.isLoading) -1 else toolStatus.mcpToolsTotal,
             isLoading = toolStatus.isLoading,
             color = if (!toolStatus.isLoading && toolStatus.mcpToolsEnabled > 0)
-                AutoDevColors.Green.c400
+                IdeaAutoDevColors.Green.c400
             else
                 JewelTheme.globalColors.text.info
         )
@@ -97,7 +97,7 @@ fun IdeaToolLoadingStatusBar(
                 text = "✓ All tools ready",
                 style = JewelTheme.defaultTextStyle.copy(
                     fontSize = 11.sp,
-                    color = AutoDevColors.Green.c400
+                    color = IdeaAutoDevColors.Green.c400
                 )
             )
         }

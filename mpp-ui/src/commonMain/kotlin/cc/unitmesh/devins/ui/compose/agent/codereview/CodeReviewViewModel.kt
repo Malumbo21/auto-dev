@@ -17,7 +17,7 @@ import cc.unitmesh.devins.ui.compose.agent.codereview.analysis.CodeAnalyzer
 import cc.unitmesh.devins.ui.compose.agent.codereview.analysis.LintExecutor
 import cc.unitmesh.agent.diff.DiffParser
 import cc.unitmesh.agent.util.WalkthroughExtractor
-import cc.unitmesh.devins.ui.config.ConfigManager
+import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.devins.ui.wasm.WasmGitManager
 import cc.unitmesh.devins.workspace.Workspace
 import cc.unitmesh.llm.KoogLLMService

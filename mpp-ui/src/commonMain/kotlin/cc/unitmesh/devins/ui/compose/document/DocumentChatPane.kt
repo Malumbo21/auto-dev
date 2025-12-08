@@ -23,7 +23,7 @@ import androidx.compose.ui.unit.sp
 import cc.unitmesh.agent.Platform
 import cc.unitmesh.devins.ui.compose.agent.AgentMessageList
 import cc.unitmesh.devins.ui.compose.icons.AutoDevComposeIcons
-import cc.unitmesh.devins.ui.config.ConfigManager
+import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.devins.workspace.WorkspaceManager
 import cc.unitmesh.indexer.DomainDictService
 import cc.unitmesh.llm.KoogLLMService

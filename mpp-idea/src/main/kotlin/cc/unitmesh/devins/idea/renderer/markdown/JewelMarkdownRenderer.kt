@@ -16,7 +16,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cc.unitmesh.devins.idea.renderer.markdown.MarkdownInlineRenderer.appendMarkdownChildren
-import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
+import cc.unitmesh.devins.idea.theme.IdeaAutoDevColors
 import cc.unitmesh.markdown.MarkdownTextParser
 import org.intellij.markdown.MarkdownElementTypes
 import org.intellij.markdown.MarkdownTokenTypes
@@ -320,7 +320,7 @@ private fun MarkdownBlockQuote(
             modifier = Modifier
                 .width(3.dp)
                 .fillMaxHeight()
-                .background(AutoDevColors.Blue.c400, RoundedCornerShape(2.dp))
+                .background(IdeaAutoDevColors.Blue.c400, RoundedCornerShape(2.dp))
         )
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
