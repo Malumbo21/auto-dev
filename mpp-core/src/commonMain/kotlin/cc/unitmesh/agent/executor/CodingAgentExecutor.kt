@@ -65,31 +65,56 @@ class CodingAgentExecutor(
     // Track task execution time
     private var taskStartTime: Long = 0L
 
+    // Track if we have an active conversation
+    private var hasActiveConversation: Boolean = false
+
+    // Store the system prompt for conversation initialization
+    private var currentSystemPrompt: String? = null
+
     /**
-     * 执行 Agent 任务
+     * 执行 Agent 任务（新任务或继续对话）
+     *
+     * @param task 任务描述
+     * @param systemPrompt 系统提示词
+     * @param onProgress 进度回调
+     * @param continueConversation 是否继续现有对话（true=继续，false=新任务）
      */
     suspend fun execute(
         task: AgentTask,
         systemPrompt: String,
-        onProgress: (String) -> Unit = {}
+        onProgress: (String) -> Unit = {},
+        continueConversation: Boolean = false
     ): AgentResult {
-        resetExecution()
+        // Only reset if starting a new conversation
+        if (!continueConversation || !hasActiveConversation) {
+            resetExecution()
 
-        // Start tracking execution time
-        taskStartTime = Platform.getCurrentTimestamp()
+            // Start tracking execution time
+            taskStartTime = Platform.getCurrentTimestamp()
 
-        conversationManager = ConversationManager(llmService, systemPrompt)
+            // Create new ConversationManager only for new conversations
+            conversationManager = ConversationManager(llmService, systemPrompt)
+            currentSystemPrompt = systemPrompt
+            hasActiveConversation = true
 
-        // Set up token tracking callback to update renderer
-        conversationManager?.onTokenUpdate = { tokenInfo ->
-            renderer.updateTokenInfo(tokenInfo)
+            // Set up token tracking callback to update renderer
+            conversationManager?.onTokenUpdate = { tokenInfo ->
+                renderer.updateTokenInfo(tokenInfo)
+            }
+
+            onProgress("🚀 CodingAgent started")
+            onProgress("Project: ${task.projectPath}")
+            onProgress("Task: ${task.requirement}")
+        } else {
+            // Continuing existing conversation - just reset iteration counter for this turn
+            currentIteration = 0
+            taskStartTime = Platform.getCurrentTimestamp()
+
+            onProgress("💬 Continuing conversation...")
+            onProgress("User: ${task.requirement}")
         }
 
         val initialUserMessage = buildInitialUserMessage(task)
-
-        onProgress("🚀 CodingAgent started")
-        onProgress("Project: ${task.projectPath}")
-        onProgress("Task: ${task.requirement}")
 
         while (shouldContinue()) {
             yield()
@@ -153,8 +178,31 @@ class CodingAgentExecutor(
         taskStartTime = 0L
     }
 
+    /**
+     * Clear the current conversation and start fresh.
+     * Call this when user explicitly wants to start a new task/session.
+     */
+    fun clearConversation() {
+        resetExecution()
+        conversationManager?.clearHistory()
+        hasActiveConversation = false
+        currentSystemPrompt = null
+        logger.info { "Conversation cleared, ready for new task" }
+    }
+
+    /**
+     * Check if there's an active conversation that can be continued
+     */
+    fun hasActiveConversation(): Boolean = hasActiveConversation && conversationManager != null
+
     private fun buildInitialUserMessage(task: AgentTask): String {
-        return "Task: ${task.requirement}"
+        // For continuation, just send the user's message directly
+        // For new tasks, prefix with "Task:" to indicate it's a new task
+        return if (hasActiveConversation && conversationManager?.getHistory()?.size ?: 0 > 1) {
+            task.requirement
+        } else {
+            "Task: ${task.requirement}"
+        }
     }
 
     override fun buildContinuationMessage(): String {

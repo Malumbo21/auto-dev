@@ -141,7 +141,10 @@ class CodingAgent(
         val context = buildContext(input)
         val systemPrompt = buildSystemPrompt(context)
 
-        val result = executor.execute(input, systemPrompt, onProgress)
+        // Check if we should continue existing conversation
+        val continueConversation = executor.hasActiveConversation()
+
+        val result = executor.execute(input, systemPrompt, onProgress, continueConversation)
 
         return ToolResult.AgentResult(
             success = result.success,
@@ -154,11 +157,69 @@ class CodingAgent(
         )
     }
 
+    /**
+     * Execute a task, optionally continuing an existing conversation.
+     *
+     * @param task The task to execute
+     * @param continueConversation If true, continues the existing conversation context.
+     *                             If false, starts a new conversation (clears history).
+     */
     override suspend fun executeTask(task: AgentTask): AgentResult {
         val context = buildContext(task)
         val systemPrompt = buildSystemPrompt(context)
 
-        return executor.execute(task, systemPrompt)
+        // Check if we should continue existing conversation
+        val continueConversation = executor.hasActiveConversation()
+
+        return executor.execute(task, systemPrompt, continueConversation = continueConversation)
+    }
+
+    /**
+     * Continue an existing conversation with a new user message.
+     * This preserves the conversation history and context.
+     *
+     * @param userMessage The user's follow-up message
+     * @return The agent's result
+     */
+    suspend fun continueConversation(userMessage: String): AgentResult {
+        val task = AgentTask(
+            requirement = userMessage,
+            projectPath = projectPath
+        )
+
+        val context = buildContext(task)
+        val systemPrompt = buildSystemPrompt(context)
+
+        // Always continue conversation when using this method
+        return executor.execute(task, systemPrompt, continueConversation = true)
+    }
+
+    /**
+     * Start a new conversation, clearing any existing history.
+     *
+     * @param task The new task to start
+     * @return The agent's result
+     */
+    suspend fun startNewConversation(task: AgentTask): AgentResult {
+        // Clear existing conversation first
+        executor.clearConversation()
+
+        val context = buildContext(task)
+        val systemPrompt = buildSystemPrompt(context)
+
+        return executor.execute(task, systemPrompt, continueConversation = false)
+    }
+
+    /**
+     * Check if there's an active conversation that can be continued
+     */
+    fun hasActiveConversation(): Boolean = executor.hasActiveConversation()
+
+    /**
+     * Clear the current conversation and start fresh
+     */
+    fun clearConversation() {
+        executor.clearConversation()
     }
 
     override fun buildSystemPrompt(context: CodingAgentContext, language: String): String {

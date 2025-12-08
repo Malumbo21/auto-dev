@@ -256,6 +256,7 @@ class CodingAgentViewModel(
             "clear" -> {
                 renderer.clearMessages()
                 chatHistoryManager?.clearCurrentSession()  // 同时清空会话历史
+                _codingAgent?.clearConversation()  // 清空 Agent 的对话上下文
                 renderer.renderFinalResult(true, "SUCCESS: Chat history cleared", 0)
             }
 
@@ -313,13 +314,21 @@ class CodingAgentViewModel(
         }
     }
 
+    /**
+     * Start a new session, clearing conversation history.
+     * This should be called when user explicitly wants to start fresh.
+     */
     fun newSession() {
         renderer.clearMessages()
         chatHistoryManager?.createSession()
+
+        // Clear the agent's conversation history as well
+        _codingAgent?.clearConversation()
     }
 
     /**
-     * Switch to a different session and load its messages
+     * Switch to a different session and load its messages.
+     * Note: This clears the agent's conversation context since we're switching sessions.
      */
     fun switchSession(sessionId: String) {
         chatHistoryManager?.let { manager ->
@@ -327,6 +336,9 @@ class CodingAgentViewModel(
             if (session != null) {
                 // Clear current renderer state
                 renderer.clearMessages()
+
+                // Clear agent conversation since we're switching to a different session
+                _codingAgent?.clearConversation()
 
                 // Load messages from the switched session
                 val messages = manager.getMessages()
