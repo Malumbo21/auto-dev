@@ -118,6 +118,7 @@ class SessionManager {
             is AgentEvent.CloneProgress -> "clone_progress"
             is AgentEvent.Error -> "error"
             is AgentEvent.Complete -> "complete"
+            is AgentEvent.AgentSketchBlock -> "agent_sketch_block"
         }
         
         val eventData = json.encodeToString(event)

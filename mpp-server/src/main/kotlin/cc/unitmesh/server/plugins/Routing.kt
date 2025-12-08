@@ -181,6 +181,7 @@ fun Application.configureRouting() {
                                     is AgentEvent.CloneProgress -> "clone_progress"
                                     is AgentEvent.Error -> "error"
                                     is AgentEvent.Complete -> "complete"
+                                    is AgentEvent.AgentSketchBlock -> "agent_sketch_block"
                                 }
 
                                 val data = when (event) {
@@ -192,6 +193,7 @@ fun Application.configureRouting() {
                                     is AgentEvent.CloneProgress -> json.encodeToString(event)
                                     is AgentEvent.Error -> json.encodeToString(event)
                                     is AgentEvent.Complete -> json.encodeToString(event)
+                                    is AgentEvent.AgentSketchBlock -> json.encodeToString(event)
                                 }
 
                                 // Send SSE event
@@ -256,6 +258,7 @@ fun Application.configureRouting() {
                                 is AgentEvent.CloneProgress -> "clone_progress"
                                 is AgentEvent.Error -> "error"
                                 is AgentEvent.Complete -> "complete"
+                                is AgentEvent.AgentSketchBlock -> "agent_sketch_block"
                             }
 
                             val data = when (event) {
@@ -267,6 +270,7 @@ fun Application.configureRouting() {
                                 is AgentEvent.CloneProgress -> json.encodeToString(event)
                                 is AgentEvent.Error -> json.encodeToString(event)
                                 is AgentEvent.Complete -> json.encodeToString(event)
+                                is AgentEvent.AgentSketchBlock -> json.encodeToString(event)
                             }
 
                             // Send SSE event

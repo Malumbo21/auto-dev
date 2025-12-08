@@ -146,6 +146,24 @@ export abstract class BaseRenderer implements JsCodingAgentRenderer {
   }
 
   /**
+   * Render an Agent-generated sketch block (chart, nanodsl, mermaid, etc.)
+   * Called when a SubAgent returns content containing special code blocks.
+   *
+   * @param agentName The name of the agent that generated the content
+   * @param language The language identifier of the code block
+   * @param code The code content to render
+   * @param metadata Additional metadata as JSON object
+   */
+  renderAgentSketchBlock(
+    agentName: string,
+    language: string,
+    code: string,
+    metadata: Record<string, string>
+  ): void {
+    // Default: no-op, subclasses can override for interactive rendering
+  }
+
+  /**
    * Common implementation for LLM response start
    */
   protected baseLLMResponseStart(): void {

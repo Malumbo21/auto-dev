@@ -53,6 +53,19 @@ sealed interface AgentEvent {
         val steps: List<AgentStepInfo>,
         val edits: List<AgentEditInfo>
     ) : AgentEvent
+
+    /**
+     * Agent-generated sketch block event.
+     * Sent when a SubAgent (like chart-agent, nanodsl-agent) generates
+     * renderable code blocks that should be displayed as interactive UI.
+     */
+    @Serializable
+    data class AgentSketchBlock(
+        val agentName: String,
+        val language: String,
+        val code: String,
+        val metadata: Map<String, String> = emptyMap()
+    ) : AgentEvent
 }
 
 

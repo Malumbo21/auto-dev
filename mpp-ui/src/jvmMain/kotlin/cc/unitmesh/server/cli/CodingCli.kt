@@ -532,4 +532,19 @@ class CodingCliRenderer : CodingAgentRenderer {
         println("❓ Confirmation required for: $toolName")
         println("   Params: $params")
     }
+
+    override fun renderAgentSketchBlock(
+        agentName: String,
+        language: String,
+        code: String,
+        metadata: Map<String, String>
+    ) {
+        println()
+        println("📊 Agent Sketch Block [$agentName]")
+        println("━".repeat(50))
+        println("```$language")
+        println(code)
+        println("```")
+        println("━".repeat(50))
+    }
 }

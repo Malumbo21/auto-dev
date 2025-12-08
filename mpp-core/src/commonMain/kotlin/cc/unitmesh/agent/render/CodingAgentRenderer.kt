@@ -117,6 +117,31 @@ interface CodingAgentRenderer {
     }
 
     /**
+     * Render an Agent-generated sketch block (chart, nanodsl, mermaid, etc.)
+     * Called when a SubAgent returns content containing special code blocks that
+     * should be rendered as interactive UI components.
+     *
+     * This method is called by the executor when it detects that an AgentResult
+     * contains renderable code blocks. UI renderers can override this to display
+     * interactive visualizations (charts, diagrams, UI previews).
+     *
+     * @param agentName The name of the agent that generated the content (e.g., "chart-agent", "nanodsl-agent")
+     * @param language The language identifier of the code block (e.g., "chart", "nanodsl", "mermaid")
+     * @param code The code content to render
+     * @param metadata Additional metadata from the agent result
+     */
+    fun renderAgentSketchBlock(
+        agentName: String,
+        language: String,
+        code: String,
+        metadata: Map<String, String> = emptyMap()
+    ) {
+        // Default: no-op for renderers that don't support sketch blocks
+        // UI renderers (ComposeRenderer, JewelRenderer) should override this
+        // to render interactive components
+    }
+
+    /**
      * Await the result of an async session.
      * Used when the Agent needs to wait for a shell command to complete before proceeding.
      *

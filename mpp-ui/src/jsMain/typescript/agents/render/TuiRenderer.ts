@@ -304,4 +304,23 @@ export class TuiRenderer extends BaseRenderer {
       this.currentMessage = null;
     }
   }
+
+  /**
+   * Render an Agent-generated sketch block (chart, nanodsl, mermaid, etc.)
+   * In TUI mode, we display the code block as a message.
+   */
+  renderAgentSketchBlock(
+    agentName: string,
+    language: string,
+    code: string,
+    metadata: Record<string, string>
+  ): void {
+    const sketchMessage: Message = {
+      role: 'assistant',
+      content: `\`\`\`${language}\n${code}\n\`\`\``,
+      timestamp: Date.now(),
+      showPrefix: true
+    };
+    this.context.addMessage(sketchMessage);
+  }
 }

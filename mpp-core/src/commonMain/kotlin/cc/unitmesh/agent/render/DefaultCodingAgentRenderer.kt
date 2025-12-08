@@ -117,4 +117,19 @@ class DefaultCodingAgentRenderer : BaseRenderer() {
         println("   Parameters: ${params.entries.joinToString(", ") { "${it.key}=${it.value}" }}")
         println("   (Auto-approved for now)")
     }
+
+    override fun renderAgentSketchBlock(
+        agentName: String,
+        language: String,
+        code: String,
+        metadata: Map<String, String>
+    ) {
+        // Console renderer: display the code block with syntax highlighting hint
+        println("\n📊 Agent Sketch Block [$agentName]")
+        println("─".repeat(50))
+        println("```$language")
+        println(code)
+        println("```")
+        println("─".repeat(50))
+    }
 }

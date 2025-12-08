@@ -6,6 +6,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -223,6 +225,15 @@ fun RenderMessageItem(
                 exitCode = timelineItem.exitCode,
                 executionTimeMs = timelineItem.executionTimeMs,
                 output = timelineItem.output
+            )
+        }
+
+        is TimelineItem.AgentSketchBlockItem -> {
+            AgentSketchBlockItem(
+                agentName = timelineItem.agentName,
+                language = timelineItem.language,
+                code = timelineItem.code,
+                metadata = timelineItem.metadata
             )
         }
     }
@@ -486,6 +497,73 @@ fun NanoDSLTimelineItem(
                 text = "${lines.size} lines of NanoDSL code",
                 fontSize = 10.sp,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+            )
+        }
+    }
+}
+
+/**
+ * Composable for rendering Agent-generated sketch blocks (chart, nanodsl, mermaid, etc.)
+ * Uses SketchRenderer to handle all code block types uniformly.
+ */
+@Composable
+fun AgentSketchBlockItem(
+    agentName: String,
+    language: String,
+    code: String,
+    metadata: Map<String, String> = emptyMap()
+) {
+    // Construct code fence format for SketchRenderer to parse
+    val fencedContent = "```$language\n$code\n```"
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        ),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp)
+        ) {
+            // Header with agent name and language
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "📊",
+                        fontSize = 14.sp
+                    )
+                    Text(
+                        text = agentName,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                Text(
+                    text = language,
+                    fontSize = 10.sp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    fontFamily = FontFamily.Monospace
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Use SketchRenderer to render the content uniformly
+            SketchRenderer.Render(
+                content = fencedContent,
+                isComplete = true,
+                modifier = Modifier.fillMaxWidth()
             )
         }
     }

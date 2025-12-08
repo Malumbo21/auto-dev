@@ -143,6 +143,12 @@ class DurableAgentExecutor(
             is AgentEvent.Error -> "Error" to buildJsonObject { put("message", event.message) }.toString()
             is AgentEvent.Complete -> "Complete" to
                 buildJsonObject { put("success", event.success); put("message", event.message) }.toString()
+            is AgentEvent.AgentSketchBlock -> "AgentSketchBlock" to
+                buildJsonObject {
+                    put("agentName", event.agentName)
+                    put("language", event.language)
+                    put("code", event.code)
+                }.toString()
         }
         return WorkflowEvent(UUID.randomUUID().toString(), workflowId, seq, eventType, eventData, System.currentTimeMillis())
     }

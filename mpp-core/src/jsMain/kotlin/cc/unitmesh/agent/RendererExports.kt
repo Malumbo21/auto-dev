@@ -112,6 +112,22 @@ interface JsCodingAgentRenderer {
 
     // Plan summary bar (optional - default no-op in BaseRenderer)
     fun renderPlanSummary(summary: JsPlanSummaryData) {}
+
+    /**
+     * Render an Agent-generated sketch block (chart, nanodsl, mermaid, etc.)
+     * Called when a SubAgent returns content containing special code blocks.
+     *
+     * @param agentName The name of the agent that generated the content
+     * @param language The language identifier of the code block
+     * @param code The code content to render
+     * @param metadata Additional metadata as JSON object
+     */
+    fun renderAgentSketchBlock(
+        agentName: String,
+        language: String,
+        code: String,
+        metadata: dynamic
+    ) {}
 }
 
 /**
@@ -182,6 +198,20 @@ class JsRendererAdapter(private val jsRenderer: JsCodingAgentRenderer) : CodingA
 
     override fun renderPlanSummary(summary: PlanSummaryData) {
         jsRenderer.renderPlanSummary(JsPlanSummaryData.from(summary))
+    }
+
+    override fun renderAgentSketchBlock(
+        agentName: String,
+        language: String,
+        code: String,
+        metadata: Map<String, String>
+    ) {
+        // Convert Kotlin Map to JS object
+        val jsMetadata = js("{}")
+        metadata.forEach { (key, value) ->
+            jsMetadata[key] = value
+        }
+        jsRenderer.renderAgentSketchBlock(agentName, language, code, jsMetadata)
     }
 }
 

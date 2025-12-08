@@ -595,5 +595,24 @@ export class CliRenderer extends BaseRenderer {
     console.log(semanticChalk.accent(dividers.solid(50)));
     console.log();
   }
+
+  /**
+   * Render an Agent-generated sketch block (chart, nanodsl, mermaid, etc.)
+   * In CLI mode, we display the code block with syntax highlighting hint.
+   */
+  renderAgentSketchBlock(
+    agentName: string,
+    language: string,
+    code: string,
+    metadata: Record<string, string>
+  ): void {
+    console.log();
+    console.log(semanticChalk.accentBold(`📊 Agent Sketch Block [${agentName}]`));
+    console.log(dividers.solid(50));
+    console.log(semanticChalk.muted(`\`\`\`${language}`));
+    console.log(chalk.white(code));
+    console.log(semanticChalk.muted('```'));
+    console.log(dividers.solid(50));
+  }
 }
 

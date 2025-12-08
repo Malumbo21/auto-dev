@@ -783,6 +783,26 @@ class ComposeRenderer : BaseRenderer() {
     }
 
     /**
+     * Render an Agent-generated sketch block (chart, nanodsl, mermaid, etc.)
+     * Adds the sketch block to the timeline for interactive rendering.
+     */
+    override fun renderAgentSketchBlock(
+        agentName: String,
+        language: String,
+        code: String,
+        metadata: Map<String, String>
+    ) {
+        _timeline.add(
+            TimelineItem.AgentSketchBlockItem(
+                agentName = agentName,
+                language = language,
+                code = code,
+                metadata = metadata
+            )
+        )
+    }
+
+    /**
      * Convert a TimelineItem to MessageMetadata for persistence
      */
     private fun toMessageMetadata(item: TimelineItem): cc.unitmesh.devins.llm.MessageMetadata? {
@@ -854,6 +874,15 @@ class ComposeRenderer : BaseRenderer() {
             is TimelineItem.LiveTerminalItem -> {
                 // Live terminal items are not persisted (they're runtime-only)
                 null
+            }
+
+            is TimelineItem.AgentSketchBlockItem -> {
+                cc.unitmesh.devins.llm.MessageMetadata(
+                    itemType = cc.unitmesh.devins.llm.TimelineItemType.AGENT_SKETCH_BLOCK,
+                    agentName = item.agentName,
+                    sketchLanguage = item.language,
+                    sketchCode = item.code
+                )
             }
         }
     }
@@ -965,7 +994,20 @@ class ComposeRenderer : BaseRenderer() {
                     timestamp = message.timestamp
                 )
             }
-            else -> null
+
+            TimelineItemType.AGENT_SKETCH_BLOCK -> {
+                AgentSketchBlockItem(
+                    agentName = metadata.agentName ?: "",
+                    language = metadata.sketchLanguage ?: "",
+                    code = metadata.sketchCode ?: message.content,
+                    timestamp = message.timestamp
+                )
+            }
+
+            TimelineItemType.LIVE_TERMINAL -> {
+                // Live terminal items are runtime-only and cannot be restored from metadata
+                null
+            }
         }
     }
 
@@ -1058,6 +1100,15 @@ class ComposeRenderer : BaseRenderer() {
                 }
 
                 is LiveTerminalItem -> null
+
+                is TimelineItem.AgentSketchBlockItem -> {
+                    cc.unitmesh.devins.llm.Message(
+                        role = MessageRole.ASSISTANT,
+                        content = "```${item.language}\n${item.code}\n```",
+                        timestamp = item.timestamp,
+                        metadata = toMessageMetadata(item)
+                    )
+                }
             }
         }
     }

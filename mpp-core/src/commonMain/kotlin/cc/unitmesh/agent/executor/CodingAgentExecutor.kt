@@ -14,6 +14,7 @@ import cc.unitmesh.agent.plan.PlanSummaryData
 import cc.unitmesh.agent.tool.ToolResult
 import cc.unitmesh.agent.tool.ToolType
 import cc.unitmesh.agent.tool.toToolType
+import cc.unitmesh.devins.parser.CodeFence
 import cc.unitmesh.llm.KoogLLMService
 import kotlinx.coroutines.yield
 import kotlinx.coroutines.coroutineScope
@@ -351,6 +352,12 @@ class CodingAgentExecutor(
                 executionResult.metadata
             )
 
+            // Render Agent-generated sketch blocks (chart, nanodsl, mermaid, etc.)
+            if (executionResult.isSuccess && executionResult.result is ToolResult.AgentResult) {
+                val agentResult = executionResult.result as ToolResult.AgentResult
+                renderAgentSketchBlocks(toolName, agentResult)
+            }
+
             // Render plan summary bar after plan tool execution
             if (toolName == "plan" && executionResult.isSuccess) {
                 renderPlanSummaryIfAvailable()
@@ -603,5 +610,34 @@ class CodingAgentExecutor(
         val currentPlan = planStateService.currentPlan.value ?: return
         val summary = PlanSummaryData.from(currentPlan)
         renderer.renderPlanSummary(summary)
+    }
+
+    /**
+     * Render Agent-generated sketch blocks from AgentResult content.
+     * Detects special code blocks (chart, nanodsl, mermaid) and calls renderAgentSketchBlock.
+     */
+    private fun renderAgentSketchBlocks(agentName: String, agentResult: ToolResult.AgentResult) {
+        if (!agentResult.success) return
+
+        val content = agentResult.content
+        if (content.isBlank()) return
+
+        // Parse all code blocks from the content
+        val codeFences = CodeFence.parseAll(content)
+
+        // Supported sketch block languages
+        val sketchLanguages = setOf("chart", "graph", "nanodsl", "nano", "mermaid", "mmd")
+
+        for (fence in codeFences) {
+            val language = fence.languageId.lowercase()
+            if (language in sketchLanguages && fence.text.isNotBlank()) {
+                renderer.renderAgentSketchBlock(
+                    agentName = agentName,
+                    language = language,
+                    code = fence.text,
+                    metadata = agentResult.metadata
+                )
+            }
+        }
     }
 }

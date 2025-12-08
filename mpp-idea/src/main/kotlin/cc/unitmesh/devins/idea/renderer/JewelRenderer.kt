@@ -762,5 +762,25 @@ class JewelRenderer : BaseRenderer() {
             cc.unitmesh.agent.tool.ToolResult.Error("Session timed out after ${timeoutMs}ms")
         }
     }
+
+    /**
+     * Render an Agent-generated sketch block (chart, nanodsl, mermaid, etc.)
+     * Adds the sketch block to the timeline for interactive rendering.
+     */
+    override fun renderAgentSketchBlock(
+        agentName: String,
+        language: String,
+        code: String,
+        metadata: Map<String, String>
+    ) {
+        _timeline.update { current ->
+            current + TimelineItem.AgentSketchBlockItem(
+                agentName = agentName,
+                language = language,
+                code = code,
+                metadata = metadata
+            )
+        }
+    }
 }
 

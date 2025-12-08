@@ -13,7 +13,8 @@ enum class TimelineItemType {
     TOOL_ERROR,
     TASK_COMPLETE,
     TERMINAL_OUTPUT,
-    LIVE_TERMINAL
+    LIVE_TERMINAL,
+    AGENT_SKETCH_BLOCK
 }
 
 /**
@@ -64,5 +65,10 @@ data class MessageMetadata(
     val docqlTruncated: Boolean? = null,
     val docqlUsedFallback: Boolean? = null,
     val docqlDetailedResults: String? = null,
-    val docqlSmartSummary: String? = null
+    val docqlSmartSummary: String? = null,
+
+    // Agent sketch block fields
+    val agentName: String? = null,
+    val sketchLanguage: String? = null,
+    val sketchCode: String? = null
 )

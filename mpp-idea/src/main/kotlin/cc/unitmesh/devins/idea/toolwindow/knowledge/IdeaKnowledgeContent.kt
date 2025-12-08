@@ -797,6 +797,43 @@ private fun ChatMessageItem(item: TimelineItem) {
                 }
             }
         }
+
+        is TimelineItem.AgentSketchBlockItem -> {
+            // Agent-generated sketch block (chart, nanodsl, mermaid, etc.)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(JewelTheme.globalColors.panelBackground.copy(alpha = 0.5f))
+                    .padding(8.dp)
+            ) {
+                Column {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "📊 ${item.agentName}",
+                            style = JewelTheme.defaultTextStyle.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp
+                            )
+                        )
+                        Text(
+                            text = "[${item.language}]",
+                            style = JewelTheme.defaultTextStyle.copy(
+                                fontSize = 10.sp,
+                                color = JewelTheme.globalColors.text.info.copy(alpha = 0.6f)
+                            )
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = item.code.take(200) + if (item.code.length > 200) "..." else "",
+                        style = JewelTheme.defaultTextStyle.copy(fontSize = 11.sp)
+                    )
+                }
+            }
+        }
     }
 }
 

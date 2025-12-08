@@ -565,6 +565,25 @@ export class ServerRenderer extends BaseRenderer {
 
     console.log('');
   }
+
+  /**
+   * Render an Agent-generated sketch block (chart, nanodsl, mermaid, etc.)
+   * In server mode, we display the code block with formatting.
+   */
+  renderAgentSketchBlock(
+    agentName: string,
+    language: string,
+    code: string,
+    metadata: Record<string, string>
+  ): void {
+    console.log('');
+    console.log(semanticChalk.accentBold(`📊 Agent Sketch Block [${agentName}]`));
+    console.log('━'.repeat(50));
+    console.log(semanticChalk.muted(`\`\`\`${language}`));
+    console.log(code);
+    console.log(semanticChalk.muted('```'));
+    console.log('━'.repeat(50));
+  }
 }
 
 

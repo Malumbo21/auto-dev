@@ -66,7 +66,16 @@ class ServerSideRenderer : CodingAgentRenderer {
     override fun renderUserConfirmationRequest(toolName: String, params: Map<String, Any>) {
         eventChannel.trySend(AgentEvent.Error("User confirmation required for tool: $toolName"))
     }
-    
+
+    override fun renderAgentSketchBlock(
+        agentName: String,
+        language: String,
+        code: String,
+        metadata: Map<String, String>
+    ) {
+        eventChannel.trySend(AgentEvent.AgentSketchBlock(agentName, language, code, metadata))
+    }
+
     fun sendComplete(
         success: Boolean,
         message: String,

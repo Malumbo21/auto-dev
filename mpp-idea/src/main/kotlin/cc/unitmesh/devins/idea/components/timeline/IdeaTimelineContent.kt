@@ -1,12 +1,15 @@
 package cc.unitmesh.devins.idea.components.timeline
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cc.unitmesh.agent.render.TimelineItem
@@ -84,6 +87,113 @@ fun IdeaTimelineItemView(
                 item = item,
                 project = project,
                 onCancel = onProcessCancel
+            )
+        }
+        is TimelineItem.AgentSketchBlockItem -> {
+            // Agent-generated sketch block (chart, nanodsl, mermaid, etc.)
+            IdeaAgentSketchBlockBubble(item)
+        }
+    }
+}
+
+/**
+ * Agent-generated sketch block bubble (chart, nanodsl, mermaid, etc.)
+ */
+@Composable
+fun IdeaAgentSketchBlockBubble(item: TimelineItem.AgentSketchBlockItem) {
+    val lines = item.code.lines()
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .background(
+                JewelTheme.globalColors.panelBackground.copy(alpha = 0.5f),
+                shape = RoundedCornerShape(8.dp)
+            )
+            .padding(12.dp)
+    ) {
+        Column {
+            // Header with agent name and language
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "📊 ${item.agentName}",
+                        style = JewelTheme.defaultTextStyle.copy(
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 12.sp,
+                            color = JewelTheme.globalColors.text.info
+                        )
+                    )
+                }
+                Text(
+                    text = item.language,
+                    style = JewelTheme.defaultTextStyle.copy(
+                        fontSize = 10.sp,
+                        color = JewelTheme.globalColors.text.info.copy(alpha = 0.6f)
+                    )
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Code content
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        JewelTheme.globalColors.panelBackground,
+                        shape = RoundedCornerShape(4.dp)
+                    )
+                    .padding(8.dp)
+            ) {
+                Column {
+                    lines.take(20).forEachIndexed { index, line ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "${index + 1}",
+                                style = JewelTheme.defaultTextStyle.copy(
+                                    fontSize = 10.sp,
+                                    color = JewelTheme.globalColors.text.info.copy(alpha = 0.4f)
+                                ),
+                                modifier = Modifier.width(24.dp)
+                            )
+                            Text(
+                                text = line,
+                                style = JewelTheme.defaultTextStyle.copy(fontSize = 11.sp)
+                            )
+                        }
+                    }
+                    if (lines.size > 20) {
+                        Text(
+                            text = "... (${lines.size - 20} more lines)",
+                            style = JewelTheme.defaultTextStyle.copy(
+                                fontSize = 10.sp,
+                                color = JewelTheme.globalColors.text.info.copy(alpha = 0.5f)
+                            )
+                        )
+                    }
+                }
+            }
+
+            // Footer with line count
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "${lines.size} lines of ${item.language} code",
+                style = JewelTheme.defaultTextStyle.copy(
+                    fontSize = 10.sp,
+                    color = JewelTheme.globalColors.text.info.copy(alpha = 0.5f)
+                )
             )
         }
     }
