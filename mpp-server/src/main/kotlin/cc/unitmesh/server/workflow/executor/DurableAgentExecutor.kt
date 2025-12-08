@@ -10,6 +10,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import java.util.UUID
 
 private val logger = KotlinLogging.logger {}
@@ -38,7 +40,7 @@ class DurableAgentExecutor(
             workflowId = workflowId,
             sequenceNumber = sequenceNumber,
             eventType = "ExecutionStarted",
-            eventData = json.encodeToString(mapOf("projectPath" to projectPath, "task" to task)),
+            eventData = buildJsonObject { put("projectPath", projectPath); put("task", task) }.toString(),
             timestamp = System.currentTimeMillis()
         )
         eventStore.appendEvent(startEvent)
@@ -61,7 +63,7 @@ class DurableAgentExecutor(
                 workflowId = workflowId,
                 sequenceNumber = sequenceNumber,
                 eventType = "ExecutionCompleted",
-                eventData = json.encodeToString(mapOf("success" to true, "totalEvents" to eventCount)),
+                eventData = buildJsonObject { put("success", true); put("totalEvents", eventCount) }.toString(),
                 timestamp = System.currentTimeMillis()
             )
             eventStore.appendEvent(completeEvent)
@@ -75,7 +77,7 @@ class DurableAgentExecutor(
                 workflowId = workflowId,
                 sequenceNumber = sequenceNumber,
                 eventType = "ExecutionFailed",
-                eventData = json.encodeToString(mapOf("error" to (e.message ?: "Unknown error"))),
+                eventData = buildJsonObject { put("error", e.message ?: "Unknown error") }.toString(),
                 timestamp = System.currentTimeMillis()
             )
             eventStore.appendEvent(failEvent)
@@ -89,7 +91,7 @@ class DurableAgentExecutor(
         return signalQueue.await(workflowId, signalName, timeoutMs)
     }
 
-    suspend fun sendSignal(workflowId: String, signalName: String, data: Map<String, Any>) {
+    suspend fun sendSignal(workflowId: String, signalName: String, data: Map<String, String>) {
         val signal = WorkflowSignal(
             id = UUID.randomUUID().toString(),
             workflowId = workflowId,
@@ -126,21 +128,21 @@ class DurableAgentExecutor(
 
     private fun convertToWorkflowEvent(workflowId: String, seq: Long, event: AgentEvent): WorkflowEvent {
         val (eventType, eventData) = when (event) {
-            is AgentEvent.IterationStart -> "IterationStart" to 
-                json.encodeToString(mapOf("current" to event.current, "max" to event.max))
-            is AgentEvent.LLMResponseChunk -> "LLMResponseChunk" to 
-                json.encodeToString(mapOf("chunk" to event.chunk))
-            is AgentEvent.ToolCall -> "ToolCall" to 
-                json.encodeToString(mapOf("toolName" to event.toolName, "params" to event.params))
-            is AgentEvent.ToolResult -> "ToolResult" to 
-                json.encodeToString(mapOf("toolName" to event.toolName, "success" to event.success))
-            is AgentEvent.CloneLog -> "CloneLog" to 
-                json.encodeToString(mapOf("message" to event.message, "isError" to event.isError))
-            is AgentEvent.CloneProgress -> "CloneProgress" to 
-                json.encodeToString(mapOf("stage" to event.stage, "progress" to event.progress))
-            is AgentEvent.Error -> "Error" to json.encodeToString(mapOf("message" to event.message))
-            is AgentEvent.Complete -> "Complete" to 
-                json.encodeToString(mapOf("success" to event.success, "message" to event.message))
+            is AgentEvent.IterationStart -> "IterationStart" to
+                buildJsonObject { put("current", event.current); put("max", event.max) }.toString()
+            is AgentEvent.LLMResponseChunk -> "LLMResponseChunk" to
+                buildJsonObject { put("chunk", event.chunk) }.toString()
+            is AgentEvent.ToolCall -> "ToolCall" to
+                buildJsonObject { put("toolName", event.toolName); put("params", event.params) }.toString()
+            is AgentEvent.ToolResult -> "ToolResult" to
+                buildJsonObject { put("toolName", event.toolName); put("success", event.success) }.toString()
+            is AgentEvent.CloneLog -> "CloneLog" to
+                buildJsonObject { put("message", event.message); put("isError", event.isError) }.toString()
+            is AgentEvent.CloneProgress -> "CloneProgress" to
+                buildJsonObject { put("stage", event.stage); put("progress", event.progress) }.toString()
+            is AgentEvent.Error -> "Error" to buildJsonObject { put("message", event.message) }.toString()
+            is AgentEvent.Complete -> "Complete" to
+                buildJsonObject { put("success", event.success); put("message", event.message) }.toString()
         }
         return WorkflowEvent(UUID.randomUUID().toString(), workflowId, seq, eventType, eventData, System.currentTimeMillis())
     }
