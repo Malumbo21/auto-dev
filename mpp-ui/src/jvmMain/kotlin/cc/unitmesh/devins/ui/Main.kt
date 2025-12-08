@@ -11,7 +11,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.*
 import cc.unitmesh.agent.Platform
 import cc.unitmesh.agent.logging.AutoDevLogger
-import cc.unitmesh.devins.ui.compose.AutoDevApp
+import cc.unitmesh.devins.ui.compose.DesktopAutoDevApp
 import cc.unitmesh.devins.ui.compose.launch.XiuperLaunchScreen
 import cc.unitmesh.devins.ui.compose.state.rememberDesktopUiState
 import cc.unitmesh.devins.ui.compose.theme.AutoDevTheme
@@ -112,7 +112,7 @@ fun main(args: Array<String>) {
                                 onExit = ::exitApplication
                             )
 
-                            AutoDevApp(
+                            DesktopAutoDevApp(
                                 triggerFileChooser = triggerFileChooser,
                                 onFileChooserHandled = { triggerFileChooser = false },
                                 initialMode = mode,

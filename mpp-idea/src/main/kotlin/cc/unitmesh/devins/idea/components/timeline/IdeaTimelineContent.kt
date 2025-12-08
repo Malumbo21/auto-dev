@@ -13,7 +13,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cc.unitmesh.agent.render.TimelineItem
+import cc.unitmesh.devins.idea.renderer.sketch.chart.IdeaChartRenderer
+import cc.unitmesh.devins.idea.renderer.sketch.IdeaMermaidRenderer
+import com.intellij.openapi.Disposable
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.util.Disposer
 import org.jetbrains.jewel.foundation.theme.JewelTheme
 import org.jetbrains.jewel.ui.component.Text
 
@@ -91,18 +95,21 @@ fun IdeaTimelineItemView(
         }
         is TimelineItem.AgentSketchBlockItem -> {
             // Agent-generated sketch block (chart, nanodsl, mermaid, etc.)
-            IdeaAgentSketchBlockBubble(item)
+            IdeaAgentSketchBlockBubble(item, project = project)
         }
     }
 }
 
 /**
  * Agent-generated sketch block bubble (chart, nanodsl, mermaid, etc.)
+ * Uses appropriate renderer based on language type.
  */
 @Composable
-fun IdeaAgentSketchBlockBubble(item: TimelineItem.AgentSketchBlockItem) {
-    val lines = item.code.lines()
-
+fun IdeaAgentSketchBlockBubble(
+    item: TimelineItem.AgentSketchBlockItem,
+    project: Project? = null,
+    parentDisposable: Disposable? = null
+) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -144,59 +151,89 @@ fun IdeaAgentSketchBlockBubble(item: TimelineItem.AgentSketchBlockItem) {
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Code content
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(
-                        JewelTheme.globalColors.panelBackground,
-                        shape = RoundedCornerShape(4.dp)
+            // Render content based on language type
+            when (item.language.lowercase()) {
+                "chart", "graph" -> {
+                    IdeaChartRenderer(
+                        chartCode = item.code,
+                        modifier = Modifier.fillMaxWidth()
                     )
-                    .padding(8.dp)
-            ) {
-                Column {
-                    lines.take(20).forEachIndexed { index, line ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text(
-                                text = "${index + 1}",
-                                style = JewelTheme.defaultTextStyle.copy(
-                                    fontSize = 10.sp,
-                                    color = JewelTheme.globalColors.text.info.copy(alpha = 0.4f)
-                                ),
-                                modifier = Modifier.width(24.dp)
-                            )
-                            Text(
-                                text = line,
-                                style = JewelTheme.defaultTextStyle.copy(fontSize = 11.sp)
-                            )
-                        }
-                    }
-                    if (lines.size > 20) {
-                        Text(
-                            text = "... (${lines.size - 20} more lines)",
-                            style = JewelTheme.defaultTextStyle.copy(
-                                fontSize = 10.sp,
-                                color = JewelTheme.globalColors.text.info.copy(alpha = 0.5f)
-                            )
-                        )
-                    }
+                }
+                "mermaid", "mmd" -> {
+                    val disposable = parentDisposable ?: Disposer.newDisposable("AgentSketchBlock")
+                    IdeaMermaidRenderer(
+                        mermaidCode = item.code,
+                        project = project,
+                        isDarkTheme = true,
+                        parentDisposable = disposable,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                else -> {
+                    // Fallback: display raw code
+                    RenderCodeFallback(item.code, item.language)
                 }
             }
-
-            // Footer with line count
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "${lines.size} lines of ${item.language} code",
-                style = JewelTheme.defaultTextStyle.copy(
-                    fontSize = 10.sp,
-                    color = JewelTheme.globalColors.text.info.copy(alpha = 0.5f)
-                )
-            )
         }
     }
+}
+
+/**
+ * Fallback renderer for code content when no specific renderer is available.
+ */
+@Composable
+private fun RenderCodeFallback(code: String, language: String) {
+    val lines = code.lines()
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                JewelTheme.globalColors.panelBackground,
+                shape = RoundedCornerShape(4.dp)
+            )
+            .padding(8.dp)
+    ) {
+        Column {
+            lines.take(20).forEachIndexed { index, line ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "${index + 1}",
+                        style = JewelTheme.defaultTextStyle.copy(
+                            fontSize = 10.sp,
+                            color = JewelTheme.globalColors.text.info.copy(alpha = 0.4f)
+                        ),
+                        modifier = Modifier.width(24.dp)
+                    )
+                    Text(
+                        text = line,
+                        style = JewelTheme.defaultTextStyle.copy(fontSize = 11.sp)
+                    )
+                }
+            }
+            if (lines.size > 20) {
+                Text(
+                    text = "... (${lines.size - 20} more lines)",
+                    style = JewelTheme.defaultTextStyle.copy(
+                        fontSize = 10.sp,
+                        color = JewelTheme.globalColors.text.info.copy(alpha = 0.5f)
+                    )
+                )
+            }
+        }
+    }
+
+    // Footer with line count
+    Spacer(modifier = Modifier.height(4.dp))
+    Text(
+        text = "${lines.size} lines of $language code",
+        style = JewelTheme.defaultTextStyle.copy(
+            fontSize = 10.sp,
+            color = JewelTheme.globalColors.text.info.copy(alpha = 0.5f)
+        )
+    )
 }
 
 /**

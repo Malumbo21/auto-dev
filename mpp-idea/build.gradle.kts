@@ -402,6 +402,8 @@ project(":") {
 
         // Note: mpp-ui dependency removed - configuration management moved to mpp-core
         // Color definitions moved to IdeaAutoDevColors in mpp-idea
+        // Note: ComposeCharts library cannot be used due to ClassLoader conflicts with IntelliJ's Compose runtime
+        // Chart rendering is implemented manually using Compose Canvas API
 
         testImplementation(kotlin("test"))
     }

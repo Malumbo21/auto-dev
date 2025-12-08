@@ -84,6 +84,14 @@
 # Fix IncompleteClassHierarchyException for Netty Logging
 -keep class io.netty.util.internal.logging.** { *; }
 
+# KCEF (Kotlin Chromium Embedded Framework) - Required for WebView on Desktop
+-keep class org.cef.** { *; }
+-keep class kotlinx.coroutines.swing.SwingDispatcherFactory
+-dontwarn org.cef.**
+
+# Compose WebView Multiplatform
+-keep class com.multiplatform.webview.** { *; }
+-dontwarn com.multiplatform.webview.**
 
 
 

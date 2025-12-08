@@ -250,6 +250,11 @@ actual object ConfigManager {
         val wrapper = load()
         return wrapper.getIssueTracker()
     }
+    
+    actual fun getKcefInstallDir(): String {
+        // KCEF is not available on iOS
+        return ""
+    }
 
     actual fun getToolConfigPath(): String = toolConfigFilePath
 

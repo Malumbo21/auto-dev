@@ -149,6 +149,11 @@ actual object ConfigManager {
         val wrapper = load()
         return wrapper.getIssueTracker()
     }
+    
+    actual fun getKcefInstallDir(): String {
+        // KCEF is not available in WASM browser environment
+        return ""
+    }
 
     actual suspend fun loadToolConfig(): ToolConfigFile {
         return try {
