@@ -128,9 +128,20 @@ class NanoDSLAgent(
                         }
                     }
 
+                    // Return formatted output with nanodsl code fence so LLM can display it to user
+                    val formattedContent = buildString {
+                        appendLine("I've generated the following NanoDSL UI code based on your description:")
+                        appendLine()
+                        appendLine("```nanodsl")
+                        appendLine(generatedCode)
+                        appendLine("```")
+                        appendLine()
+                        appendLine("This code can be rendered as an interactive UI component.")
+                    }
+
                     return ToolResult.AgentResult(
                         success = true,
-                        content = generatedCode,
+                        content = formattedContent,
                         metadata = buildMetadata(input, generatedCode, attempt, irJson, validationResult)
                     )
                 } else {
@@ -254,10 +265,11 @@ ${input.description}
     }
 
     override fun formatOutput(output: ToolResult.AgentResult): String {
+        // Content already contains formatted nanodsl code block
         return if (output.success) {
-            "Generated NanoDSL:\n```nanodsl\n${output.content}\n```"
+            output.content
         } else {
-            "Error: ${output.content}"
+            "Error generating NanoDSL: ${output.content}"
         }
     }
 
@@ -374,23 +386,34 @@ data class NanoDSLContext(
  * Schema for NanoDSL Agent tool
  */
 object NanoDSLAgentSchema : DeclarativeToolSchema(
-    description = "Generate NanoDSL UI code from natural language description, will return nano DSL code for you, you can" +
-            "directly show code to the User with nano as language",
+    description = """Generate Nano DSL UI code from natural language description.
+
+This tool uses a specialized sub-agent to generate token-efficient UI code in NanoDSL syntax.
+The generated code will be returned in a ```nanodsl code block that can be rendered as an interactive UI.
+
+IMPORTANT: After calling this tool, you MUST include the returned ```nanodsl code block in your response
+to the user so they can see the generated UI. Do not summarize or describe the code - show it directly.
+
+Use this tool when the user asks for:
+- UI components (forms, cards, buttons, lists)
+- Interactive interfaces
+- Data display layouts
+- User input forms""",
     properties = mapOf(
         "description" to string(
-            description = "Natural language description of the UI to generate",
+            description = "Natural language description of the UI to generate. Be specific about components, layout, and interactions needed.",
             required = true
         ),
         "componentType" to string(
-            description = "Optional: Specific component type to focus on (card, form, list, etc.)",
+            description = "Optional: Specific component type to focus on (card, form, list, dashboard, etc.)",
             required = false
         ),
         "includeState" to boolean(
-            description = "Whether to include state management (default: true)",
+            description = "Whether to include state management for interactive components (default: true)",
             required = false
         ),
         "includeHttp" to boolean(
-            description = "Whether to include HTTP request actions (default: false)",
+            description = "Whether to include HTTP request actions like Fetch for API calls (default: false)",
             required = false
         )
     )
