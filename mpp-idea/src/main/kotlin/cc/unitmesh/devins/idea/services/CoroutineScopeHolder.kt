@@ -9,7 +9,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CoroutineName
-import kotlinx.coroutines.cancel
 
 /**
  * A service-level class that provides and manages coroutine scopes for a given project.
@@ -25,7 +24,6 @@ import kotlinx.coroutines.cancel
 class CoroutineScopeHolder(private val project: Project) : Disposable {
 
     private val parentJob = SupervisorJob()
-    private val projectWideCoroutineScope: CoroutineScope = CoroutineScope(parentJob + Dispatchers.EDT)
 
     /**
      * Creates a new coroutine scope as a child of the project-wide coroutine scope with the specified name.
