@@ -48,7 +48,6 @@ object KcefManager {
         withContext(Dispatchers.IO) {
             try {
                 val installDir = File(ConfigManager.getKcefInstallDir())
-                println("📦 KCEF install directory: ${installDir.absolutePath}")
 
                 // Create install directory if it doesn't exist
                 if (!installDir.exists()) {

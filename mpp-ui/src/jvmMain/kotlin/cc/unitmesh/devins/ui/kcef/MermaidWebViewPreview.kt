@@ -1,4 +1,4 @@
-package cc.unitmesh.viewer.web
+package cc.unitmesh.devins.ui.kcef
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
@@ -10,6 +10,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
+import cc.unitmesh.config.ConfigManager
+import cc.unitmesh.viewer.web.MermaidRenderer
 import dev.datlag.kcef.KCEF
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -30,8 +32,10 @@ fun main() = application {
         // Initialize KCEF
         LaunchedEffect(Unit) {
             withContext(Dispatchers.IO) {
+                val installDir = File(ConfigManager.getKcefInstallDir())
                 KCEF.init(builder = {
-                    // 不指定 installDir，让 KCEF 自动检测并使用 JBR 的 bundled JCEF
+                    installDir(installDir)
+
                     progress {
                         onDownloading {
                             downloading = max(it, 0F)
@@ -73,6 +77,7 @@ fun main() = application {
                             }
                         }
                     }
+
                     restartRequired -> {
                         Box(
                             modifier = Modifier.fillMaxSize(),
@@ -81,6 +86,7 @@ fun main() = application {
                             Text("Restart required. Please restart the application.")
                         }
                     }
+
                     !initialized -> {
                         Box(
                             modifier = Modifier.fillMaxSize(),
@@ -94,6 +100,7 @@ fun main() = application {
                             }
                         }
                     }
+
                     else -> {
                         MainMermaidContent()
                     }
@@ -107,7 +114,7 @@ fun main() = application {
 fun MainMermaidContent() {
     val systemIsDark = isSystemInDarkTheme()
     var isDarkTheme by remember { mutableStateOf(systemIsDark) }
-    
+
     val examples = """
         graph TD
             A[Start] --> B{Is it working?}
@@ -129,7 +136,7 @@ fun MainMermaidContent() {
                 Text(if (isDarkTheme) "Switch to Light" else "Switch to Dark")
             }
         }
-        
+
         Box(modifier = Modifier.fillMaxSize()) {
             MermaidRenderer(
                 mermaidCode = examples,
