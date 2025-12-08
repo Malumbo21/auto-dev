@@ -20,7 +20,7 @@ import cc.unitmesh.agent.render.TimelineItem
 import cc.unitmesh.devins.idea.renderer.terminal.IdeaAnsiTerminalRenderer
 import cc.unitmesh.devins.idea.terminal.TerminalApiCompat
 import cc.unitmesh.devins.idea.toolwindow.IdeaComposeIcons
-import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
+import cc.unitmesh.devins.idea.theme.IdeaAutoDevColors
 import com.intellij.openapi.ide.CopyPasteManager
 import com.intellij.openapi.project.Project
 import org.jetbrains.jewel.foundation.theme.JewelTheme
@@ -51,7 +51,7 @@ fun IdeaTerminalOutputBubble(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
-            .background(AutoDevColors.Neutral.c900)
+            .background(IdeaAutoDevColors.Neutral.c900)
     ) {
         Column {
             // Header with command and status
@@ -82,7 +82,7 @@ fun IdeaTerminalOutputBubble(
                         .fillMaxWidth()
                         .heightIn(min = 80.dp, max = 300.dp),
                     maxHeight = 300,
-                    backgroundColor = AutoDevColors.Neutral.c900
+                    backgroundColor = IdeaAutoDevColors.Neutral.c900
                 )
             }
         }
@@ -117,7 +117,7 @@ private fun TerminalHeader(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(AutoDevColors.Neutral.c800)
+            .background(IdeaAutoDevColors.Neutral.c800)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null
@@ -136,7 +136,7 @@ private fun TerminalHeader(
             Icon(
                 imageVector = if (expanded) IdeaComposeIcons.ExpandLess else IdeaComposeIcons.ExpandMore,
                 contentDescription = if (expanded) "Collapse" else "Expand",
-                tint = AutoDevColors.Neutral.c400,
+                tint = IdeaAutoDevColors.Neutral.c400,
                 modifier = Modifier.size(16.dp)
             )
 
@@ -144,7 +144,7 @@ private fun TerminalHeader(
             Icon(
                 imageVector = IdeaComposeIcons.Terminal,
                 contentDescription = "Terminal",
-                tint = AutoDevColors.Cyan.c400,
+                tint = IdeaAutoDevColors.Cyan.c400,
                 modifier = Modifier.size(14.dp)
             )
 
@@ -156,7 +156,7 @@ private fun TerminalHeader(
                     fontWeight = FontWeight.Medium,
                     fontFamily = FontFamily.Monospace,
                     fontSize = 13.sp,
-                    color = AutoDevColors.Cyan.c400
+                    color = IdeaAutoDevColors.Cyan.c400
                 )
             )
         }
@@ -175,14 +175,14 @@ private fun TerminalHeader(
                     modifier = Modifier
                         .size(24.dp)
                         .clip(RoundedCornerShape(4.dp))
-                        .background(AutoDevColors.Neutral.c700)
+                        .background(IdeaAutoDevColors.Neutral.c700)
                         .clickable { onOpenInTerminal() },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = IdeaComposeIcons.Terminal,
                         contentDescription = "Open in Terminal",
-                        tint = AutoDevColors.Neutral.c300,
+                        tint = IdeaAutoDevColors.Neutral.c300,
                         modifier = Modifier.size(14.dp)
                     )
                 }
@@ -193,14 +193,14 @@ private fun TerminalHeader(
                 modifier = Modifier
                     .size(24.dp)
                     .clip(RoundedCornerShape(4.dp))
-                    .background(AutoDevColors.Neutral.c700)
+                    .background(IdeaAutoDevColors.Neutral.c700)
                     .clickable { onCopy() },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = IdeaComposeIcons.ContentCopy,
                     contentDescription = "Copy output",
-                    tint = AutoDevColors.Neutral.c300,
+                    tint = IdeaAutoDevColors.Neutral.c300,
                     modifier = Modifier.size(14.dp)
                 )
             }
@@ -218,14 +218,14 @@ private fun TerminalStatusBadge(
 ) {
     val (bgColor, textColor, text) = when {
         exitCode == 0 -> Triple(
-            AutoDevColors.Green.c600.copy(alpha = 0.3f),
-            AutoDevColors.Green.c400,
+            IdeaAutoDevColors.Green.c600.copy(alpha = 0.3f),
+            IdeaAutoDevColors.Green.c400,
             "exit: 0  ${executionTimeMs}ms"
         )
 
         else -> Triple(
-            AutoDevColors.Red.c600.copy(alpha = 0.3f),
-            AutoDevColors.Red.c400,
+            IdeaAutoDevColors.Red.c600.copy(alpha = 0.3f),
+            IdeaAutoDevColors.Red.c400,
             "exit: $exitCode  ${executionTimeMs}ms"
         )
     }

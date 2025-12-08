@@ -1,10 +1,9 @@
 package cc.unitmesh.devins.idea.omnibar
 
-import cc.unitmesh.devins.ui.compose.omnibar.OmnibarActionResult
+import cc.unitmesh.devins.idea.omnibar.model.OmnibarActionResult
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
-import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.project.DumbAware
 import com.intellij.openapi.vfs.LocalFileSystem

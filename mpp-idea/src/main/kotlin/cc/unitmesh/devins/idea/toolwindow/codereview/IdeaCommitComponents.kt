@@ -12,14 +12,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cc.unitmesh.devins.idea.compose.IdeaCircularProgressIndicator
 import cc.unitmesh.devins.idea.toolwindow.IdeaComposeIcons
-import cc.unitmesh.devins.ui.compose.agent.codereview.CommitInfo
-import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
+import cc.unitmesh.devins.idea.toolwindow.codereview.CommitInfo
+import cc.unitmesh.devins.idea.theme.IdeaAutoDevColors
 import org.jetbrains.jewel.foundation.theme.JewelTheme
 import org.jetbrains.jewel.ui.Orientation
 import org.jetbrains.jewel.ui.component.*
@@ -112,7 +113,7 @@ internal fun CommitItem(
                 style = JewelTheme.defaultTextStyle.copy(
                     fontFamily = FontFamily.Monospace,
                     fontSize = 12.sp,
-                    color = AutoDevColors.Blue.c400
+                    color = Color(0xFF42A5F5)
                 )
             )
             Text(
@@ -349,7 +350,7 @@ private fun IssueErrorIndicator(
             text = errorMessage,
             style = JewelTheme.defaultTextStyle.copy(
                 fontSize = 10.sp,
-                color = AutoDevColors.Red.c400.copy(alpha = 0.8f)
+                color = Color(0xFFEF5350).copy(alpha = 0.8f)
             )
         )
 
@@ -361,7 +362,7 @@ private fun IssueErrorIndicator(
                 Icon(
                     imageVector = IdeaComposeIcons.Refresh,
                     contentDescription = "Retry",
-                    tint = AutoDevColors.Red.c400.copy(alpha = 0.8f),
+                    tint = Color(0xFFEF5350).copy(alpha = 0.8f),
                     modifier = Modifier.size(14.dp)
                 )
             }
@@ -398,19 +399,19 @@ private fun IssueErrorIndicator(
 internal fun IdeaInlineIssueChip(issueInfo: cc.unitmesh.agent.tracker.IssueInfo) {
     val (bgColor, iconVector, textColor) = when (issueInfo.status.lowercase()) {
         "open" -> Triple(
-            AutoDevColors.Green.c600.copy(alpha = 0.15f),
+            Color.Green.copy(alpha = 0.15f),
             IdeaComposeIcons.BugReport,
-            AutoDevColors.Green.c600
+            Color.Green
         )
         "closed" -> Triple(
-            AutoDevColors.Neutral.c600.copy(alpha = 0.15f),
+            Color(0xFF9E9E9E).copy(alpha = 0.15f),
             IdeaComposeIcons.CheckCircle,
-            AutoDevColors.Neutral.c600
+            Color(0xFF9E9E9E)
         )
         else -> Triple(
-            AutoDevColors.Indigo.c600.copy(alpha = 0.15f),
+            Color(0xFF3F51B5).copy(alpha = 0.15f),
             IdeaComposeIcons.Info,
-            AutoDevColors.Indigo.c600
+            Color(0xFF3F51B5)
         )
     }
 
@@ -450,7 +451,7 @@ internal fun IdeaIssueInfoCard(issueInfo: cc.unitmesh.agent.tracker.IssueInfo) {
         modifier = Modifier
             .fillMaxWidth()
             .background(
-                AutoDevColors.Indigo.c600.copy(alpha = 0.1f),
+                Color(0xFF3F51B5).copy(alpha = 0.1f),
                 RoundedCornerShape(4.dp)
             )
             .padding(8.dp)
@@ -502,7 +503,7 @@ private fun IssueInfoHeader(issueInfo: cc.unitmesh.agent.tracker.IssueInfo) {
             Icon(
                 imageVector = IdeaComposeIcons.BugReport,
                 contentDescription = "Issue",
-                tint = AutoDevColors.Indigo.c600,
+                tint = Color(0xFF3F51B5),
                 modifier = Modifier.size(16.dp)
             )
             Text(
@@ -510,14 +511,14 @@ private fun IssueInfoHeader(issueInfo: cc.unitmesh.agent.tracker.IssueInfo) {
                 style = JewelTheme.defaultTextStyle.copy(
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
-                    color = AutoDevColors.Indigo.c600
+                    color = Color(0xFF3F51B5)
                 )
             )
         }
 
         val (statusBgColor, statusTextColor) = when (issueInfo.status.lowercase()) {
-            "open" -> AutoDevColors.Green.c600.copy(alpha = 0.2f) to AutoDevColors.Green.c600
-            "closed" -> AutoDevColors.Red.c600.copy(alpha = 0.2f) to AutoDevColors.Red.c600
+            "open" -> Color.Green.copy(alpha = 0.2f) to Color.Green
+            "closed" -> Color.Red.copy(alpha = 0.2f) to Color.Red
             else -> JewelTheme.globalColors.panelBackground to JewelTheme.globalColors.text.info
         }
 
@@ -547,7 +548,7 @@ private fun IssueLabelsRow(labels: List<String>) {
             Box(
                 modifier = Modifier
                     .background(
-                        AutoDevColors.Indigo.c600.copy(alpha = 0.15f),
+                        Color(0xFF3F51B5).copy(alpha = 0.15f),
                         RoundedCornerShape(3.dp)
                     )
                     .padding(horizontal = 4.dp, vertical = 2.dp)

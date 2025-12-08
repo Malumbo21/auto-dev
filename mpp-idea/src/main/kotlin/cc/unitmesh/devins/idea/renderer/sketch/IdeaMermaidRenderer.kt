@@ -18,7 +18,7 @@ import androidx.compose.ui.unit.sp
 import cc.unitmesh.devins.idea.compose.IdeaLaunchedEffect
 import cc.unitmesh.devins.idea.renderer.MermaidRenderer
 import cc.unitmesh.devins.idea.renderer.sketch.actions.IdeaDiagramActions
-import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
+import cc.unitmesh.devins.idea.theme.IdeaAutoDevColors
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.project.Project
 import com.intellij.ui.jcef.JBCefApp
@@ -106,7 +106,7 @@ private fun MermaidToolbar(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(AllIconsKeys.FileTypes.Diagram, "Mermaid", Modifier.size(14.dp), tint = AutoDevColors.Cyan.c400)
+            Icon(AllIconsKeys.FileTypes.Diagram, "Mermaid", Modifier.size(14.dp), tint = IdeaAutoDevColors.Cyan.c400)
             Text("Mermaid", style = JewelTheme.defaultTextStyle.copy(fontSize = 12.sp, fontWeight = FontWeight.Bold))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -124,25 +124,25 @@ private fun DiagramActionButton(tooltip: String, iconKey: org.jetbrains.jewel.ui
     val isHovered by interactionSource.collectIsHoveredAsState()
     Tooltip(tooltip = { Text(tooltip) }) {
         IconButton(onClick = onClick, modifier = Modifier.size(24.dp).hoverable(interactionSource)
-            .background(if (isHovered) AutoDevColors.Neutral.c700.copy(alpha = 0.3f) else Color.Transparent)) {
-            Icon(iconKey, tooltip, Modifier.size(16.dp), tint = AutoDevColors.Neutral.c300)
+            .background(if (isHovered) IdeaAutoDevColors.Neutral.c700.copy(alpha = 0.3f) else Color.Transparent)) {
+            Icon(iconKey, tooltip, Modifier.size(16.dp), tint = IdeaAutoDevColors.Neutral.c300)
         }
     }
 }
 
 @Composable
 private fun ValidationWarning(message: String) {
-    Row(Modifier.fillMaxWidth().background(AutoDevColors.Amber.c900.copy(alpha = 0.3f)).padding(8.dp),
+    Row(Modifier.fillMaxWidth().background(IdeaAutoDevColors.Amber.c900.copy(alpha = 0.3f)).padding(8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(AllIconsKeys.General.Warning, "Warning", Modifier.size(14.dp), tint = AutoDevColors.Amber.c400)
-        Text(message, style = JewelTheme.defaultTextStyle.copy(fontSize = 11.sp, color = AutoDevColors.Amber.c300))
+        Icon(AllIconsKeys.General.Warning, "Warning", Modifier.size(14.dp), tint = IdeaAutoDevColors.Amber.c400)
+        Text(message, style = JewelTheme.defaultTextStyle.copy(fontSize = 11.sp, color = IdeaAutoDevColors.Amber.c300))
     }
 }
 
 @Composable
 private fun CodePreview(code: String) {
-    Text(code, style = JewelTheme.defaultTextStyle.copy(fontSize = 10.sp, color = AutoDevColors.Neutral.c400),
-        modifier = Modifier.fillMaxWidth().background(AutoDevColors.Neutral.c900).padding(8.dp))
+    Text(code, style = JewelTheme.defaultTextStyle.copy(fontSize = 10.sp, color = IdeaAutoDevColors.Neutral.c400),
+        modifier = Modifier.fillMaxWidth().background(IdeaAutoDevColors.Neutral.c900).padding(8.dp))
 }
 
 @Composable
@@ -154,7 +154,7 @@ private fun LoadingIndicator() {
 private fun ErrorMessage(error: String) {
     Box(Modifier.fillMaxWidth().background(JewelTheme.globalColors.panelBackground.copy(alpha = 0.9f)).padding(16.dp),
         contentAlignment = Alignment.Center) {
-        Text("Error: $error", style = JewelTheme.defaultTextStyle.copy(fontSize = 12.sp, color = AutoDevColors.Red.c500))
+        Text("Error: $error", style = JewelTheme.defaultTextStyle.copy(fontSize = 12.sp, color = IdeaAutoDevColors.Red.c500))
     }
 }
 
@@ -162,7 +162,7 @@ private fun ErrorMessage(error: String) {
 private fun JcefNotAvailableMessage(modifier: Modifier) {
     Box(modifier.fillMaxWidth().heightIn(min = 100.dp).background(JewelTheme.globalColors.panelBackground),
         contentAlignment = Alignment.Center) {
-        Text("JCEF not available", style = JewelTheme.defaultTextStyle.copy(fontSize = 12.sp, color = AutoDevColors.Amber.c500))
+        Text("JCEF not available", style = JewelTheme.defaultTextStyle.copy(fontSize = 12.sp, color = IdeaAutoDevColors.Amber.c500))
     }
 }
 

@@ -1,11 +1,10 @@
-package cc.unitmesh.devins.ui.config
+package cc.unitmesh.config
 
 import cc.unitmesh.agent.config.ToolConfigFile
 import cc.unitmesh.agent.mcp.McpServerConfig
 import cc.unitmesh.llm.NamedModelConfig
 import cc.unitmesh.yaml.YamlUtils
 import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.memScoped
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import platform.Foundation.*

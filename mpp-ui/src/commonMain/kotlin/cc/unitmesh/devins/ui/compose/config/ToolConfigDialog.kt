@@ -26,7 +26,7 @@ import cc.unitmesh.agent.config.ToolItem
 import cc.unitmesh.agent.mcp.McpServerConfig
 import cc.unitmesh.agent.tool.schema.ToolCategory
 import cc.unitmesh.devins.ui.compose.icons.AutoDevComposeIcons
-import cc.unitmesh.devins.ui.config.ConfigManager
+import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.llm.KoogLLMService
 import kotlinx.coroutines.launch
 

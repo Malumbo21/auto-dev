@@ -10,7 +10,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cc.unitmesh.devins.idea.renderer.markdown.JewelMarkdownRenderer
 import cc.unitmesh.devins.parser.CodeFence
-import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
+import cc.unitmesh.devins.idea.theme.IdeaAutoDevColors
 import com.intellij.openapi.Disposable
 import org.jetbrains.jewel.foundation.theme.JewelTheme
 import org.jetbrains.jewel.ui.component.Text
@@ -120,7 +120,7 @@ private fun CodeBlockView(
                 style = JewelTheme.defaultTextStyle.copy(
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
-                    color = AutoDevColors.Blue.c400
+                    color = IdeaAutoDevColors.Blue.c400
                 )
             )
             Spacer(modifier = Modifier.height(4.dp))

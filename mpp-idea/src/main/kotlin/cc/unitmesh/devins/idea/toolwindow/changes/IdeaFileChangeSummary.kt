@@ -21,7 +21,7 @@ import cc.unitmesh.agent.diff.ChangeType
 import cc.unitmesh.agent.diff.FileChange
 import cc.unitmesh.agent.diff.FileChangeTracker
 import cc.unitmesh.devins.idea.compose.IdeaLaunchedEffect
-import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
+import cc.unitmesh.devins.idea.theme.IdeaAutoDevColors
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.runWriteAction
 import com.intellij.openapi.diagnostic.Logger
@@ -172,7 +172,7 @@ private fun IdeaChangeSummaryHeader(
                 key = if (isExpanded) AllIconsKeys.General.ArrowDown else AllIconsKeys.General.ArrowRight,
                 contentDescription = if (isExpanded) "Collapse" else "Expand",
                 modifier = Modifier.size(12.dp),
-                tint = AutoDevColors.Neutral.c400
+                tint = IdeaAutoDevColors.Neutral.c400
             )
 
             // Title
@@ -201,7 +201,7 @@ private fun IdeaChangeSummaryHeader(
                     key = AllIconsKeys.Actions.Rollback,
                     contentDescription = "Undo All",
                     modifier = Modifier.size(14.dp),
-                    tint = AutoDevColors.Red.c400
+                    tint = IdeaAutoDevColors.Red.c400
                 )
             }
 
@@ -214,7 +214,7 @@ private fun IdeaChangeSummaryHeader(
                     key = AllIconsKeys.Actions.Checked,
                     contentDescription = "Keep All",
                     modifier = Modifier.size(14.dp),
-                    tint = AutoDevColors.Green.c400
+                    tint = IdeaAutoDevColors.Green.c400
                 )
             }
         }

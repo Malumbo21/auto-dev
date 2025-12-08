@@ -17,11 +17,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cc.unitmesh.devins.idea.compose.IdeaLaunchedEffect
-import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
-import cc.unitmesh.devins.ui.compose.terminal.AnsiParser
-import cc.unitmesh.devins.ui.compose.terminal.TerminalCell
-import cc.unitmesh.devins.ui.compose.terminal.TerminalLine
-import cc.unitmesh.devins.ui.compose.terminal.TerminalState
+import cc.unitmesh.devins.idea.theme.IdeaAutoDevColors
 import org.jetbrains.jewel.foundation.theme.JewelTheme
 import org.jetbrains.jewel.ui.component.Text
 
@@ -45,15 +41,13 @@ fun IdeaAnsiTerminalRenderer(
     ansiText: String,
     modifier: Modifier = Modifier,
     maxHeight: Int = 600,
-    backgroundColor: Color = AutoDevColors.Neutral.c900
+    backgroundColor: Color = Color(0xFF9E9E9E)
 ) {
-    val terminalState = remember { TerminalState() }
-    val parser = remember { AnsiParser() }
+    var terminalState by remember { mutableStateOf(TerminalState()) }
 
     // Parse the ANSI text when it changes
     IdeaLaunchedEffect(ansiText) {
-        terminalState.clearScreen()
-        parser.parse(ansiText, terminalState)
+        terminalState = AnsiParser.parse(ansiText, terminalState.clearScreen())
     }
 
     IdeaTerminalRenderer(
@@ -74,9 +68,9 @@ private fun IdeaTerminalRenderer(
     modifier: Modifier = Modifier,
     showCursor: Boolean = false,
     maxHeight: Int = 600,
-    backgroundColor: Color = AutoDevColors.Neutral.c900
+    backgroundColor: Color = Color(0xFF9E9E9E)
 ) {
-    val defaultForeground = AutoDevColors.Neutral.c300
+    val defaultForeground = Color(0xFF9E9E9E)
     val verticalScrollState = rememberScrollState()
     val horizontalScrollState = rememberScrollState()
 
@@ -203,7 +197,7 @@ private fun IdeaCursorIndicator() {
     Box(
         modifier = Modifier
             .size(width = 8.dp, height = 16.dp)
-            .background(AutoDevColors.Cyan.c400.copy(alpha = 0.7f))
+            .background(Color(0xFF26C6DA).copy(alpha = 0.7f))
     )
 }
 

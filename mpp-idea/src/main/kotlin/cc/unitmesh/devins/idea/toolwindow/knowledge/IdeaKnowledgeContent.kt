@@ -20,7 +20,7 @@ import cc.unitmesh.devins.idea.compose.IdeaLaunchedEffect
 import cc.unitmesh.devins.idea.toolwindow.IdeaComposeIcons
 import cc.unitmesh.devins.idea.components.IdeaResizableSplitPane
 import cc.unitmesh.devins.idea.components.IdeaVerticalResizableSplitPane
-import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
+import cc.unitmesh.devins.idea.theme.IdeaAutoDevColors
 import kotlinx.coroutines.flow.distinctUntilChanged
 import org.jetbrains.jewel.foundation.theme.JewelTheme
 import org.jetbrains.jewel.ui.Orientation
@@ -259,7 +259,7 @@ private fun DocumentListItem(
     onClick: () -> Unit
 ) {
     val backgroundColor = if (isSelected) {
-        AutoDevColors.Blue.c400.copy(alpha = 0.15f)
+        IdeaAutoDevColors.Blue.c400.copy(alpha = 0.15f)
     } else {
         JewelTheme.globalColors.panelBackground
     }
@@ -285,7 +285,7 @@ private fun DocumentListItem(
             imageVector = icon,
             contentDescription = null,
             modifier = Modifier.size(16.dp),
-            tint = if (isSelected) AutoDevColors.Blue.c400 else JewelTheme.globalColors.text.info
+            tint = if (isSelected) IdeaAutoDevColors.Blue.c400 else JewelTheme.globalColors.text.info
         )
 
         Column(modifier = Modifier.weight(1f)) {
@@ -418,7 +418,7 @@ private fun DocumentContentPanel(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .background(
-                                    if (isHighlighted) AutoDevColors.Amber.c400.copy(alpha = 0.2f)
+                                    if (isHighlighted) IdeaAutoDevColors.Amber.c400.copy(alpha = 0.2f)
                                     else JewelTheme.globalColors.panelBackground
                                 )
                         ) {
@@ -635,7 +635,7 @@ private fun ChatMessageItem(item: TimelineItem) {
                     modifier = Modifier
                         .widthIn(max = 350.dp)
                         .background(
-                            if (isUser) AutoDevColors.Blue.c400.copy(alpha = 0.2f)
+                            if (isUser) IdeaAutoDevColors.Blue.c400.copy(alpha = 0.2f)
                             else JewelTheme.globalColors.panelBackground.copy(alpha = 0.5f)
                         )
                         .padding(8.dp)
@@ -670,8 +670,8 @@ private fun ChatMessageItem(item: TimelineItem) {
                                 null -> "⏳"
                             }
                             val statusColor = when (item.success) {
-                                true -> AutoDevColors.Green.c400
-                                false -> AutoDevColors.Red.c400
+                                true -> IdeaAutoDevColors.Green.c400
+                                false -> IdeaAutoDevColors.Red.c400
                                 null -> JewelTheme.globalColors.text.info
                             }
                             Text(
@@ -702,7 +702,7 @@ private fun ChatMessageItem(item: TimelineItem) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(AutoDevColors.Red.c400.copy(alpha = 0.2f))
+                    .background(IdeaAutoDevColors.Red.c400.copy(alpha = 0.2f))
                     .padding(8.dp)
             ) {
                 Row(
@@ -713,12 +713,12 @@ private fun ChatMessageItem(item: TimelineItem) {
                         imageVector = IdeaComposeIcons.Error,
                         contentDescription = "Error",
                         modifier = Modifier.size(16.dp),
-                        tint = AutoDevColors.Red.c400
+                        tint = IdeaAutoDevColors.Red.c400
                     )
                     Text(
                         text = item.message,
                         style = JewelTheme.defaultTextStyle.copy(
-                            color = AutoDevColors.Red.c400,
+                            color = IdeaAutoDevColors.Red.c400,
                             fontSize = 12.sp
                         )
                     )
@@ -731,8 +731,8 @@ private fun ChatMessageItem(item: TimelineItem) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(
-                        if (item.success) AutoDevColors.Green.c400.copy(alpha = 0.2f)
-                        else AutoDevColors.Red.c400.copy(alpha = 0.2f)
+                        if (item.success) IdeaAutoDevColors.Green.c400.copy(alpha = 0.2f)
+                        else IdeaAutoDevColors.Red.c400.copy(alpha = 0.2f)
                     )
                     .padding(8.dp),
                 contentAlignment = Alignment.Center
@@ -751,7 +751,7 @@ private fun ChatMessageItem(item: TimelineItem) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(AutoDevColors.Neutral.c900)
+                    .background(IdeaAutoDevColors.Neutral.c900)
                     .padding(8.dp)
             ) {
                 Column {
@@ -759,14 +759,14 @@ private fun ChatMessageItem(item: TimelineItem) {
                         text = "$ ${item.command}",
                         style = JewelTheme.defaultTextStyle.copy(
                             fontWeight = FontWeight.Bold,
-                            color = AutoDevColors.Cyan.c400,
+                            color = IdeaAutoDevColors.Cyan.c400,
                             fontSize = 12.sp
                         )
                     )
                     Text(
                         text = item.output.take(500) + if (item.output.length > 500) "..." else "",
                         style = JewelTheme.defaultTextStyle.copy(
-                            color = AutoDevColors.Neutral.c300,
+                            color = IdeaAutoDevColors.Neutral.c300,
                             fontSize = 11.sp
                         )
                     )
@@ -779,7 +779,7 @@ private fun ChatMessageItem(item: TimelineItem) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(AutoDevColors.Neutral.c900)
+                    .background(IdeaAutoDevColors.Neutral.c900)
                     .padding(8.dp)
             ) {
                 Column {
@@ -787,14 +787,14 @@ private fun ChatMessageItem(item: TimelineItem) {
                         text = "$ ${item.command}",
                         style = JewelTheme.defaultTextStyle.copy(
                             fontWeight = FontWeight.Bold,
-                            color = AutoDevColors.Cyan.c400,
+                            color = IdeaAutoDevColors.Cyan.c400,
                             fontSize = 12.sp
                         )
                     )
                     Text(
                         text = "[Live terminal session: ${item.sessionId}]",
                         style = JewelTheme.defaultTextStyle.copy(
-                            color = AutoDevColors.Neutral.c300,
+                            color = IdeaAutoDevColors.Neutral.c300,
                             fontSize = 11.sp
                         )
                     )

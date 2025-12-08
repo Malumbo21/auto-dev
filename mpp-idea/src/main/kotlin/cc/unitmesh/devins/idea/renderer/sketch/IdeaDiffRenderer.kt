@@ -20,7 +20,7 @@ import cc.unitmesh.agent.diff.DiffLineType
 import cc.unitmesh.agent.diff.DiffParser
 import cc.unitmesh.devins.idea.renderer.sketch.actions.IdeaDiffActions
 import cc.unitmesh.devins.idea.toolwindow.IdeaComposeIcons
-import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
+import cc.unitmesh.devins.idea.theme.IdeaAutoDevColors
 import com.intellij.openapi.project.Project
 import org.jetbrains.jewel.foundation.theme.JewelTheme
 import org.jetbrains.jewel.ui.component.Icon
@@ -86,7 +86,7 @@ fun IdeaDiffRenderer(
                     text = "Unable to parse diff content",
                     style = JewelTheme.defaultTextStyle.copy(
                         fontSize = 11.sp,
-                        color = AutoDevColors.Red.c400
+                        color = IdeaAutoDevColors.Red.c400
                     )
                 )
                 if (project != null && !isRepairing) {
@@ -111,7 +111,7 @@ fun IdeaDiffRenderer(
                         text = "Repairing...",
                         style = JewelTheme.defaultTextStyle.copy(
                             fontSize = 10.sp,
-                            color = AutoDevColors.Blue.c400
+                            color = IdeaAutoDevColors.Blue.c400
                         )
                     )
                 }
@@ -137,7 +137,7 @@ fun IdeaDiffRenderer(
                         fontFamily = FontFamily.Monospace,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
-                        color = AutoDevColors.Blue.c400
+                        color = IdeaAutoDevColors.Blue.c400
                     )
                 )
             }
@@ -156,7 +156,7 @@ fun IdeaDiffRenderer(
                         style = JewelTheme.defaultTextStyle.copy(
                             fontFamily = FontFamily.Monospace,
                             fontSize = 10.sp,
-                            color = AutoDevColors.Blue.c300
+                            color = IdeaAutoDevColors.Blue.c300
                         ),
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                     )
@@ -165,12 +165,12 @@ fun IdeaDiffRenderer(
                     hunk.lines.forEach { diffLine ->
                         val (bgColor, textColor) = when (diffLine.type) {
                             DiffLineType.ADDED -> Pair(
-                                AutoDevColors.Diff.Dark.addedBg,
-                                AutoDevColors.Green.c400
+                                IdeaAutoDevColors.Diff.Dark.addedBg,
+                                IdeaAutoDevColors.Green.c400
                             )
                             DiffLineType.DELETED -> Pair(
-                                AutoDevColors.Diff.Dark.deletedBg,
-                                AutoDevColors.Red.c400
+                                IdeaAutoDevColors.Diff.Dark.deletedBg,
+                                IdeaAutoDevColors.Red.c400
                             )
                             else -> Pair(
                                 Color.Transparent,
@@ -228,7 +228,7 @@ private fun DiffToolbar(
                 key = AllIconsKeys.Actions.Commit,
                 contentDescription = "Accept",
                 modifier = Modifier.size(14.dp),
-                tint = if (patchApplied) AutoDevColors.Neutral.c500 else AutoDevColors.Green.c400
+                tint = if (patchApplied) IdeaAutoDevColors.Neutral.c500 else IdeaAutoDevColors.Green.c400
             )
         }
 
@@ -273,7 +273,7 @@ private fun DiffToolbar(
                     imageVector = IdeaComposeIcons.Refresh,
                     contentDescription = "Repairing...",
                     modifier = Modifier.size(14.dp),
-                    tint = AutoDevColors.Blue.c400
+                    tint = IdeaAutoDevColors.Blue.c400
                 )
             } else {
                 Icon(

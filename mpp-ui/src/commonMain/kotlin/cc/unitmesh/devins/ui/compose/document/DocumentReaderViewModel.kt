@@ -7,7 +7,7 @@ import cc.unitmesh.agent.config.McpToolConfigService
 import cc.unitmesh.agent.document.DocumentAgent
 import cc.unitmesh.devins.document.*
 import cc.unitmesh.devins.ui.compose.agent.ComposeRenderer
-import cc.unitmesh.devins.ui.config.ConfigManager
+import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.devins.workspace.Workspace
 import cc.unitmesh.llm.KoogLLMService
 import kotlinx.coroutines.*

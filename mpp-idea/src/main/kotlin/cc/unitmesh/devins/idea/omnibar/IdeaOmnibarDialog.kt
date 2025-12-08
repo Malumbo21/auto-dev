@@ -23,10 +23,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import cc.unitmesh.devins.ui.compose.omnibar.OmnibarActionResult
-import cc.unitmesh.devins.ui.compose.omnibar.OmnibarItem
-import cc.unitmesh.devins.ui.compose.omnibar.OmnibarItemType
-import cc.unitmesh.devins.ui.compose.omnibar.OmnibarSearchEngine
+import cc.unitmesh.devins.idea.omnibar.model.OmnibarActionResult
+import cc.unitmesh.devins.idea.omnibar.model.OmnibarItem
+import cc.unitmesh.devins.idea.omnibar.model.OmnibarItemType
+import cc.unitmesh.devins.idea.omnibar.model.OmnibarSearchEngine
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogWrapper
 import kotlinx.coroutines.delay
@@ -97,7 +97,6 @@ fun IdeaOmnibarContent(
     var isLoading by remember { mutableStateOf(true) }
     
     val dataProvider = remember { IdeaOmnibarDataProvider.getInstance(project) }
-    val searchEngine = remember { OmnibarSearchEngine() }
     val focusRequester = remember { FocusRequester() }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
@@ -109,7 +108,7 @@ fun IdeaOmnibarContent(
             val items = dataProvider.getItems()
             val recentItems = dataProvider.getRecentItems()
             allItems = (recentItems + items).distinctBy { it.id }
-            filteredItems = searchEngine.search(allItems, "")
+            filteredItems = OmnibarSearchEngine.search(allItems, "")
         } finally {
             isLoading = false
         }
@@ -120,7 +119,7 @@ fun IdeaOmnibarContent(
     // Update filtered items on query change
     LaunchedEffect(searchQuery, allItems) {
         delay(50)
-        filteredItems = searchEngine.search(allItems, searchQuery)
+        filteredItems = OmnibarSearchEngine.search(allItems, searchQuery)
         selectedIndex = 0
     }
     

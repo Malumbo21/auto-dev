@@ -1,6 +1,6 @@
 package cc.unitmesh.devins.idea.editor
 
-import cc.unitmesh.devins.ui.config.ConfigManager
+import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.llm.KoogLLMService
 import com.intellij.openapi.application.runReadAction
 import com.intellij.openapi.components.Service

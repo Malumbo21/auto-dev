@@ -13,8 +13,8 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import cc.unitmesh.devins.ui.compose.icons.AutoDevComposeIcons
-import cc.unitmesh.devins.ui.config.ConfigManager
-import cc.unitmesh.devins.ui.config.IssueTrackerConfig
+import cc.unitmesh.config.ConfigManager
+import cc.unitmesh.config.IssueTrackerConfig
 import kotlinx.coroutines.launch
 
 /**

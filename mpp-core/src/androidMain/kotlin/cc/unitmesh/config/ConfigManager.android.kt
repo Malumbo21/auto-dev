@@ -1,4 +1,4 @@
-package cc.unitmesh.devins.ui.config
+package cc.unitmesh.config
 
 import android.content.Context
 import cc.unitmesh.agent.config.ToolConfigFile
@@ -176,15 +176,15 @@ actual object ConfigManager {
         val wrapper = load()
         return wrapper.getLastWorkspace()
     }
-
+    
     actual suspend fun saveIssueTracker(issueTracker: IssueTrackerConfig) {
         val wrapper = load()
         val configFile = wrapper.configFile
-
+        
         val updatedConfigFile = configFile.copy(issueTracker = issueTracker)
         save(updatedConfigFile)
     }
-
+    
     actual suspend fun getIssueTracker(): IssueTrackerConfig {
         val wrapper = load()
         return wrapper.getIssueTracker()
@@ -265,3 +265,4 @@ actual object ConfigManager {
         return YamlUtils.dump(configFile, kotlinx.serialization.serializer())
     }
 }
+

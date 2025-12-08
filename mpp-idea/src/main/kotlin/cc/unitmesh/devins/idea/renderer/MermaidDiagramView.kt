@@ -5,12 +5,13 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.awt.SwingPanel
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cc.unitmesh.devins.idea.compose.IdeaCircularProgressIndicator
 import cc.unitmesh.devins.idea.compose.IdeaLaunchedEffect
-import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
+import cc.unitmesh.devins.idea.theme.IdeaAutoDevColors
 import com.intellij.openapi.Disposable
 import com.intellij.ui.jcef.JBCefApp
 import org.jetbrains.jewel.foundation.theme.JewelTheme
@@ -85,7 +86,7 @@ private fun JcefNotAvailableView(modifier: Modifier = Modifier) {
             text = "JCEF not available - cannot render Mermaid diagrams",
             style = JewelTheme.defaultTextStyle.copy(
                 fontSize = 12.sp,
-                color = AutoDevColors.Amber.c500
+                color = Color(0xFFFFC107)
             )
         )
     }
@@ -114,7 +115,7 @@ private fun ErrorOverlay(error: String) {
             text = "Error: $error",
             style = JewelTheme.defaultTextStyle.copy(
                 fontSize = 12.sp,
-                color = AutoDevColors.Red.c500
+                color = Color.Red
             )
         )
     }

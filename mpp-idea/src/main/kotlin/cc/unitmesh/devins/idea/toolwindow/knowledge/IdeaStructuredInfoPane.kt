@@ -19,7 +19,7 @@ import cc.unitmesh.devins.document.Entity
 import cc.unitmesh.devins.document.TOCItem
 import cc.unitmesh.devins.idea.compose.IdeaLaunchedEffect
 import cc.unitmesh.devins.idea.toolwindow.IdeaComposeIcons
-import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
+import cc.unitmesh.devins.idea.theme.IdeaAutoDevColors
 import org.jetbrains.jewel.foundation.theme.JewelTheme
 import org.jetbrains.jewel.ui.Orientation
 import org.jetbrains.jewel.ui.component.*
@@ -114,15 +114,15 @@ private fun IdeaCollapsibleSection(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(icon, null, Modifier.size(16.dp), AutoDevColors.Indigo.c400)
+                    Icon(icon, null, Modifier.size(16.dp), IdeaAutoDevColors.Indigo.c400)
                     Text(title, style = JewelTheme.defaultTextStyle.copy(fontSize = 13.sp, fontWeight = FontWeight.SemiBold))
                     if (count > 0) {
                         Box(
                             Modifier.clip(RoundedCornerShape(4.dp))
-                                .background(AutoDevColors.Indigo.c100.copy(0.5f))
+                                .background(IdeaAutoDevColors.Indigo.c100.copy(0.5f))
                                 .padding(horizontal = 6.dp, vertical = 2.dp)
                         ) {
-                            Text(count.toString(), style = JewelTheme.defaultTextStyle.copy(fontSize = 10.sp, color = AutoDevColors.Indigo.c700))
+                            Text(count.toString(), style = JewelTheme.defaultTextStyle.copy(fontSize = 10.sp, color = IdeaAutoDevColors.Indigo.c700))
                         }
                     }
                 }
@@ -182,11 +182,11 @@ private fun IdeaEntityItemRow(entity: Entity, onEntitySelected: (Entity) -> Unit
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             val (icon, color) = when (entity) {
-                is Entity.Term -> IdeaComposeIcons.Description to AutoDevColors.Green.c400
-                is Entity.API -> IdeaComposeIcons.Cloud to AutoDevColors.Blue.c400
-                is Entity.ClassEntity -> IdeaComposeIcons.Code to AutoDevColors.Indigo.c400
-                is Entity.FunctionEntity -> IdeaComposeIcons.Terminal to AutoDevColors.Amber.c400
-                is Entity.ConstructorEntity -> IdeaComposeIcons.Build to AutoDevColors.Cyan.c400
+                is Entity.Term -> IdeaComposeIcons.Description to IdeaAutoDevColors.Green.c400
+                is Entity.API -> IdeaComposeIcons.Cloud to IdeaAutoDevColors.Blue.c400
+                is Entity.ClassEntity -> IdeaComposeIcons.Code to IdeaAutoDevColors.Indigo.c400
+                is Entity.FunctionEntity -> IdeaComposeIcons.Terminal to IdeaAutoDevColors.Amber.c400
+                is Entity.ConstructorEntity -> IdeaComposeIcons.Build to IdeaAutoDevColors.Cyan.c400
             }
             Icon(icon, null, Modifier.size(16.dp), color)
 

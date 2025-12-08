@@ -6,7 +6,7 @@ import cc.unitmesh.agent.document.DocumentAgent
 import cc.unitmesh.agent.document.DocumentTask
 import cc.unitmesh.devins.document.*
 import cc.unitmesh.devins.idea.renderer.JewelRenderer
-import cc.unitmesh.devins.ui.config.ConfigManager
+import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.llm.KoogLLMService
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.project.Project

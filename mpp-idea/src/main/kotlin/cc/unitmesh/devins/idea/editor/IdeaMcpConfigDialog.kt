@@ -30,8 +30,8 @@ import cc.unitmesh.devins.idea.compose.IdeaLaunchedEffect
 import cc.unitmesh.devins.idea.compose.rememberIdeaCoroutineScope
 import cc.unitmesh.devins.idea.services.IdeaToolConfigService
 import cc.unitmesh.devins.idea.toolwindow.IdeaComposeIcons
-import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
-import cc.unitmesh.devins.ui.config.ConfigManager
+import cc.unitmesh.devins.idea.theme.IdeaAutoDevColors
+import cc.unitmesh.config.ConfigManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.util.ui.JBUI
@@ -360,7 +360,7 @@ fun IdeaMcpConfigDialogContent(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(8.dp))
-                            .background(AutoDevColors.Signal.errorBg)
+                            .background(IdeaAutoDevColors.Signal.errorBg)
                             .padding(8.dp)
                     ) {
                         Row(
@@ -370,14 +370,14 @@ fun IdeaMcpConfigDialogContent(
                             Icon(
                                 imageVector = IdeaComposeIcons.Error,
                                 contentDescription = "Error",
-                                tint = AutoDevColors.Signal.error,
+                                tint = IdeaAutoDevColors.Signal.error,
                                 modifier = Modifier.size(18.dp)
                             )
                             Text(
                                 text = error,
                                 style = JewelTheme.defaultTextStyle.copy(
                                     fontSize = 12.sp,
-                                    color = AutoDevColors.Signal.error
+                                    color = IdeaAutoDevColors.Signal.error
                                 )
                             )
                         }
@@ -675,8 +675,8 @@ private fun McpServerHeader(
             // Status icon
             val (statusIcon, statusColor) = when (serverState?.status) {
                 McpServerLoadingStatus.LOADING -> IdeaComposeIcons.Refresh to JewelTheme.globalColors.text.info
-                McpServerLoadingStatus.LOADED -> IdeaComposeIcons.Cloud to AutoDevColors.Signal.success
-                McpServerLoadingStatus.ERROR -> IdeaComposeIcons.Error to AutoDevColors.Signal.error
+                McpServerLoadingStatus.LOADED -> IdeaComposeIcons.Cloud to IdeaAutoDevColors.Signal.success
+                McpServerLoadingStatus.ERROR -> IdeaComposeIcons.Error to IdeaAutoDevColors.Signal.error
                 else -> IdeaComposeIcons.Cloud to JewelTheme.globalColors.text.normal.copy(alpha = 0.5f)
             }
 
@@ -872,28 +872,28 @@ private fun McpServersTab(
                     Icon(
                         imageVector = IdeaComposeIcons.Error,
                         contentDescription = "Error",
-                        tint = AutoDevColors.Signal.error,
+                        tint = IdeaAutoDevColors.Signal.error,
                         modifier = Modifier.size(14.dp)
                     )
                     Text(
                         text = "Invalid JSON",
                         style = JewelTheme.defaultTextStyle.copy(
                             fontSize = 11.sp,
-                            color = AutoDevColors.Signal.error
+                            color = IdeaAutoDevColors.Signal.error
                         )
                     )
                 } else if (mcpConfigJson.isNotBlank()) {
                     Icon(
                         imageVector = IdeaComposeIcons.CheckCircle,
                         contentDescription = "Valid",
-                        tint = AutoDevColors.Signal.success,
+                        tint = IdeaAutoDevColors.Signal.success,
                         modifier = Modifier.size(14.dp)
                     )
                     Text(
                         text = "Valid JSON",
                         style = JewelTheme.defaultTextStyle.copy(
                             fontSize = 11.sp,
-                            color = AutoDevColors.Signal.success
+                            color = IdeaAutoDevColors.Signal.success
                         )
                     )
                 }
@@ -906,7 +906,7 @@ private fun McpServersTab(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(6.dp))
-                    .background(AutoDevColors.Signal.errorBg)
+                    .background(IdeaAutoDevColors.Signal.errorBg)
                     .padding(8.dp)
             ) {
                 Row(
@@ -916,14 +916,14 @@ private fun McpServersTab(
                     Icon(
                         imageVector = IdeaComposeIcons.Error,
                         contentDescription = "Error",
-                        tint = AutoDevColors.Signal.error,
+                        tint = IdeaAutoDevColors.Signal.error,
                         modifier = Modifier.size(16.dp)
                     )
                     Text(
                         text = error,
                         style = JewelTheme.defaultTextStyle.copy(
                             fontSize = 11.sp,
-                            color = AutoDevColors.Signal.error
+                            color = IdeaAutoDevColors.Signal.error
                         )
                     )
                 }
@@ -938,7 +938,7 @@ private fun McpServersTab(
                 .clip(RoundedCornerShape(6.dp))
                 .border(
                     width = 1.dp,
-                    color = if (errorMessage != null) AutoDevColors.Signal.error
+                    color = if (errorMessage != null) IdeaAutoDevColors.Signal.error
                     else JewelTheme.globalColors.borders.normal,
                     shape = RoundedCornerShape(6.dp)
                 )

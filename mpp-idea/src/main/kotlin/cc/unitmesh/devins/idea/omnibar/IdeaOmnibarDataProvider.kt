@@ -1,9 +1,9 @@
 package cc.unitmesh.devins.idea.omnibar
 
-import cc.unitmesh.devins.ui.compose.omnibar.OmnibarActionResult
-import cc.unitmesh.devins.ui.compose.omnibar.OmnibarDataProvider
-import cc.unitmesh.devins.ui.compose.omnibar.OmnibarItem
-import cc.unitmesh.devins.ui.compose.omnibar.OmnibarItemType
+import cc.unitmesh.devins.idea.omnibar.model.OmnibarActionResult
+import cc.unitmesh.devins.idea.omnibar.model.OmnibarDataProvider
+import cc.unitmesh.devins.idea.omnibar.model.OmnibarItem
+import cc.unitmesh.devins.idea.omnibar.model.OmnibarItemType
 import cc.unitmesh.devti.command.dataprovider.BuiltinCommand
 import cc.unitmesh.devti.command.dataprovider.CustomCommand
 import com.intellij.openapi.components.Service

@@ -16,7 +16,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cc.unitmesh.devins.idea.renderer.sketch.actions.IdeaPlanActions
-import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
+import cc.unitmesh.devins.idea.theme.IdeaAutoDevColors
 import cc.unitmesh.devti.observer.plan.AgentTaskEntry
 import cc.unitmesh.devti.observer.plan.TaskStatus
 import com.intellij.openapi.project.Project
@@ -93,8 +93,8 @@ private fun PlanActionButton(tooltip: String, iconKey: org.jetbrains.jewel.ui.ic
     val isHovered by interactionSource.collectIsHoveredAsState()
     Tooltip(tooltip = { Text(tooltip) }) {
         IconButton(onClick = onClick, modifier = Modifier.size(24.dp).hoverable(interactionSource)
-            .background(if (isHovered) AutoDevColors.Neutral.c700.copy(alpha = 0.3f) else Color.Transparent)) {
-            Icon(iconKey, tooltip, Modifier.size(16.dp), tint = AutoDevColors.Neutral.c300)
+            .background(if (isHovered) IdeaAutoDevColors.Neutral.c700.copy(alpha = 0.3f) else Color.Transparent)) {
+            Icon(iconKey, tooltip, Modifier.size(16.dp), tint = IdeaAutoDevColors.Neutral.c300)
         }
     }
 }
@@ -105,7 +105,7 @@ private fun CompressedPlanView(planItems: List<AgentTaskEntry>) {
     Row(Modifier.fillMaxWidth().padding(8.dp), Arrangement.SpaceBetween, Alignment.CenterVertically) {
         Text("${planItems.size} sections", style = JewelTheme.defaultTextStyle.copy(fontSize = 11.sp))
         Text("$completedCount/${planItems.size} completed", style = JewelTheme.defaultTextStyle.copy(
-            fontSize = 11.sp, color = if (completedCount == planItems.size) AutoDevColors.Green.c400 else AutoDevColors.Neutral.c400))
+            fontSize = 11.sp, color = if (completedCount == planItems.size) IdeaAutoDevColors.Green.c400 else IdeaAutoDevColors.Neutral.c400))
     }
 }
 
@@ -116,7 +116,7 @@ private fun PlanSection(index: Int, entry: AgentTaskEntry, modifier: Modifier = 
         Row(Modifier.fillMaxWidth().clickable { isExpanded = !isExpanded }, Arrangement.SpaceBetween, Alignment.CenterVertically) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(if (isExpanded) AllIconsKeys.General.ArrowDown else AllIconsKeys.General.ArrowRight,
-                    if (isExpanded) "Collapse" else "Expand", Modifier.size(12.dp), tint = AutoDevColors.Neutral.c400)
+                    if (isExpanded) "Collapse" else "Expand", Modifier.size(12.dp), tint = IdeaAutoDevColors.Neutral.c400)
                 StatusIcon(entry.status)
                 Text("${index + 1}. ${entry.title}", style = JewelTheme.defaultTextStyle.copy(fontSize = 12.sp, fontWeight = FontWeight.Bold), maxLines = 1)
             }
@@ -136,19 +136,19 @@ private fun PlanStep(step: cc.unitmesh.devti.observer.plan.AgentPlanStep) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
         Icon(if (step.completed) AllIconsKeys.Actions.Checked else AllIconsKeys.Nodes.EmptyNode,
             if (step.completed) "Completed" else "Pending", Modifier.size(14.dp),
-            tint = if (step.completed) AutoDevColors.Green.c400 else AutoDevColors.Neutral.c500)
+            tint = if (step.completed) IdeaAutoDevColors.Green.c400 else IdeaAutoDevColors.Neutral.c500)
         Text(step.step, style = JewelTheme.defaultTextStyle.copy(fontSize = 11.sp,
-            color = if (step.completed) AutoDevColors.Neutral.c400 else AutoDevColors.Neutral.c200))
+            color = if (step.completed) IdeaAutoDevColors.Neutral.c400 else IdeaAutoDevColors.Neutral.c200))
     }
 }
 
 @Composable
 private fun StatusIcon(status: TaskStatus) {
     val (iconKey, tint) = when (status) {
-        TaskStatus.COMPLETED -> AllIconsKeys.Actions.Checked to AutoDevColors.Green.c400
-        TaskStatus.FAILED -> AllIconsKeys.General.Error to AutoDevColors.Red.c400
-        TaskStatus.IN_PROGRESS -> AllIconsKeys.Actions.Execute to AutoDevColors.Blue.c400
-        TaskStatus.TODO -> AllIconsKeys.General.TodoDefault to AutoDevColors.Neutral.c500
+        TaskStatus.COMPLETED -> AllIconsKeys.Actions.Checked to IdeaAutoDevColors.Green.c400
+        TaskStatus.FAILED -> AllIconsKeys.General.Error to IdeaAutoDevColors.Red.c400
+        TaskStatus.IN_PROGRESS -> AllIconsKeys.Actions.Execute to IdeaAutoDevColors.Blue.c400
+        TaskStatus.TODO -> AllIconsKeys.General.TodoDefault to IdeaAutoDevColors.Neutral.c500
     }
     Icon(iconKey, status.name, Modifier.size(14.dp), tint = tint)
 }
@@ -156,10 +156,10 @@ private fun StatusIcon(status: TaskStatus) {
 @Composable
 private fun StatusLabel(status: TaskStatus) {
     val (text, color) = when (status) {
-        TaskStatus.COMPLETED -> "Done" to AutoDevColors.Green.c400
-        TaskStatus.FAILED -> "Failed" to AutoDevColors.Red.c400
-        TaskStatus.IN_PROGRESS -> "Running" to AutoDevColors.Blue.c400
-        TaskStatus.TODO -> "Todo" to AutoDevColors.Neutral.c500
+        TaskStatus.COMPLETED -> "Done" to IdeaAutoDevColors.Green.c400
+        TaskStatus.FAILED -> "Failed" to IdeaAutoDevColors.Red.c400
+        TaskStatus.IN_PROGRESS -> "Running" to IdeaAutoDevColors.Blue.c400
+        TaskStatus.TODO -> "Todo" to IdeaAutoDevColors.Neutral.c500
     }
     Text(text, style = JewelTheme.defaultTextStyle.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold, color = color))
 }

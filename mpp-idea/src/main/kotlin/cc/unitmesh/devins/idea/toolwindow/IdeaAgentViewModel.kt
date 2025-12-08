@@ -9,13 +9,13 @@ import cc.unitmesh.agent.config.PreloadingStatus
 import cc.unitmesh.agent.config.ToolConfigFile
 import cc.unitmesh.agent.tool.ToolType
 import cc.unitmesh.agent.tool.schema.ToolCategory
+import cc.unitmesh.config.AutoDevConfigWrapper
+import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.devins.compiler.service.DevInsCompilerService
 import cc.unitmesh.devins.idea.compiler.IdeaDevInsCompilerService
 import cc.unitmesh.devins.idea.renderer.JewelRenderer
 import cc.unitmesh.devins.idea.services.IdeaToolConfigService
 import cc.unitmesh.devins.idea.tool.IdeaToolProvider
-import cc.unitmesh.devins.ui.config.AutoDevConfigWrapper
-import cc.unitmesh.devins.ui.config.ConfigManager
 import cc.unitmesh.llm.KoogLLMService
 import cc.unitmesh.llm.ModelConfig
 import cc.unitmesh.llm.NamedModelConfig
@@ -233,13 +233,15 @@ class IdeaAgentViewModel(
                     AgentType.CODE_REVIEW -> "CodeReview"
                     AgentType.KNOWLEDGE -> "Documents"
                 }
-                cc.unitmesh.devins.ui.config.saveAgentTypePreference(typeString)
+
+                AutoDevConfigWrapper.saveAgentTypePreference(typeString)
             } catch (e: Exception) {
                 // Silently fail - not critical if we can't save preference
                 println("⚠️ Failed to save agent type preference: ${e.message}")
             }
         }
     }
+
 
     /**
      * Initialize the CodingAgent with tool configuration.

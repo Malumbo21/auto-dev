@@ -20,6 +20,7 @@ import cc.unitmesh.devins.llm.Message
 import cc.unitmesh.devins.ui.app.UnifiedAppContent
 import cc.unitmesh.devins.ui.compose.agent.AgentInterfaceRouter
 import cc.unitmesh.agent.AgentType
+import cc.unitmesh.config.AutoDevConfigWrapper
 import cc.unitmesh.devins.ui.compose.chat.SessionSidebar
 import cc.unitmesh.devins.ui.compose.chat.TopBarMenu
 import cc.unitmesh.devins.ui.compose.chat.createChatCallbacks
@@ -29,7 +30,8 @@ import cc.unitmesh.devins.ui.compose.omnibar.Omnibar
 import cc.unitmesh.devins.ui.compose.omnibar.OmnibarActionResult
 import cc.unitmesh.devins.ui.compose.theme.AutoDevTheme
 import cc.unitmesh.devins.ui.compose.theme.ThemeManager
-import cc.unitmesh.devins.ui.config.ConfigManager
+import cc.unitmesh.config.ConfigManager
+import cc.unitmesh.config.RemoteServerConfig
 import cc.unitmesh.devins.ui.i18n.Strings
 import cc.unitmesh.devins.ui.platform.createFileChooser
 import cc.unitmesh.devins.ui.state.UIStateManager
@@ -175,7 +177,7 @@ private fun AutoDevContent(
                     AgentType.LOCAL_CHAT -> "Local"
                     else -> "Local"
                 }
-                cc.unitmesh.devins.ui.config.saveAgentTypePreference(typeString)
+                AutoDevConfigWrapper.saveAgentTypePreference(typeString)
             } catch (e: Exception) {
                 println("⚠️ 保存 Agent 类型失败: ${e.message}")
             }
@@ -717,7 +719,7 @@ private fun AutoDevContent(
                     scope.launch {
                         try {
                             ConfigManager.saveRemoteServer(
-                                cc.unitmesh.devins.ui.config.RemoteServerConfig(
+                                RemoteServerConfig(
                                     url = newConfig.serverUrl,
                                     enabled = true, // 保存配置后，标记为已启用
                                     useServerConfig = newConfig.useServerConfig
@@ -725,7 +727,7 @@ private fun AutoDevContent(
                             )
 
                             // 重要：保存 Remote 配置后，自动切换 Agent Type 为 REMOTE
-                            cc.unitmesh.devins.ui.config.saveAgentTypePreference("Remote")
+                            AutoDevConfigWrapper.saveAgentTypePreference("Remote")
                             selectedAgentType = AgentType.REMOTE
                         } catch (e: Exception) {
                             println("⚠️ 保存云端配置失败: ${e.message}")

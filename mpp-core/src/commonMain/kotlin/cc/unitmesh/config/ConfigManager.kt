@@ -1,4 +1,4 @@
-package cc.unitmesh.devins.ui.config
+package cc.unitmesh.config
 
 import cc.unitmesh.llm.NamedModelConfig
 
@@ -135,3 +135,4 @@ expect object ConfigManager {
      */
     suspend fun getIssueTracker(): IssueTrackerConfig
 }
+

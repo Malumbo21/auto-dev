@@ -174,6 +174,9 @@ kotlin {
             dependencies {
                 // Ktor CIO engine for JVM
                 implementation("io.ktor:ktor-client-cio:3.2.2")
+                // Ktor content negotiation - required by ai.koog:prompt-executor-llms-all
+                implementation("io.ktor:ktor-client-content-negotiation:3.2.2")
+                implementation("io.ktor:ktor-serialization-kotlinx-json:3.2.2")
 
                 // CodeGraph for source code parsing
                 implementation(project(":mpp-codegraph"))

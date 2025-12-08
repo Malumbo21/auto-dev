@@ -5,6 +5,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import cc.unitmesh.agent.Platform
+import cc.unitmesh.config.ConfigManager
+import cc.unitmesh.config.IssueTrackerConfig
 import cc.unitmesh.devins.ui.compose.agent.AgentTopAppBar
 import cc.unitmesh.devins.ui.compose.agent.AgentTopAppBarActions
 import cc.unitmesh.devins.workspace.Workspace
@@ -105,14 +107,14 @@ private fun CodeReviewTopBar(
     // Issue Tracker Configuration Dialog
     if (showIssueTrackerDialog) {
         var currentConfig by remember {
-            mutableStateOf(cc.unitmesh.devins.ui.config.IssueTrackerConfig())
+            mutableStateOf(IssueTrackerConfig())
         }
         var autoDetectedRepo by remember {
             mutableStateOf<Pair<String, String>?>(null)
         }
 
         LaunchedEffect(Unit) {
-            currentConfig = cc.unitmesh.devins.ui.config.ConfigManager.getIssueTracker()
+            currentConfig = ConfigManager.getIssueTracker()
             // Try to auto-detect repo from Git
             autoDetectedRepo = viewModel.detectRepositoryFromGit()
         }

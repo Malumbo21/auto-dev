@@ -5,7 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import cc.unitmesh.agent.RemoteAgentEvent
 import cc.unitmesh.devins.ui.compose.agent.ComposeRenderer
-import cc.unitmesh.devins.ui.config.ConfigManager
+import cc.unitmesh.config.ConfigManager
 import kotlinx.coroutines.*
 
 /**

@@ -14,7 +14,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cc.unitmesh.devins.idea.renderer.sketch.actions.IdeaCodeActions
-import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
+import cc.unitmesh.devins.idea.theme.IdeaAutoDevColors
 import com.intellij.openapi.project.Project
 import org.jetbrains.jewel.foundation.theme.JewelTheme
 import org.jetbrains.jewel.ui.component.Icon
@@ -80,7 +80,7 @@ private fun CodeBlockToolbar(
                 style = JewelTheme.defaultTextStyle.copy(
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
-                    color = AutoDevColors.Blue.c400
+                    color = IdeaAutoDevColors.Blue.c400
                 )
             )
         } else {
@@ -149,7 +149,7 @@ private fun CodeActionButton(
                 .size(24.dp)
                 .hoverable(interactionSource)
                 .background(
-                    if (isHovered && enabled) AutoDevColors.Neutral.c700.copy(alpha = 0.3f)
+                    if (isHovered && enabled) IdeaAutoDevColors.Neutral.c700.copy(alpha = 0.3f)
                     else Color.Transparent
                 )
         ) {
@@ -157,7 +157,7 @@ private fun CodeActionButton(
                 key = iconKey,
                 contentDescription = tooltip,
                 modifier = Modifier.size(16.dp),
-                tint = if (enabled) AutoDevColors.Neutral.c300 else AutoDevColors.Neutral.c600
+                tint = if (enabled) IdeaAutoDevColors.Neutral.c300 else IdeaAutoDevColors.Neutral.c600
             )
         }
     }

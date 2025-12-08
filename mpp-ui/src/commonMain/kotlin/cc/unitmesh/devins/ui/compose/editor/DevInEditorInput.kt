@@ -42,7 +42,7 @@ import cc.unitmesh.devins.ui.compose.editor.context.SelectedFileItem
 import cc.unitmesh.devins.ui.compose.editor.context.TopToolbar
 import cc.unitmesh.devins.ui.compose.editor.context.WorkspaceFileSearchProvider
 import cc.unitmesh.devins.ui.compose.editor.highlighting.DevInSyntaxHighlighter
-import cc.unitmesh.devins.ui.config.ConfigManager
+import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.devins.ui.compose.sketch.getUtf8FontFamily
 import cc.unitmesh.devins.workspace.WorkspaceManager
 import cc.unitmesh.llm.KoogLLMService

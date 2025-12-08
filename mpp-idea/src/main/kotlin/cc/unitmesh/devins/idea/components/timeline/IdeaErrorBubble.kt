@@ -7,14 +7,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import cc.unitmesh.devins.idea.toolwindow.IdeaComposeIcons
-import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
+import cc.unitmesh.devins.idea.theme.IdeaAutoDevColors
 import org.jetbrains.jewel.foundation.theme.JewelTheme
 import org.jetbrains.jewel.ui.component.Icon
 import org.jetbrains.jewel.ui.component.Text
 
 /**
  * Error bubble for displaying error messages.
- * Uses AutoDevColors design system for consistent error styling.
+ * Uses IdeaAutoDevColors.design system for consistent error styling.
  */
 @Composable
 fun IdeaErrorBubble(
@@ -28,7 +28,7 @@ fun IdeaErrorBubble(
         Box(
             modifier = Modifier
                 .widthIn(max = 500.dp)
-                .background(AutoDevColors.Red.c400.copy(alpha = 0.2f))
+                .background(IdeaAutoDevColors.Red.c400.copy(alpha = 0.2f))
                 .padding(8.dp)
         ) {
             Row(
@@ -39,12 +39,12 @@ fun IdeaErrorBubble(
                     imageVector = IdeaComposeIcons.Error,
                     contentDescription = "Error",
                     modifier = Modifier.size(16.dp),
-                    tint = AutoDevColors.Red.c400
+                    tint = IdeaAutoDevColors.Red.c400
                 )
                 Text(
                     text = message,
                     style = JewelTheme.defaultTextStyle.copy(
-                        color = AutoDevColors.Red.c400
+                        color = IdeaAutoDevColors.Red.c400
                     )
                 )
             }

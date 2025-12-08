@@ -13,10 +13,8 @@ import cc.unitmesh.agent.logging.AutoDevLogger
 import cc.unitmesh.devins.ui.compose.agent.codereview.CodeReviewSideBySideView
 import cc.unitmesh.devins.ui.compose.agent.codereview.CodeReviewViewModel
 import cc.unitmesh.devins.ui.compose.agent.codereview.CodeReviewViewModel.Companion.createCodeReviewAgent
-import cc.unitmesh.devins.ui.config.ConfigManager
 import cc.unitmesh.devins.workspace.DefaultWorkspace
 import cc.unitmesh.devins.workspace.Workspace
-import cc.unitmesh.llm.KoogLLMService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 

@@ -23,8 +23,8 @@ import cc.unitmesh.devins.idea.toolwindow.remote.getEffectiveProjectId
 import cc.unitmesh.devins.idea.components.status.IdeaToolLoadingStatusBar
 import cc.unitmesh.devins.idea.components.timeline.IdeaEmptyStateMessage
 import cc.unitmesh.devins.idea.components.timeline.IdeaTimelineContent
-import cc.unitmesh.devins.ui.config.AutoDevConfigWrapper
-import cc.unitmesh.devins.ui.config.ConfigManager
+import cc.unitmesh.config.AutoDevConfigWrapper
+import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.llm.ModelConfig
 import cc.unitmesh.llm.NamedModelConfig
 import com.intellij.openapi.project.Project

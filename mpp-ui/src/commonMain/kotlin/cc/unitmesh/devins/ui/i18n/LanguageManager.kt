@@ -1,8 +1,7 @@
 package cc.unitmesh.devins.ui.i18n
 
-import cc.unitmesh.devins.ui.config.ConfigManager
-import cc.unitmesh.devins.ui.config.getLanguage
-import cc.unitmesh.devins.ui.config.saveLanguagePreference
+import cc.unitmesh.config.AutoDevConfigWrapper
+import cc.unitmesh.config.ConfigManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -45,7 +44,7 @@ object LanguageManager {
 
         // Persist to config
         try {
-            saveLanguagePreference(language.code)
+            AutoDevConfigWrapper.saveAgentTypePreference(language.code)
         } catch (e: Exception) {
             println("Failed to save language preference: ${e.message}")
         }

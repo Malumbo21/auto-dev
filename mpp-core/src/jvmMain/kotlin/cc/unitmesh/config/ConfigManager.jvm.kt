@@ -1,4 +1,4 @@
-package cc.unitmesh.devins.ui.config
+package cc.unitmesh.config
 
 import cc.unitmesh.agent.config.ToolConfigFile
 import cc.unitmesh.agent.mcp.McpServerConfig
@@ -240,3 +240,4 @@ actual object ConfigManager {
         return wrapper.getIssueTracker()
     }
 }
+
