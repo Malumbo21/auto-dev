@@ -139,6 +139,9 @@ kotlin {
                 // Rich text editor for Compose
                 implementation("com.mohamedrejeb.richeditor:richeditor-compose:1.0.0-rc13")
 
+                // ComposeCharts - Cross-platform chart library
+                implementation("io.github.ehsannarmani:compose-charts:0.2.0")
+
                 // Coroutines
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
 

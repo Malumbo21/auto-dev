@@ -169,3 +169,73 @@ class JsNanoDSLAgent(
         return agent.shouldTrigger(mapOf("content" to content))
     }
 }
+
+/**
+ * JS-friendly ChartContext
+ */
+@JsExport
+data class JsChartContext(
+    val data: String,
+    val chartType: String? = null,
+    val description: String? = null,
+    val title: String? = null
+) {
+    fun toCommon(): ChartContext = ChartContext(
+        data = data,
+        chartType = chartType,
+        description = description,
+        title = title
+    )
+}
+
+/**
+ * JS-friendly ChartAgent
+ * Generates chart configurations from data using AI
+ */
+@JsExport
+class JsChartAgent(
+    private val llmService: KoogLLMService,
+    private val promptTemplate: String? = null
+) {
+    private val agent = ChartAgent(
+        llmService = llmService,
+        promptTemplate = promptTemplate ?: ChartAgent.DEFAULT_PROMPT
+    )
+
+    /**
+     * Generate chart from data
+     * Returns a ToolResult with generated chart code and metadata
+     */
+    fun execute(context: JsChartContext): Promise<ToolResult.AgentResult> {
+        return GlobalScope.promise {
+            val commonContext = context.toCommon()
+            agent.execute(commonContext) { /* ignore progress */ }
+        }
+    }
+
+    /**
+     * Generate chart from simple data string
+     * Convenience method for simple use cases
+     */
+    fun generate(
+        data: String,
+        chartType: String? = null,
+        title: String? = null
+    ): Promise<ToolResult.AgentResult> {
+        return GlobalScope.promise {
+            val context = ChartContext(
+                data = data,
+                chartType = chartType,
+                title = title
+            )
+            agent.execute(context) { /* ignore progress */ }
+        }
+    }
+
+    /**
+     * Check if content suggests chart generation is needed
+     */
+    fun shouldTrigger(content: String): Boolean {
+        return agent.shouldTrigger(mapOf("content" to content))
+    }
+}

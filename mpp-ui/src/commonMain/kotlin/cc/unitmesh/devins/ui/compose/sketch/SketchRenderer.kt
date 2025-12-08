@@ -6,6 +6,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import cc.unitmesh.devins.parser.CodeFence
+import cc.unitmesh.devins.ui.compose.sketch.chart.ChartBlockRenderer
 
 /**
  * Sketch 渲染器 - 主渲染器
@@ -135,6 +136,16 @@ object SketchRenderer : BaseContentRenderer() {
                             DevInBlockRenderer(
                                 devinContent = fence.text,
                                 isComplete = blockIsComplete,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+                    }
+
+                    "chart", "graph" -> {
+                        if (fence.text.isNotBlank()) {
+                            ChartBlockRenderer(
+                                chartCode = fence.text,
                                 modifier = Modifier.fillMaxWidth()
                             )
                             Spacer(modifier = Modifier.height(8.dp))
