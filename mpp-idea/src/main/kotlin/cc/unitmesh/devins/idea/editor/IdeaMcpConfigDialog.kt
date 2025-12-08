@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cc.unitmesh.agent.config.*
 import cc.unitmesh.agent.mcp.McpServerConfig
+import cc.unitmesh.devins.idea.compose.IdeaCircularProgressIndicator
 import cc.unitmesh.devins.idea.compose.IdeaLaunchedEffect
 import cc.unitmesh.devins.idea.compose.rememberIdeaCoroutineScope
 import cc.unitmesh.devins.idea.services.IdeaToolConfigService
@@ -642,7 +643,7 @@ private fun McpToolsTab(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    CircularProgressIndicator(modifier = Modifier.size(16.dp))
+                    IdeaCircularProgressIndicator(modifier = Modifier, size = 16.dp)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Loading MCP tools...")
                 }
@@ -709,7 +710,7 @@ private fun McpServerHeader(
             }
 
             if (serverState?.isLoading == true) {
-                CircularProgressIndicator(modifier = Modifier.size(14.dp))
+                IdeaCircularProgressIndicator(modifier = Modifier, size = 14.dp)
                 Spacer(modifier = Modifier.width(8.dp))
             }
 
@@ -859,7 +860,7 @@ private fun McpServersTab(
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 if (isReloading) {
-                    CircularProgressIndicator(modifier = Modifier.size(14.dp))
+                    IdeaCircularProgressIndicator(modifier = Modifier, size = 14.dp)
                     Text(
                         text = "Loading...",
                         style = JewelTheme.defaultTextStyle.copy(
@@ -975,7 +976,7 @@ private fun McpServersTab(
                 enabled = !isReloading && errorMessage == null
             ) {
                 if (isReloading) {
-                    CircularProgressIndicator(modifier = Modifier.size(14.dp))
+                    IdeaCircularProgressIndicator(modifier = Modifier, size = 14.dp)
                     Spacer(modifier = Modifier.width(4.dp))
                 } else {
                     Icon(

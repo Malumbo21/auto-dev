@@ -86,6 +86,9 @@ fun IdeaTimelineItemView(
                 onCancel = onProcessCancel
             )
         }
+        is TimelineItem.NanoDSLItem -> {
+            IdeaNanoDSLBubble(item, project)
+        }
     }
 }
 

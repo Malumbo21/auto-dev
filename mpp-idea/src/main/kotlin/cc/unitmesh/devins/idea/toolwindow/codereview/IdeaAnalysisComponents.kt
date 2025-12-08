@@ -25,6 +25,7 @@ import cc.unitmesh.agent.codereview.ModifiedCodeRange
 import cc.unitmesh.agent.linter.LintFileResult
 import cc.unitmesh.agent.linter.LintIssue
 import cc.unitmesh.agent.linter.LintSeverity
+import cc.unitmesh.devins.idea.compose.IdeaCircularProgressIndicator
 import cc.unitmesh.devins.idea.renderer.sketch.IdeaSketchRenderer
 import cc.unitmesh.devins.ui.compose.agent.codereview.AnalysisStage
 import cc.unitmesh.devins.ui.compose.agent.codereview.CodeReviewState
@@ -88,7 +89,7 @@ internal fun IdeaAnalysisHeader(stage: AnalysisStage, hasDiffFiles: Boolean, onS
             if (stage != AnalysisStage.IDLE) {
                 Box(modifier = Modifier.background(statusColor.copy(alpha = 0.15f), RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp)) {
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        if (stage != AnalysisStage.COMPLETED && stage != AnalysisStage.ERROR) CircularProgressIndicator()
+                        if (stage != AnalysisStage.COMPLETED && stage != AnalysisStage.ERROR) IdeaCircularProgressIndicator()
                         Text(statusText, style = JewelTheme.defaultTextStyle.copy(color = statusColor, fontSize = 11.sp, fontWeight = FontWeight.Medium))
                     }
                 }
@@ -190,7 +191,7 @@ internal fun IdeaSuggestedFixesSection(fixOutput: String, isGenerating: Boolean,
     IdeaCollapsibleCard("Fix Generation", isExpanded, { isExpanded = it }, isGenerating, {
         if (isGenerating) {
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                CircularProgressIndicator()
+                IdeaCircularProgressIndicator()
                 IdeaBadge("Generating...", AutoDevColors.Indigo.c400)
             }
         } else if (fixOutput.isNotEmpty()) IdeaBadge("Complete", AutoDevColors.Green.c400)
@@ -202,7 +203,7 @@ internal fun IdeaSuggestedFixesSection(fixOutput: String, isGenerating: Boolean,
                 parentDisposable = parentDisposable,
                 modifier = Modifier.fillMaxWidth()
             )
-            isGenerating -> Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            isGenerating -> Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) { IdeaCircularProgressIndicator() }
             else -> Text("No fixes generated yet.", style = JewelTheme.defaultTextStyle.copy(color = JewelTheme.globalColors.text.info, fontSize = 12.sp))
         }
     }

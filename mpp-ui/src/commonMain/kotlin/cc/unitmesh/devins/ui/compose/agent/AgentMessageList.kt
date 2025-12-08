@@ -225,6 +225,17 @@ fun RenderMessageItem(
                 output = timelineItem.output
             )
         }
+
+        is TimelineItem.NanoDSLItem -> {
+            NanoDSLTimelineItem(
+                source = timelineItem.source,
+                irJson = timelineItem.irJson,
+                componentName = timelineItem.componentName,
+                generationAttempts = timelineItem.generationAttempts,
+                isValid = timelineItem.isValid,
+                warnings = timelineItem.warnings
+            )
+        }
     }
 }
 
@@ -361,6 +372,131 @@ fun TaskCompletedItem(
                 color = MaterialTheme.colorScheme.onPrimaryContainer,
                 fontWeight = FontWeight.Medium,
                 fontSize = 10.sp
+            )
+        }
+    }
+}
+
+/**
+ * NanoDSL Timeline Item - displays generated NanoDSL code
+ * @param irJson The IR JSON representation (reserved for future preview feature)
+ */
+@Composable
+fun NanoDSLTimelineItem(
+    source: String,
+    @Suppress("unused") irJson: String?, // Reserved for future live preview feature
+    componentName: String?,
+    generationAttempts: Int,
+    isValid: Boolean,
+    warnings: List<String>,
+    modifier: Modifier = Modifier
+) {
+    // TODO: Add live preview toggle when NanoRenderer integration is ready
+    // var showPreview by remember { mutableStateOf(false) }
+    
+    Surface(
+        modifier = modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+        shape = RoundedCornerShape(8.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp)
+        ) {
+            // Header row with component name and status
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "🎨",
+                        fontSize = 16.sp
+                    )
+                    Text(
+                        text = componentName ?: "Generated UI",
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp
+                    )
+                    if (generationAttempts > 1) {
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.2f)
+                        ) {
+                            Text(
+                                text = "$generationAttempts attempts",
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                fontSize = 10.sp,
+                                color = MaterialTheme.colorScheme.tertiary
+                            )
+                        }
+                    }
+                }
+                
+                // Validity indicator
+                Text(
+                    text = if (isValid) "✅ Valid" else "⚠️ Invalid",
+                    fontSize = 12.sp,
+                    color = if (isValid) MaterialTheme.colorScheme.primary 
+                            else MaterialTheme.colorScheme.error
+                )
+            }
+            
+            // Warnings
+            if (warnings.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                warnings.forEach { warning ->
+                    Text(
+                        text = "⚠ $warning",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.error.copy(alpha = 0.8f)
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Code display
+            val lines = source.lines()
+            val maxLineNumWidth = lines.size.toString().length
+            
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(4.dp),
+                color = MaterialTheme.colorScheme.surface
+            ) {
+                Column(modifier = Modifier.padding(8.dp)) {
+                    // Line numbers and code
+                    lines.forEachIndexed { index, line ->
+                        Row(modifier = Modifier.fillMaxWidth()) {
+                            Text(
+                                text = (index + 1).toString().padStart(maxLineNumWidth, ' '),
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 11.sp,
+                                modifier = Modifier.padding(end = 8.dp)
+                            )
+                            Text(
+                                text = line,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+                }
+            }
+            
+            // Footer with line count
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "${lines.size} lines of NanoDSL code",
+                fontSize = 10.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
             )
         }
     }

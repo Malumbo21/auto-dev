@@ -5,6 +5,10 @@ import cc.unitmesh.agent.logging.getLogger
 import cc.unitmesh.agent.model.AgentDefinition
 import cc.unitmesh.agent.model.PromptConfig
 import cc.unitmesh.agent.model.RunConfig
+import cc.unitmesh.agent.parser.NanoDSLParseResult
+import cc.unitmesh.agent.parser.NanoDSLValidationResult
+import cc.unitmesh.agent.parser.NanoDSLValidator
+import cc.unitmesh.agent.parser.ValidationError
 import cc.unitmesh.agent.tool.ToolResult
 import cc.unitmesh.agent.tool.schema.DeclarativeToolSchema
 import cc.unitmesh.agent.tool.schema.SchemaPropertyBuilder.boolean
@@ -33,11 +37,13 @@ import kotlinx.serialization.Serializable
  */
 class NanoDSLAgent(
     private val llmService: KoogLLMService,
-    private val promptTemplate: String = DEFAULT_PROMPT
+    private val promptTemplate: String = DEFAULT_PROMPT,
+    private val maxRetries: Int = 3
 ) : SubAgent<NanoDSLContext, ToolResult.AgentResult>(
     definition = createDefinition()
 ) {
     private val logger = getLogger("NanoDSLAgent")
+    private val validator = NanoDSLValidator()
 
     override val priority: Int = 50 // Higher priority for UI generation tasks
 
@@ -63,50 +69,171 @@ class NanoDSLAgent(
         onProgress("🎨 NanoDSL Agent: Generating UI from description")
         onProgress("Description: ${input.description.take(80)}...")
 
-        return try {
-            val prompt = buildPrompt(input)
-            onProgress("Calling LLM for code generation...")
+        var lastGeneratedCode = ""
+        var lastErrors: List<ValidationError> = emptyList()
+        var irJson: String? = null
 
-            val responseBuilder = StringBuilder()
-            llmService.streamPrompt(
-                userPrompt = prompt,
-                compileDevIns = false
-            ).toList().forEach { chunk ->
-                responseBuilder.append(chunk)
+        for (attempt in 1..maxRetries) {
+            try {
+                val prompt = if (attempt == 1) {
+                    buildPrompt(input)
+                } else {
+                    // Include previous errors in retry prompt
+                    buildRetryPrompt(input, lastGeneratedCode, lastErrors)
+                }
+
+                onProgress(if (attempt == 1) {
+                    "Calling LLM for code generation..."
+                } else {
+                    "Retry attempt $attempt/$maxRetries - fixing validation errors..."
+                })
+
+                val responseBuilder = StringBuilder()
+                llmService.streamPrompt(
+                    userPrompt = prompt,
+                    compileDevIns = false
+                ).toList().forEach { chunk ->
+                    responseBuilder.append(chunk)
+                }
+
+                val llmResponse = responseBuilder.toString()
+
+                // Extract NanoDSL code from markdown code fence
+                val codeFence = CodeFence.parse(llmResponse)
+                val generatedCode = if (codeFence.text.isNotBlank()) {
+                    codeFence.text.trim()
+                } else {
+                    llmResponse.trim()
+                }
+
+                lastGeneratedCode = generatedCode
+
+                // Validate the generated code
+                val validationResult = validator.validate(generatedCode)
+                
+                if (validationResult.isValid) {
+                    // Try to parse and get IR JSON
+                    val parseResult = validator.parse(generatedCode)
+                    if (parseResult is NanoDSLParseResult.Success) {
+                        irJson = parseResult.irJson
+                    }
+
+                    onProgress("✅ Generated ${generatedCode.lines().size} lines of valid NanoDSL code" +
+                        (if (attempt > 1) " (after $attempt attempts)" else ""))
+
+                    // Log warnings if any
+                    if (validationResult.warnings.isNotEmpty()) {
+                        validationResult.warnings.forEach { warning ->
+                            onProgress("⚠️ $warning")
+                        }
+                    }
+
+                    return ToolResult.AgentResult(
+                        success = true,
+                        content = generatedCode,
+                        metadata = buildMetadata(input, generatedCode, attempt, irJson, validationResult)
+                    )
+                } else {
+                    // Validation failed, prepare for retry
+                    lastErrors = validationResult.errors
+                    val errorMessages = validationResult.errors.joinToString("\n") { 
+                        "Line ${it.line}: ${it.message}" + (it.suggestion?.let { s -> " ($s)" } ?: "")
+                    }
+                    
+                    if (attempt < maxRetries) {
+                        onProgress("⚠️ Validation failed, will retry: $errorMessages")
+                        logger.warn { "NanoDSL validation failed (attempt $attempt): $errorMessages" }
+                    } else {
+                        onProgress("❌ Validation failed after $maxRetries attempts: $errorMessages")
+                        logger.error { "NanoDSL validation failed after all retries: $errorMessages" }
+                    }
+                }
+            } catch (e: Exception) {
+                logger.error(e) { "NanoDSL generation failed on attempt $attempt" }
+                // Capture exception as pseudo-error for retry prompt context
+                lastErrors = listOf(ValidationError("Generation error: ${e.message}", 0))
+                if (attempt == maxRetries) {
+                    onProgress("❌ Generation failed: ${e.message}")
+                    return ToolResult.AgentResult(
+                        success = false,
+                        content = "Failed to generate NanoDSL: ${e.message}",
+                        metadata = mapOf(
+                            "error" to (e.message ?: "Unknown error"),
+                            "attempts" to attempt.toString()
+                        )
+                    )
+                }
+                onProgress("⚠️ Generation error, will retry: ${e.message}")
             }
+        }
 
-            val llmResponse = responseBuilder.toString()
+        // Return the last generated code even if invalid (best effort)
+        return ToolResult.AgentResult(
+            success = false,
+            content = lastGeneratedCode.ifEmpty { "Failed to generate valid NanoDSL code" },
+            metadata = mapOf(
+                "description" to input.description,
+                "attempts" to maxRetries.toString(),
+                "validationErrors" to lastErrors.joinToString("; ") { it.message },
+                "isValid" to "false"
+            )
+        )
+    }
 
-            // Extract NanoDSL code from markdown code fence
-            val codeFence = CodeFence.parse(llmResponse)
-            val generatedCode = if (codeFence.text.isNotBlank()) {
-                codeFence.text.trim()
-            } else {
-                llmResponse.trim()
+    /**
+     * Build a retry prompt that includes previous errors for self-correction
+     */
+    private fun buildRetryPrompt(
+        input: NanoDSLContext, 
+        previousCode: String, 
+        errors: List<ValidationError>
+    ): String {
+        val errorFeedback = buildString {
+            appendLine("## Previous Attempt (INVALID)")
+            appendLine("```nanodsl")
+            appendLine(previousCode)
+            appendLine("```")
+            appendLine()
+            appendLine("## Validation Errors to Fix:")
+            errors.forEach { error ->
+                appendLine("- Line ${error.line}: ${error.message}")
+                error.suggestion?.let { appendLine("  Suggestion: $it") }
             }
+            appendLine()
+            appendLine("## Instructions:")
+            appendLine("Please fix the above errors and generate a corrected version.")
+            appendLine("Output ONLY the corrected NanoDSL code, no explanations.")
+        }
 
-            onProgress("✅ Generated ${generatedCode.lines().size} lines of NanoDSL code")
+        return """
+${buildPrompt(input)}
 
-            ToolResult.AgentResult(
-                success = true,
-                content = generatedCode,
-                metadata = mapOf(
-                    "description" to input.description,
-                    "componentType" to (input.componentType ?: "auto"),
-                    "linesOfCode" to generatedCode.lines().size.toString(),
-                    "includesState" to input.includeState.toString(),
-                    "includesHttp" to input.includeHttp.toString()
-                )
-            )
-        } catch (e: Exception) {
-            logger.error(e) { "NanoDSL generation failed" }
-            onProgress("❌ Generation failed: ${e.message}")
+$errorFeedback
+""".trim()
+    }
 
-            ToolResult.AgentResult(
-                success = false,
-                content = "Failed to generate NanoDSL: ${e.message}",
-                metadata = mapOf("error" to (e.message ?: "Unknown error"))
-            )
+    /**
+     * Build metadata map for the result
+     */
+    private fun buildMetadata(
+        input: NanoDSLContext,
+        code: String,
+        attempts: Int,
+        irJson: String?,
+        validationResult: NanoDSLValidationResult
+    ): Map<String, String> {
+        return buildMap {
+            put("description", input.description)
+            put("componentType", input.componentType ?: "auto")
+            put("linesOfCode", code.lines().size.toString())
+            put("includesState", input.includeState.toString())
+            put("includesHttp", input.includeHttp.toString())
+            put("attempts", attempts.toString())
+            put("isValid", validationResult.isValid.toString())
+            irJson?.let { put("irJson", it) }
+            if (validationResult.warnings.isNotEmpty()) {
+                put("warnings", validationResult.warnings.joinToString("; "))
+            }
         }
     }
 

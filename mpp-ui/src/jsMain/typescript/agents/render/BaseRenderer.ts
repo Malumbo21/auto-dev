@@ -12,6 +12,7 @@
 import {cc} from "autodev-mpp-core/autodev-mpp-core";
 import JsCodingAgentRenderer = cc.unitmesh.agent.JsCodingAgentRenderer;
 import JsPlanSummaryData = cc.unitmesh.agent.JsPlanSummaryData;
+import JsNanoDSLData = cc.unitmesh.agent.JsNanoDSLData;
 
 export abstract class BaseRenderer implements JsCodingAgentRenderer {
   // Required by Kotlin JS export interface
@@ -142,6 +143,16 @@ export abstract class BaseRenderer implements JsCodingAgentRenderer {
    * @param summary The plan summary data
    */
   renderPlanSummary(summary: JsPlanSummaryData): void {
+    // Default: no-op, subclasses can override
+  }
+
+  /**
+   * Render generated NanoDSL UI code.
+   * Default implementation - subclasses can override for custom rendering.
+   *
+   * @param data The NanoDSL rendering data including source, IR, and metadata
+   */
+  renderNanoDSL(data: JsNanoDSLData): void {
     // Default: no-op, subclasses can override
   }
 

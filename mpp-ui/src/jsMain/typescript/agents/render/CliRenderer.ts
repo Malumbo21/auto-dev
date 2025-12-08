@@ -13,6 +13,7 @@ import { semanticChalk, dividers } from '../../design-system/theme-helpers.js';
 import { BaseRenderer } from './BaseRenderer.js';
 import { cc } from 'autodev-mpp-core/autodev-mpp-core';
 import JsPlanSummaryData = cc.unitmesh.agent.JsPlanSummaryData;
+import JsNanoDSLData = cc.unitmesh.agent.JsNanoDSLData;
 
 /**
  * CliRenderer extends BaseRenderer and implements the unified JsCodingAgentRenderer interface
@@ -594,6 +595,91 @@ export class CliRenderer extends BaseRenderer {
 
     console.log(semanticChalk.accent(dividers.solid(50)));
     console.log();
+  }
+
+  /**
+   * Render generated NanoDSL UI code with syntax highlighting
+   */
+  renderNanoDSL(data: JsNanoDSLData): void {
+    const { source, componentName, generationAttempts, isValid, warnings } = data;
+    
+    console.log();
+    console.log(semanticChalk.accentBold('🎨 Generated NanoDSL UI'));
+    
+    // Header with component info
+    const nameDisplay = componentName || 'UI Component';
+    const attemptsInfo = generationAttempts > 1 ? ` (${generationAttempts} attempts)` : '';
+    const validityIcon = isValid ? '✅' : '⚠️';
+    
+    console.log(
+      `${validityIcon} ` +
+      chalk.bold(nameDisplay) +
+      semanticChalk.muted(attemptsInfo)
+    );
+    
+    // Show warnings if any
+    if (warnings && warnings.length > 0) {
+      for (const warning of warnings) {
+        console.log(semanticChalk.warning(`  ⚠ ${warning}`));
+      }
+    }
+    
+    console.log(dividers.solid(60));
+    
+    // Display code with line numbers and syntax highlighting
+    const lines = source.split('\n');
+    const maxLineNumWidth = String(lines.length).length;
+    
+    lines.forEach((line, index) => {
+      const lineNumber = String(index + 1).padStart(maxLineNumWidth, ' ');
+      const highlightedLine = this.highlightNanoDSL(line);
+      console.log(semanticChalk.muted(`${lineNumber} │ `) + highlightedLine);
+    });
+    
+    console.log(dividers.solid(60));
+    console.log(semanticChalk.muted(`${lines.length} lines of NanoDSL code`));
+    console.log();
+  }
+
+  /**
+   * Apply syntax highlighting to NanoDSL code
+   */
+  private highlightNanoDSL(line: string): string {
+    // Keywords
+    const keywords = ['component', 'state', 'if', 'for', 'in', 'on_click', 'content'];
+    // Components
+    const components = [
+      'VStack', 'HStack', 'Card', 'Text', 'Button', 'Input', 'Image',
+      'Badge', 'Checkbox', 'Toggle', 'Select', 'List', 'Grid',
+      'Spacer', 'Divider', 'Form', 'Section', 'Navigate', 'ShowToast', 'Fetch'
+    ];
+    
+    let result = line;
+    
+    // Highlight strings (quoted text)
+    result = result.replace(/"([^"]*)"/g, (match) => semanticChalk.success(match));
+    
+    // Highlight keywords
+    for (const keyword of keywords) {
+      const regex = new RegExp(`\\b(${keyword})\\b`, 'g');
+      result = result.replace(regex, (match) => semanticChalk.primary(match));
+    }
+    
+    // Highlight components
+    for (const comp of components) {
+      const regex = new RegExp(`\\b(${comp})\\b`, 'g');
+      result = result.replace(regex, (match) => semanticChalk.accent(match));
+    }
+    
+    // Highlight types (int, str, bool)
+    result = result.replace(/\b(int|str|bool|float)\b/g, (match) => semanticChalk.warning(match));
+    
+    // Highlight state references
+    result = result.replace(/\bstate\.(\w+)/g, (match, varName) => 
+      semanticChalk.muted('state.') + chalk.cyan(varName)
+    );
+    
+    return result;
   }
 }
 
