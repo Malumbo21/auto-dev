@@ -36,6 +36,9 @@ dependencies {
     implementation(libs.ktor.serverCors)
     implementation(libs.ktor.serverSse)
 
+    // SQLite for workflow persistence
+    implementation("org.xerial:sqlite-jdbc:3.44.1.0")
+
     // Testing
     testImplementation(libs.ktor.serverTestHost)
     testImplementation(kotlin("test"))

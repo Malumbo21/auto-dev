@@ -7,6 +7,11 @@ import cc.unitmesh.server.model.*
 import cc.unitmesh.server.service.AgentService
 import cc.unitmesh.server.service.ProjectService
 import cc.unitmesh.server.session.SessionManager
+import cc.unitmesh.server.workflow.engine.WorkflowEngine
+import cc.unitmesh.server.workflow.store.InMemorySignalQueue
+import cc.unitmesh.server.workflow.store.SqliteCheckpointManager
+import cc.unitmesh.server.workflow.store.SqliteEventStore
+import cc.unitmesh.server.workflow.workflowRoutes
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
@@ -23,10 +28,16 @@ fun Application.configureRouting() {
     val config = ServerConfig.load()
     val projectService = ProjectService(config.projects)
     val agentService = AgentService(config.llm)
-    
+
     // 初始化会话管理和认证服务
     val sessionManager = SessionManager()
     val authService = AuthService()
+
+    // 初始化工作流引擎
+    val eventStore = SqliteEventStore()
+    val checkpointManager = SqliteCheckpointManager()
+    val signalQueue = InMemorySignalQueue()
+    val workflowEngine = WorkflowEngine(eventStore, checkpointManager, signalQueue)
 
     // JSON serializer with polymorphic support for AgentEvent
     val json = Json {
@@ -272,6 +283,9 @@ fun Application.configureRouting() {
         
         // Session 和认证路由
         sessionRouting(sessionManager, authService, agentService)
+
+        // Workflow 路由
+        workflowRoutes(workflowEngine, authService)
     }
 }
 
