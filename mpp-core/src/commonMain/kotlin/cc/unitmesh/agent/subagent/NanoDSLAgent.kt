@@ -374,7 +374,8 @@ data class NanoDSLContext(
  * Schema for NanoDSL Agent tool
  */
 object NanoDSLAgentSchema : DeclarativeToolSchema(
-    description = "Generate NanoDSL UI code from natural language description",
+    description = "Generate NanoDSL UI code from natural language description, will return nano DSL code for you, you can" +
+            "directly show code to the User with nano as language",
     properties = mapOf(
         "description" to string(
             description = "Natural language description of the UI to generate",

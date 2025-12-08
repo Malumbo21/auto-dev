@@ -536,35 +536,6 @@ class JewelRenderer : BaseRenderer() {
         )
     }
 
-    /**
-     * Render generated NanoDSL UI code.
-     * On IntelliJ, this adds a NanoDSLItem to the timeline with optional live preview.
-     */
-    override fun renderNanoDSL(
-        source: String,
-        irJson: String?,
-        metadata: Map<String, String>
-    ) {
-        // Extract component name from source if not in metadata
-        val componentName = metadata["componentName"]
-            ?: Regex("""component\s+(\w+):""").find(source)?.groupValues?.get(1)
-        
-        val attempts = metadata["attempts"]?.toIntOrNull() ?: 1
-        val isValid = metadata["isValid"]?.toBoolean() ?: true
-        val warnings = metadata["warnings"]?.split(";")?.filter { it.isNotBlank() } ?: emptyList()
-        
-        addTimelineItem(
-            TimelineItem.NanoDSLItem(
-                source = source,
-                irJson = irJson,
-                componentName = componentName,
-                generationAttempts = attempts,
-                isValid = isValid,
-                warnings = warnings
-            )
-        )
-    }
-
     override fun updateTokenInfo(tokenInfo: TokenInfo) {
         _lastMessageTokenInfo = tokenInfo
         _totalTokenInfo.update { current ->

@@ -225,17 +225,6 @@ fun RenderMessageItem(
                 output = timelineItem.output
             )
         }
-
-        is TimelineItem.NanoDSLItem -> {
-            NanoDSLTimelineItem(
-                source = timelineItem.source,
-                irJson = timelineItem.irJson,
-                componentName = timelineItem.componentName,
-                generationAttempts = timelineItem.generationAttempts,
-                isValid = timelineItem.isValid,
-                warnings = timelineItem.warnings
-            )
-        }
     }
 }
 
@@ -393,7 +382,7 @@ fun NanoDSLTimelineItem(
 ) {
     // TODO: Add live preview toggle when NanoRenderer integration is ready
     // var showPreview by remember { mutableStateOf(false) }
-    
+
     Surface(
         modifier = modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
         shape = RoundedCornerShape(8.dp),
@@ -436,16 +425,16 @@ fun NanoDSLTimelineItem(
                         }
                     }
                 }
-                
+
                 // Validity indicator
                 Text(
                     text = if (isValid) "✅ Valid" else "⚠️ Invalid",
                     fontSize = 12.sp,
-                    color = if (isValid) MaterialTheme.colorScheme.primary 
+                    color = if (isValid) MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.error
                 )
             }
-            
+
             // Warnings
             if (warnings.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(4.dp))
@@ -457,13 +446,13 @@ fun NanoDSLTimelineItem(
                     )
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(8.dp))
-            
+
             // Code display
             val lines = source.lines()
             val maxLineNumWidth = lines.size.toString().length
-            
+
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(4.dp),
@@ -490,7 +479,7 @@ fun NanoDSLTimelineItem(
                     }
                 }
             }
-            
+
             // Footer with line count
             Spacer(modifier = Modifier.height(4.dp))
             Text(

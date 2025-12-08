@@ -190,36 +190,6 @@ sealed class TimelineItem(
         fun isSuccess(): Boolean = exitCode == 0
     }
 
-    /**
-     * NanoDSL generated UI item - displays generated NanoDSL code with optional live preview.
-     * 
-     * On JVM platforms with xuiper-ui available, the irJson can be used to render
-     * a live UI preview using NanoRenderer.
-     * 
-     * On non-JVM platforms or when irJson is null, shows the source code only.
-     */
-    data class NanoDSLItem(
-        /** The generated NanoDSL source code */
-        val source: String,
-        /** Optional IR JSON for rendering (JVM platforms only) */
-        val irJson: String? = null,
-        /** Component name extracted from source */
-        val componentName: String? = null,
-        /** Number of generation attempts (1 = first try succeeded) */
-        val generationAttempts: Int = 1,
-        /** Whether the generated code passed validation */
-        val isValid: Boolean = true,
-        /** Validation warnings (if any) */
-        val warnings: List<String> = emptyList(),
-        override val timestamp: Long = Platform.getCurrentTimestamp(),
-        override val id: String = generateId()
-    ) : TimelineItem(timestamp, id) {
-        /**
-         * Check if live preview is available (requires IR JSON)
-         */
-        fun hasLivePreview(): Boolean = irJson != null
-    }
-
     companion object {
         /**
          * Thread-safe counter for generating unique IDs.

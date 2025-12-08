@@ -85,19 +85,6 @@ data class JsPlanSummaryData(
 }
 
 /**
- * JS-friendly NanoDSL rendering data
- */
-@JsExport
-data class JsNanoDSLData(
-    val source: String,
-    val irJson: String?,
-    val componentName: String?,
-    val generationAttempts: Int,
-    val isValid: Boolean,
-    val warnings: Array<String>
-)
-
-/**
  * JS-friendly renderer interface
  * Allows TypeScript to provide custom rendering implementations
  * This interface mirrors the Kotlin CodingAgentRenderer interface
@@ -125,9 +112,6 @@ interface JsCodingAgentRenderer {
 
     // Plan summary bar (optional - default no-op in BaseRenderer)
     fun renderPlanSummary(summary: JsPlanSummaryData) {}
-
-    // NanoDSL rendering (optional - default no-op in BaseRenderer)
-    fun renderNanoDSL(data: JsNanoDSLData) {}
 }
 
 /**
@@ -198,18 +182,6 @@ class JsRendererAdapter(private val jsRenderer: JsCodingAgentRenderer) : CodingA
 
     override fun renderPlanSummary(summary: PlanSummaryData) {
         jsRenderer.renderPlanSummary(JsPlanSummaryData.from(summary))
-    }
-
-    override fun renderNanoDSL(source: String, irJson: String?, metadata: Map<String, String>) {
-        val data = JsNanoDSLData(
-            source = source,
-            irJson = irJson,
-            componentName = metadata["componentName"],
-            generationAttempts = metadata["attempts"]?.toIntOrNull() ?: 1,
-            isValid = metadata["isValid"]?.toBoolean() ?: true,
-            warnings = metadata["warnings"]?.split(";")?.toTypedArray() ?: emptyArray()
-        )
-        jsRenderer.renderNanoDSL(data)
     }
 }
 

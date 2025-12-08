@@ -421,24 +421,6 @@ export class VSCodeRenderer {
     });
   }
 
-  /**
-   * Render generated NanoDSL UI code
-   * Posts a nanodsl message to the webview for rendering
-   */
-  renderNanoDSL(source: string, irJson?: string | null, metadata?: Record<string, string>): void {
-    this.chatProvider.postMessage({
-      type: 'nanodsl',
-      data: {
-        source,
-        irJson,
-        componentName: metadata?.componentName,
-        attempts: metadata?.attempts ? parseInt(metadata.attempts) : 1,
-        isValid: metadata?.isValid === 'true',
-        warnings: metadata?.warnings?.split(';').filter(Boolean) || []
-      }
-    });
-  }
-
   forceStop(): void {
     this.chatProvider.postMessage({
       type: 'taskComplete',

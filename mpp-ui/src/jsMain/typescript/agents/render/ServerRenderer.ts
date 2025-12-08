@@ -8,8 +8,6 @@
 import { semanticChalk } from '../../design-system/theme-helpers.js';
 import type { AgentEvent, AgentStepInfo, AgentEditInfo } from '../ServerAgentClient.js';
 import { BaseRenderer } from './BaseRenderer.js';
-import { cc } from 'autodev-mpp-core/autodev-mpp-core';
-import JsNanoDSLData = cc.unitmesh.agent.JsNanoDSLData;
 
 /**
  * ServerRenderer extends BaseRenderer and implements the unified JsCodingAgentRenderer interface
@@ -499,45 +497,6 @@ export class ServerRenderer extends BaseRenderer {
     }
 
     console.log(semanticChalk.muted(`Task completed after ${iterations} iterations`));
-    console.log('');
-  }
-
-  /**
-   * Render generated NanoDSL UI code
-   */
-  renderNanoDSL(data: JsNanoDSLData): void {
-    const { source, componentName, generationAttempts, isValid, warnings } = data;
-    
-    console.log('');
-    console.log(semanticChalk.accentBold('🎨 Generated NanoDSL UI'));
-    
-    // Header with component info
-    const nameDisplay = componentName || 'UI Component';
-    const attemptsInfo = generationAttempts > 1 ? ` (${generationAttempts} attempts)` : '';
-    const validityIcon = isValid ? '✅' : '⚠️';
-    
-    console.log(`${validityIcon} ${nameDisplay}${attemptsInfo}`);
-    
-    // Show warnings if any
-    if (warnings && warnings.length > 0) {
-      for (const warning of warnings) {
-        console.log(semanticChalk.warning(`  ⚠ ${warning}`));
-      }
-    }
-    
-    console.log('────────────────────────────────────────────────────────────');
-    
-    // Display code with line numbers
-    const lines = source.split('\n');
-    const maxLineNumWidth = String(lines.length).length;
-    
-    lines.forEach((line, index) => {
-      const lineNumber = String(index + 1).padStart(maxLineNumWidth, ' ');
-      console.log(semanticChalk.muted(`${lineNumber} │ `) + line);
-    });
-    
-    console.log('────────────────────────────────────────────────────────────');
-    console.log(semanticChalk.muted(`${lines.length} lines of NanoDSL code`));
     console.log('');
   }
 

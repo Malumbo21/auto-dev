@@ -559,35 +559,6 @@ class ComposeRenderer : BaseRenderer() {
         // For now, just use error rendering since JS renderer doesn't have this method yet
     }
 
-    /**
-     * Render generated NanoDSL UI code.
-     * On Compose, this adds a NanoDSLItem to the timeline with optional live preview.
-     */
-    override fun renderNanoDSL(
-        source: String,
-        irJson: String?,
-        metadata: Map<String, String>
-    ) {
-        // Extract component name from source if not in metadata
-        val componentName = metadata["componentName"]
-            ?: Regex("""component\s+(\w+):""").find(source)?.groupValues?.get(1)
-        
-        val attempts = metadata["attempts"]?.toIntOrNull() ?: 1
-        val isValid = metadata["isValid"]?.toBoolean() ?: true
-        val warnings = metadata["warnings"]?.split(";")?.filter { it.isNotBlank() } ?: emptyList()
-        
-        _timeline.add(
-            TimelineItem.NanoDSLItem(
-                source = source,
-                irJson = irJson,
-                componentName = componentName,
-                generationAttempts = attempts,
-                isValid = isValid,
-                warnings = warnings
-            )
-        )
-    }
-
     // Public methods for UI interaction
     fun addUserMessage(content: String) {
         _timeline.add(
@@ -881,11 +852,6 @@ class ComposeRenderer : BaseRenderer() {
                 // Live terminal items are not persisted (they're runtime-only)
                 null
             }
-
-            is TimelineItem.NanoDSLItem -> {
-                // NanoDSL items are not persisted (they're runtime-only, can be regenerated)
-                null
-            }
         }
     }
 
@@ -1089,11 +1055,6 @@ class ComposeRenderer : BaseRenderer() {
                 }
 
                 is LiveTerminalItem -> null
-                
-                is TimelineItem.NanoDSLItem -> {
-                    // NanoDSL items are not persisted as messages
-                    null
-                }
             }
         }
     }
