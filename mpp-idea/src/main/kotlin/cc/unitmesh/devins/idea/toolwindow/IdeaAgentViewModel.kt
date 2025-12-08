@@ -120,9 +120,10 @@ class IdeaAgentViewModel(
 
     /**
      * Load configuration from ConfigManager (~/.autodev/config.yaml)
+     * Uses Dispatchers.IO to avoid blocking EDT
      */
     private fun loadConfiguration() {
-        coroutineScope.launch {
+        coroutineScope.launch(Dispatchers.IO) {
             try {
                 val wrapper = ConfigManager.load()
                 _configWrapper.value = wrapper
@@ -350,7 +351,8 @@ class IdeaAgentViewModel(
         renderer.clearError()
         renderer.addUserMessage(task)
 
-        currentJob = coroutineScope.launch {
+        // Use Dispatchers.IO to avoid blocking EDT during LLM streaming
+        currentJob = coroutineScope.launch(Dispatchers.IO) {
             try {
                 val agent = initializeCodingAgent()
                 val projectPath = project.basePath ?: System.getProperty("user.home")
@@ -361,7 +363,7 @@ class IdeaAgentViewModel(
                 )
 
                 agent.executeTask(agentTask)
-            } catch (_: CancellationException) {
+            } catch (e: CancellationException) {
                 renderer.forceStop()
                 renderer.renderError("Task cancelled by user")
             } catch (e: Exception) {
@@ -422,8 +424,9 @@ class IdeaAgentViewModel(
                 }
 
                 // Treat as a regular task
+                // Use Dispatchers.IO to avoid blocking EDT during LLM streaming
                 _isExecuting.value = true
-                currentJob = coroutineScope.launch {
+                currentJob = coroutineScope.launch(Dispatchers.IO) {
                     try {
                         val agent = initializeCodingAgent()
                         val projectPath = project.basePath ?: System.getProperty("user.home")

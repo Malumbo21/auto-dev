@@ -62,9 +62,10 @@ class IdeaRemoteAgentViewModel(
 
     /**
      * Check connection to server
+     * Uses Dispatchers.IO to avoid blocking EDT during network calls
      */
     fun checkConnection() {
-        coroutineScope.launch {
+        coroutineScope.launch(Dispatchers.IO) {
             try {
                 val health = client.healthCheck()
                 _isConnected.value = health.status == "ok"
@@ -99,7 +100,8 @@ class IdeaRemoteAgentViewModel(
         renderer.clearError()
         renderer.addUserMessage(task)
 
-        currentExecutionJob = coroutineScope.launch {
+        // Use Dispatchers.IO to avoid blocking EDT during network streaming
+        currentExecutionJob = coroutineScope.launch(Dispatchers.IO) {
             try {
                 val llmConfig = if (!useServerConfig) {
                     val config = ConfigManager.load()

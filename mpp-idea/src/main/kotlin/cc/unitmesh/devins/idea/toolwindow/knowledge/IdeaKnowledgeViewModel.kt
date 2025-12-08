@@ -280,12 +280,13 @@ class IdeaKnowledgeViewModel(
 
     /**
      * Send a message to the DocumentAgent
+     * Uses Dispatchers.IO to avoid blocking EDT during LLM streaming
      */
     fun sendMessage(text: String) {
         if (_state.value.isGenerating) return
 
         currentJob?.cancel()
-        currentJob = coroutineScope.launch {
+        currentJob = coroutineScope.launch(Dispatchers.IO) {
             try {
                 updateState { it.copy(isGenerating = true, error = null) }
                 renderer.addUserMessage(text)
