@@ -42,10 +42,24 @@ class ChartAgent(
     override val priority: Int = 60 // Medium-high priority for visualization tasks
 
     override fun validateInput(input: Map<String, Any>): ChartContext {
-        val data = input["data"] as? String
-            ?: throw IllegalArgumentException("Missing required parameter: data")
-        val chartType = input["chartType"] as? String
-        val description = input["description"] as? String
+        // Handle various ways the data parameter might be provided
+        val data = when {
+            input.containsKey("data") -> {
+                when (val dataValue = input["data"]) {
+                    is String -> dataValue.takeIf { it.isNotBlank() }
+                    else -> dataValue?.toString()?.takeIf { it.isNotBlank() }
+                }
+            }
+            // Fallback: check if there's any content that could be used as data
+            input.containsKey("content") -> (input["content"] as? String)?.takeIf { it.isNotBlank() }
+            input.containsKey("input") -> (input["input"] as? String)?.takeIf { it.isNotBlank() }
+            else -> null
+        } ?: throw IllegalArgumentException(
+            "Missing required parameter: data. Received parameters: ${input.keys.joinToString()}"
+        )
+
+        val chartType = (input["chartType"] ?: input["chart_type"] ?: input["type"]) as? String
+        val description = (input["description"] ?: input["desc"]) as? String
         val title = input["title"] as? String
 
         return ChartContext(
