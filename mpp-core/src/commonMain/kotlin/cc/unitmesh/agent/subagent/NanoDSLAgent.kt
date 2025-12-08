@@ -150,6 +150,8 @@ class NanoDSLAgent(
                 }
             } catch (e: Exception) {
                 logger.error(e) { "NanoDSL generation failed on attempt $attempt" }
+                // Capture exception as pseudo-error for retry prompt context
+                lastErrors = listOf(ValidationError("Generation error: ${e.message}", 0))
                 if (attempt == maxRetries) {
                     onProgress("❌ Generation failed: ${e.message}")
                     return ToolResult.AgentResult(
@@ -161,6 +163,7 @@ class NanoDSLAgent(
                         )
                     )
                 }
+                onProgress("⚠️ Generation error, will retry: ${e.message}")
             }
         }
 

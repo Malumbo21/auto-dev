@@ -27,7 +27,8 @@ fun IdeaNanoDSLBubble(
     project: Project? = null,
     modifier: Modifier = Modifier
 ) {
-    var showPreview by remember { mutableStateOf(false) }
+    // TODO: Add live preview toggle when NanoRenderer integration is ready
+    // var showPreview by remember { mutableStateOf(false) }
     
     Column(
         modifier = modifier
@@ -112,6 +113,9 @@ fun IdeaNanoDSLBubble(
                 Spacer(modifier = Modifier.height(8.dp))
                 
                 // Code display
+                val lines = item.source.lines()
+                val maxLineNumWidth = lines.size.toString().length
+                
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -120,9 +124,6 @@ fun IdeaNanoDSLBubble(
                         .padding(8.dp)
                 ) {
                     Column {
-                        val lines = item.source.lines()
-                        val maxLineNumWidth = lines.size.toString().length
-                        
                         lines.forEachIndexed { index, line ->
                             Row(modifier = Modifier.fillMaxWidth()) {
                                 Text(
@@ -149,7 +150,7 @@ fun IdeaNanoDSLBubble(
                 // Footer with line count
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "${item.source.lines().size} lines of NanoDSL code",
+                    text = "${lines.size} lines of NanoDSL code",
                     style = JewelTheme.defaultTextStyle.copy(
                         fontSize = 10.sp,
                         color = JewelTheme.globalColors.text.info.copy(alpha = 0.5f)

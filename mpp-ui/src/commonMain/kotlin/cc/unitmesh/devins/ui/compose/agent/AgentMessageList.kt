@@ -378,19 +378,21 @@ fun TaskCompletedItem(
 }
 
 /**
- * NanoDSL Timeline Item - displays generated NanoDSL code with optional preview toggle
+ * NanoDSL Timeline Item - displays generated NanoDSL code
+ * @param irJson The IR JSON representation (reserved for future preview feature)
  */
 @Composable
 fun NanoDSLTimelineItem(
     source: String,
-    irJson: String?,
+    @Suppress("unused") irJson: String?, // Reserved for future live preview feature
     componentName: String?,
     generationAttempts: Int,
     isValid: Boolean,
     warnings: List<String>,
     modifier: Modifier = Modifier
 ) {
-    var showPreview by remember { mutableStateOf(false) }
+    // TODO: Add live preview toggle when NanoRenderer integration is ready
+    // var showPreview by remember { mutableStateOf(false) }
     
     Surface(
         modifier = modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
@@ -459,6 +461,9 @@ fun NanoDSLTimelineItem(
             Spacer(modifier = Modifier.height(8.dp))
             
             // Code display
+            val lines = source.lines()
+            val maxLineNumWidth = lines.size.toString().length
+            
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(4.dp),
@@ -466,9 +471,6 @@ fun NanoDSLTimelineItem(
             ) {
                 Column(modifier = Modifier.padding(8.dp)) {
                     // Line numbers and code
-                    val lines = source.lines()
-                    val maxLineNumWidth = lines.size.toString().length
-                    
                     lines.forEachIndexed { index, line ->
                         Row(modifier = Modifier.fillMaxWidth()) {
                             Text(
@@ -492,7 +494,7 @@ fun NanoDSLTimelineItem(
             // Footer with line count
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "${source.lines().size} lines of NanoDSL code",
+                text = "${lines.size} lines of NanoDSL code",
                 fontSize = 10.sp,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
             )
