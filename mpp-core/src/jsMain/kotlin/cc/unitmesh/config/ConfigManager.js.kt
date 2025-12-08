@@ -288,6 +288,11 @@ actual object ConfigManager {
         val wrapper = load()
         return wrapper.getIssueTracker()
     }
+    
+    actual fun getKcefInstallDir(): String {
+        // KCEF is not available on Node.js
+        return ""
+    }
 
     private fun createEmpty(): AutoDevConfigWrapper {
         return AutoDevConfigWrapper(ConfigFile(active = "", configs = emptyList()))

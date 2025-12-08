@@ -134,5 +134,12 @@ expect object ConfigManager {
      * @return IssueTrackerConfig (returns default config if not set)
      */
     suspend fun getIssueTracker(): IssueTrackerConfig
+    
+    /**
+     * Get KCEF (Chromium Embedded Framework) installation directory
+     * 
+     * @return Path to KCEF installation directory (e.g., ~/.autodev/kcef-bundle)
+     */
+    fun getKcefInstallDir(): String
 }
 

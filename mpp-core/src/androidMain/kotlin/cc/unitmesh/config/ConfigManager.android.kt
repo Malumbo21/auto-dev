@@ -189,6 +189,11 @@ actual object ConfigManager {
         val wrapper = load()
         return wrapper.getIssueTracker()
     }
+    
+    actual fun getKcefInstallDir(): String {
+        // KCEF is not available on Android
+        return ""
+    }
 
     actual suspend fun loadToolConfig(): ToolConfigFile =
         withContext(Dispatchers.IO) {

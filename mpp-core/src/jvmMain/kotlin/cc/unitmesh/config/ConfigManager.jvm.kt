@@ -239,5 +239,10 @@ actual object ConfigManager {
         val wrapper = load()
         return wrapper.getIssueTracker()
     }
+    
+    actual fun getKcefInstallDir(): String {
+        val kcefDir = File(configDir, "kcef-bundle")
+        return kcefDir.absolutePath
+    }
 }
 
