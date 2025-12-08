@@ -119,6 +119,17 @@ object SketchRenderer : BaseContentRenderer() {
                         }
                     }
 
+                    "nanodsl", "nano" -> {
+                        if (fence.text.isNotBlank()) {
+                            NanoDSLBlockRenderer(
+                                nanodslCode = fence.text,
+                                isComplete = blockIsComplete,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+                    }
+
                     "devin" -> {
                         if (fence.text.isNotBlank()) {
                             DevInBlockRenderer(
