@@ -392,10 +392,12 @@ private fun DocumentContentPanel(
                 val lines = remember(content) { content.lines() }
 
                 // Auto-scroll to target line
+                // Note: Using scrollToItem instead of animateScrollToItem because IdeaLaunchedEffect
+                // uses a custom coroutine scope that doesn't have MonotonicFrameClock required for animations
                 IdeaLaunchedEffect(targetLineNumber) {
                     targetLineNumber?.let { lineNum ->
                         if (lineNum > 0 && lineNum <= lines.size) {
-                            listState.animateScrollToItem(lineNum - 1)
+                            listState.scrollToItem(lineNum - 1)
                         }
                     }
                 }
@@ -480,11 +482,13 @@ private fun AIChatPanel(
     }
 
     // Auto-scroll to bottom when new messages arrive
+    // Note: Using scrollToItem instead of animateScrollToItem because IdeaLaunchedEffect
+    // uses a custom coroutine scope that doesn't have MonotonicFrameClock required for animations
     IdeaLaunchedEffect(timeline.size, streamingOutput) {
         if (timeline.isNotEmpty() || streamingOutput.isNotEmpty()) {
             val targetIndex = if (streamingOutput.isNotEmpty()) timeline.size else timeline.lastIndex.coerceAtLeast(0)
             if (targetIndex >= 0) {
-                listState.animateScrollToItem(targetIndex)
+                listState.scrollToItem(targetIndex)
             }
         }
     }

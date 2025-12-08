@@ -13,9 +13,11 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import cc.unitmesh.devins.idea.services.CoroutineScopeHolder
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.application.EDT
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -34,8 +36,9 @@ import javax.swing.Timer
  */
 
 // Application-level fallback scope for when no project is available
+// Uses Dispatchers.EDT (IntelliJ's EDT dispatcher) to ensure EDT execution for Compose animations
 private val appScope: CoroutineScope by lazy {
-    CoroutineScope(SupervisorJob())
+    CoroutineScope(SupervisorJob() + Dispatchers.EDT)
 }
 
 /**

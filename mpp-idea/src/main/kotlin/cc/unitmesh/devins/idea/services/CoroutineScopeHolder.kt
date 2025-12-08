@@ -1,6 +1,7 @@
 package cc.unitmesh.devins.idea.services
 
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.application.EDT
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.Service.Level
 import com.intellij.openapi.project.Project
@@ -14,6 +15,9 @@ import kotlinx.coroutines.cancel
  * A service-level class that provides and manages coroutine scopes for a given project.
  * Implements [Disposable] to properly cancel all coroutines when the project is closed.
  *
+ * Uses Dispatchers.EDT (IntelliJ's EDT dispatcher) to ensure compatibility with Compose animations
+ * which require a MonotonicFrameClock in the coroutine context.
+ *
  * @constructor Initializes the [CoroutineScopeHolder] with a project instance.
  * @param project The project this service is associated with.
  */
@@ -21,10 +25,14 @@ import kotlinx.coroutines.cancel
 class CoroutineScopeHolder(private val project: Project) : Disposable {
 
     private val parentJob = SupervisorJob()
-    private val projectWideCoroutineScope: CoroutineScope = CoroutineScope(parentJob + Dispatchers.Default)
+    private val projectWideCoroutineScope: CoroutineScope = CoroutineScope(parentJob + Dispatchers.EDT)
 
     /**
      * Creates a new coroutine scope as a child of the project-wide coroutine scope with the specified name.
+     *
+     * Uses Dispatchers.EDT (IntelliJ's EDT dispatcher) to ensure Compose animations work correctly.
+     * Compose's animateScrollToItem and other animation APIs require a MonotonicFrameClock
+     * which is only available when running on the EDT.
      *
      * @param name The name for the newly created coroutine scope.
      * @return a scope with a Job which parent is the Job of projectWideCoroutineScope scope.
@@ -37,7 +45,7 @@ class CoroutineScopeHolder(private val project: Project) : Disposable {
      */
     fun createScope(name: String): CoroutineScope {
         val childJob = SupervisorJob(parentJob)
-        return CoroutineScope(childJob + Dispatchers.Default + CoroutineName(name))
+        return CoroutineScope(childJob + Dispatchers.EDT + CoroutineName(name))
     }
 
     /**

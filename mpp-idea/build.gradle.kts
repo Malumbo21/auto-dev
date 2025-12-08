@@ -332,6 +332,7 @@ project(":") {
 
         // Use compileOnly for coroutines - IntelliJ provides these at runtime
         // This ensures we compile against the same API but use IntelliJ's ClassLoader at runtime
+        // Note: We use Dispatchers.EDT from IntelliJ Platform instead of Dispatchers.Swing
         compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
 
         // mpp-core dependency for root project - use published artifact
