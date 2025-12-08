@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: mpp-server
+    runtime: docker
+    dockerfilePath: ./mpp-server/Dockerfile
+    dockerContext: .
+    region: singapore
+    plan: free
+    numInstances: 1
+    healthCheckPath: /health
+    envVars:
+      - key: SERVER_PORT
+        value: 8080
+      - key: SERVER_HOST
+        value: 0.0.0.0
+      - key: OPENAI_API_KEY
+        sync: false  # 需要在 Render Dashboard 手动设置
+      - key: LOG_LEVEL
+        value: INFO
+    buildFilter:
+      paths:
+        - mpp-server/**
+        - mpp-core/**
+        - build.gradle.kts
+        - settings.gradle.kts
+        - gradle.properties
+

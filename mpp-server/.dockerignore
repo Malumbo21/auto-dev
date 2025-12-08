@@ -1,0 +1,57 @@
+# Build outputs
+build/
+bin/
+out/
+*.class
+*.jar
+*.war
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# Gradle
+.gradle/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Documentation
+README.md
+docs/
+*.md
+
+# Test files
+test/
+**/test/
+
+# Node modules (if any)
+node_modules/
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.swp
+*.bak
+
+# Local configuration
+local.properties
+config.yaml
+!config.yaml.example
+
