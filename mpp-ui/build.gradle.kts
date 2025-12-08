@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalKotlinGradlePluginApi::class)
+
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.DirectoryProperty
@@ -5,6 +7,7 @@ import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.TaskAction
+import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import java.io.File
 
 plugins {
@@ -89,9 +92,9 @@ kotlin {
     js(IR) {
         // Node.js CLI only - no browser compilation
         // Web UI uses pure TypeScript/React + mpp-core (similar to CLI architecture)
-        nodejs {
+//        nodejs {
             // Configure Node.js target for CLI
-        }
+//        }
         useCommonJs()
         binaries.executable()
         compilerOptions {

@@ -7,6 +7,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 import cc.unitmesh.devins.idea.renderer.markdown.JewelMarkdownRenderer
+import cc.unitmesh.devins.idea.renderer.sketch.chart.IdeaChartRenderer
 import cc.unitmesh.devins.parser.CodeFence
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.project.Project
@@ -129,6 +130,16 @@ object IdeaSketchRenderer {
                                 project = project,
                                 isDarkTheme = true, // TODO: detect theme
                                 parentDisposable = parentDisposable,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+                    }
+
+                    "chart", "graph" -> {
+                        if (fence.text.isNotBlank()) {
+                            IdeaChartRenderer(
+                                chartCode = fence.text,
                                 modifier = Modifier.fillMaxWidth()
                             )
                             Spacer(modifier = Modifier.height(8.dp))
