@@ -91,9 +91,9 @@ configurations.all {
     // pty4j/jediterm - IDEA has its own terminal (~3MB)
     exclude(group = "org.jetbrains.pty4j")
     exclude(group = "org.jetbrains.jediterm")
-    // Exclude Ktor serialization modules that conflict with IntelliJ's bundled versions
-    exclude(group = "io.ktor", module = "ktor-serialization-kotlinx-json")
-    exclude(group = "io.ktor", module = "ktor-serialization-kotlinx-json-jvm")
+    // Note: ktor-serialization-kotlinx-json is NOT excluded globally because it's required
+    // by ai.koog:prompt-executor-llms-all (AbstractOpenAILLMClient) at runtime.
+    // It's included as an explicit dependency with coroutines excluded below.
 }
 
 
@@ -317,7 +317,17 @@ project(":") {
         compileOnly("io.ktor:ktor-client-core:3.2.2")
         compileOnly("io.ktor:ktor-client-cio:3.2.2")
         compileOnly("io.ktor:ktor-client-content-negotiation:3.2.2")
-        compileOnly("io.ktor:ktor-serialization-kotlinx-json:3.2.2")
+        // ktor-serialization-kotlinx-json is required at runtime by ai.koog:prompt-executor-llms-all
+        // (AbstractOpenAILLMClient uses JsonSupportKt for HTTP content negotiation)
+        // Must exclude coroutines to avoid conflicts with IntelliJ's bundled version
+        implementation("io.ktor:ktor-serialization-kotlinx-json:3.2.2") {
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core-jvm")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json-jvm")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-core")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-core-jvm")
+        }
         compileOnly("io.ktor:ktor-client-logging:3.2.2")
 
         // Use compileOnly for coroutines - IntelliJ provides these at runtime
