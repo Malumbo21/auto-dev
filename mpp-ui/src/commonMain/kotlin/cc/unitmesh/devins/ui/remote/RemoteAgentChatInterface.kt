@@ -62,6 +62,11 @@ fun RemoteAgentChatInterface(
         )
     }
 
+    // Auto-connect when ViewModel is created or serverUrl changes
+    LaunchedEffect(viewModel, serverUrl) {
+        viewModel.checkConnection()
+    }
+
     var localGitUrl by remember { mutableStateOf(gitUrl) }
     LaunchedEffect(gitUrl) {
         if (gitUrl != localGitUrl) {
@@ -276,6 +281,7 @@ fun RemoteAgentChatInterface(
             isConnected = viewModel.isConnected,
             serverUrl = serverUrl,
             useServerConfig = useServerConfig,
+            onConfigureRemote = onConfigureRemote,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 4.dp)
@@ -439,13 +445,14 @@ private fun ProjectSelector(
 }
 
 /**
- * Connection status indicator
+ * Connection status indicator with configure button
  */
 @Composable
 private fun RemoteConnectionStatusBar(
     isConnected: Boolean,
     serverUrl: String,
     useServerConfig: Boolean,
+    onConfigureRemote: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Card(modifier = modifier) {
@@ -473,14 +480,28 @@ private fun RemoteConnectionStatusBar(
             Text(
                 text = "Remote: $serverUrl",
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f)
             )
 
             if (useServerConfig) {
                 Text(
-                    text = "• Using server's LLM config",
+                    text = "• Using server's config",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            // Configure button
+            IconButton(
+                onClick = onConfigureRemote,
+                modifier = Modifier.size(24.dp)
+            ) {
+                Icon(
+                    imageVector = AutoDevComposeIcons.Settings,
+                    contentDescription = "Configure Remote Server",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(16.dp)
                 )
             }
         }

@@ -65,6 +65,7 @@ class RemoteCodingAgentViewModel(
 
             isConnected
         } catch (e: Exception) {
+            e.printStackTrace()
             isConnected = false
             connectionError = e.message ?: "Failed to connect to server"
             false
@@ -228,7 +229,7 @@ class RemoteCodingAgentViewModel(
                 // TODO: Update RemoteAgentEvent.ToolResult to include metadata
                 val output = event.output
                 val fullOutput = event.output // Will be updated when metadata is available
-                
+
                 renderer.renderToolResult(
                     toolName = event.toolName,
                     success = event.success,
