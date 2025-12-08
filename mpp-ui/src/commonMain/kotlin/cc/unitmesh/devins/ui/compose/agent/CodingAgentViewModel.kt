@@ -10,6 +10,7 @@ import cc.unitmesh.agent.CodingAgent
 import cc.unitmesh.agent.config.McpToolConfigManager
 import cc.unitmesh.agent.config.McpToolConfigService
 import cc.unitmesh.agent.config.PreloadingStatus
+import cc.unitmesh.agent.diff.FileChangeTracker
 import cc.unitmesh.agent.tool.schema.ToolCategory
 import cc.unitmesh.agent.tool.ToolType
 import cc.unitmesh.devins.filesystem.DefaultProjectFileSystem
@@ -257,6 +258,7 @@ class CodingAgentViewModel(
                 renderer.clearMessages()
                 chatHistoryManager?.clearCurrentSession()  // 同时清空会话历史
                 _codingAgent?.clearConversation()  // 清空 Agent 的对话上下文
+                FileChangeTracker.clearChanges()  // 清空文件变更记录
                 renderer.renderFinalResult(true, "SUCCESS: Chat history cleared", 0)
             }
 
@@ -324,6 +326,9 @@ class CodingAgentViewModel(
 
         // Clear the agent's conversation history as well
         _codingAgent?.clearConversation()
+
+        // Clear file changes from previous session
+        FileChangeTracker.clearChanges()
     }
 
     /**

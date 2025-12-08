@@ -582,6 +582,9 @@ class ComposeRenderer : BaseRenderer() {
         _currentExecutionTime = 0L
         _totalTokenInfo = TokenInfo()
         _lastMessageTokenInfo = null
+        // Clear plan and tasks state for new session
+        _currentPlan = null
+        _tasks.clear()
     }
 
     fun clearError() {
