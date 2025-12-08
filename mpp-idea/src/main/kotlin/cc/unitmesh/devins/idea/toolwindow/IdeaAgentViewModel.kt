@@ -13,6 +13,7 @@ import cc.unitmesh.devins.compiler.service.DevInsCompilerService
 import cc.unitmesh.devins.idea.compiler.IdeaDevInsCompilerService
 import cc.unitmesh.devins.idea.renderer.JewelRenderer
 import cc.unitmesh.devins.idea.services.IdeaToolConfigService
+import cc.unitmesh.devins.idea.tool.IdeaToolProvider
 import cc.unitmesh.devins.ui.config.AutoDevConfigWrapper
 import cc.unitmesh.devins.ui.config.ConfigManager
 import cc.unitmesh.llm.KoogLLMService
@@ -261,12 +262,37 @@ class IdeaAgentViewModel(
                 mcpToolConfigService = mcpToolConfigService,
                 enableLLMStreaming = true
             )
+
+            // Register IDEA-specific tools from ToolchainFunctionProvider extensions
+            registerIdeaTools(codingAgent!!)
+
             agentInitialized = true
 
             // Start observing PlanStateService and sync to renderer
             startPlanStateObserver(codingAgent!!)
         }
         return codingAgent!!
+    }
+
+    /**
+     * Register IDEA-specific tools from ToolchainFunctionProvider extensions.
+     * This bridges IDEA's extension point system with mpp-core's tool registry.
+     */
+    private fun registerIdeaTools(agent: CodingAgent) {
+        try {
+            val ideaToolProvider = IdeaToolProvider.create(project)
+            val ideaTools = ideaToolProvider.provideTools()
+
+            for (tool in ideaTools) {
+                agent.registerTool(tool)
+            }
+
+            if (ideaTools.isNotEmpty()) {
+                println("Registered ${ideaTools.size} IDEA tools from ToolchainFunctionProvider extensions")
+            }
+        } catch (e: Exception) {
+            println("Warning: Failed to register IDEA tools: ${e.message}")
+        }
     }
 
     // Job for observing PlanStateService
