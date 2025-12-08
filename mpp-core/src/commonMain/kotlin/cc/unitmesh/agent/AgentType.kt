@@ -43,16 +43,6 @@ enum class AgentType {
         REMOTE -> "Remote"
     }
 
-    /**
-     * Check if this agent type requires remote connection
-     */
-    fun isRemote(): Boolean = this == REMOTE
-
-    /**
-     * Check if this agent type supports local file operations
-     */
-    fun supportsLocalFileOps(): Boolean = this in listOf(CODING, CODE_REVIEW)
-
     companion object {
         fun fromString(type: String): AgentType {
             return when (type.lowercase()) {

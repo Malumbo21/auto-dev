@@ -293,7 +293,15 @@ private fun AutoDevContent(
             selectedAgentType = when (initialMode) {
                 "remote", "session" -> AgentType.REMOTE
                 "local" -> AgentType.LOCAL_CHAT
-                else -> wrapper.getAgentType()
+                else -> {
+                    // JVM Desktop (非 Android) 默认使用 CODING 模式，更适合本地开发
+                    // 移动端 (Android/iOS) 从配置读取，支持 Remote 模式
+                    if (Platform.isJvm && !Platform.isAndroid) {
+                        AgentType.CODING
+                    } else {
+                        wrapper.getAgentType()
+                    }
+                }
             }
 
             useSessionManagement = (initialMode == "session")
