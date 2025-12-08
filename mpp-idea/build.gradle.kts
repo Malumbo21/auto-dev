@@ -71,6 +71,31 @@ repositories {
     }
 }
 
+// Global exclusions for heavy dependencies not needed in IntelliJ plugin
+// These exclusions apply to ALL configurations including transitive dependencies from includeBuild projects
+configurations.all {
+    exclude(group = "aws.sdk.kotlin")           // AWS SDK (~30MB) - from ai.koog:prompt-executor-bedrock-client
+    exclude(group = "aws.smithy.kotlin")        // AWS Smithy runtime
+    exclude(group = "org.apache.tika")          // Apache Tika (~100MB) - document parsing
+    exclude(group = "org.apache.poi")           // Apache POI - Office document parsing (from Tika)
+    exclude(group = "org.apache.pdfbox")        // PDFBox (~10MB) - PDF parsing
+    exclude(group = "net.sourceforge.plantuml") // PlantUML (~20MB) - from dev.snipme:highlights
+    exclude(group = "org.jsoup")                // Jsoup HTML parser
+    exclude(group = "ai.koog", module = "prompt-executor-bedrock-client")  // Bedrock executor
+    // Redis/Lettuce - not needed in IDEA plugin (~5MB)
+    exclude(group = "io.lettuce")
+    // RSyntaxTextArea - IDEA has its own editor (~1.3MB)
+    exclude(group = "com.fifesoft")
+    // Netty - not needed for IDEA plugin (~3MB)
+    exclude(group = "io.netty")
+    // pty4j/jediterm - IDEA has its own terminal (~3MB)
+    exclude(group = "org.jetbrains.pty4j")
+    exclude(group = "org.jetbrains.jediterm")
+    // Exclude Ktor serialization modules that conflict with IntelliJ's bundled versions
+    exclude(group = "io.ktor", module = "ktor-serialization-kotlinx-json")
+    exclude(group = "io.ktor", module = "ktor-serialization-kotlinx-json-jvm")
+}
+
 
 kotlin {
     jvmToolchain(17)
@@ -137,7 +162,8 @@ configure(subprojects) {
     }
 
     dependencies {
-        implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
+        // Use compileOnly for kotlinx libraries - IntelliJ provides these at runtime
+        compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
         implementation("com.knuddels:jtokkit:1.1.0")
 
         testOutput(sourceSets.test.get().output.classesDirs)
@@ -287,27 +313,12 @@ project(":") {
         implementation(project(":mpp-idea-exts:ext-terminal"))
         implementation(project(":mpp-idea-exts:devins-lang"))
 
-        // Ktor dependencies - exclude coroutines to use IntelliJ's bundled version
-        implementation("io.ktor:ktor-client-core:3.2.2") {
-            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core")
-            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core-jvm")
-        }
-        implementation("io.ktor:ktor-client-cio:3.2.2") {
-            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core")
-            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core-jvm")
-        }
-        implementation("io.ktor:ktor-client-content-negotiation:3.2.2") {
-            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core")
-            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core-jvm")
-        }
-        implementation("io.ktor:ktor-serialization-kotlinx-json:3.2.2") {
-            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core")
-            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core-jvm")
-        }
-        implementation("io.ktor:ktor-client-logging:3.2.2") {
-            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core")
-            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core-jvm")
-        }
+        // Ktor dependencies - use compileOnly for libraries that may conflict
+        compileOnly("io.ktor:ktor-client-core:3.2.2")
+        compileOnly("io.ktor:ktor-client-cio:3.2.2")
+        compileOnly("io.ktor:ktor-client-content-negotiation:3.2.2")
+        compileOnly("io.ktor:ktor-serialization-kotlinx-json:3.2.2")
+        compileOnly("io.ktor:ktor-client-logging:3.2.2")
 
         // Use compileOnly for coroutines - IntelliJ provides these at runtime
         // This ensures we compile against the same API but use IntelliJ's ClassLoader at runtime
@@ -315,21 +326,69 @@ project(":") {
 
         // mpp-core dependency for root project - use published artifact
         implementation("cc.unitmesh:mpp-core:${prop("mppVersion")}") {
+            // Exclude Compose dependencies from mpp-core as well
+            exclude(group = "org.jetbrains.compose")
+            exclude(group = "org.jetbrains.compose.runtime")
+            exclude(group = "org.jetbrains.compose.foundation")
+            exclude(group = "org.jetbrains.compose.material3")
+            exclude(group = "org.jetbrains.compose.material")
+            exclude(group = "org.jetbrains.compose.ui")
+            exclude(group = "org.jetbrains.skiko")
+            // Exclude kotlinx libraries - IntelliJ provides its own
             exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core")
             exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core-jvm")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json-jvm")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json-io")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json-io-jvm")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-core")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-core-jvm")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-io-core")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-io-core-jvm")
+            // Exclude Ktor dependencies to avoid version conflicts
+            exclude(group = "io.ktor", module = "ktor-serialization-kotlinx-json")
+            exclude(group = "io.ktor", module = "ktor-serialization-kotlinx-json-jvm")
+            exclude(group = "io.ktor", module = "ktor-client-content-negotiation")
+            exclude(group = "io.ktor", module = "ktor-client-content-negotiation-jvm")
+            // Note: Heavy dependencies (AWS, Tika, POI, PDFBox, PlantUML, Jsoup) are excluded globally above
         }
 
         // mpp-ui dependency - use Maven coordinates (requires publishToMavenLocal first)
         // Exclude all Compose/androidx to use IntelliJ's bundled versions
         implementation("cc.unitmesh:mpp-ui:${prop("mppVersion")}") {
-            exclude(group = "org.jetbrains.compose.ui")
-            exclude(group = "org.jetbrains.compose.foundation")
-            exclude(group = "org.jetbrains.compose.material")
-            exclude(group = "org.jetbrains.compose.material3")
+            // Exclude all Compose dependencies - IntelliJ provides its own via bundledModules
+            exclude(group = "org.jetbrains.compose")
             exclude(group = "org.jetbrains.compose.runtime")
-            exclude(group = "org.jetbrains.compose.animation")
-            exclude(group = "org.jetbrains.compose.components")
+            exclude(group = "org.jetbrains.compose.foundation")
+            exclude(group = "org.jetbrains.compose.material3")
+            exclude(group = "org.jetbrains.compose.material")
+            exclude(group = "org.jetbrains.compose.ui")
             exclude(group = "org.jetbrains.compose.desktop")
+            exclude(group = "org.jetbrains.compose.components")
+            exclude(group = "org.jetbrains.compose.animation")
+            exclude(group = "org.jetbrains.skiko")
+            exclude(group = "org.jetbrains.skia")
+            // Exclude kotlinx libraries - IntelliJ provides its own
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core-jvm")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-swing")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json-jvm")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json-io")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json-io-jvm")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-core")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-core-jvm")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-io-core")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-io-core-jvm")
+            // Exclude webview/KCEF - not needed in IntelliJ and causes issues
+            exclude(group = "io.github.kevinnzou")
+            exclude(group = "dev.datlag")
+            // Exclude other UI libraries that may conflict
+            exclude(group = "com.mohamedrejeb.richeditor")
+            exclude(group = "cafe.adriel.bonsai")
+            exclude(group = "com.mikepenz")
+            exclude(group = "io.github.vinceglb")
+            // Exclude androidx dependencies
             exclude(group = "org.jetbrains.androidx.lifecycle")
             exclude(group = "androidx.lifecycle")
             exclude(group = "androidx.annotation")
@@ -337,10 +396,7 @@ project(":") {
             exclude(group = "androidx.activity")
             exclude(group = "androidx.core")
             exclude(group = "androidx.appcompat")
-            exclude(group = "org.jetbrains.skiko")
-            exclude(group = "org.jetbrains.skia")
-            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core")
-            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core-jvm")
+            // Exclude viewer web module
             exclude(group = "cc.unitmesh.viewer.web", module = "mpp-viewer-web")
             exclude(group = "cc.unitmesh", module = "mpp-viewer-web")
         }
@@ -403,6 +459,68 @@ project(":") {
                 listOf(it.split('-').getOrElse(1) { "default" }.split('.').first())
             })
         }
+
+        // Exclude large font files from mpp-ui that are not needed in IDEA plugin
+        // These fonts are for Desktop/WASM apps, IDEA has its own fonts
+        named<org.jetbrains.intellij.platform.gradle.tasks.PrepareSandboxTask>("prepareSandbox") {
+            // Exclude font files from the plugin distribution
+            // NotoSansSC-Regular.ttf (~18MB), NotoColorEmoji.ttf (~11MB x2), FiraCode fonts (~1MB)
+            exclude("**/fonts/**")
+            exclude("**/composeResources/**/font/**")
+            exclude("**/*.ttf")
+            exclude("**/*.otf")
+            // Also exclude icon files meant for desktop app
+            exclude("**/icon.icns")
+            exclude("**/icon.ico")
+            exclude("**/icon-512.png")
+        }
+
+        // Task to verify no conflicting dependencies are included
+        register("verifyNoDuplicateDependencies") {
+            group = "verification"
+            description = "Verifies that no Compose/Kotlinx dependencies are included that would conflict with IntelliJ's bundled versions"
+
+            doLast {
+                val forbiddenPatterns = listOf(
+                    "org.jetbrains.compose",
+                    "org.jetbrains.skiko",
+                    "kotlinx-coroutines-core",
+                    "kotlinx-coroutines-swing",
+                    "kotlinx-serialization-json",
+                    "kotlinx-serialization-core"
+                )
+
+                val runtimeClasspath = configurations.getByName("runtimeClasspath")
+                val violations = mutableListOf<String>()
+
+                runtimeClasspath.resolvedConfiguration.resolvedArtifacts.forEach { artifact ->
+                    val id = artifact.moduleVersion.id
+                    val fullName = "${id.group}:${id.name}:${id.version}"
+                    forbiddenPatterns.forEach { pattern ->
+                        if (fullName.contains(pattern)) {
+                            violations.add(fullName)
+                        }
+                    }
+                }
+
+                if (violations.isNotEmpty()) {
+                    throw GradleException("""
+                        |DEPENDENCY CONFLICT DETECTED!
+                        |The following dependencies will conflict with IntelliJ's bundled libraries:
+                        |${violations.joinToString("\n") { "  - $it" }}
+                        |
+                        |These dependencies must be excluded from mpp-ui and mpp-core.
+                    """.trimMargin())
+                } else {
+                    println("✓ No conflicting dependencies found in runtime classpath")
+                }
+            }
+        }
+
+        // Run verification before build
+        named("buildPlugin") {
+            dependsOn("verifyNoDuplicateDependencies")
+        }
     }
 }
 
@@ -415,6 +533,19 @@ project(":mpp-idea-core") {
         implementation("cc.unitmesh:mpp-core:${prop("mppVersion")}") {
             exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core")
             exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core-jvm")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json-jvm")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json-io")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json-io-jvm")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-core")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-core-jvm")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-io-core")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-io-core-jvm")
+            // Exclude Ktor dependencies to avoid version conflicts
+            exclude(group = "io.ktor", module = "ktor-serialization-kotlinx-json")
+            exclude(group = "io.ktor", module = "ktor-serialization-kotlinx-json-jvm")
+            exclude(group = "io.ktor", module = "ktor-client-content-negotiation")
+            exclude(group = "io.ktor", module = "ktor-client-content-negotiation-jvm")
         }
 
         intellijPlatform {
@@ -430,10 +561,43 @@ project(":mpp-idea-core") {
         implementation("org.jetbrains.xodus:xodus-entity-store:2.0.1")
         implementation("org.jetbrains.xodus:xodus-vfs:2.0.1")
 
-        implementation("io.modelcontextprotocol:kotlin-sdk:0.7.2")
-        /// # Ktor
-        implementation("io.ktor:ktor-client-cio:3.2.3")
-        implementation("io.ktor:ktor-server-sse:3.2.3")
+        implementation("io.modelcontextprotocol:kotlin-sdk:0.7.2") {
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core-jvm")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json-jvm")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json-io")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json-io-jvm")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-core")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-core-jvm")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-io-core")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-io-core-jvm")
+        }
+        /// # Ktor - exclude kotlinx dependencies to use IntelliJ's bundled versions
+        implementation("io.ktor:ktor-client-cio:3.2.3") {
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core-jvm")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json-jvm")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json-io")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json-io-jvm")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-core")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-core-jvm")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-io-core")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-io-core-jvm")
+        }
+        implementation("io.ktor:ktor-server-sse:3.2.3") {
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core-jvm")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json-jvm")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json-io")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json-io-jvm")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-core")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-core-jvm")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-io-core")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-io-core-jvm")
+        }
 
         implementation("io.github.a2asdk:a2a-java-sdk-client:0.3.0.Beta1")
 
@@ -466,6 +630,8 @@ project(":mpp-idea-core") {
         implementation("com.jayway.jsonpath:json-path:2.9.0")
         implementation("com.jsoizo:kotlin-csv-jvm:1.10.0") {
             excludeKotlinDeps()
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core-jvm")
         }
 
         // kanban
@@ -481,7 +647,8 @@ project(":mpp-idea-core") {
         // gitignore parsing library for fallback engine
         implementation("nl.basjes.gitignore:gitignore-reader:1.6.0")
 
-        implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
+        // Use compileOnly for kotlinx libraries - IntelliJ provides these at runtime
+        compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
     }
 
     task("resolveDependencies") {
@@ -585,6 +752,14 @@ project(":mpp-idea-exts:ext-database") {
         implementation("cc.unitmesh:mpp-core:${prop("mppVersion")}") {
             exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core")
             exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core-jvm")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json-jvm")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-core")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-core-jvm")
+            exclude(group = "io.ktor", module = "ktor-serialization-kotlinx-json")
+            exclude(group = "io.ktor", module = "ktor-serialization-kotlinx-json-jvm")
+            exclude(group = "io.ktor", module = "ktor-client-content-negotiation")
+            exclude(group = "io.ktor", module = "ktor-client-content-negotiation-jvm")
         }
         implementation(project(":mpp-idea-core"))
         implementation(project(":mpp-idea-exts:devins-lang"))
@@ -601,6 +776,14 @@ project(":mpp-idea-exts:ext-git") {
         implementation("cc.unitmesh:mpp-core:${prop("mppVersion")}") {
             exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core")
             exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core-jvm")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json-jvm")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-core")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-core-jvm")
+            exclude(group = "io.ktor", module = "ktor-serialization-kotlinx-json")
+            exclude(group = "io.ktor", module = "ktor-serialization-kotlinx-json-jvm")
+            exclude(group = "io.ktor", module = "ktor-client-content-negotiation")
+            exclude(group = "io.ktor", module = "ktor-client-content-negotiation-jvm")
         }
         implementation(project(":mpp-idea-core"))
         implementation(project(":mpp-idea-exts:devins-lang"))
@@ -611,6 +794,10 @@ project(":mpp-idea-exts:ext-git") {
 
         implementation("cc.unitmesh:git-commit-message:0.4.6") {
             excludeKotlinDeps()
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json-jvm")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-core")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-core-jvm")
         }
     }
 }
@@ -641,11 +828,20 @@ project(":mpp-idea-exts:devins-lang") {
         }
 
         implementation("com.jayway.jsonpath:json-path:2.9.0")
-        implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
+        // Use compileOnly for kotlinx libraries - IntelliJ provides these at runtime
+        compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
         implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.7.1")
         implementation("cc.unitmesh:mpp-core:${prop("mppVersion")}") {
             exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core")
             exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core-jvm")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json-jvm")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-core")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-core-jvm")
+            exclude(group = "io.ktor", module = "ktor-serialization-kotlinx-json")
+            exclude(group = "io.ktor", module = "ktor-serialization-kotlinx-json-jvm")
+            exclude(group = "io.ktor", module = "ktor-client-content-negotiation")
+            exclude(group = "io.ktor", module = "ktor-client-content-negotiation-jvm")
         }
         implementation(project(":mpp-idea-core"))
     }
