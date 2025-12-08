@@ -1,5 +1,6 @@
 package cc.unitmesh.devins.idea.toolwindow
 
+import androidx.compose.runtime.rememberCoroutineScope
 import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.project.Project
@@ -38,13 +39,9 @@ class IdeaAgentToolWindowFactory : ToolWindowFactory {
     override fun shouldBeAvailable(project: Project): Boolean = true
 
     private fun createAgentPanel(project: Project, toolWindow: ToolWindow) {
-        val coroutineScope = project.service<CoroutineScopeHolder>()
-            .createScope("IdeaAgentViewModel")
-
-        val viewModel = IdeaAgentViewModel(project, coroutineScope)
-        Disposer.register(toolWindow.disposable, viewModel)
-
         toolWindow.addComposeTab("Agent") {
+            val coroutineScope = rememberCoroutineScope()
+            val viewModel = IdeaAgentViewModel(project, coroutineScope)
             IdeaAgentApp(viewModel, project, coroutineScope)
         }
     }

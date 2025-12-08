@@ -155,7 +155,7 @@ class IdeaAgentViewModel(
      * Start MCP servers preloading in background.
      * Aligned with CodingAgentViewModel's startMcpPreloading().
      */
-    private suspend fun startMcpPreloading() = withContext(Dispatchers.Default) {
+    private suspend fun startMcpPreloading() {
         try {
             _mcpPreloadingMessage.value = "Loading MCP servers configuration..."
 
@@ -167,7 +167,7 @@ class IdeaAgentViewModel(
 
             if (toolConfig.mcpServers.isEmpty()) {
                 _mcpPreloadingMessage.value = "No MCP servers configured"
-                return@withContext
+                return
             }
 
             _mcpPreloadingMessage.value = "Initializing ${toolConfig.mcpServers.size} MCP servers..."
@@ -182,7 +182,8 @@ class IdeaAgentViewModel(
                 (System.currentTimeMillis() - startTime) < timeoutMs
             ) {
                 _mcpPreloadingStatus.value = McpToolConfigManager.getPreloadingStatus()
-                _mcpPreloadingMessage.value = "Loading MCP servers... (${_mcpPreloadingStatus.value.preloadedServers.size} completed)"
+                _mcpPreloadingMessage.value =
+                    "Loading MCP servers... (${_mcpPreloadingStatus.value.preloadedServers.size} completed)"
                 delay(500)
             }
 
@@ -360,7 +361,7 @@ class IdeaAgentViewModel(
                 )
 
                 agent.executeTask(agentTask)
-            } catch (e: CancellationException) {
+            } catch (_: CancellationException) {
                 renderer.forceStop()
                 renderer.renderError("Task cancelled by user")
             } catch (e: Exception) {
