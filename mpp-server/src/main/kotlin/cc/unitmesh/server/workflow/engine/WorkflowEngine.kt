@@ -172,7 +172,7 @@ class WorkflowEngine(
     /**
      * 发送信号到工作流
      */
-    suspend fun sendSignal(workflowId: String, signalName: String, signalData: Map<String, Any>) {
+    suspend fun sendSignal(workflowId: String, signalName: String, signalData: Map<String, String>) {
         val signal = WorkflowSignal(
             id = UUID.randomUUID().toString(),
             workflowId = workflowId,

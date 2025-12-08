@@ -131,7 +131,7 @@ fun Route.workflowRoutes(
                 workflowEngine.sendSignal(
                     workflowId = workflowId,
                     signalName = request.signalName,
-                    signalData = request.data.mapValues { it.value as Any }
+                    signalData = request.data
                 )
                 call.respond(HttpStatusCode.OK, mapOf("success" to true))
             } catch (e: Exception) {
