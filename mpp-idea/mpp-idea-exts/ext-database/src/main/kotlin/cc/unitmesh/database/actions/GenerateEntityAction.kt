@@ -11,7 +11,6 @@ import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiFile
-import com.intellij.sql.dialects.oracle.OraDialect
 
 class GenerateEntityAction : ChatBaseIntention() {
     private val logger = logger<GenerateEntityAction>()
@@ -24,7 +23,8 @@ class GenerateEntityAction : ChatBaseIntention() {
 
     override fun isAvailable(project: Project, editor: Editor?, file: PsiFile?): Boolean {
         if (editor == null || file == null) return false
-        return file.language is OraDialect
+        // Check by language ID to avoid NoClassDefFoundError when Oracle dialect plugin is not available
+        return file.language.id == "Oracle"
     }
 
     override fun invoke(project: Project, editor: Editor?, file: PsiFile?) {

@@ -1,7 +1,6 @@
 package cc.unitmesh.devti.language.actions.input.inlay
 
 import com.intellij.openapi.Disposable
-import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.Inlay
 import com.intellij.openapi.util.Disposer
@@ -39,12 +38,10 @@ internal class ComponentInlaysContainer(val editor: Editor) : JComponent() {
             it.renderer.inlaySize = it.renderer.component.preferredSize
         }
 
-        ReadAction.run<RuntimeException> {
-            editor.inlayModel.execute(true) {
-                inlays.forEach {
-                    if (it.renderer.inlaySize.width != it.widthInPixels || it.renderer.inlaySize.height != it.heightInPixels) {
-                        it.update()
-                    }
+        editor.inlayModel.execute(true) {
+            inlays.forEach {
+                if (it.renderer.inlaySize.width != it.widthInPixels || it.renderer.inlaySize.height != it.heightInPixels) {
+                    it.update()
                 }
             }
         }
