@@ -168,6 +168,11 @@ class CustomOpenAILLMClient(
         stream: Boolean
     ): String {
         val responseFormat = createResponseFormat(params.schema, model)
+        
+        // Only include toolChoice when tools are actually provided
+        // GitHub Copilot API requires tools when tool_choice is specified
+        val effectiveTools = tools?.takeIf { it.isNotEmpty() }
+        val effectiveToolChoice = if (effectiveTools != null) toolChoice else null
 
         val request = CustomOpenAIChatCompletionRequest(
             messages = messages,
@@ -180,8 +185,8 @@ class CustomOpenAILLMClient(
             stop = null,
             stream = stream,
             temperature = params.temperature,
-            toolChoice = toolChoice,
-            tools = tools,
+            toolChoice = effectiveToolChoice,
+            tools = effectiveTools,
             topLogprobs = null,
             topP = null
         )
