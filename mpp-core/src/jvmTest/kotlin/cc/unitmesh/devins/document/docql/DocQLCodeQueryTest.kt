@@ -157,12 +157,12 @@ class DocQLCodeQueryTest {
         )
         
         val parsedFile = parser.parse(file, sampleKotlinCode) as DocumentFile
-        
+
         // Execute $.code.function("execute")
         val query = parseDocQL("$.code.function(\"execute\")")
         val executor = DocQLExecutor(parsedFile, parser)
         val result = executor.execute(query)
-        
+
         assertTrue(result is DocQLResult.Chunks)
         val chunks = result as DocQLResult.Chunks
         assertTrue(chunks.totalCount >= 1)

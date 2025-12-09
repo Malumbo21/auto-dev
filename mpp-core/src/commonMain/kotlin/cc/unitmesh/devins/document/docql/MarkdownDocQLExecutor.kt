@@ -477,7 +477,8 @@ class MarkdownDocQLExecutor(
                     val headers = parseTableRow(tableLines[0])
                     
                     // Skip separator line (e.g., |---|---|)
-                    val dataRows = if (tableLines.size > 2 && tableLines[1].trim().matches(Regex("\\|[:\\s-|]+\\|"))) {
+                    // Note: In the character class, '-' must be at the end to avoid being interpreted as a range
+                    val dataRows = if (tableLines.size > 2 && tableLines[1].trim().matches(Regex("\\|[:\\s|\\-]+\\|"))) {
                         tableLines.drop(2)
                     } else {
                         tableLines.drop(1)

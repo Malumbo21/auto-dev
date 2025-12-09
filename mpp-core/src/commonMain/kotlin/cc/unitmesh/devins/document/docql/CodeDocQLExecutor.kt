@@ -377,16 +377,14 @@ class CodeDocQLExecutor(
         // Filter to function-level chunks and require EXACT name match
         val exactMatches = chunks.filter { chunk ->
             val title = chunk.chapterTitle ?: ""
-            // Must be a function (not a class)
-            val isFunction = title.contains("fun ") || 
-                           (!title.startsWith("class ") && 
-                            !title.startsWith("interface ") && 
-                            !title.startsWith("enum ") && 
-                            !title.startsWith("object ") &&
-                            title.contains("("))
-            
-            if (!isFunction) return@filter false
-            
+            // Must NOT be a class/interface/enum/object (i.e., must be a function)
+            val isClassLike = title.startsWith("class ") ||
+                              title.startsWith("interface ") ||
+                              title.startsWith("enum ") ||
+                              title.startsWith("object ")
+
+            if (isClassLike) return@filter false
+
             val funcName = extractFunctionNameFromTitle(title)
             funcName.equals(functionName, ignoreCase = true)
         }
