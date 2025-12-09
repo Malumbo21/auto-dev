@@ -114,6 +114,7 @@ fun main() = application {
 fun MainMermaidContent() {
     val systemIsDark = isSystemInDarkTheme()
     var isDarkTheme by remember { mutableStateOf(systemIsDark) }
+    var showFullscreenViewer by remember { mutableStateOf(false) }
 
     val examples = """
         graph TD
@@ -124,14 +125,27 @@ fun MainMermaidContent() {
             D --> B
     """.trimIndent()
 
+    val backgroundColor = if (isDarkTheme) {
+        androidx.compose.ui.graphics.Color(0xFF171717)
+    } else {
+        androidx.compose.ui.graphics.Color(0xFFfafafa)
+    }
+
     Column(modifier = Modifier.fillMaxSize()) {
-        // Theme toggle button
+        // Toolbar
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(8.dp),
-            horizontalArrangement = Arrangement.End
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
         ) {
+            // Open in Viewer button
+            Button(onClick = { showFullscreenViewer = true }) {
+                Text("Open in Viewer")
+            }
+
+            // Theme toggle button
             Button(onClick = { isDarkTheme = !isDarkTheme }) {
                 Text(if (isDarkTheme) "Switch to Light" else "Switch to Dark")
             }
@@ -144,6 +158,16 @@ fun MainMermaidContent() {
                 modifier = Modifier.fillMaxSize()
             )
         }
+    }
+
+    // Fullscreen Viewer Dialog
+    if (showFullscreenViewer) {
+        cc.unitmesh.viewer.web.MermaidFullscreenDialog(
+            mermaidCode = examples,
+            isDarkTheme = isDarkTheme,
+            backgroundColor = backgroundColor,
+            onDismiss = { showFullscreenViewer = false }
+        )
     }
 }
 
