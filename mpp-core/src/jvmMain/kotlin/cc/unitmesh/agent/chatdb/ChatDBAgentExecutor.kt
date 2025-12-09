@@ -4,18 +4,13 @@ import cc.unitmesh.agent.conversation.ConversationManager
 import cc.unitmesh.agent.database.*
 import cc.unitmesh.agent.executor.BaseAgentExecutor
 import cc.unitmesh.agent.logging.getLogger
-import cc.unitmesh.agent.orchestrator.ToolExecutionContext
-import cc.unitmesh.agent.orchestrator.ToolExecutionResult
 import cc.unitmesh.agent.orchestrator.ToolOrchestrator
 import cc.unitmesh.agent.render.CodingAgentRenderer
-import cc.unitmesh.agent.state.ToolCall
-import cc.unitmesh.agent.state.ToolExecutionState
-import cc.unitmesh.agent.tool.ToolResult
-import cc.unitmesh.agent.tool.schema.ToolResultFormatter
+import cc.unitmesh.agent.subagent.JSqlParserValidator
+import cc.unitmesh.agent.subagent.SqlReviseAgent
+import cc.unitmesh.agent.subagent.SqlRevisionInput
 import cc.unitmesh.devins.parser.CodeFence
 import cc.unitmesh.llm.KoogLLMService
-import kotlinx.coroutines.yield
-import kotlinx.datetime.Clock
 
 /**
  * ChatDB Agent Executor - Text2SQL Agent with Schema Linking and Revise Agent
@@ -46,7 +41,8 @@ class ChatDBAgentExecutor(
 ) {
     private val logger = getLogger("ChatDBAgentExecutor")
     private val schemaLinker = SchemaLinker()
-    private val sqlValidator = SqlValidator()
+    private val jsqlValidator = JSqlParserValidator()
+    private val sqlReviseAgent = SqlReviseAgent(llmService, jsqlValidator)
     private val maxRevisionAttempts = 3
 
     suspend fun execute(
@@ -92,31 +88,34 @@ class ChatDBAgentExecutor(
                 return buildResult(false, errors, null, null, null, 0)
             }
             
-            // Step 6: Validate and revise SQL
+            // Step 6: Validate and revise SQL using SqlReviseAgent
             var validatedSql = generatedSql
-            while (revisionAttempts < maxRevisionAttempts) {
-                val validation = sqlValidator.validate(validatedSql!!)
-                if (validation.isSafe) {
-                    break
-                }
-                
-                revisionAttempts++
-                onProgress("🔄 Revising SQL (attempt $revisionAttempts)...")
-                
-                val revisionContext = SqlRevisionContext(
+            val validation = jsqlValidator.validate(validatedSql!!)
+            if (!validation.isValid) {
+                onProgress("🔄 SQL validation failed, invoking SqlReviseAgent...")
+
+                val revisionInput = SqlRevisionInput(
                     originalQuery = task.query,
                     failedSql = validatedSql,
                     errorMessage = validation.errors.joinToString("; "),
-                    schemaDescription = relevantSchema
+                    schemaDescription = relevantSchema,
+                    maxAttempts = maxRevisionAttempts
                 )
-                
-                validatedSql = reviseSql(revisionContext, onProgress)
-                if (validatedSql == null) {
-                    errors.add("SQL revision failed after $revisionAttempts attempts")
-                    break
+
+                val revisionResult = sqlReviseAgent.execute(revisionInput) { progress ->
+                    onProgress(progress)
+                }
+
+                revisionAttempts = revisionResult.metadata["attempts"]?.toIntOrNull() ?: 0
+
+                if (revisionResult.success) {
+                    validatedSql = revisionResult.content
+                    onProgress("✅ SQL revised successfully after $revisionAttempts attempts")
+                } else {
+                    errors.add("SQL revision failed: ${revisionResult.content}")
                 }
             }
-            
+
             generatedSql = validatedSql
             
             // Step 7: Execute SQL
@@ -213,39 +212,6 @@ class ChatDBAgentExecutor(
         val selectPattern = Regex("(SELECT[\\s\\S]*?;)", RegexOption.IGNORE_CASE)
         val selectMatch = selectPattern.find(response)
         return selectMatch?.groupValues?.get(1)?.trim()
-    }
-
-    private suspend fun reviseSql(
-        context: SqlRevisionContext,
-        onProgress: (String) -> Unit
-    ): String? {
-        val revisionPrompt = buildString {
-            appendLine("The following SQL query has errors and needs to be fixed:")
-            appendLine()
-            appendLine("**Original User Query**: ${context.originalQuery}")
-            appendLine()
-            appendLine("**Failed SQL**:")
-            appendLine("```sql")
-            appendLine(context.failedSql)
-            appendLine("```")
-            appendLine()
-            appendLine("**Error**: ${context.errorMessage}")
-            appendLine()
-            appendLine("**Schema**:")
-            appendLine(context.schemaDescription)
-            appendLine()
-            appendLine("Please fix the SQL and provide a corrected version. Wrap the SQL in a ```sql code block.")
-        }
-
-        try {
-            val response = getLLMResponse(revisionPrompt, compileDevIns = false) { chunk ->
-                onProgress(chunk)
-            }
-            return extractSqlFromResponse(response)
-        } catch (e: Exception) {
-            logger.error(e) { "SQL revision failed" }
-            return null
-        }
     }
 
     private suspend fun generateVisualization(
