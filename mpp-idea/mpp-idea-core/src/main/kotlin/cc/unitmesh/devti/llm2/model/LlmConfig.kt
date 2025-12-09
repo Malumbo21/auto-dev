@@ -350,7 +350,7 @@ data class LlmConfig(
         /**
          * Create a GitHub Copilot LlmConfig for the given model ID
          */
-        private fun createGithubConfig(modelId: String, modelType: ModelType = ModelType.Default): LlmConfig {
+        fun createGithubConfig(modelId: String, modelType: ModelType = ModelType.Default): LlmConfig {
             return LlmConfig(
                 name = modelId,
                 description = "GitHub Copilot model: $modelId",
