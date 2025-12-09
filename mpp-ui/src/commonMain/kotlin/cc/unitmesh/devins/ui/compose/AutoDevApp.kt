@@ -445,37 +445,47 @@ private fun AutoDevContent(
         containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Horizontal)
     ) { paddingValues ->
+        // Determine if SessionSidebar should be shown based on agent type
+        // Hide for pages that have their own navigation (CHAT_DB, KNOWLEDGE, CODE_REVIEW)
+        val shouldShowSessionSidebar = selectedAgentType in listOf(
+            AgentType.CODING,
+            AgentType.LOCAL_CHAT,
+            AgentType.REMOTE
+        )
+
         Row(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            SessionSidebar(
-                chatHistoryManager = chatHistoryManager,
-                currentSessionId = chatHistoryManager.getCurrentSession().id,
-                isExpanded = showSessionSidebar,
-                onSessionSelected = { sessionId ->
-                    if (agentSessionSelectedHandler != null) {
-                        agentSessionSelectedHandler?.invoke(sessionId)
-                    } else {
-                        chatHistoryManager.switchSession(sessionId)
-                        messages = chatHistoryManager.getMessages()
-                        currentStreamingOutput = ""
+            if (shouldShowSessionSidebar) {
+                SessionSidebar(
+                    chatHistoryManager = chatHistoryManager,
+                    currentSessionId = chatHistoryManager.getCurrentSession().id,
+                    isExpanded = showSessionSidebar,
+                    onSessionSelected = { sessionId ->
+                        if (agentSessionSelectedHandler != null) {
+                            agentSessionSelectedHandler?.invoke(sessionId)
+                        } else {
+                            chatHistoryManager.switchSession(sessionId)
+                            messages = chatHistoryManager.getMessages()
+                            currentStreamingOutput = ""
+                        }
+                    },
+                    onNewChat = {
+                        if (agentNewChatHandler != null) {
+                            agentNewChatHandler?.invoke()
+                        } else {
+                            chatHistoryManager.createSession()
+                            messages = emptyList()
+                            currentStreamingOutput = ""
+                        }
+                    },
+                    onRenameSession = { sessionId, newTitle ->
+                        chatHistoryManager.renameSession(sessionId, newTitle)
                     }
-                },
-                onNewChat = {
-                    if (agentNewChatHandler != null) {
-                        agentNewChatHandler?.invoke()
-                    } else {
-                        chatHistoryManager.createSession()
-                        messages = emptyList()
-                        currentStreamingOutput = ""
-                    }
-                },
-                onRenameSession = { sessionId, newTitle ->
-                    chatHistoryManager.renameSession(sessionId, newTitle)
-                }
-            )
+                )
+            }
 
             Column(
                 modifier = Modifier
