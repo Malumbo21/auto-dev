@@ -174,6 +174,10 @@ export class ChatViewProvider implements vscode.WebviewViewProvider, vscode.Disp
             message.data?.completionIndex as number
           );
           break;
+        case 'saveModelConfig':
+          // Save model configuration
+          await this.handleSaveModelConfig(message.data);
+          break;
       }
     });
 
@@ -189,6 +193,47 @@ export class ChatViewProvider implements vscode.WebviewViewProvider, vscode.Disp
       this.isExecuting = false;
       this.postMessage({ type: 'taskComplete', data: { success: false, message: 'Stopped by user' } });
       this.log('Execution stopped by user');
+    }
+  }
+
+  /**
+   * Save model configuration
+   */
+  private async handleSaveModelConfig(data: any): Promise<void> {
+    try {
+      const config: LLMConfig = {
+        name: data.name as string,
+        provider: data.provider as LLMProvider,
+        apiKey: data.apiKey as string,
+        model: data.model as string,
+        baseUrl: data.baseUrl as string | undefined,
+        temperature: data.temperature as number | undefined,
+        maxTokens: data.maxTokens as number | undefined,
+      };
+
+      // Check for duplicate names if it's a new config
+      if (data.isNewConfig) {
+        const wrapper = await ConfigManager.load();
+        const existingNames = wrapper.getAllConfigs().map(c => c.name);
+        
+        if (existingNames.includes(config.name)) {
+          // Generate unique name
+          config.name = ConfigManager.generateUniqueConfigName(config.name, existingNames);
+        }
+      }
+
+      // Save config
+      await ConfigManager.saveConfig(config, true);
+
+      // Reload config and notify webview
+      this.configWrapper = await ConfigManager.load();
+      this.sendConfigUpdate();
+
+      vscode.window.showInformationMessage(`Configuration "${config.name}" saved successfully`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      vscode.window.showErrorMessage(`Failed to save configuration: ${errorMessage}`);
+      this.log(`Failed to save model config: ${errorMessage}`);
     }
   }
 

@@ -39,6 +39,7 @@ fun IdeaBottomToolbar(
     currentConfigName: String? = null,
     onConfigSelect: (NamedModelConfig) -> Unit = {},
     onConfigureClick: () -> Unit = {},
+    onAddNewConfig: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -59,7 +60,8 @@ fun IdeaBottomToolbar(
                 availableConfigs = availableConfigs,
                 currentConfigName = currentConfigName,
                 onConfigSelect = onConfigSelect,
-                onConfigureClick = onConfigureClick
+                onConfigureClick = onConfigureClick,
+                onAddNewConfig = onAddNewConfig
             )
 
             // Token usage indicator (subtle)

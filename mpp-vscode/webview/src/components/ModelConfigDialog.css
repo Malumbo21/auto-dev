@@ -165,3 +165,14 @@
   background: var(--vscode-button-hoverBackground);
 }
 
+.form-field input.error,
+.form-field select.error {
+  border-color: var(--vscode-inputValidation-errorBorder);
+}
+
+.error-message {
+  color: var(--vscode-errorForeground);
+  font-size: 12px;
+  margin-top: 4px;
+}
+

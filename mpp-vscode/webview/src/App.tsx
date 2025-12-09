@@ -510,7 +510,11 @@ const App: React.FC = () => {
       {showModelConfigDialog && (
         <ModelConfigDialog
           isOpen={showModelConfigDialog}
-          onClose={() => setShowModelConfigDialog(false)}
+          onClose={() => {
+            setShowModelConfigDialog(false);
+            setIsNewConfig(false);
+            setModelConfigDialogConfig(null);
+          }}
           currentConfig={modelConfigDialogConfig || undefined}
           isNewConfig={isNewConfig}
         />

@@ -52,6 +52,7 @@ export const ModelConfigDialog: React.FC<ModelConfigDialogProps> = ({
   const [maxTokens, setMaxTokens] = useState(currentConfig?.maxTokens?.toString() || '8192');
   const [showApiKey, setShowApiKey] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const { postMessage } = useVSCode();
 
   useEffect(() => {
@@ -81,22 +82,27 @@ export const ModelConfigDialog: React.FC<ModelConfigDialogProps> = ({
   const needsApiKey = provider !== 'ollama';
 
   const handleSave = () => {
+    const newErrors: Record<string, string> = {};
+
     if (!configName.trim()) {
-      alert('Please enter a configuration name');
-      return;
+      newErrors.configName = 'Please enter a configuration name';
     }
     if (!model.trim()) {
-      alert('Please enter a model name');
-      return;
+      newErrors.model = 'Please enter a model name';
     }
     if (needsApiKey && !apiKey.trim()) {
-      alert('Please enter an API key');
-      return;
+      newErrors.apiKey = 'Please enter an API key';
     }
     if (needsBaseUrl && !baseUrl.trim()) {
-      alert('Please enter a base URL');
+      newErrors.baseUrl = 'Please enter a base URL';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
+
+    setErrors({});
 
     postMessage({
       type: 'saveModelConfig',
@@ -129,9 +135,14 @@ export const ModelConfigDialog: React.FC<ModelConfigDialogProps> = ({
             <input
               type="text"
               value={configName}
-              onChange={(e) => setConfigName(e.target.value)}
+              onChange={(e) => {
+                setConfigName(e.target.value);
+                if (errors.configName) setErrors({ ...errors, configName: '' });
+              }}
               placeholder="e.g., my-glm, work-gpt4"
+              className={errors.configName ? 'error' : ''}
             />
+            {errors.configName && <div className="error-message">{errors.configName}</div>}
           </div>
 
           <div className="form-field">
@@ -148,9 +159,14 @@ export const ModelConfigDialog: React.FC<ModelConfigDialogProps> = ({
             <input
               type="text"
               value={model}
-              onChange={(e) => setModel(e.target.value)}
+              onChange={(e) => {
+                setModel(e.target.value);
+                if (errors.model) setErrors({ ...errors, model: '' });
+              }}
               placeholder="Enter model name"
+              className={errors.model ? 'error' : ''}
             />
+            {errors.model && <div className="error-message">{errors.model}</div>}
           </div>
 
           {needsApiKey && (
@@ -160,8 +176,12 @@ export const ModelConfigDialog: React.FC<ModelConfigDialogProps> = ({
                 <input
                   type={showApiKey ? 'text' : 'password'}
                   value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
+                  onChange={(e) => {
+                    setApiKey(e.target.value);
+                    if (errors.apiKey) setErrors({ ...errors, apiKey: '' });
+                  }}
                   placeholder="Enter API key"
+                  className={errors.apiKey ? 'error' : ''}
                 />
                 <button
                   type="button"
@@ -171,6 +191,7 @@ export const ModelConfigDialog: React.FC<ModelConfigDialogProps> = ({
                   {showApiKey ? '👁️' : '👁️‍🗨️'}
                 </button>
               </div>
+              {errors.apiKey && <div className="error-message">{errors.apiKey}</div>}
             </div>
           )}
 
@@ -180,7 +201,10 @@ export const ModelConfigDialog: React.FC<ModelConfigDialogProps> = ({
               <input
                 type="text"
                 value={baseUrl}
-                onChange={(e) => setBaseUrl(e.target.value)}
+                onChange={(e) => {
+                  setBaseUrl(e.target.value);
+                  if (errors.baseUrl) setErrors({ ...errors, baseUrl: '' });
+                }}
                 placeholder={
                   provider === 'ollama' ? 'http://localhost:11434' :
                   provider === 'glm' ? 'https://open.bigmodel.cn/api/paas/v4' :
@@ -188,7 +212,9 @@ export const ModelConfigDialog: React.FC<ModelConfigDialogProps> = ({
                   provider === 'kimi' ? 'https://api.moonshot.cn/v1' :
                   'https://api.example.com/v1'
                 }
+                className={errors.baseUrl ? 'error' : ''}
               />
+              {errors.baseUrl && <div className="error-message">{errors.baseUrl}</div>}
             </div>
           )}
 
