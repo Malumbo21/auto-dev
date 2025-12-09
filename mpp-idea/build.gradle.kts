@@ -240,7 +240,7 @@ project(":") {
                 select {
                     types = listOf(IntellijIdeaUltimate)
                     sinceBuild = "252"
-                    untilBuild = "252"
+                    untilBuild = "253.*"
                 }
             }
         }
