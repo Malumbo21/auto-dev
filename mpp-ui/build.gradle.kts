@@ -624,6 +624,47 @@ tasks.register<JavaExec>("runDomainDictCli") {
     standardInput = System.`in`
 }
 
+// Task to run ChatDB CLI (Text2SQL Agent)
+tasks.register<JavaExec>("runChatDBCli") {
+    group = "application"
+    description = "Run ChatDB CLI (Text2SQL Agent with Schema Linking and Revise Agent)"
+
+    val jvmCompilation = kotlin.jvm().compilations.getByName("main")
+    classpath(jvmCompilation.output, configurations["jvmRuntimeClasspath"])
+    mainClass.set("cc.unitmesh.server.cli.ChatDBCli")
+
+    // Pass database connection properties
+    if (project.hasProperty("dbHost")) {
+        systemProperty("dbHost", project.property("dbHost") as String)
+    }
+    if (project.hasProperty("dbPort")) {
+        systemProperty("dbPort", project.property("dbPort") as String)
+    }
+    if (project.hasProperty("dbName")) {
+        systemProperty("dbName", project.property("dbName") as String)
+    }
+    if (project.hasProperty("dbUser")) {
+        systemProperty("dbUser", project.property("dbUser") as String)
+    }
+    if (project.hasProperty("dbPassword")) {
+        systemProperty("dbPassword", project.property("dbPassword") as String)
+    }
+    if (project.hasProperty("dbDialect")) {
+        systemProperty("dbDialect", project.property("dbDialect") as String)
+    }
+    if (project.hasProperty("dbQuery")) {
+        systemProperty("dbQuery", project.property("dbQuery") as String)
+    }
+    if (project.hasProperty("generateVisualization")) {
+        systemProperty("generateVisualization", project.property("generateVisualization") as String)
+    }
+    if (project.hasProperty("maxRows")) {
+        systemProperty("maxRows", project.property("maxRows") as String)
+    }
+
+    standardInput = System.`in`
+}
+
 // Ktlint configuration
 configure<org.jlleitschuh.gradle.ktlint.KtlintExtension> {
     version.set("1.0.1")
