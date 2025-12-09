@@ -69,6 +69,8 @@ object KcefManager {
                         onInitialized {
                             _downloadProgress.value = 100f
                             _initState.value = KcefInitState.Initialized
+                            // Invalidate cache since KCEF is now installed
+                            invalidateInstallCache()
                         }
                     }
 
@@ -109,10 +111,17 @@ object KcefManager {
         }
     }
 
+    // Cached installation status to avoid repeated file system checks and logging
+    private var cachedInstallStatus: Boolean? = null
+
     /**
      * Check if KCEF is already installed
+     * Results are cached to avoid repeated file system access and logging
      */
     fun isInstalled(): Boolean {
+        // Return cached result if available
+        cachedInstallStatus?.let { return it }
+
         val installDir = File(ConfigManager.getKcefInstallDir())
         val exists = installDir.exists()
         val files = installDir.listFiles()
@@ -135,7 +144,17 @@ object KcefManager {
             println("❌ KCEF not installed, will trigger download")
         }
 
+        // Cache the result
+        cachedInstallStatus = hasContent
         return hasContent
+    }
+
+    /**
+     * Invalidate the cached installation status
+     * Call this after KCEF installation/uninstallation
+     */
+    fun invalidateInstallCache() {
+        cachedInstallStatus = null
     }
 }
 

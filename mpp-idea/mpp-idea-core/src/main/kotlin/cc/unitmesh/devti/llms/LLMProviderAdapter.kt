@@ -30,15 +30,6 @@ class LLMProviderAdapter(
 
     override val defaultTimeout: Long get() = 600
 
-    private fun createProvider2(): LLMProvider2 {
-        val llmConfig = when (modelType) {
-            ModelType.Default -> LlmConfig.default()
-            else -> LlmConfig.forCategory(modelType)
-        }
-
-        return LLMProvider2.fromConfig(llmConfig, project)
-    }
-
     override fun stream(
         promptText: String,
         systemPrompt: String,
