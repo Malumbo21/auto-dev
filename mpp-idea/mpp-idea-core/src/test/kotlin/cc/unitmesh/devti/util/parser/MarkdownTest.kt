@@ -1,11 +1,11 @@
 package cc.unitmesh.devti.util.parser
 
-import org.assertj.core.api.Assertions.assertThat
 import org.intellij.markdown.MarkdownElementTypes
 import org.intellij.markdown.flavours.gfm.GFMFlavourDescriptor
 import org.intellij.markdown.parser.MarkdownParser
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class MarkdownHelperTest {
     @Test
@@ -17,7 +17,7 @@ class MarkdownHelperTest {
         val result = MarkdownCodeHelper.parseCodeFromString(markdown)
 
         // Then
-        assertThat(result).containsExactly(markdown)
+        assertEquals(listOf(markdown), result)
     }
 
     @Test
@@ -40,7 +40,7 @@ class MarkdownHelperTest {
             // you can skip this part of the code.
             ```
         """.trimIndent()
-        assertThat(result).isEqualTo(expected)
+        assertEquals(expected, result)
     }
 
     @Test
@@ -52,7 +52,7 @@ class MarkdownHelperTest {
         val result = MarkdownCodeHelper.removeAllMarkdownCode(markdown)
 
         // Then
-        assertThat(result).isEqualTo(markdown)
+        assertEquals(markdown, result)
     }
 
     @Test
@@ -67,7 +67,7 @@ class MarkdownHelperTest {
         val result = MarkdownCodeHelper.extractCodeFenceLanguage(codeFenceNode, markdown)
 
         // Then
-        assertThat(result).isEqualTo("kotlin")
+        assertEquals("kotlin", result)
     }
 
     @Test
@@ -82,7 +82,7 @@ class MarkdownHelperTest {
         val result = MarkdownCodeHelper.extractCodeFenceLanguage(codeFenceNode, markdown)
 
         // Then
-        assertThat(result).isEmpty()
+        assertTrue(result.isEmpty())
     }
 
     @Test

@@ -1,8 +1,6 @@
-package cc.unitmesh.devti.database
+package cc.unitmesh.database.connection
 
 import cc.unitmesh.agent.database.*
-import com.intellij.database.dataSource.DatabaseConnection
-import com.intellij.database.dataSource.LocalDataSource
 import com.intellij.database.psi.DbDataSource
 import com.intellij.openapi.project.Project
 import kotlinx.coroutines.Dispatchers
@@ -11,7 +9,7 @@ import java.sql.Connection
 
 /**
  * IDEA platform database connection implementation
- * 
+ *
  * Leverages IDEA's built-in Database tools and connection configuration.
  * Can directly use data sources configured in IDEA Database tool window.
  */
@@ -148,9 +146,9 @@ class IdeaDatabaseConnection(
     companion object {
         /**
          * Create database connection from IDEA data source
-         * 
+         *
          * @param project IDEA project
-         * @param dataSourceName Data source name (configured in IDEA Database)
+         * @param dataSource Data source (configured in IDEA Database)
          * @return Database connection
          */
         fun createFromIdea(project: Project, dataSource: DbDataSource): IdeaDatabaseConnection {

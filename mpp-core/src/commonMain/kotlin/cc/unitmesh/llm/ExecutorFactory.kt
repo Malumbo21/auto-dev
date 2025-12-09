@@ -10,12 +10,24 @@ import cc.unitmesh.llm.provider.LLMClientRegistry
 /**
  * Try to auto-register GitHub Copilot provider.
  * Returns the provider if successfully registered, null otherwise.
- * 
+ *
  * Implementation is platform-specific:
  * - JVM: Creates and registers GithubCopilotClientProvider
  * - Other platforms: Returns null
  */
 internal expect fun tryAutoRegisterGithubCopilot(): LLMClientProvider?
+
+/**
+ * Platform-specific blocking executor creation for registered providers.
+ *
+ * Implementation is platform-specific:
+ * - JVM: Uses runBlocking to create executor synchronously
+ * - JS/WASM: Returns null (registered providers not supported in sync mode)
+ */
+internal expect fun createExecutorBlocking(
+    provider: LLMClientProvider,
+    config: ModelConfig
+): SingleLLMPromptExecutor?
 
 /**
  * Executor 工厂 - 负责根据配置创建合适的 LLM Executor
@@ -49,14 +61,14 @@ object ExecutorFactory {
         }
         
         if (registryProvider != null) {
-            // Use blocking call for registered providers
+            // Use platform-specific blocking call for registered providers
             // This works because on JVM, the provider caches the API token
-            return kotlinx.coroutines.runBlocking {
-                registryProvider.createExecutor(config)
-            } ?: throw IllegalStateException(
-                "Failed to create executor for ${config.provider.displayName}. " +
-                "Provider is registered but returned null."
-            )
+            return createExecutorBlocking(registryProvider, config)
+                ?: throw IllegalStateException(
+                    "Failed to create executor for ${config.provider.displayName}. " +
+                    "Provider is registered but returned null. " +
+                    "On non-JVM platforms, use createAsync() instead."
+                )
         }
         
         return when (config.provider) {
