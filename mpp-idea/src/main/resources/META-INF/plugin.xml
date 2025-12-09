@@ -55,6 +55,125 @@
         <extensionPoint qualifiedName="cc.unitmesh.toolchainFunctionProvider"
                         interface="cc.unitmesh.devti.provider.toolchain.ToolchainFunctionProvider"
                         dynamic="true"/>
+
+        <!-- Action Location Editor - required by GitActionLocationEditor -->
+        <extensionPoint qualifiedName="cc.unitmesh.shireActionLocationEditor"
+                        interface="cc.unitmesh.devti.devins.provider.ActionLocationEditor"
+                        dynamic="true"/>
+
+        <!-- File Create Service -->
+        <extensionPoint qualifiedName="cc.unitmesh.shireFileCreateService"
+                        beanClass="com.intellij.lang.LanguageExtensionPoint"
+                        dynamic="true">
+            <with attribute="implementationClass" implements="cc.unitmesh.devti.devins.provider.FileCreateService"/>
+        </extensionPoint>
+
+        <!-- Language Toolchain Provider -->
+        <extensionPoint qualifiedName="cc.unitmesh.shireLanguageToolchainProvider"
+                        beanClass="com.intellij.lang.LanguageExtensionPoint" dynamic="true">
+            <with attribute="implementationClass"
+                  implements="cc.unitmesh.devti.devins.provider.LanguageToolchainProvider"/>
+        </extensionPoint>
+
+        <!-- PSI Variable Provider -->
+        <extensionPoint qualifiedName="cc.unitmesh.shirePsiVariableProvider"
+                        beanClass="com.intellij.lang.LanguageExtensionPoint" dynamic="true">
+            <with attribute="implementationClass"
+                  implements="cc.unitmesh.devti.devins.provider.PsiContextVariableProvider"/>
+        </extensionPoint>
+
+        <!-- PSI Query Expression -->
+        <extensionPoint qualifiedName="cc.unitmesh.shirePsiQLInterpreter"
+                        beanClass="com.intellij.lang.LanguageExtensionPoint" dynamic="true">
+            <with attribute="implementationClass"
+                  implements="cc.unitmesh.devti.devins.provider.shireql.ShireQLInterpreter"/>
+        </extensionPoint>
+
+        <!-- Toolchain Variable Provider -->
+        <extensionPoint qualifiedName="cc.unitmesh.shireToolchainVariableProvider"
+                        interface="cc.unitmesh.devti.devins.provider.ToolchainVariableProvider"
+                        dynamic="true"/>
+
+        <!-- Toolchain Function Provider (Shire) -->
+        <extensionPoint qualifiedName="cc.unitmesh.shireToolchainFunctionProvider"
+                        interface="cc.unitmesh.devti.devins.provider.ToolchainFunctionProvider"
+                        dynamic="true"/>
+
+        <!-- PSI Capture -->
+        <extensionPoint qualifiedName="cc.unitmesh.shirePsiCapture"
+                        beanClass="com.intellij.lang.LanguageExtensionPoint" dynamic="true">
+            <with attribute="implementationClass" implements="cc.unitmesh.devti.devins.provider.PsiCapture"/>
+        </extensionPoint>
+
+        <!-- Symbol Provider -->
+        <extensionPoint qualifiedName="cc.unitmesh.shireSymbolProvider"
+                        interface="cc.unitmesh.devti.devins.provider.ShireSymbolProvider"
+                        dynamic="true"/>
+
+        <!-- ShireQL Data Provider -->
+        <extensionPoint qualifiedName="cc.unitmesh.shireQLDataProvider"
+                        interface="cc.unitmesh.devti.devins.provider.ShireQLDataProvider"
+                        dynamic="true"/>
+
+        <!-- Revision Provider -->
+        <extensionPoint qualifiedName="cc.unitmesh.shireRevisionProvider"
+                        interface="cc.unitmesh.devti.devins.provider.RevisionProvider"
+                        dynamic="true"/>
+
+        <!-- Terminal Executor -->
+        <extensionPoint qualifiedName="cc.unitmesh.shireTerminalExecutor"
+                        interface="cc.unitmesh.devti.language.provider.TerminalLocationExecutor"
+                        dynamic="true"/>
+
+        <!-- HTTP Handler -->
+        <extensionPoint qualifiedName="cc.unitmesh.shireHttpHandler"
+                        interface="cc.unitmesh.devti.devins.provider.http.HttpHandler"
+                        dynamic="true"/>
+
+        <!-- Code Complexity -->
+        <extensionPoint qualifiedName="cc.unitmesh.shireComplexityProvider"
+                        beanClass="com.intellij.lang.LanguageExtensionPoint" dynamic="true">
+            <with attribute="implementationClass"
+                  implements="cc.unitmesh.devti.devins.provider.ComplexityProvider"/>
+        </extensionPoint>
+
+        <!-- Revision Provider (core) -->
+        <extensionPoint qualifiedName="cc.unitmesh.revisionProvider"
+                        interface="cc.unitmesh.devti.provider.RevisionProvider"
+                        dynamic="true"/>
+
+        <!-- MCP Tool -->
+        <extensionPoint qualifiedName="cc.unitmesh.mcpTool"
+                        interface="cc.unitmesh.devti.mcp.host.McpTool"
+                        dynamic="true"/>
+
+        <!-- Lang Sketch Provider -->
+        <extensionPoint qualifiedName="cc.unitmesh.langSketchProvider"
+                        interface="cc.unitmesh.devti.sketch.ui.LanguageSketchProvider"
+                        dynamic="true"/>
+
+        <!-- AutoDev Intention -->
+        <extensionPoint qualifiedName="cc.unitmesh.autoDevIntention"
+                        beanClass="com.intellij.codeInsight.intention.IntentionActionBean"
+                        dynamic="true">
+            <with tag="className" implements="com.intellij.codeInsight.intention.IntentionAction"/>
+        </extensionPoint>
+
+        <!-- Chat Context Provider -->
+        <extensionPoint qualifiedName="cc.unitmesh.chatContextProvider"
+                        interface="cc.unitmesh.devti.provider.context.ChatContextProvider"
+                        dynamic="true"/>
+
+        <!-- Living Documentation -->
+        <extensionPoint qualifiedName="cc.unitmesh.livingDocumentation"
+                        beanClass="com.intellij.lang.LanguageExtensionPoint" dynamic="true">
+            <with attribute="implementationClass" implements="cc.unitmesh.devti.provider.LivingDocumentation"/>
+        </extensionPoint>
+
+        <!-- Agent Observer -->
+        <extensionPoint qualifiedName="cc.unitmesh.agentObserver"
+                        interface="cc.unitmesh.devti.provider.observer.AgentObserver"
+                        dynamic="true"/>
     </extensionPoints>
 
     <extensions defaultExtensionNs="com.intellij">
@@ -83,6 +202,187 @@
             <keyboard-shortcut keymap="Mac OS X 10.5+" first-keystroke="meta shift P"/>
             <add-to-group group-id="ToolsMenu" anchor="first"/>
         </action>
+
+        <!-- Inlay Completion Actions -->
+        <action id="llm.applyInlays"
+                class="cc.unitmesh.devti.actions.completion.LLMApplyInlaysAction">
+            <keyboard-shortcut first-keystroke="TAB" keymap="$default"/>
+            <override-text place="MainMenu" text="Apply Completions to Editor"/>
+            <override-text place="EditorPopup" text="Accept"/>
+        </action>
+
+        <action id="cc.unitmesh.devti.inlayCompleteCode"
+                class="cc.unitmesh.devti.actions.completion.InlayCompleteCodeAction"
+                text="Inlay Complete Code (AutoDev)"
+                description="Inlay complete code!">
+            <keyboard-shortcut keymap="$default" first-keystroke="alt PERIOD"/>
+            <add-to-group group-id="ShowIntentionsGroup" relative-to-action="ShowIntentionActions" anchor="after"/>
+        </action>
+        <action id="cc.unitmesh.devti.disposeInlayCompleteCode"
+                class="cc.unitmesh.devti.actions.completion.InlayCompleteCodeDisposedAction"
+                text="Disposed Inlay Complete Code"
+                description="Disposed Inlay complete code!">
+            <keyboard-shortcut keymap="$default" first-keystroke="ESCAPE"/>
+        </action>
+
+        <!-- Intentions Action Group -->
+        <group id="AutoDevIntentionsActionGroup" class="cc.unitmesh.devti.intentions.IntentionsActionGroup"
+               icon="cc.unitmesh.devti.AutoDevIcons.AI_COPILOT" searchable="false">
+
+            <add-to-group group-id="ShowIntentionsGroup" relative-to-action="ShowIntentionActions" anchor="after"/>
+            <add-to-group group-id="Floating.CodeToolbar" anchor="first"/>
+        </group>
+
+        <!-- For right click -->
+        <group id="autodev.groups.AutoChatDynamicActionGroup" popup="true" description="AutoDev chat"
+               class="cc.unitmesh.devti.actions.groups.AutoChatDynamicActionGroup">
+            <action id="cc.unitmesh.devti.actions.chat.ExplainThisAction"
+                    class="cc.unitmesh.devti.actions.chat.ExplainThisAction"
+                    description="Ask AI about this code">
+            </action>
+
+            <action id="cc.unitmesh.devti.actions.chat.RefactorThisAction"
+                    class="cc.unitmesh.devti.actions.chat.RefactorThisAction"
+                    description="Ask AI refactor this code">
+            </action>
+
+            <action id="cc.unitmesh.devti.actions.chat.FixThisAction"
+                    class="cc.unitmesh.devti.actions.chat.FixThisAction"
+                    description="Ask AI refactor this code">
+            </action>
+
+            <action id="cc.unitmesh.devti.actions.chat.ChatWithThisAction"
+                    class="cc.unitmesh.devti.actions.chat.ChatWithThisAction"
+                    description="Ask AI chat with this code">
+            </action>
+
+            <action id="cc.unitmesh.devti.actions.chat.GenerateApiTestAction"
+                    class="cc.unitmesh.devti.actions.chat.GenerateApiTestAction"
+                    description="Ask AI generate test data">
+
+                <add-to-group group-id="GenerateGroup" anchor="last"/>
+            </action>
+
+            <add-to-group group-id="EditorPopupMenu" anchor="first"/>
+        </group>
+
+        <!-- Quick Assistant -->
+        <action id="cc.unitmesh.devti.QuickAssistant"
+                class="cc.unitmesh.devti.actions.quick.QuickAssistantAction"
+                description="You can custom any assistant as you want!"
+                icon="cc.unitmesh.devti.AutoDevIcons.AI_COPILOT"
+        >
+            <keyboard-shortcut keymap="$default" first-keystroke="control BACK_SLASH"/>
+
+            <add-to-group group-id="ShowIntentionsGroup" relative-to-action="ShowIntentionActions" anchor="after"/>
+        </action>
+
+        <!-- Console Fix Action -->
+        <action id="cc.unitmesh.devti.actions.console.FixThisAction"
+                class="cc.unitmesh.devti.actions.console.FixThisAction"
+                description="Ask AI fix this code"
+                icon="cc.unitmesh.devti.AutoDevIcons.AI_COPILOT">
+            <add-to-group group-id="ConsoleEditorPopupMenu" anchor="first"/>
+        </action>
+
+        <!-- Code Complete Chat Action -->
+        <action id="cc.unitmesh.devti.actions.chat.CodeCompleteChatAction"
+                class="cc.unitmesh.devti.actions.chat.CodeCompleteChatAction"
+                description="Ask AI about this code">
+
+            <add-to-group group-id="EditorPopupMenu" anchor="first"/>
+        </action>
+
+        <!-- Snippet Toolbar Groups -->
+        <group id="AutoDev.ToolWindow.Snippet.DependenciesToolbar">
+            <action id="AutoDev.ToolWindow.Snippet.DependenciesLabelAction"
+                    class="cc.unitmesh.devti.gui.snippet.AutoDevDependenciesLabelAction"/>
+        </group>
+
+        <group id="AutoDev.ToolWindow.Snippet.Toolbar">
+            <action id="AutoDev.ToolWindow.Snippet.LanguageLabelAction"
+                    class="cc.unitmesh.devti.gui.snippet.AutoDevLanguageLabelAction"/>
+
+            <action id="AutoDev.ToolWindow.Snippet.CopyToClipboard"
+                    icon="cc.unitmesh.devti.AutoDevIcons.COPY"
+                    class="cc.unitmesh.devti.gui.snippet.AutoDevCopyToClipboardAction"/>
+            <action id="AutoDev.ToolWindow.Snippet.InsertCode"
+                    icon="cc.unitmesh.devti.AutoDevIcons.INSERT"
+                    class="cc.unitmesh.devti.gui.snippet.AutoDevInsertCodeAction"/>
+            <action id="AutoDev.ToolWindow.Snippet.RunDevIns"
+                    icon="cc.unitmesh.devti.AutoDevIcons.RUN"
+                    class="cc.unitmesh.devti.gui.snippet.AutoDevRunAction"/>
+            <action id="AutoDev.ToolWindow.Snippet.SaveFile"
+                    icon="cc.unitmesh.devti.AutoDevIcons.SAVE_FILE"
+                    class="cc.unitmesh.devti.gui.snippet.AutoDevSaveFileAction"/>
+        </group>
+
+        <!-- Chat Title Actions -->
+        <group id="AutoDev.ToolWindow.Chat.TitleActions">
+            <action id="AutoDev.ToolWindow.NewChatAction" class="cc.unitmesh.devti.gui.toolbar.NewChatAction"/>
+        </group>
+
+        <!-- New Prompt Template -->
+        <action id="AutoDev.NewPromptTemplate" class="cc.unitmesh.devti.actions.template.NewPromptTemplateAction"
+                icon="cc.unitmesh.devti.AutoDevIcons.AI_COPILOT">
+            <add-to-group group-id="NewGroup" anchor="before" relative-to-action="NewFromTemplate"/>
+        </action>
+
+        <!-- CI/CD Actions -->
+        <group id="AutoDev.NewActions"
+               text="AutoDev CI/CD Actions"
+               popup="true" icon="cc.unitmesh.devti.AutoDevIcons.AI_COPILOT">
+
+            <separator/>
+            <action id="GeniusDockerfile" class="cc.unitmesh.devti.actions.GenerateDockerfileAction"/>
+            <action id="GeniusGitHubActions" class="cc.unitmesh.devti.actions.GenerateGitHubActionsAction"/>
+
+            <add-to-group group-id="NewGroup" anchor="last"/>
+        </group>
+
+        <!-- Batch Test Action -->
+        <action id="AutoDev.BatchTest"
+                icon="cc.unitmesh.devti.AutoDevIcons.AI_COPILOT"
+                class="cc.unitmesh.devti.actions.chat.AutoTestInMenuAction">
+
+            <add-to-group group-id="ProjectViewPopupMenu" anchor="after"
+                          relative-to-action="ProjectViewPopupMenuRefactoringGroup"/>
+            <add-to-group group-id="RefactoringMenu" anchor="last"/>
+            <add-to-group group-id="EditorTabPopupMenu" anchor="last"/>
+        </action>
+
+        <!-- Settings Action -->
+        <action id="cc.unitmesh.devti.EditSettings"
+                class="cc.unitmesh.devti.actions.EditSettingsAction"
+                description="Edit autoDev settings"
+                icon="cc.unitmesh.devti.AutoDevIcons.AI_COPILOT">
+        </action>
+
+        <!-- Domain Dict Generate -->
+        <action id="cc.unitmesh.devti.DomainDictGenerate"
+                class="cc.unitmesh.devti.indexer.DomainDictGenerateAction"
+                description="Generate domains.csv"
+                icon="cc.unitmesh.devti.AutoDevIcons.AI_COPILOT">
+
+            <add-to-group group-id="ProjectViewToolbar" anchor="last"/>
+        </action>
+
+        <!-- Status Bar Popup -->
+        <group id="autodev.statusBarPopup">
+            <reference id="cc.unitmesh.devti.QuickAssistant"/>
+            <reference id="cc.unitmesh.devti.EditSettings"/>
+        </group>
+
+        <!-- Planner ToolWindow Actions -->
+        <group id="AutoDevPlanner.ToolWindow.TitleActions">
+            <action id="ReviewPlan" icon="cc.unitmesh.devti.AutoDevIcons.REVIEWER"
+                    class="cc.unitmesh.devti.observer.plan.PlanReviewAction"/>
+            <action id="EditPlan" icon="cc.unitmesh.devti.AutoDevIcons.EDIT_TASK"
+                    class="cc.unitmesh.devti.observer.plan.EditPlanAction"/>
+            <action id="CreateIssue" icon="cc.unitmesh.devti.AutoDevIcons.INPUT"
+                    class="cc.unitmesh.devti.observer.plan.CreateIssueAction"/>
+            <separator/>
+        </group>
     </actions>
 
     <!-- Include DevIn language extensions -->
