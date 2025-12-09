@@ -198,12 +198,25 @@ kotlin {
                 implementation("org.apache.pdfbox:pdfbox:3.0.3") {
                     exclude(group = "commons-logging", module = "commons-logging")
                 }
+
+                // JetBrains Exposed - SQL framework for database access
+                implementation("org.jetbrains.exposed:exposed-core:0.47.0")
+                implementation("org.jetbrains.exposed:exposed-dao:0.47.0")
+                implementation("org.jetbrains.exposed:exposed-jdbc:0.47.0")
+                
+                // MySQL/MariaDB JDBC Driver
+                implementation("com.mysql:mysql-connector-j:9.0.0")
+                
+                // Connection pooling
+                implementation("com.zaxxer:HikariCP:6.0.0")
             }
         }
 
         jvmTest {
             dependencies {
                 implementation(kotlin("test-junit"))
+                // H2 database for testing
+                implementation("com.h2database:h2:2.2.224")
             }
         }
 
@@ -294,4 +307,9 @@ kotlin {
 // The wasmJs library will still be built, but browser tests are skipped
 tasks.named("wasmJsBrowserTest") {
     enabled = false
+}
+
+// Configure JVM tests to run serially to avoid database conflicts
+tasks.named<Test>("jvmTest") {
+    maxParallelForks = 1
 }
