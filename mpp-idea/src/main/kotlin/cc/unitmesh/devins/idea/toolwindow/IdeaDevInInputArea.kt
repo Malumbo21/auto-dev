@@ -337,6 +337,14 @@ class SwingDevInInputArea(
     fun setOnAddNewConfig(callback: () -> Unit) {
         bottomToolbar.setOnAddNewConfig(callback)
     }
+    
+    fun setOnRefreshCopilot(callback: () -> Unit) {
+        bottomToolbar.setOnRefreshCopilot(callback)
+    }
+    
+    fun setRefreshingCopilot(refreshing: Boolean) {
+        bottomToolbar.setRefreshingCopilot(refreshing)
+    }
 
     fun setCurrentPlan(plan: AgentPlan?) {
         currentPlan = plan

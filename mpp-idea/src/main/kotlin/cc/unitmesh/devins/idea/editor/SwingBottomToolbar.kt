@@ -1,5 +1,6 @@
 package cc.unitmesh.devins.idea.editor
 
+import cc.unitmesh.devti.llm2.GithubCopilotDetector
 import cc.unitmesh.llm.NamedModelConfig
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.project.Project
@@ -33,8 +34,20 @@ class SwingBottomToolbar(
     private var onConfigSelect: (NamedModelConfig) -> Unit = {}
     private var onConfigureClick: () -> Unit = {}
     private var onAddNewConfig: () -> Unit = {}
+    private var onRefreshCopilot: () -> Unit = {}
     private var isProcessing = false
     private var isEnhancing = false
+    private var isRefreshingCopilot = false
+    
+    // Refresh GitHub Copilot button (only shown when Copilot is configured)
+    private val refreshCopilotButton = JButton(AllIcons.Actions.Refresh).apply {
+        toolTipText = "Refresh GitHub Copilot Models"
+        preferredSize = Dimension(28, 28)
+        isBorderPainted = false
+        isContentAreaFilled = false
+        isVisible = GithubCopilotDetector.isGithubCopilotConfigured()
+        addActionListener { onRefreshCopilot() }
+    }
 
     init {
         border = JBUI.Borders.empty(4)
@@ -62,6 +75,9 @@ class SwingBottomToolbar(
                 addActionListener { onAddNewConfig() }
             }
             add(addConfigButton)
+            
+            // Refresh GitHub Copilot button
+            add(refreshCopilotButton)
 
             tokenLabel.foreground = JBUI.CurrentTheme.Label.disabledForeground()
             add(tokenLabel)
@@ -152,6 +168,20 @@ class SwingBottomToolbar(
 
     fun setOnAddNewConfig(callback: () -> Unit) {
         onAddNewConfig = callback
+    }
+    
+    fun setOnRefreshCopilot(callback: () -> Unit) {
+        onRefreshCopilot = callback
+    }
+    
+    fun setRefreshingCopilot(refreshing: Boolean) {
+        isRefreshingCopilot = refreshing
+        refreshCopilotButton.isEnabled = !refreshing
+        refreshCopilotButton.toolTipText = if (refreshing) "Refreshing Copilot..." else "Refresh GitHub Copilot Models"
+    }
+    
+    fun updateCopilotAvailability() {
+        refreshCopilotButton.isVisible = GithubCopilotDetector.isGithubCopilotConfigured()
     }
 }
 

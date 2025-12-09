@@ -60,8 +60,8 @@ data class CustomOpenAIChatCompletionRequest(
 data class CustomOpenAIChatCompletionResponse(
     override val id: String,
     val `object`: String? = null, // Optional: Some OpenAI-compatible APIs (like GLM) may not include this
-    override val created: Long,
-    override val model: String,
+    override val created: Long = 0L, // Optional: GitHub Copilot API may not include this
+    override val model: String = "", // Optional: GitHub Copilot API may not include this
     val choices: List<Choice>,
     val usage: ai.koog.prompt.executor.clients.openai.base.models.OpenAIUsage? = null
 ) : ai.koog.prompt.executor.clients.openai.base.models.OpenAIBaseLLMResponse {
@@ -80,8 +80,8 @@ data class CustomOpenAIChatCompletionResponse(
 data class CustomOpenAIChatCompletionStreamResponse(
     override val id: String,
     val `object`: String? = null, // Optional: Some OpenAI-compatible APIs (like GLM) may not include this
-    override val created: Long,
-    override val model: String,
+    override val created: Long = 0L, // Optional: GitHub Copilot API may not include this
+    override val model: String = "", // Optional: GitHub Copilot API may not include this
     val choices: List<StreamChoice>,
     val usage: ai.koog.prompt.executor.clients.openai.base.models.OpenAIUsage? = null
 ) : ai.koog.prompt.executor.clients.openai.base.models.OpenAIBaseLLMStreamResponse {

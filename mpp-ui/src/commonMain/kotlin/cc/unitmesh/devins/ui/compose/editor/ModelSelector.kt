@@ -8,6 +8,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import cc.unitmesh.devins.ui.compose.icons.AutoDevComposeIcons
+import cc.unitmesh.devins.ui.provider.CopilotModelRefresher
 import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.devins.ui.i18n.Strings
 import cc.unitmesh.llm.ModelConfig
@@ -31,7 +32,11 @@ fun ModelSelector(onConfigChange: (ModelConfig) -> Unit = {}) {
 
     var availableConfigs by remember { mutableStateOf<List<NamedModelConfig>>(emptyList()) }
     var currentConfigName by remember { mutableStateOf<String?>(null) }
+    var isRefreshingCopilot by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    
+    // Check if GitHub Copilot refresh is available (JVM with local token)
+    val isCopilotAvailable = remember { CopilotModelRefresher.isAvailable() }
 
     // Load initial configuration
     LaunchedEffect(Unit) {
@@ -152,6 +157,66 @@ fun ModelSelector(onConfigChange: (ModelConfig) -> Unit = {}) {
                 )
             }
         )
+        
+        // Refresh GitHub Copilot button (only shown on JVM with local token)
+        if (isCopilotAvailable) {
+            DropdownMenuItem(
+                text = { 
+                    Text(
+                        if (isRefreshingCopilot) "Refreshing Copilot..." else "Refresh GitHub Copilot"
+                    )
+                },
+                onClick = {
+                    if (!isRefreshingCopilot) {
+                        scope.launch {
+                            isRefreshingCopilot = true
+                            try {
+                                val copilotConfigs = CopilotModelRefresher.refreshModels()
+                                if (copilotConfigs.isNotEmpty()) {
+                                    // Save each config to config.yaml
+                                    val existingNames = availableConfigs.map { it.name }.toMutableSet()
+                                    var savedCount = 0
+                                    
+                                    for (config in copilotConfigs) {
+                                        // Skip if already exists
+                                        if (config.name in existingNames) {
+                                            continue
+                                        }
+                                        
+                                        try {
+                                            ConfigManager.saveConfig(config, setActive = false)
+                                            existingNames.add(config.name)
+                                            savedCount++
+                                        } catch (e: Exception) {
+                                            println("Failed to save config ${config.name}: ${e.message}")
+                                        }
+                                    }
+                                    
+                                    // Reload configs
+                                    val wrapper = ConfigManager.load()
+                                    availableConfigs = wrapper.getAllConfigs()
+                                    
+                                    println("Added $savedCount GitHub Copilot configurations")
+                                }
+                            } catch (e: Exception) {
+                                println("Failed to refresh GitHub Copilot: ${e.message}")
+                            } finally {
+                                isRefreshingCopilot = false
+                                expanded = false
+                            }
+                        }
+                    }
+                },
+                enabled = !isRefreshingCopilot,
+                leadingIcon = {
+                    Icon(
+                        imageVector = AutoDevComposeIcons.Refresh,
+                        contentDescription = "Refresh",
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            )
+        }
 
         // Configure button (edit current config)
         DropdownMenuItem(

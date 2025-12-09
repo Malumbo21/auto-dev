@@ -27,6 +27,8 @@ import cc.unitmesh.devins.ui.i18n.Strings
 import cc.unitmesh.llm.LLMProviderType
 import cc.unitmesh.llm.ModelConfig
 import cc.unitmesh.llm.ModelRegistry
+import cc.unitmesh.llm.provider.LLMClientRegistry
+import kotlinx.coroutines.launch
 
 /**
  * Dialog for configuring LLM model settings
@@ -51,6 +53,35 @@ fun ModelConfigDialog(
     var expandedModel by remember { mutableStateOf(false) }
     var expandedAdvanced by remember { mutableStateOf(false) }
     val clipboardManager = LocalClipboardManager.current
+    
+    // Dynamic models for providers that support it (like GitHub Copilot)
+    var dynamicModels by remember { mutableStateOf<List<String>>(emptyList()) }
+    var isLoadingModels by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    
+    // Load dynamic models when provider changes to GITHUB_COPILOT
+    LaunchedEffect(provider) {
+        if (provider == LLMProviderType.GITHUB_COPILOT) {
+            // First try cached models from registry
+            val cachedModels = LLMClientRegistry.getAvailableModels(provider)
+            if (cachedModels.isNotEmpty()) {
+                dynamicModels = cachedModels
+            } else {
+                // Fetch from API if not cached
+                isLoadingModels = true
+                try {
+                    val models = LLMClientRegistry.fetchAvailableModelsAsync(provider, forceRefresh = false)
+                    dynamicModels = models
+                } catch (e: Exception) {
+                    println("Failed to fetch GitHub Copilot models: ${e.message}")
+                } finally {
+                    isLoadingModels = false
+                }
+            }
+        } else {
+            dynamicModels = emptyList()
+        }
+    }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -155,7 +186,14 @@ fun ModelConfigDialog(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // Get available models for this provider
-                val availableModels = remember(provider) { ModelRegistry.getAvailableModels(provider) }
+                // For GITHUB_COPILOT, use dynamically fetched models; otherwise use ModelRegistry
+                val availableModels = remember(provider, dynamicModels) {
+                    if (provider == LLMProviderType.GITHUB_COPILOT && dynamicModels.isNotEmpty()) {
+                        dynamicModels
+                    } else {
+                        ModelRegistry.getAvailableModels(provider)
+                    }
+                }
 
                 if (availableModels.isNotEmpty()) {
                     // Show dropdown with predefined models + allow custom input
@@ -237,8 +275,8 @@ fun ModelConfigDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // API Key (not for Ollama)
-                if (provider != LLMProviderType.OLLAMA) {
+                // API Key (not for Ollama or GitHub Copilot which uses local OAuth token)
+                if (provider != LLMProviderType.OLLAMA && provider != LLMProviderType.GITHUB_COPILOT) {
                     Text(
                         text = Strings.apiKey,
                         style = MaterialTheme.typography.labelLarge
@@ -429,6 +467,8 @@ fun ModelConfigDialog(
                                         modelName.isNotBlank() && baseUrl.isNotBlank()
                                     LLMProviderType.GLM, LLMProviderType.QWEN, LLMProviderType.KIMI, LLMProviderType.CUSTOM_OPENAI_BASE ->
                                         modelName.isNotBlank() && baseUrl.isNotBlank() && apiKey.isNotBlank()
+                                    LLMProviderType.GITHUB_COPILOT ->
+                                        modelName.isNotBlank() // No API key needed, uses local OAuth token
                                     else ->
                                         apiKey.isNotBlank() && modelName.isNotBlank()
                                 }

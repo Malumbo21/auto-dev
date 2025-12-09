@@ -40,6 +40,10 @@ fun IdeaBottomToolbar(
     onConfigSelect: (NamedModelConfig) -> Unit = {},
     onConfigureClick: () -> Unit = {},
     onAddNewConfig: () -> Unit = {},
+    // GitHub Copilot refresh props
+    onRefreshCopilot: (() -> Unit)? = null,
+    isCopilotAvailable: Boolean = false,
+    isRefreshingCopilot: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -61,7 +65,10 @@ fun IdeaBottomToolbar(
                 currentConfigName = currentConfigName,
                 onConfigSelect = onConfigSelect,
                 onConfigureClick = onConfigureClick,
-                onAddNewConfig = onAddNewConfig
+                onAddNewConfig = onAddNewConfig,
+                onRefreshCopilot = onRefreshCopilot,
+                isCopilotAvailable = isCopilotAvailable,
+                isRefreshingCopilot = isRefreshingCopilot
             )
 
             // Token usage indicator (subtle)

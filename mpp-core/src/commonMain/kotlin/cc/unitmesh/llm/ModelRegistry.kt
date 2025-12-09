@@ -27,6 +27,7 @@ object ModelRegistry {
             LLMProviderType.GLM -> GLMModels.all
             LLMProviderType.QWEN -> QwenModels.all
             LLMProviderType.KIMI -> KimiModels.all
+            LLMProviderType.GITHUB_COPILOT -> GithubCopilotModels.all
             LLMProviderType.CUSTOM_OPENAI_BASE -> emptyList() // Custom models are user-defined
         }
     }
@@ -48,6 +49,7 @@ object ModelRegistry {
             LLMProviderType.QWEN -> "https://dashscope.aliyuncs.com/api/v1/"
             LLMProviderType.KIMI -> "https://api.moonshot.cn/v1/"
             LLMProviderType.OLLAMA -> "http://localhost:11434/"
+            LLMProviderType.GITHUB_COPILOT -> "https://api.githubcopilot.com/"
             else -> ""
         }
     }
@@ -71,6 +73,7 @@ object ModelRegistry {
             LLMProviderType.GLM -> GLMModels.create(modelName)
             LLMProviderType.QWEN -> QwenModels.create(modelName)
             LLMProviderType.KIMI -> KimiModels.create(modelName)
+            LLMProviderType.GITHUB_COPILOT -> GithubCopilotModels.create(modelName)
             LLMProviderType.CUSTOM_OPENAI_BASE -> null
         }
 
@@ -95,6 +98,7 @@ object ModelRegistry {
             LLMProviderType.GLM -> LLMProvider.OpenAI // Use OpenAI-compatible provider
             LLMProviderType.QWEN -> LLMProvider.OpenAI // Use OpenAI-compatible provider
             LLMProviderType.KIMI -> LLMProvider.OpenAI // Use OpenAI-compatible provider
+            LLMProviderType.GITHUB_COPILOT -> LLMProvider.OpenAI // Use OpenAI-compatible provider
             LLMProviderType.CUSTOM_OPENAI_BASE -> LLMProvider.OpenAI // Use OpenAI-compatible provider
         }
 
@@ -447,6 +451,93 @@ object ModelRegistry {
                 ),
                 contextLength = contextLength,
                 maxOutputTokens = null
+            )
+        }
+    }
+
+    /**
+     * GitHub Copilot models
+     * 
+     * These are models available through GitHub Copilot subscription.
+     * The actual available models may vary based on subscription tier.
+     * 
+     * Note: GitHub Copilot provider requires JVM platform and local OAuth token.
+     */
+    private object GithubCopilotModels {
+        val all = listOf(
+            // OpenAI models
+            "gpt-4o",
+            "gpt-4o-mini", 
+            "gpt-4",
+            "gpt-4-turbo",
+            "gpt-3.5-turbo",
+            // OpenAI reasoning models
+            "o1-preview",
+            "o1-mini",
+            "o3-mini",
+            // Anthropic models
+            "claude-3.5-sonnet",
+            "claude-3-opus",
+            "claude-3-sonnet",
+            "claude-3-haiku",
+            // Google models (if available)
+            "gemini-1.5-pro",
+            "gemini-1.5-flash"
+        )
+
+        fun create(modelName: String): LLModel {
+            val (contextLength, maxOutputTokens) = when {
+                // OpenAI reasoning models
+                modelName.startsWith("o1") || modelName.startsWith("o3") -> 200_000L to 100_000L
+                // GPT-4o series
+                modelName.startsWith("gpt-4o") -> 128_000L to 16_384L
+                modelName.startsWith("gpt-4-turbo") -> 128_000L to 4_096L
+                modelName.startsWith("gpt-4") -> 8_192L to 8_192L
+                modelName.startsWith("gpt-3.5") -> 16_385L to 4_096L
+                // Claude models
+                modelName.contains("claude-3.5") || modelName.contains("claude-3-opus") -> 200_000L to 8_192L
+                modelName.contains("claude-3") -> 200_000L to 4_096L
+                // Gemini models
+                modelName.contains("gemini") -> 1_000_000L to 8_192L
+                else -> 128_000L to 4_096L
+            }
+
+            val capabilities = when {
+                modelName.contains("claude") -> listOf(
+                    LLMCapability.Temperature,
+                    LLMCapability.Tools,
+                    LLMCapability.ToolChoice,
+                    LLMCapability.Vision.Image,
+                    LLMCapability.Document,
+                    LLMCapability.Completion
+                )
+                modelName.startsWith("o1") || modelName.startsWith("o3") -> listOf(
+                    LLMCapability.Completion,
+                    LLMCapability.Tools
+                )
+                modelName.contains("gemini") -> listOf(
+                    LLMCapability.Temperature,
+                    LLMCapability.Completion,
+                    LLMCapability.Tools,
+                    LLMCapability.Vision.Image
+                )
+                else -> listOf(
+                    LLMCapability.Temperature,
+                    LLMCapability.Tools,
+                    LLMCapability.ToolChoice,
+                    LLMCapability.Vision.Image,
+                    LLMCapability.Document,
+                    LLMCapability.Completion,
+                    LLMCapability.MultipleChoices
+                )
+            }
+
+            return LLModel(
+                provider = LLMProvider.OpenAI, // OpenAI-compatible API
+                id = modelName,
+                capabilities = capabilities,
+                contextLength = contextLength,
+                maxOutputTokens = maxOutputTokens
             )
         }
     }

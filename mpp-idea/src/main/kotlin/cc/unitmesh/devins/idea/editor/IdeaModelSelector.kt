@@ -36,6 +36,9 @@ fun IdeaModelSelector(
     onConfigSelect: (NamedModelConfig) -> Unit,
     onConfigureClick: () -> Unit,
     onAddNewConfig: () -> Unit,
+    onRefreshCopilot: (() -> Unit)? = null,
+    isCopilotAvailable: Boolean = false,
+    isRefreshingCopilot: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -154,6 +157,34 @@ fun IdeaModelSelector(
                             text = "Add New Config",
                             style = JewelTheme.defaultTextStyle.copy(fontSize = 13.sp)
                         )
+                    }
+                }
+                
+                // Refresh GitHub Copilot button (only shown when Copilot is configured)
+                if (isCopilotAvailable && onRefreshCopilot != null) {
+                    selectableItem(
+                        selected = false,
+                        enabled = !isRefreshingCopilot,
+                        onClick = {
+                            onRefreshCopilot()
+                            expanded = false
+                        }
+                    ) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = IdeaComposeIcons.Refresh,
+                                contentDescription = null,
+                                tint = JewelTheme.globalColors.text.normal,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                text = if (isRefreshingCopilot) "Refreshing Copilot..." else "Refresh GitHub Copilot",
+                                style = JewelTheme.defaultTextStyle.copy(fontSize = 13.sp)
+                            )
+                        }
                     }
                 }
 

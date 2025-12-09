@@ -15,6 +15,7 @@ enum class LLMProviderType(val displayName: String) {
     GLM("GLM"),
     QWEN("Qwen"),
     KIMI("Kimi"),
+    GITHUB_COPILOT("GitHub Copilot"),
     CUSTOM_OPENAI_BASE("custom-openai-base");
 
     companion object {
@@ -77,6 +78,9 @@ data class ModelConfig(
                 modelName.isNotEmpty() && baseUrl.isNotEmpty()
             LLMProviderType.GLM, LLMProviderType.QWEN, LLMProviderType.KIMI, LLMProviderType.CUSTOM_OPENAI_BASE ->
                 apiKey.isNotEmpty() && modelName.isNotEmpty() && baseUrl.isNotEmpty()
+            LLMProviderType.GITHUB_COPILOT ->
+                // GitHub Copilot uses OAuth token from local config file, no API key needed
+                modelName.isNotEmpty()
             else ->
                 apiKey.isNotEmpty() && modelName.isNotEmpty()
         }
