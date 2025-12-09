@@ -1,4 +1,4 @@
-rootProject.name = "Xiiu"
+rootProject.name = "Xiuper"
 
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
