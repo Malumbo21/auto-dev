@@ -4,7 +4,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
-import kotlin.test.assertFalse
 
 /**
  * Test for ChartAgent data classes and schema
@@ -16,63 +15,45 @@ class ChartAgentTest {
     @Test
     fun testChartContextCreation() {
         val context = ChartContext(
-            data = "Sales: Q1=100, Q2=150, Q3=200",
-            chartType = "column",
-            description = "Show quarterly sales",
-            title = "Quarterly Sales Report"
+            description = "Create a column chart showing quarterly sales: Q1=100, Q2=150, Q3=200 with title 'Quarterly Sales Report'"
         )
 
-        assertEquals("Sales: Q1=100, Q2=150, Q3=200", context.data)
-        assertEquals("column", context.chartType)
-        assertEquals("Show quarterly sales", context.description)
-        assertEquals("Quarterly Sales Report", context.title)
+        assertTrue(context.description.contains("quarterly sales"))
+        assertTrue(context.description.contains("column chart"))
     }
 
     @Test
-    fun testChartContextDefaults() {
+    fun testChartContextWithPieDescription() {
         val context = ChartContext(
-            data = "Simple data"
-        )
-
-        assertEquals("Simple data", context.data)
-        assertEquals(null, context.chartType)
-        assertEquals(null, context.description)
-        assertEquals(null, context.title)
-    }
-
-    @Test
-    fun testChartContextWithPieData() {
-        val context = ChartContext(
-            data = """
+            description = """
+                Create a pie chart showing distribution:
                 Category A: 30%
                 Category B: 45%
                 Category C: 25%
-            """.trimIndent(),
-            chartType = "pie",
-            title = "Distribution"
+                Title: Distribution
+            """.trimIndent()
         )
 
-        assertEquals("pie", context.chartType)
-        assertTrue(context.data.contains("Category A"))
-        assertTrue(context.data.contains("30%"))
+        assertTrue(context.description.contains("pie chart"))
+        assertTrue(context.description.contains("Category A"))
+        assertTrue(context.description.contains("30%"))
     }
 
     @Test
-    fun testChartContextWithLineData() {
+    fun testChartContextWithLineDescription() {
         val context = ChartContext(
-            data = """
+            description = """
+                Create a line chart for monthly financials:
                 Month,Revenue,Expenses
                 Jan,1000,800
                 Feb,1200,850
                 Mar,1100,900
-            """.trimIndent(),
-            chartType = "line",
-            title = "Monthly Financials"
+            """.trimIndent()
         )
 
-        assertEquals("line", context.chartType)
-        assertTrue(context.data.contains("Revenue"))
-        assertTrue(context.data.contains("Expenses"))
+        assertTrue(context.description.contains("line chart"))
+        assertTrue(context.description.contains("Revenue"))
+        assertTrue(context.description.contains("Expenses"))
     }
 
     // ============= Schema Tests =============
@@ -82,7 +63,7 @@ class ChartAgentTest {
         val example = ChartAgentSchema.getExampleUsage("chart-agent")
 
         assertTrue(example.contains("/chart-agent"))
-        assertTrue(example.contains("data="))
+        assertTrue(example.contains("description="))
     }
 
     @Test
@@ -91,76 +72,57 @@ class ChartAgentTest {
 
         assertNotNull(jsonSchema)
         val schemaString = jsonSchema.toString()
-        assertTrue(schemaString.contains("data"))
-        assertTrue(schemaString.contains("chartType"))
+        assertTrue(schemaString.contains("description"))
     }
 
     // ============= Validation Tests =============
 
     @Test
-    fun testChartContextWithJsonData() {
-        val jsonData = """
-            {
-                "labels": ["Q1", "Q2", "Q3", "Q4"],
-                "values": [100, 150, 200, 180]
-            }
-        """.trimIndent()
-        
+    fun testChartContextWithJsonDataDescription() {
         val context = ChartContext(
-            data = jsonData,
-            chartType = "column"
+            description = """
+                Create a column chart with this data:
+                {
+                    "labels": ["Q1", "Q2", "Q3", "Q4"],
+                    "values": [100, 150, 200, 180]
+                }
+            """.trimIndent()
         )
 
-        assertTrue(context.data.contains("labels"))
-        assertTrue(context.data.contains("values"))
+        assertTrue(context.description.contains("labels"))
+        assertTrue(context.description.contains("values"))
     }
 
     @Test
-    fun testChartContextWithCsvData() {
-        val csvData = """
-            Name,Value,Color
-            Sales,100,#1E88E5
-            Marketing,80,#43A047
-            Development,120,#FB8C00
-        """.trimIndent()
-        
+    fun testChartContextWithCsvDataDescription() {
         val context = ChartContext(
-            data = csvData,
-            chartType = "row"
+            description = """
+                Create a horizontal bar chart with this CSV data:
+                Name,Value,Color
+                Sales,100,#1E88E5
+                Marketing,80,#43A047
+                Development,120,#FB8C00
+            """.trimIndent()
         )
 
-        assertEquals("row", context.chartType)
-        assertTrue(context.data.contains("Sales"))
-        assertTrue(context.data.contains("#1E88E5"))
+        assertTrue(context.description.contains("horizontal bar chart"))
+        assertTrue(context.description.contains("Sales"))
+        assertTrue(context.description.contains("#1E88E5"))
     }
 
     // ============= Edge Cases =============
 
     @Test
-    fun testChartContextWithEmptyOptionalFields() {
-        val context = ChartContext(
-            data = "Some data",
-            chartType = null,
-            description = null,
-            title = null
-        )
-
-        assertEquals("Some data", context.data)
-        assertEquals(null, context.chartType)
-    }
-
-    @Test
-    fun testChartContextWithLongData() {
+    fun testChartContextWithLongDescription() {
         val longData = (1..100).joinToString("\n") { "Item $it: ${it * 10}" }
-        
+
         val context = ChartContext(
-            data = longData,
-            chartType = "column"
+            description = "Create a column chart with this data:\n$longData"
         )
 
-        assertTrue(context.data.length > 500)
-        assertTrue(context.data.contains("Item 1"))
-        assertTrue(context.data.contains("Item 100"))
+        assertTrue(context.description.length > 500)
+        assertTrue(context.description.contains("Item 1"))
+        assertTrue(context.description.contains("Item 100"))
     }
 }
 

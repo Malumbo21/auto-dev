@@ -42,40 +42,18 @@ class ChartAgent(
     override val priority: Int = 60 // Medium-high priority for visualization tasks
 
     override fun validateInput(input: Map<String, Any>): ChartContext {
-        // Handle various ways the data parameter might be provided
-        val data = when {
-            input.containsKey("data") -> {
-                when (val dataValue = input["data"]) {
-                    is String -> dataValue.takeIf { it.isNotBlank() }
-                    else -> dataValue?.toString()?.takeIf { it.isNotBlank() }
-                }
-            }
-            // Fallback: check if there's any content that could be used as data
-            input.containsKey("content") -> (input["content"] as? String)?.takeIf { it.isNotBlank() }
-            input.containsKey("input") -> (input["input"] as? String)?.takeIf { it.isNotBlank() }
-            else -> null
-        } ?: throw IllegalArgumentException(
-            "Missing required parameter: data. Received parameters: ${input.keys.joinToString()}"
-        )
+        val description = input["description"] as? String
+            ?: throw IllegalArgumentException("Missing required parameter: description")
 
-        val chartType = (input["chartType"] ?: input["chart_type"] ?: input["type"]) as? String
-        val description = (input["description"] ?: input["desc"]) as? String
-        val title = input["title"] as? String
-
-        return ChartContext(
-            data = data,
-            chartType = chartType,
-            description = description,
-            title = title
-        )
+        return ChartContext(description = description)
     }
 
     override suspend fun execute(
         input: ChartContext,
         onProgress: (String) -> Unit
     ): ToolResult.AgentResult {
-        onProgress("📊 Chart Agent: Generating chart from data")
-        onProgress("Data preview: ${input.data.take(100)}...")
+        onProgress("📊 Chart Agent: Generating chart from description")
+        onProgress("Description: ${input.description.take(100)}...")
 
         var lastGeneratedCode = ""
 
@@ -158,7 +136,7 @@ class ChartAgent(
             success = false,
             content = lastGeneratedCode.ifEmpty { "Failed to generate valid chart configuration" },
             metadata = mapOf(
-                "data" to input.data.take(200),
+                "description" to input.description.take(200),
                 "attempts" to maxRetries.toString(),
                 "isValid" to "false"
             )
@@ -183,9 +161,7 @@ class ChartAgent(
         attempts: Int
     ): Map<String, String> {
         return buildMap {
-            put("dataPreview", input.data.take(200))
-            input.chartType?.let { put("chartType", it) }
-            input.title?.let { put("title", it) }
+            put("description", input.description.take(200))
             put("linesOfCode", code.lines().size.toString())
             put("attempts", attempts.toString())
             put("isValid", "true")
@@ -193,30 +169,11 @@ class ChartAgent(
     }
 
     private fun buildPrompt(input: ChartContext): String {
-        val chartTypeHint = input.chartType?.let {
-            "Generate a $it chart."
-        } ?: "Choose the most appropriate chart type based on the data."
-
-        val titleHint = input.title?.let {
-            "Chart title: $it"
-        } ?: ""
-
-        val descriptionHint = input.description?.let {
-            "Additional requirements: $it"
-        } ?: ""
-
         return """
 $promptTemplate
 
-## Data to Visualize:
-${input.data}
-
-## Requirements:
-$chartTypeHint
-$titleHint
-$descriptionHint
-
-Generate the chart configuration now:
+## User Request:
+${input.description}
 """.trim()
     }
 
@@ -240,9 +197,8 @@ Generate the chart configuration now:
         question: String,
         context: Map<String, Any>
     ): ToolResult.AgentResult {
-        val data = context["data"] as? String ?: question
         return execute(
-            ChartContext(data = data, description = question),
+            ChartContext(description = question),
             onProgress = {}
         )
     }
@@ -258,7 +214,7 @@ Generate the chart configuration now:
         private fun createDefinition() = AgentDefinition(
             name = "chart-agent",
             displayName = "Chart Agent",
-            description = "Generates chart configurations from data using AI",
+            description = ChartAgentSchema.description,
             promptConfig = PromptConfig(
                 systemPrompt = "You are a data visualization expert. Generate chart configurations."
             ),
@@ -346,17 +302,14 @@ Use these colors: #1E88E5 (blue), #43A047 (green), #FB8C00 (orange), #E53935 (re
  */
 @Serializable
 data class ChartContext(
-    val data: String,
-    val chartType: String? = null,
-    val description: String? = null,
-    val title: String? = null
+    val description: String
 )
 
 /**
  * Schema for Chart Agent tool
  */
 object ChartAgentSchema : DeclarativeToolSchema(
-    description = """Generate chart visualization from data.
+    description = """Generate chart visualization from natural language description.
 
 This tool uses a specialized sub-agent to analyze data and generate appropriate chart configurations.
 The generated code will be returned in a ```chart code block that can be rendered as an interactive chart.
@@ -375,26 +328,14 @@ Use this tool when the user:
 - Wants to see trends, comparisons, or distributions
 - Asks to plot or graph data""",
     properties = mapOf(
-        "data" to string(
-            description = "The data to visualize. Can be in various formats: CSV, JSON, plain text with numbers, or natural language description of data.",
-            required = true
-        ),
-        "chartType" to string(
-            description = "Optional: Specific chart type to use (pie, line, column, row). If not specified, the agent will choose the most appropriate type.",
-            required = false
-        ),
         "description" to string(
-            description = "Optional: Additional requirements or context for the chart generation.",
-            required = false
-        ),
-        "title" to string(
-            description = "Optional: Title for the chart.",
-            required = false
+            description = "Natural language description of the chart to generate. Include the data, chart type, title, and any visualization requirements.",
+            required = true
         )
     )
 ) {
     override fun getExampleUsage(toolName: String): String {
-        return """/$toolName data="Sales: Q1=100, Q2=150, Q3=200, Q4=180" chartType="column" title="Quarterly Sales""""
+        return """/$toolName description="Create a column chart showing quarterly sales: Q1=100, Q2=150, Q3=200, Q4=180 with title 'Quarterly Sales'""""
     }
 }
 

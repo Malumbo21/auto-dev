@@ -110,17 +110,9 @@ class JsAnalysisAgent(
  */
 @JsExport
 data class JsNanoDSLContext(
-    val description: String,
-    val componentType: String? = null,
-    val includeState: Boolean = true,
-    val includeHttp: Boolean = false
+    val description: String
 ) {
-    fun toCommon(): NanoDSLContext = NanoDSLContext(
-        description = description,
-        componentType = componentType,
-        includeState = includeState,
-        includeHttp = includeHttp
-    )
+    fun toCommon(): NanoDSLContext = NanoDSLContext(description = description)
 }
 
 /**
@@ -152,12 +144,9 @@ class JsNanoDSLAgent(
      * Generate NanoDSL code from simple description string
      * Convenience method for simple use cases
      */
-    fun generate(description: String, includeHttp: Boolean = false): Promise<ToolResult.AgentResult> {
+    fun generate(description: String): Promise<ToolResult.AgentResult> {
         return GlobalScope.promise {
-            val context = NanoDSLContext(
-                description = description,
-                includeHttp = includeHttp
-            )
+            val context = NanoDSLContext(description = description)
             agent.execute(context) { /* ignore progress */ }
         }
     }
@@ -175,17 +164,9 @@ class JsNanoDSLAgent(
  */
 @JsExport
 data class JsChartContext(
-    val data: String,
-    val chartType: String? = null,
-    val description: String? = null,
-    val title: String? = null
+    val description: String
 ) {
-    fun toCommon(): ChartContext = ChartContext(
-        data = data,
-        chartType = chartType,
-        description = description,
-        title = title
-    )
+    fun toCommon(): ChartContext = ChartContext(description = description)
 }
 
 /**
@@ -214,20 +195,12 @@ class JsChartAgent(
     }
 
     /**
-     * Generate chart from simple data string
+     * Generate chart from simple description string
      * Convenience method for simple use cases
      */
-    fun generate(
-        data: String,
-        chartType: String? = null,
-        title: String? = null
-    ): Promise<ToolResult.AgentResult> {
+    fun generate(description: String): Promise<ToolResult.AgentResult> {
         return GlobalScope.promise {
-            val context = ChartContext(
-                data = data,
-                chartType = chartType,
-                title = title
-            )
+            val context = ChartContext(description = description)
             agent.execute(context) { /* ignore progress */ }
         }
     }

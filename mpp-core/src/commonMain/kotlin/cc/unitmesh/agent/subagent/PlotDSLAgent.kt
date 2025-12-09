@@ -8,7 +8,6 @@ import cc.unitmesh.agent.model.PromptConfig
 import cc.unitmesh.agent.model.RunConfig
 import cc.unitmesh.agent.tool.ToolResult
 import cc.unitmesh.agent.tool.schema.DeclarativeToolSchema
-import cc.unitmesh.agent.tool.schema.SchemaPropertyBuilder.boolean
 import cc.unitmesh.agent.tool.schema.SchemaPropertyBuilder.string
 import cc.unitmesh.devins.parser.CodeFence
 import cc.unitmesh.llm.KoogLLMService
@@ -56,16 +55,8 @@ class PlotDSLAgent(
     override fun validateInput(input: Map<String, Any>): PlotDSLContext {
         val description = input["description"] as? String
             ?: throw IllegalArgumentException("Missing required parameter: description")
-        val chartType = input["chartType"] as? String
-        val theme = input["theme"] as? String ?: "minimal"
-        val includeTitle = input["includeTitle"] as? Boolean ?: true
 
-        return PlotDSLContext(
-            description = description,
-            chartType = chartType,
-            theme = theme,
-            includeTitle = includeTitle
-        )
+        return PlotDSLContext(description = description)
     }
 
     override suspend fun execute(
@@ -264,8 +255,6 @@ $errorFeedback
     ): Map<String, String> {
         return buildMap {
             put("description", input.description)
-            put("chartType", input.chartType ?: "auto")
-            put("theme", input.theme)
             put("linesOfCode", code.lines().size.toString())
             put("attempts", attempts.toString())
             put("isValid", validationResult.isValid.toString())
@@ -276,17 +265,8 @@ $errorFeedback
     }
 
     private fun buildPrompt(input: PlotDSLContext): String {
-        val featureHints = buildList {
-            input.chartType?.let { add("Chart type: $it") }
-            add("Theme: ${input.theme}")
-            if (input.includeTitle) add("Include a descriptive title")
-        }.joinToString("\n- ")
-
         return """
 $promptTemplate
-
-## Requirements:
-- $featureHints
 
 ## User Request:
 ${input.description}
@@ -330,7 +310,7 @@ ${input.description}
         private fun createDefinition() = AgentDefinition(
             name = "plotdsl-agent",
             displayName = "PlotDSL Agent",
-            description = "Generates data visualizations from natural language descriptions.",
+            description = PlotDSLAgentSchema.description,
             promptConfig = PromptConfig(
                 systemPrompt = "You are a data visualization expert. Generate statistical charts using PlotDSL syntax."
             ),
@@ -454,10 +434,7 @@ data class PlotDSLValidationResult(
  */
 @Serializable
 data class PlotDSLContext(
-    val description: String,
-    val chartType: String? = null,
-    val theme: String = "minimal",
-    val includeTitle: Boolean = true
+    val description: String
 )
 
 /**
@@ -480,25 +457,13 @@ Use this tool when the user asks for:
 - Time series visualizations""",
     properties = mapOf(
         "description" to string(
-            description = "Natural language description of the chart to generate. Be specific about data, chart type, and visualization requirements.",
+            description = "Natural language description of the chart to generate. Be specific about data, chart type, theme, and visualization requirements.",
             required = true
-        ),
-        "chartType" to string(
-            description = "Optional: Specific chart type (bar, line, scatter, histogram, boxplot, area, density)",
-            required = false
-        ),
-        "theme" to string(
-            description = "Chart theme (default, minimal, classic, dark, light, void). Default is 'minimal'",
-            required = false
-        ),
-        "includeTitle" to boolean(
-            description = "Whether to include a descriptive title in the chart (default: true)",
-            required = false
         )
     )
 ) {
     override fun getExampleUsage(toolName: String): String {
-        return """/$toolName description="Create a bar chart showing quarterly sales: Q1=100, Q2=150, Q3=120, Q4=180" chartType="bar" theme="minimal""""
+        return """/$toolName description="Create a bar chart showing quarterly sales: Q1=100, Q2=150, Q3=120, Q4=180 with minimal theme""""
     }
 }
 

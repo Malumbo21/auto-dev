@@ -11,7 +11,6 @@ import cc.unitmesh.agent.parser.NanoDSLValidator
 import cc.unitmesh.agent.parser.ValidationError
 import cc.unitmesh.agent.tool.ToolResult
 import cc.unitmesh.agent.tool.schema.DeclarativeToolSchema
-import cc.unitmesh.agent.tool.schema.SchemaPropertyBuilder.boolean
 import cc.unitmesh.agent.tool.schema.SchemaPropertyBuilder.string
 import cc.unitmesh.devins.parser.CodeFence
 import cc.unitmesh.llm.KoogLLMService
@@ -50,16 +49,8 @@ class NanoDSLAgent(
     override fun validateInput(input: Map<String, Any>): NanoDSLContext {
         val description = input["description"] as? String
             ?: throw IllegalArgumentException("Missing required parameter: description")
-        val componentType = input["componentType"] as? String
-        val includeState = input["includeState"] as? Boolean ?: true
-        val includeHttp = input["includeHttp"] as? Boolean ?: false
 
-        return NanoDSLContext(
-            description = description,
-            componentType = componentType,
-            includeState = includeState,
-            includeHttp = includeHttp
-        )
+        return NanoDSLContext(description = description)
     }
 
     override suspend fun execute(
@@ -235,10 +226,7 @@ $errorFeedback
     ): Map<String, String> {
         return buildMap {
             put("description", input.description)
-            put("componentType", input.componentType ?: "auto")
             put("linesOfCode", code.lines().size.toString())
-            put("includesState", input.includeState.toString())
-            put("includesHttp", input.includeHttp.toString())
             put("attempts", attempts.toString())
             put("isValid", validationResult.isValid.toString())
             irJson?.let { put("irJson", it) }
@@ -249,16 +237,9 @@ $errorFeedback
     }
 
     private fun buildPrompt(input: NanoDSLContext): String {
-        val featureHints = buildList {
-            if (input.includeState) add("Include state management if needed")
-            if (input.includeHttp) add("Include HTTP request actions (Fetch) if applicable")
-            input.componentType?.let { add("Focus on creating a $it component") }
-        }.joinToString("\n- ")
-
         return """
 $promptTemplate
 
-${if (featureHints.isNotEmpty()) "## Additional Requirements:\n- $featureHints\n" else ""}
 ## User Request:
 ${input.description}
 """.trim()
@@ -374,10 +355,7 @@ Button("Submit"):
  */
 @Serializable
 data class NanoDSLContext(
-    val description: String,
-    val componentType: String? = null,
-    val includeState: Boolean = true,
-    val includeHttp: Boolean = false
+    val description: String
 )
 
 /**
@@ -399,25 +377,13 @@ Use this tool when the user asks for:
 - User input forms""",
     properties = mapOf(
         "description" to string(
-            description = "Natural language description of the UI to generate. Be specific about components, layout, and interactions needed.",
+            description = "Natural language description of the UI to generate. Be specific about components, layout, interactions, state management, and HTTP requests needed.",
             required = true
-        ),
-        "componentType" to string(
-            description = "Optional: Specific component type to focus on (card, form, list, dashboard, etc.)",
-            required = false
-        ),
-        "includeState" to boolean(
-            description = "Whether to include state management for interactive components (default: true)",
-            required = false
-        ),
-        "includeHttp" to boolean(
-            description = "Whether to include HTTP request actions like Fetch for API calls (default: false)",
-            required = false
         )
     )
 ) {
     override fun getExampleUsage(toolName: String): String {
-        return """/$toolName description="Create a contact form with name, email, message fields and a submit button that sends to /api/contact" includeHttp=true"""
+        return """/$toolName description="Create a contact form with name, email, message fields and a submit button that sends to /api/contact""""
     }
 }
 
