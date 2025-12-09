@@ -5,13 +5,17 @@ import cc.unitmesh.devti.llm2.ChatSession
 import cc.unitmesh.devti.llm2.LLMProvider2
 import cc.unitmesh.devti.llm2.model.LlmConfig
 import cc.unitmesh.devti.llm2.model.ModelType
+import cc.unitmesh.devti.llm2.model.toKoogMessages
 import cc.unitmesh.devti.llms.custom.Message
 import cc.unitmesh.devti.observer.agent.AgentStateService
 import cc.unitmesh.devti.prompting.optimizer.PromptOptimizer
 import cc.unitmesh.devti.settings.coder.coderSetting
+import cc.unitmesh.llm.KoogLLMService
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.project.Project
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 
 /**
  * Adapter that bridges the old LLMProvider interface with the new LLMProvider2 implementation.
@@ -48,8 +52,6 @@ class LLMProviderAdapter(
             }
         }
 
-        val actualProvider = LLMProvider2.fromConfig(actualLlmConfig, project)
-        currentProvider = actualProvider
         if (!keepHistory || project.coderSetting.state.noChatHistory) {
             clearMessage()
             currentSession = ChatSession("adapter-session")
@@ -76,8 +78,68 @@ class LLMProviderAdapter(
         val finalMsgs = agentService.processMessages(messages)
         currentSession = ChatSession("adapter-session", finalMsgs)
 
+        // Choose between KoogLLMService and LLMProvider2 based on config
+        return if (actualLlmConfig.isGithubCopilot()) {
+            streamWithLLMProvider2(actualLlmConfig, prompt)
+        } else {
+            streamWithKoogLLMService(actualLlmConfig, prompt, keepHistory)
+        }
+    }
+
+    /**
+     * Stream using KoogLLMService for non-GitHub Copilot models
+     */
+    private fun streamWithKoogLLMService(
+        llmConfig: LlmConfig,
+        prompt: String,
+        keepHistory: Boolean
+    ): Flow<String> {
         return try {
-            kotlinx.coroutines.flow.flow {
+            val modelConfig = llmConfig.toModelConfig()
+            val koogService = KoogLLMService.create(modelConfig)
+
+            // Convert IDEA messages to Koog messages (excluding the last user message as it's passed separately)
+            val historyMessages = messages.dropLast(1).toKoogMessages()
+
+            flow {
+                var fullResponse = ""
+
+                koogService.streamPrompt(
+                    userPrompt = prompt,
+                    historyMessages = historyMessages,
+                    compileDevIns = false // DevIns compilation is handled elsewhere in IDEA
+                ).collect { chunk ->
+                    fullResponse += chunk
+                    emit(chunk)
+                }
+
+                // Update message history with the complete response
+                if (fullResponse.isNotEmpty()) {
+                    messages.add(Message("assistant", fullResponse))
+                }
+            }
+        } catch (e: Exception) {
+            logger.error("Error in KoogLLMService stream", e)
+            flowOf("Error: ${e.message}")
+        }.also {
+            if (!keepHistory || project.coderSetting.state.noChatHistory) {
+                clearMessage()
+            }
+        }
+    }
+
+    /**
+     * Stream using LLMProvider2 for GitHub Copilot models
+     */
+    private fun streamWithLLMProvider2(
+        llmConfig: LlmConfig,
+        prompt: String
+    ): Flow<String> {
+        val actualProvider = LLMProvider2.fromConfig(llmConfig, project)
+        currentProvider = actualProvider
+
+        return try {
+            flow {
                 var fullResponse = ""
                 var lastEmittedLength = 0
 
@@ -105,13 +167,8 @@ class LLMProviderAdapter(
                 }
             }
         } catch (e: Exception) {
-            logger.error("Error in LLMProviderAdapter.stream", e)
-            kotlinx.coroutines.flow.flowOf("Error: ${e.message}")
-        }.also {
-            // Update internal message history
-            if (!keepHistory || project.coderSetting.state.noChatHistory) {
-                clearMessage()
-            }
+            logger.error("Error in LLMProvider2 stream", e)
+            flowOf("Error: ${e.message}")
         }
     }
 

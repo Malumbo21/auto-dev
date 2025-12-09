@@ -1,6 +1,8 @@
 package cc.unitmesh.devti.llm2.model
 
 import cc.unitmesh.devti.settings.AutoDevSettingsState
+import cc.unitmesh.llm.LLMProviderType
+import cc.unitmesh.llm.ModelConfig
 import kotlinx.serialization.*
 import kotlinx.serialization.descriptors.*
 import kotlinx.serialization.encoding.*
@@ -121,7 +123,93 @@ data class LlmConfig(
             })
         }.toString()
     }
+
+    /**
+     * Convert to mpp-core ModelConfig for use with KoogLLMService
+     */
+    fun toModelConfig(): ModelConfig {
+        val provider = detectProvider(url)
+        val modelName = getModelName()
+        val temperature = getTemperature()
+
+        return ModelConfig(
+            provider = provider,
+            modelName = modelName,
+            apiKey = auth.token,
+            temperature = temperature,
+            maxTokens = maxTokens,
+            baseUrl = getBaseUrl(),
+            customHeaders = customRequest.headers,
+            customBodyFields = customRequest.body.mapValues { (_, value) ->
+                when (value) {
+                    is JsonPrimitive -> value.content
+                    else -> value.toString()
+                }
+            },
+            responseContentPath = getResponseFormatByStream(),
+            reasoningContentPath = "", // Can be extended if needed
+            stream = customRequest.stream
+        )
+    }
+
+    /**
+     * Check if this config is for GitHub Copilot
+     */
+    fun isGithubCopilot(): Boolean {
+        return url.contains("githubcopilot.com") || url.contains("github.com/copilot")
+    }
+
+    /**
+     * Get the model name from customRequest body or name field
+     */
+    fun getModelName(): String {
+        val modelFromBody = customRequest.body["model"]
+        return when {
+            modelFromBody is JsonPrimitive -> modelFromBody.content
+            else -> name
+        }
+    }
+
+    /**
+     * Get the temperature from customRequest body
+     */
+    fun getTemperature(): Double {
+        val tempFromBody = customRequest.body["temperature"]
+        return when {
+            tempFromBody is JsonPrimitive && tempFromBody.doubleOrNull != null -> tempFromBody.double
+            else -> 0.0
+        }
+    }
+
+    /**
+     * Get the base URL (without the chat/completions path)
+     */
+    fun getBaseUrl(): String {
+        // Remove common API paths to get the base URL
+        return url
+            .removeSuffix("/chat/completions")
+            .removeSuffix("/v1")
+            .removeSuffix("/")
+    }
+
     companion object {
+        /**
+         * Detect the LLM provider type from URL
+         */
+        fun detectProvider(url: String): LLMProviderType {
+            return when {
+                url.contains("api.openai.com") -> LLMProviderType.OPENAI
+                url.contains("api.anthropic.com") -> LLMProviderType.ANTHROPIC
+                url.contains("generativelanguage.googleapis.com") -> LLMProviderType.GOOGLE
+                url.contains("api.deepseek.com") -> LLMProviderType.DEEPSEEK
+                url.contains("localhost:11434") || url.contains("ollama") -> LLMProviderType.OLLAMA
+                url.contains("openrouter.ai") -> LLMProviderType.OPENROUTER
+                url.contains("open.bigmodel.cn") -> LLMProviderType.GLM
+                url.contains("dashscope.aliyuncs.com") -> LLMProviderType.QWEN
+                url.contains("moonshot.cn") -> LLMProviderType.KIMI
+                else -> LLMProviderType.CUSTOM_OPENAI_BASE
+            }
+        }
         fun load(): List<LlmConfig> {
             val llms = AutoDevSettingsState.getInstance().customLlms.trim()
             if (llms.isEmpty()) {

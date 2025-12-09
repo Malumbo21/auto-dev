@@ -117,6 +117,7 @@ data class CustomOpenAIChatCompletionStreamResponse(
  * @param apiKey The API key for the custom API
  * @param baseUrl The base URL of the custom API (e.g., "https://open.bigmodel.cn/api/paas/v4", without trailing slash)
  * @param chatCompletionsPath The path for chat completions (default: "chat/completions", NO leading slash)
+ * @param customHeaders Custom HTTP headers to include in requests
  * @param timeoutConfig Configuration for connection timeouts
  * @param baseClient Optional custom HTTP client
  * @param clock Clock instance for tracking timestamps
@@ -125,13 +126,23 @@ class CustomOpenAILLMClient(
     apiKey: String,
     baseUrl: String,
     chatCompletionsPath: String = "chat/completions",
+    private val customHeaders: Map<String, String> = emptyMap(),
     timeoutConfig: ConnectionTimeoutConfig = ConnectionTimeoutConfig(),
     baseClient: HttpClient = HttpClient(),
     clock: Clock = Clock.System
 ) : AbstractOpenAILLMClient<CustomOpenAIChatCompletionResponse, CustomOpenAIChatCompletionStreamResponse>(
     apiKey,
     CustomOpenAIClientSettings(baseUrl, chatCompletionsPath, timeoutConfig),
-    baseClient,
+    baseClient.config {
+        // Add custom headers to all requests
+        if (customHeaders.isNotEmpty()) {
+            install(io.ktor.client.plugins.DefaultRequest) {
+                customHeaders.forEach { (key, value) ->
+                    headers.append(key, value)
+                }
+            }
+        }
+    },
     clock,
     staticLogger
 ) {

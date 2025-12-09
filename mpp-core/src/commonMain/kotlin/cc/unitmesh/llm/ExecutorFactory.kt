@@ -59,21 +59,45 @@ object ExecutorFactory {
 
     private fun createGLM(config: ModelConfig): SingleLLMPromptExecutor {
         val baseUrl = config.baseUrl.ifEmpty { ModelRegistry.getDefaultBaseUrl(LLMProviderType.GLM) }
-        return SingleLLMPromptExecutor(CustomOpenAILLMClient(config.apiKey, baseUrl))
+        return SingleLLMPromptExecutor(
+            CustomOpenAILLMClient(
+                apiKey = config.apiKey,
+                baseUrl = baseUrl,
+                customHeaders = config.customHeaders
+            )
+        )
     }
 
     private fun createQwen(config: ModelConfig): SingleLLMPromptExecutor {
         val baseUrl = config.baseUrl.ifEmpty { ModelRegistry.getDefaultBaseUrl(LLMProviderType.QWEN) }
-        return SingleLLMPromptExecutor(CustomOpenAILLMClient(config.apiKey, baseUrl))
+        return SingleLLMPromptExecutor(
+            CustomOpenAILLMClient(
+                apiKey = config.apiKey,
+                baseUrl = baseUrl,
+                customHeaders = config.customHeaders
+            )
+        )
     }
 
     private fun createKimi(config: ModelConfig): SingleLLMPromptExecutor {
         val baseUrl = config.baseUrl.ifEmpty { ModelRegistry.getDefaultBaseUrl(LLMProviderType.KIMI) }
-        return SingleLLMPromptExecutor(CustomOpenAILLMClient(config.apiKey, baseUrl))
+        return SingleLLMPromptExecutor(
+            CustomOpenAILLMClient(
+                apiKey = config.apiKey,
+                baseUrl = baseUrl,
+                customHeaders = config.customHeaders
+            )
+        )
     }
 
     private fun createCustomOpenAI(config: ModelConfig): SingleLLMPromptExecutor {
         require(config.baseUrl.isNotEmpty()) { "baseUrl is required for custom OpenAI provider" }
-        return SingleLLMPromptExecutor(CustomOpenAILLMClient(config.apiKey, config.baseUrl))
+        return SingleLLMPromptExecutor(
+            CustomOpenAILLMClient(
+                apiKey = config.apiKey,
+                baseUrl = config.baseUrl,
+                customHeaders = config.customHeaders
+            )
+        )
     }
 }
