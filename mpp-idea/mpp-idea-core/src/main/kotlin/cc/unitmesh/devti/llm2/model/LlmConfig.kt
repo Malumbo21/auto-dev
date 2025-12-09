@@ -1,8 +1,10 @@
 package cc.unitmesh.devti.llm2.model
 
+import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.devti.settings.AutoDevSettingsState
 import cc.unitmesh.llm.LLMProviderType
 import cc.unitmesh.llm.ModelConfig
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.*
 import kotlinx.serialization.descriptors.*
 import kotlinx.serialization.encoding.*
@@ -126,19 +128,36 @@ data class LlmConfig(
 
     /**
      * Convert to mpp-core ModelConfig for use with KoogLLMService
+     *
+     * If auth.token is empty, tries to load from ~/.autodev/config.yaml as fallback
      */
     fun toModelConfig(): ModelConfig {
         val provider = detectProvider(url)
         val modelName = getModelName()
         val temperature = getTemperature()
+        var apiKey = auth.token
+        val baseUrl = getBaseUrl()
+
+        // If no API key in LlmConfig, try to load from ConfigManager (~/.autodev/config.yaml)
+        if (apiKey.isEmpty()) {
+            println("[LlmConfig.toModelConfig] No API key in LlmConfig, trying ConfigManager fallback...")
+            val configManagerConfig = loadFromConfigManager()
+            if (configManagerConfig != null) {
+                println("[LlmConfig.toModelConfig] Found config from ConfigManager: provider=${configManagerConfig.provider}, model=${configManagerConfig.modelName}")
+                return configManagerConfig
+            }
+        }
+
+        // Log configuration for debugging
+        println("[LlmConfig.toModelConfig] Converting config: name=$name, provider=$provider, modelName=$modelName, baseUrl=$baseUrl, hasApiKey=${apiKey.isNotEmpty()}")
 
         return ModelConfig(
             provider = provider,
             modelName = modelName,
-            apiKey = auth.token,
+            apiKey = apiKey,
             temperature = temperature,
             maxTokens = maxTokens,
-            baseUrl = getBaseUrl(),
+            baseUrl = baseUrl,
             customHeaders = customRequest.headers,
             customBodyFields = customRequest.body.mapValues { (_, value) ->
                 when (value) {
@@ -150,6 +169,29 @@ data class LlmConfig(
             reasoningContentPath = "", // Can be extended if needed
             stream = customRequest.stream
         )
+    }
+
+    /**
+     * Try to load ModelConfig from ConfigManager (~/.autodev/config.yaml)
+     * Returns null if no valid config is found
+     */
+    private fun loadFromConfigManager(): ModelConfig? {
+        return try {
+            runBlocking {
+                val wrapper = ConfigManager.load()
+                val activeConfig = wrapper.getActiveModelConfig()
+                if (activeConfig != null && activeConfig.apiKey.isNotEmpty()) {
+                    println("[LlmConfig.loadFromConfigManager] Loaded active config: ${wrapper.getActiveName()}")
+                    activeConfig
+                } else {
+                    println("[LlmConfig.loadFromConfigManager] No valid active config found in ConfigManager")
+                    null
+                }
+            }
+        } catch (e: Exception) {
+            println("[LlmConfig.loadFromConfigManager] Error loading from ConfigManager: ${e.message}")
+            null
+        }
     }
 
     /**
@@ -338,19 +380,25 @@ data class LlmConfig(
         fun default(): LlmConfig {
             val state = AutoDevSettingsState.getInstance()
 
+            println("[LlmConfig.default] defaultModelId=${state.defaultModelId}, useDefaultForAllCategories=${state.useDefaultForAllCategories}")
+
             // Try to use the new default model configuration first
             if (state.defaultModelId.isNotEmpty()) {
                 // Check if it's a GitHub model first
                 if (isGithubModel(state.defaultModelId)) {
+                    println("[LlmConfig.default] Using GitHub model: ${state.defaultModelId}")
                     return createGithubConfig(state.defaultModelId)
                 }
 
                 // Find the model by ID in custom LLMs
                 val customLlms = load()
+                println("[LlmConfig.default] Loaded ${customLlms.size} custom LLMs")
                 val defaultModel = customLlms.find { it.name == state.defaultModelId }
                 if (defaultModel != null) {
+                    println("[LlmConfig.default] Found model: ${defaultModel.name}, hasToken=${defaultModel.auth.token.isNotEmpty()}")
                     return defaultModel
                 }
+                println("[LlmConfig.default] Model not found in customLlms, falling back to legacy config")
             }
 
             // Fallback to legacy configuration for backward compatibility

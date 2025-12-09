@@ -95,7 +95,9 @@ class LLMProviderAdapter(
         keepHistory: Boolean
     ): Flow<String> {
         return try {
+            logger.info("Using KoogLLMService for model: ${llmConfig.name}, url: ${llmConfig.url}")
             val modelConfig = llmConfig.toModelConfig()
+            logger.info("ModelConfig created: provider=${modelConfig.provider}, model=${modelConfig.modelName}, hasApiKey=${modelConfig.apiKey.isNotEmpty()}")
             val koogService = KoogLLMService.create(modelConfig)
 
             // Convert IDEA messages to Koog messages (excluding the last user message as it's passed separately)
