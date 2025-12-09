@@ -198,8 +198,9 @@ fun AgentChatInterface(
                         }
 
                         AgentType.CODE_REVIEW,
-                        AgentType.KNOWLEDGE -> {
-                            // CODE_REVIEW and DOCUMENT_READER have their own full-page interfaces
+                        AgentType.KNOWLEDGE,
+                        AgentType.CHAT_DB -> {
+                            // CODE_REVIEW, DOCUMENT_READER and CHAT_DB have their own full-page interfaces
                             // They should not reach here - handled by AgentInterfaceRouter
                         }
 

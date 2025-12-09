@@ -1,10 +1,13 @@
 package cc.unitmesh.devins.ui.compose.agent
 
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import cc.unitmesh.agent.AgentType
+import cc.unitmesh.devins.ui.compose.agent.chatdb.ChatDBPage
 import cc.unitmesh.devins.ui.compose.agent.codereview.CodeReviewPage
 import cc.unitmesh.devins.ui.remote.RemoteAgentChatInterface
+import cc.unitmesh.devins.workspace.Workspace
 import cc.unitmesh.llm.KoogLLMService
 
 /**
@@ -53,9 +56,35 @@ fun AgentInterfaceRouter(
     onProjectChange: (String) -> Unit = {},
     onGitUrlChange: (String) -> Unit = {},
     onNotification: (String, String) -> Unit = { _, _ -> },
+    workspace: Workspace? = null,
     modifier: Modifier = Modifier
 ) {
     when (selectedAgentType) {
+        AgentType.CHAT_DB -> {
+            if (workspace != null) {
+                ChatDBPage(
+                    workspace = workspace,
+                    llmService = llmService,
+                    modifier = modifier,
+                    onBack = {
+                        onAgentTypeChange(AgentType.CODING)
+                    },
+                    onNotification = onNotification
+                )
+            } else {
+                // Show placeholder when workspace is not available
+                androidx.compose.foundation.layout.Box(
+                    modifier = modifier.fillMaxSize(),
+                    contentAlignment = androidx.compose.ui.Alignment.Center
+                ) {
+                    androidx.compose.material3.Text(
+                        text = "Please select a workspace to use ChatDB",
+                        style = androidx.compose.material3.MaterialTheme.typography.bodyLarge
+                    )
+                }
+            }
+        }
+
         AgentType.KNOWLEDGE -> {
             cc.unitmesh.devins.ui.compose.document.DocumentReaderPage(
                 modifier = modifier,

@@ -2,13 +2,19 @@ package cc.unitmesh.devins.ui.compose.state
 
 import androidx.compose.runtime.*
 import cc.unitmesh.agent.AgentType
+import cc.unitmesh.config.AutoDevConfigWrapper
 import cc.unitmesh.devins.ui.state.UIStateManager
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 /**
  * Desktop UI State ViewModel
  * 管理桌面端 UI 的所有状态，同步全局 UIStateManager
  */
 class DesktopUiState {
+    private val scope = CoroutineScope(Dispatchers.Default)
+
     // Agent Type
     var currentAgentType by mutableStateOf(AgentType.CODING)
 
@@ -40,6 +46,22 @@ class DesktopUiState {
     // Actions
     fun updateAgentType(type: AgentType) {
         currentAgentType = type
+        // Save to config file for persistence
+        scope.launch {
+            try {
+                val typeString = when (type) {
+                    AgentType.REMOTE -> "Remote"
+                    AgentType.LOCAL_CHAT -> "Local"
+                    AgentType.CODING -> "Coding"
+                    AgentType.CODE_REVIEW -> "CodeReview"
+                    AgentType.KNOWLEDGE -> "Documents"
+                    AgentType.CHAT_DB -> "ChatDB"
+                }
+                AutoDevConfigWrapper.saveAgentTypePreference(typeString)
+            } catch (e: Exception) {
+                println("⚠️ Failed to save agent type preference: ${e.message}")
+            }
+        }
     }
 
     fun toggleSessionSidebar() {

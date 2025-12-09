@@ -175,7 +175,10 @@ private fun AutoDevContent(
                 val typeString = when (type) {
                     AgentType.REMOTE -> "Remote"
                     AgentType.LOCAL_CHAT -> "Local"
-                    else -> "Local"
+                    AgentType.CODING -> "Coding"
+                    AgentType.CODE_REVIEW -> "CodeReview"
+                    AgentType.KNOWLEDGE -> "Documents"
+                    AgentType.CHAT_DB -> "ChatDB"
                 }
                 AutoDevConfigWrapper.saveAgentTypePreference(typeString)
             } catch (e: Exception) {

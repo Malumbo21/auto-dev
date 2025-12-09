@@ -249,6 +249,7 @@ class IdeaAgentViewModel(
                     AgentType.CODING -> "Coding"
                     AgentType.CODE_REVIEW -> "CodeReview"
                     AgentType.KNOWLEDGE -> "Documents"
+                    AgentType.CHAT_DB -> "ChatDB"
                 }
 
                 AutoDevConfigWrapper.saveAgentTypePreference(typeString)

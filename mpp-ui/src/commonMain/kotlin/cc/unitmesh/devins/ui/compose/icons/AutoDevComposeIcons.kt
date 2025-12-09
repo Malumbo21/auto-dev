@@ -113,6 +113,10 @@ object AutoDevComposeIcons {
     val Functions: ImageVector get() = Icons.Default.Functions
     val KeyboardArrowRight: ImageVector get() = Icons.Default.KeyboardArrowRight
 
+    // Database Icons
+    val Database: ImageVector get() = Icons.Default.Storage
+    val Schema: ImageVector get() = Icons.Default.TableChart
+
     /**
      * Custom icons converted from SVG resources
      * These icons are converted from ai.svg and mcp.svg to Compose ImageVector format
