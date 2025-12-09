@@ -330,7 +330,7 @@ ${input.description}
         private fun createDefinition() = AgentDefinition(
             name = "plotdsl-agent",
             displayName = "PlotDSL Agent",
-            description = "Generates PlotDSL statistical chart code from natural language descriptions",
+            description = "Generates data visualizations from natural language descriptions.",
             promptConfig = PromptConfig(
                 systemPrompt = "You are a data visualization expert. Generate statistical charts using PlotDSL syntax."
             ),
@@ -464,13 +464,10 @@ data class PlotDSLContext(
  * Schema for PlotDSL Agent tool
  */
 object PlotDSLAgentSchema : DeclarativeToolSchema(
-    description = """Generate PlotDSL statistical chart code from natural language description.
+    description = """Generates data visualizations from natural language descriptions.
 
 This tool uses a specialized sub-agent to generate statistical visualization code in PlotDSL syntax.
 The generated code will be returned in a ```plotdsl code block that can be rendered as an interactive chart.
-
-PlotDSL is rendered using Lets-Plot Compose on Desktop and Android platforms.
-On other platforms (iOS, JS, WASM), the code is displayed as text.
 
 IMPORTANT: After calling this tool, you MUST include the returned ```plotdsl code block in your response
 to the user so they can see the generated chart. Do not summarize or describe the code - show it directly.

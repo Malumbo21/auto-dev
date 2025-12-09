@@ -7,6 +7,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import cc.unitmesh.devins.parser.CodeFence
 import cc.unitmesh.devins.ui.compose.sketch.chart.ChartBlockRenderer
+import cc.unitmesh.devins.ui.compose.sketch.letsplot.LetsPlotBlockRenderer
 
 /**
  * Sketch 渲染器 - 主渲染器
@@ -124,6 +125,17 @@ object SketchRenderer : BaseContentRenderer() {
                         if (fence.text.isNotBlank()) {
                             NanoDSLBlockRenderer(
                                 nanodslCode = fence.text,
+                                isComplete = blockIsComplete,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+                    }
+
+                    "plotdsl", "plot" -> {
+                        if (fence.text.isNotBlank()) {
+                            LetsPlotBlockRenderer(
+                                plotCode = fence.text,
                                 isComplete = blockIsComplete,
                                 modifier = Modifier.fillMaxWidth()
                             )
