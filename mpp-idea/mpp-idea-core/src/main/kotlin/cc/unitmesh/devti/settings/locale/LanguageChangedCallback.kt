@@ -19,13 +19,21 @@ import javax.swing.JLabel
  * @author lk
  */
 object LanguageChangedCallback : SelectionChangedCallback {
-    var language: String = AutoDevSettingsState.Companion.getInstance().language
+    private var _language: String? = null
+    var language: String
+        get() {
+            if (_language == null) {
+                _language = AutoDevSettingsState.getInstance().language
+            }
+            return AutoDevSettingsState.getInstance().fetchLocalLanguage(_language!!)
+        }
         set(value) {
-            if ((field != value).also { field = value }) {
+            val oldValue = _language
+            _language = value
+            if (oldValue != null && oldValue != value) {
                 call()
             }
         }
-        get() = AutoDevSettingsState.Companion.getInstance().fetchLocalLanguage(field)
 
     private val callBacks = ConcurrentHashMap<String, LanguageChangedCallback.() -> Unit>()
 

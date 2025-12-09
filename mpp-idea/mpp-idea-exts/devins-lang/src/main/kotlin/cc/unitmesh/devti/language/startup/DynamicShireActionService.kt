@@ -16,18 +16,19 @@ import java.util.*
 class DynamicShireActionService: DynamicActionService {
     private val dynamicActionService = GlobalShireActionService.getInstance()
 
-    private val actionCache = WeakHashMap<DevInFile, DynamicDevInsActionConfig>()
+    private val actionCache = Collections.synchronizedMap(WeakHashMap<DevInFile, DynamicDevInsActionConfig>())
 
     override fun putAction(key: DevInFile, action: DynamicDevInsActionConfig) {
         actionCache[key] = action
     }
 
-    override fun removeAction(key: DevInFile) = actionCache.keys.removeIf {
-        it == key
+    override fun removeAction(key: DevInFile) = synchronized(actionCache) {
+        actionCache.keys.removeIf { it == key }
     }
 
     override fun getAllActions(): List<DynamicDevInsActionConfig> {
-        return (actionCache.values.toList() + dynamicActionService.getAllActions())
+        val localActions = synchronized(actionCache) { actionCache.values.toList() }
+        return (localActions + dynamicActionService.getAllActions())
             .distinctBy { it.devinFile.virtualFile }
     }
 
@@ -63,15 +64,19 @@ class DynamicShireActionService: DynamicActionService {
 
 @Service(Service.Level.APP)
 class GlobalShireActionService: DynamicActionService {
-    private val globalActionCache = WeakHashMap<VirtualFile, DynamicDevInsActionConfig>()
+    private val globalActionCache = Collections.synchronizedMap(WeakHashMap<VirtualFile, DynamicDevInsActionConfig>())
 
     override fun putAction(key: DevInFile, action: DynamicDevInsActionConfig) {
         globalActionCache[key.virtualFile] = action
     }
 
-    override fun removeAction(key: DevInFile) = globalActionCache.keys.removeIf{ key.virtualFile == it }
+    override fun removeAction(key: DevInFile) = synchronized(globalActionCache) {
+        globalActionCache.keys.removeIf { key.virtualFile == it }
+    }
 
-    override fun getAllActions(): List<DynamicDevInsActionConfig> = globalActionCache.values.toList()
+    override fun getAllActions(): List<DynamicDevInsActionConfig> = synchronized(globalActionCache) {
+        globalActionCache.values.toList()
+    }
 
     companion object {
         fun getInstance(): GlobalShireActionService =

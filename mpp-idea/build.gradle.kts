@@ -1,3 +1,4 @@
+import groovy.util.Node
 import groovy.xml.XmlParser
 import org.jetbrains.changelog.Changelog
 import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
@@ -203,6 +204,19 @@ project(":") {
     // Handle duplicate resources from dependencies
     tasks.named<Copy>("processResources") {
         duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
+        // Copy all resources from submodules to main plugin JAR
+        // These are required for IntelliJ to load the plugin modules correctly
+        from(project(":mpp-idea-lang:pycharm").file("src/main/resources"))
+        from(project(":mpp-idea-lang:java").file("src/main/resources"))
+        from(project(":mpp-idea-lang:kotlin").file("src/main/resources"))
+        from(project(":mpp-idea-lang:javascript").file("src/main/resources"))
+        from(project(":mpp-idea-lang:goland").file("src/main/resources"))
+        from(project(":mpp-idea-lang:rust").file("src/main/resources"))
+        from(project(":mpp-idea-exts:ext-database").file("src/main/resources"))
+        from(project(":mpp-idea-exts:ext-git").file("src/main/resources"))
+        from(project(":mpp-idea-exts:ext-terminal").file("src/main/resources"))
+        from(project(":mpp-idea-exts:devins-lang").file("src/main/resources"))
     }
 
     repositories {
@@ -902,45 +916,6 @@ fun String.toTypeWithVersion(): TypeWithVersion {
     return TypeWithVersion(IntelliJPlatformType.fromCode(code), version)
 }
 
-/**
- * Creates `run$[baseTaskName]` Gradle task to run IDE of given [type]
- * via `runIde` task with plugins according to [ideToPlugins] map
- */
-fun IntelliJPlatformTestingExtension.customRunIdeTask(
-    type: IntelliJPlatformType,
-    versionWithCode: String? = null,
-    baseTaskName: String = type.name,
-) {
-    runIde.register("run$baseTaskName") {
-        useInstaller = false
-
-        if (versionWithCode != null) {
-            val version = versionWithCode.toTypeWithVersion().version
-
-            this.type = type
-            this.version = version
-        } else {
-            val pathProperty = baseTaskName.replaceFirstChar { it.lowercaseChar() } + "Path"
-            if (hasProp(pathProperty)) {
-                localPath.convention(layout.dir(provider { file(prop(pathProperty)) }))
-            } else {
-                task {
-                    doFirst {
-                        throw GradleException("Property `$pathProperty` is not defined in gradle.properties")
-                    }
-                }
-            }
-        }
-
-        // Specify custom sandbox directory to have a stable path to log file
-        sandboxDirectory =
-            intellijPlatform.sandboxContainer.dir("${baseTaskName.lowercase()}-sandbox-${prop("platformVersion")}")
-
-        plugins {
-            plugins(ideaPlugins)
-        }
-    }
-}
 
 fun IntelliJPlatformDependenciesExtension.intellijIde(versionWithCode: String) {
     val (type, version) = versionWithCode.toTypeWithVersion()
@@ -995,4 +970,42 @@ fun <T : ModuleDependency> T.excludeKotlinDeps() {
     exclude(module = "kotlin-stdlib")
     exclude(module = "kotlin-stdlib-common")
     exclude(module = "kotlin-stdlib-jdk8")
+}
+
+
+fun parseManifest(file: File): Node {
+    val node = XmlParser().parse(file)
+    check(node.name() == "idea-plugin") {
+        "Manifest file `$file` doesn't contain top-level `idea-plugin` attribute"
+    }
+    return node
+}
+
+fun manifestFile(project: Project): File? {
+    var filePath: String? = null
+
+    val mainOutput = project.sourceSets.main.get().output
+    val resourcesDir = mainOutput.resourcesDir ?: error("Failed to find resources dir for ${project.name}")
+
+    if (filePath != null) {
+        return resourcesDir.resolve(filePath).takeIf { it.exists() }
+            ?: error("Failed to find manifest file for ${project.name} module")
+    }
+    val rootManifestFile =
+        manifestFile(project(":intellij-plugin")) ?: error("Failed to find manifest file for :intellij-plugin module")
+    val rootManifest = parseManifest(rootManifestFile)
+    val children = ((rootManifest["content"] as? List<*>)?.single() as? Node)?.children()
+        ?: error("Failed to find module declarations in root manifest")
+    return children.filterIsInstance<Node>()
+        .flatMap { node ->
+            if (node.name() != "module") return@flatMap emptyList()
+            val name = node.attribute("name") as? String ?: return@flatMap emptyList()
+            listOfNotNull(resourcesDir.resolve("$name.xml").takeIf { it.exists() })
+        }.firstOrNull() ?: error("Failed to find manifest file for ${project.name} module")
+}
+
+fun findModulePackage(project: Project): String? {
+    val moduleManifest = manifestFile(project) ?: return null
+    val node = parseManifest(moduleManifest)
+    return node.attribute("package") as? String ?: error("Failed to find package for ${project.name}")
 }
