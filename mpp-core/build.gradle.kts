@@ -209,6 +209,9 @@ kotlin {
                 
                 // Connection pooling
                 implementation("com.zaxxer:HikariCP:6.0.0")
+                
+                // JSQLParser for SQL validation and parsing
+                implementation("com.github.jsqlparser:jsqlparser:4.9")
             }
         }
 
