@@ -24,10 +24,24 @@ object ExecutorFactory {
     /**
      * 根据模型配置创建 Executor
      * 
-     * Note: For providers that require async initialization (like GitHub Copilot),
+     * Note: For providers registered via LLMClientRegistry (like GitHub Copilot on JVM),
+     * this method will use blocking initialization. For non-blocking initialization,
      * use [createAsync] instead.
      */
     fun create(config: ModelConfig): SingleLLMPromptExecutor {
+        // First check if provider is registered in the registry (for extensible providers)
+        val registryProvider = LLMClientRegistry.getProvider(config.provider)
+        if (registryProvider != null) {
+            // Use blocking call for registered providers
+            // This works because on JVM, the provider caches the API token
+            return kotlinx.coroutines.runBlocking {
+                registryProvider.createExecutor(config)
+            } ?: throw IllegalStateException(
+                "Failed to create executor for ${config.provider.displayName}. " +
+                "Provider is registered but returned null."
+            )
+        }
+        
         return when (config.provider) {
             LLMProviderType.OPENAI -> createOpenAI(config)
             LLMProviderType.ANTHROPIC -> createAnthropic(config)
@@ -39,8 +53,8 @@ object ExecutorFactory {
             LLMProviderType.QWEN -> createQwen(config)
             LLMProviderType.KIMI -> createKimi(config)
             LLMProviderType.GITHUB_COPILOT -> throw IllegalStateException(
-                "GitHub Copilot requires async initialization. Use createAsync() instead, " +
-                "or ensure GithubCopilotClientProvider is registered via LLMClientRegistry on JVM."
+                "GitHub Copilot requires GithubCopilotClientProvider to be registered via LLMClientRegistry. " +
+                "On IDEA, this is done automatically by GithubCopilotModelInitActivity on startup."
             )
             LLMProviderType.CUSTOM_OPENAI_BASE -> createCustomOpenAI(config)
         }
