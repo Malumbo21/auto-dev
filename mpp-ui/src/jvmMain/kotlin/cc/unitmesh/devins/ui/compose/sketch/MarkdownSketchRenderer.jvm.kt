@@ -13,6 +13,9 @@ import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
+import cc.unitmesh.devins.ui.kcef.KcefInitState
+import cc.unitmesh.devins.ui.kcef.KcefManager
+import cc.unitmesh.viewer.web.MermaidRenderer
 import com.mikepenz.markdown.compose.LocalMarkdownTypography
 import com.mikepenz.markdown.compose.MarkdownElement
 import com.mikepenz.markdown.compose.components.CurrentComponentsBridge
@@ -44,6 +47,12 @@ actual object MarkdownSketchRenderer {
         val isDarkTheme = isSystemInDarkTheme()
         val highlightsBuilder = remember(isDarkTheme) {
             Highlights.Builder().theme(SyntaxThemes.atom(darkMode = isDarkTheme))
+        }
+        
+        // Check KCEF state for Mermaid rendering
+        val kcefInitState by KcefManager.initState.collectAsState()
+        val isKcefAvailable = remember(kcefInitState) {
+            kcefInitState is KcefInitState.Initialized || KcefManager.isInstalled()
         }
 
         val typography = DefaultMarkdownTypography(
@@ -97,21 +106,44 @@ actual object MarkdownSketchRenderer {
                     val style = LocalMarkdownTypography.current.code
                     MarkdownCodeFence(it.content, it.node, style) { code, language, style ->
                         val language = language?.lowercase()
-                        if ((language == "plantuml" || language == "puml") && isComplete) {
-                            PlantUmlRenderer(
-                                code = code,
-                                isDarkTheme = isDarkTheme,
-                                modifier = Modifier.fillMaxSize(),
-                                null
-                            )
-                        } else {
-                            MarkdownHighlightedCode(
-                                code = code,
-                                language = language,
-                                style = style,
-                                highlightsBuilder = highlightsBuilder,
-                                showHeader = true,
-                            )
+                        when {
+                            (language == "plantuml" || language == "puml") && isComplete -> {
+                                PlantUmlRenderer(
+                                    code = code,
+                                    isDarkTheme = isDarkTheme,
+                                    modifier = Modifier.fillMaxSize(),
+                                    null
+                                )
+                            }
+                            language == "mermaid" && isComplete -> {
+                                // Use WebView-based MermaidRenderer if KCEF is available
+                                if (isKcefAvailable) {
+                                    MermaidRenderer(
+                                        mermaidCode = code,
+                                        isDarkTheme = isDarkTheme,
+                                        modifier = Modifier.fillMaxSize(),
+                                        onRenderComplete = null
+                                    )
+                                } else {
+                                    // Fallback to code highlighting if KCEF is not available
+                                    MarkdownHighlightedCode(
+                                        code = code,
+                                        language = language,
+                                        style = style,
+                                        highlightsBuilder = highlightsBuilder,
+                                        showHeader = true,
+                                    )
+                                }
+                            }
+                            else -> {
+                                MarkdownHighlightedCode(
+                                    code = code,
+                                    language = language,
+                                    style = style,
+                                    highlightsBuilder = highlightsBuilder,
+                                    showHeader = true,
+                                )
+                            }
                         }
                     }
                 },
