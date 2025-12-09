@@ -85,7 +85,7 @@ data class SchemaProperty(
  * Declarative schema builder following Augment's pattern
  */
 abstract class DeclarativeToolSchema(
-    private val description: String,
+    val description: String,
     private val properties: Map<String, SchemaProperty>
 ) : ToolSchema {
     

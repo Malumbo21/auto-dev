@@ -303,10 +303,8 @@ ${input.description}
         private fun createDefinition() = AgentDefinition(
             name = "nanodsl-agent",
             displayName = "NanoDSL Agent",
-            description = "Generates NanoDSL UI code from natural language descriptions",
-            promptConfig = PromptConfig(
-                systemPrompt = "You are a NanoDSL expert. Generate token-efficient UI code."
-            ),
+            description = NanoDSLAgentSchema.description,
+            promptConfig = PromptConfig(systemPrompt = DEFAULT_PROMPT),
             modelConfig = ModelConfig.default(),
             runConfig = RunConfig(maxTurns = 3, maxTimeMinutes = 2)
         )
