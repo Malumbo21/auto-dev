@@ -4,7 +4,18 @@ import ai.koog.prompt.executor.clients.deepseek.DeepSeekLLMClient
 import ai.koog.prompt.executor.llms.SingleLLMPromptExecutor
 import ai.koog.prompt.executor.llms.all.*
 import cc.unitmesh.llm.clients.CustomOpenAILLMClient
+import cc.unitmesh.llm.provider.LLMClientProvider
 import cc.unitmesh.llm.provider.LLMClientRegistry
+
+/**
+ * Try to auto-register GitHub Copilot provider.
+ * Returns the provider if successfully registered, null otherwise.
+ * 
+ * Implementation is platform-specific:
+ * - JVM: Creates and registers GithubCopilotClientProvider
+ * - Other platforms: Returns null
+ */
+internal expect fun tryAutoRegisterGithubCopilot(): LLMClientProvider?
 
 /**
  * Executor 工厂 - 负责根据配置创建合适的 LLM Executor
@@ -30,7 +41,13 @@ object ExecutorFactory {
      */
     fun create(config: ModelConfig): SingleLLMPromptExecutor {
         // First check if provider is registered in the registry (for extensible providers)
-        val registryProvider = LLMClientRegistry.getProvider(config.provider)
+        var registryProvider = LLMClientRegistry.getProvider(config.provider)
+        
+        // Auto-register GitHub Copilot provider on JVM if not already registered
+        if (registryProvider == null && config.provider == LLMProviderType.GITHUB_COPILOT) {
+            registryProvider = tryAutoRegisterGithubCopilot()
+        }
+        
         if (registryProvider != null) {
             // Use blocking call for registered providers
             // This works because on JVM, the provider caches the API token
@@ -53,12 +70,13 @@ object ExecutorFactory {
             LLMProviderType.QWEN -> createQwen(config)
             LLMProviderType.KIMI -> createKimi(config)
             LLMProviderType.GITHUB_COPILOT -> throw IllegalStateException(
-                "GitHub Copilot requires GithubCopilotClientProvider to be registered via LLMClientRegistry. " +
-                "On IDEA, this is done automatically by GithubCopilotModelInitActivity on startup."
+                "GitHub Copilot is not available. Make sure GitHub Copilot is configured on your system " +
+                "(OAuth token in ~/.config/github-copilot/apps.json)"
             )
             LLMProviderType.CUSTOM_OPENAI_BASE -> createCustomOpenAI(config)
         }
     }
+    
     
     /**
      * 根据模型配置异步创建 Executor
