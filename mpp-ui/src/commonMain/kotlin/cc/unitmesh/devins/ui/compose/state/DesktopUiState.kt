@@ -49,14 +49,7 @@ class DesktopUiState {
         // Save to config file for persistence
         scope.launch {
             try {
-                val typeString = when (type) {
-                    AgentType.REMOTE -> "Remote"
-                    AgentType.LOCAL_CHAT -> "Local"
-                    AgentType.CODING -> "Coding"
-                    AgentType.CODE_REVIEW -> "CodeReview"
-                    AgentType.KNOWLEDGE -> "Documents"
-                    AgentType.CHAT_DB -> "ChatDB"
-                }
+                val typeString = type.getDisplayName()
                 AutoDevConfigWrapper.saveAgentTypePreference(typeString)
             } catch (e: Exception) {
                 println("⚠️ Failed to save agent type preference: ${e.message}")

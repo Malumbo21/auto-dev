@@ -172,14 +172,7 @@ private fun AutoDevContent(
         scope.launch {
             try {
                 // Save as string for config compatibility
-                val typeString = when (type) {
-                    AgentType.REMOTE -> "Remote"
-                    AgentType.LOCAL_CHAT -> "Local"
-                    AgentType.CODING -> "Coding"
-                    AgentType.CODE_REVIEW -> "CodeReview"
-                    AgentType.KNOWLEDGE -> "Documents"
-                    AgentType.CHAT_DB -> "ChatDB"
-                }
+                val typeString = type.getDisplayName()
                 AutoDevConfigWrapper.saveAgentTypePreference(typeString)
             } catch (e: Exception) {
                 println("⚠️ 保存 Agent 类型失败: ${e.message}")

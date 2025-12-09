@@ -61,28 +61,15 @@ fun AgentInterfaceRouter(
 ) {
     when (selectedAgentType) {
         AgentType.CHAT_DB -> {
-            if (workspace != null) {
-                ChatDBPage(
-                    workspace = workspace,
-                    llmService = llmService,
-                    modifier = modifier,
-                    onBack = {
-                        onAgentTypeChange(AgentType.CODING)
-                    },
-                    onNotification = onNotification
-                )
-            } else {
-                // Show placeholder when workspace is not available
-                androidx.compose.foundation.layout.Box(
-                    modifier = modifier.fillMaxSize(),
-                    contentAlignment = androidx.compose.ui.Alignment.Center
-                ) {
-                    androidx.compose.material3.Text(
-                        text = "Please select a workspace to use ChatDB",
-                        style = androidx.compose.material3.MaterialTheme.typography.bodyLarge
-                    )
-                }
-            }
+            ChatDBPage(
+                workspace = workspace,
+                llmService = llmService,
+                modifier = modifier,
+                onBack = {
+                    onAgentTypeChange(AgentType.CODING)
+                },
+                onNotification = onNotification
+            )
         }
 
         AgentType.KNOWLEDGE -> {
@@ -142,6 +129,7 @@ fun AgentInterfaceRouter(
                 modifier = modifier
             )
         }
+
         AgentType.LOCAL_CHAT,
         AgentType.CODING -> {
             AgentChatInterface(

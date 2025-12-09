@@ -23,7 +23,7 @@ import kotlin.uuid.Uuid
  * Manages data sources, database connections, and chat interactions for text-to-SQL.
  */
 class ChatDBViewModel(
-    private val workspace: Workspace
+    private val workspace: Workspace? = null
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 

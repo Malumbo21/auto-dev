@@ -15,14 +15,14 @@ import kotlinx.coroutines.flow.collectLatest
 
 /**
  * ChatDB Page - Main page for text-to-SQL agent
- * 
+ *
  * Left side: Data source management panel
  * Right side: Chat area for natural language to SQL queries
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatDBPage(
-    workspace: Workspace,
+    workspace: Workspace? = null,
     llmService: KoogLLMService?,
     modifier: Modifier = Modifier,
     onBack: () -> Unit,
@@ -30,21 +30,21 @@ fun ChatDBPage(
 ) {
     val viewModel = remember { ChatDBViewModel(workspace) }
     val state = viewModel.state
-    
+
     // Collect notifications
     LaunchedEffect(viewModel) {
         viewModel.notificationEvent.collectLatest { (title, message) ->
             onNotification(title, message)
         }
     }
-    
+
     // Cleanup on dispose
     DisposableEffect(viewModel) {
         onDispose {
             viewModel.dispose()
         }
     }
-    
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -93,9 +93,9 @@ fun ChatDBPage(
                 onDisconnectClick = viewModel::disconnect,
                 modifier = Modifier.width(280.dp)
             )
-            
+
             VerticalDivider()
-            
+
             // Right panel - Chat area
             ChatDBChatPane(
                 renderer = viewModel.renderer,
@@ -107,7 +107,7 @@ fun ChatDBPage(
                 modifier = Modifier.weight(1f)
             )
         }
-        
+
         // Config dialog
         if (state.isConfigDialogOpen) {
             DataSourceConfigDialog(
