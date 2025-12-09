@@ -81,6 +81,8 @@ fun IdeaDevInInputArea(
     onConfigSelect: (NamedModelConfig) -> Unit = {},
     onConfigureClick: () -> Unit = {},
     onAddNewConfig: () -> Unit = {},
+    onRefreshCopilot: (() -> Unit)? = null,
+    isRefreshingCopilot: Boolean = false,
     currentPlan: AgentPlan? = null
 ) {
     val scope = rememberIdeaCoroutineScope(project)
@@ -119,6 +121,18 @@ fun IdeaDevInInputArea(
 
     DisposableEffect(onAddNewConfig) {
         swingInputArea?.setOnAddNewConfig(onAddNewConfig)
+        onDispose { }
+    }
+    
+    DisposableEffect(onRefreshCopilot) {
+        if (onRefreshCopilot != null) {
+            swingInputArea?.setOnRefreshCopilot(onRefreshCopilot)
+        }
+        onDispose { }
+    }
+    
+    DisposableEffect(isRefreshingCopilot) {
+        swingInputArea?.setRefreshingCopilot(isRefreshingCopilot)
         onDispose { }
     }
 

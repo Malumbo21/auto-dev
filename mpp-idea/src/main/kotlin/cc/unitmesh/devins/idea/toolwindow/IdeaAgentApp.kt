@@ -25,10 +25,14 @@ import cc.unitmesh.devins.idea.components.timeline.IdeaEmptyStateMessage
 import cc.unitmesh.devins.idea.components.timeline.IdeaTimelineContent
 import cc.unitmesh.config.AutoDevConfigWrapper
 import cc.unitmesh.config.ConfigManager
+import cc.unitmesh.devti.llm2.GithubCopilotDetector
 import cc.unitmesh.llm.ModelConfig
 import cc.unitmesh.llm.NamedModelConfig
 import com.intellij.openapi.project.Project
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.jetbrains.jewel.foundation.theme.JewelTheme
 import org.jetbrains.jewel.ui.Orientation
 import org.jetbrains.jewel.ui.component.Divider
@@ -69,7 +73,11 @@ fun IdeaAgentApp(
     var mcpPreloadingMessage by remember { mutableStateOf("") }
     var configWrapper by remember { mutableStateOf<AutoDevConfigWrapper?>(null) }
     var currentModelConfig by remember { mutableStateOf<ModelConfig?>(null) }
+    var isRefreshingCopilot by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
+    
+    // Check if GitHub Copilot is available
+    val isCopilotAvailable = remember { GithubCopilotDetector.isGithubCopilotConfigured() }
 
     // Collect StateFlows manually using IdeaLaunchedEffect to avoid ClassLoader conflicts
     IdeaLaunchedEffect(viewModel, project = project) {
@@ -222,7 +230,55 @@ fun IdeaAgentApp(
                             },
                             currentPlan = currentPlan,
                             onConfigureClick = { viewModel.showEditConfigDialog() },
-                            onAddNewConfig = { viewModel.showAddNewConfigDialog() }
+                            onAddNewConfig = { viewModel.showAddNewConfigDialog() },
+                            onRefreshCopilot = if (isCopilotAvailable) {
+                                {
+                                    coroutineScope.launch {
+                                        isRefreshingCopilot = true
+                                        try {
+                                            val models = withContext(Dispatchers.IO) {
+                                                GithubCopilotDetector.getSupportedModels(forceRefresh = true)
+                                            }
+                                            if (models != null && models.data.isNotEmpty()) {
+                                                val existingNames = availableConfigs.map { it.name }.toMutableSet()
+                                                var savedCount = 0
+                                                
+                                                for (model in models.data.filter { !it.isEmbedding }) {
+                                                    val configName = "copilot-${model.id}"
+                                                    if (configName in existingNames) continue
+                                                    
+                                                    val namedConfig = NamedModelConfig(
+                                                        name = configName,
+                                                        provider = "github-copilot",
+                                                        apiKey = "",
+                                                        model = model.id,
+                                                        baseUrl = "",
+                                                        temperature = 0.0,
+                                                        maxTokens = model.capabilities.limits?.maxOutputTokens ?: 4096
+                                                    )
+                                                    
+                                                    try {
+                                                        ConfigManager.saveConfig(namedConfig, setActive = false)
+                                                        existingNames.add(configName)
+                                                        savedCount++
+                                                    } catch (e: Exception) {
+                                                        println("Failed to save config $configName: ${e.message}")
+                                                    }
+                                                }
+                                                
+                                                // Reload configs
+                                                viewModel.reloadConfigs()
+                                                println("Added $savedCount GitHub Copilot configurations")
+                                            }
+                                        } catch (e: Exception) {
+                                            println("Failed to refresh GitHub Copilot: ${e.message}")
+                                        } finally {
+                                            isRefreshingCopilot = false
+                                        }
+                                    }
+                                }
+                            } else null,
+                            isRefreshingCopilot = isRefreshingCopilot
                         )
                     }
                 )
@@ -272,7 +328,8 @@ fun IdeaAgentApp(
                                     viewModel.setActiveConfig(config.name)
                                 },
                                 onConfigureClick = { viewModel.showEditConfigDialog() },
-                                onAddNewConfig = { viewModel.showAddNewConfigDialog() }
+                                onAddNewConfig = { viewModel.showAddNewConfigDialog() },
+                                isRefreshingCopilot = isRefreshingCopilot
                             )
                         }
                     )

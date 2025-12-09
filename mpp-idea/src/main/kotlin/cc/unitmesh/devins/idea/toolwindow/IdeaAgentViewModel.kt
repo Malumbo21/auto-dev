@@ -218,6 +218,21 @@ class IdeaAgentViewModel(
         cachedToolConfig = null
         loadConfiguration()
     }
+    
+    /**
+     * Reload only the config wrapper (for UI refresh after adding new configs)
+     */
+    fun reloadConfigs() {
+        coroutineScope.launch(Dispatchers.IO) {
+            try {
+                val wrapper = ConfigManager.load()
+                _configWrapper.value = wrapper
+                _currentModelConfig.value = wrapper.getActiveModelConfig()
+            } catch (e: Exception) {
+                // Ignore reload errors
+            }
+        }
+    }
 
     /**
      * Change the current agent type tab and persist to config.
