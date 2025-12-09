@@ -207,6 +207,7 @@ project(":") {
 
         // Copy all resources from submodules to main plugin JAR
         // These are required for IntelliJ to load the plugin modules correctly
+        from(project(":mpp-idea-core").file("src/main/resources"))
         from(project(":mpp-idea-lang:pycharm").file("src/main/resources"))
         from(project(":mpp-idea-lang:java").file("src/main/resources"))
         from(project(":mpp-idea-lang:kotlin").file("src/main/resources"))
