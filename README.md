@@ -1,19 +1,19 @@
-# AutoDev 3.0 - Xiu(X=>)per (Work in Progress)
+# AutoDev 3.0 - Xiuper (Work in Progress)
 
 > The full platform supported AI4SDLC agents.
-
-For Autodev 2.0 (Stable version)
-
-- branch: https://github.com/phodal/auto-dev/tree/autodev2
-- Intellij Plugin: https://plugins.jetbrains.com/plugin/26988
 
 For AutoDev 3.0 (Development version)
 
 - Intellij Plugin: https://plugins.jetbrains.com/plugin/29223-autodev-experiment
-- VSCode Extension**: [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=Phodal.autodev)
+- VSCode Extension: [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=Phodal.autodev)
 - Web Version: https://phodal.github.io/auto-dev/
-- CLI Tool**: `npm install -g @autodev/cli`
+- CLI Tool: `npm install -g @autodev/cli`
 - Desktop & Android see in [release pages](https://github.com/phodal/auto-dev/releases)
+
+For AutoDev 2.0 (Stable version)
+
+- branch: https://github.com/phodal/auto-dev/tree/autodev2
+- Intellij Plugin: https://plugins.jetbrains.com/plugin/26988
 
 ### Modules
 
