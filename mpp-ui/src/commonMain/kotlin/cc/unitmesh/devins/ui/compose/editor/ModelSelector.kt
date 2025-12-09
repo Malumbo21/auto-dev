@@ -27,6 +27,7 @@ import kotlinx.coroutines.launch
 fun ModelSelector(onConfigChange: (ModelConfig) -> Unit = {}) {
     var expanded by remember { mutableStateOf(false) }
     var showConfigDialog by remember { mutableStateOf(false) }
+    var isNewConfig by remember { mutableStateOf(false) }
 
     var availableConfigs by remember { mutableStateOf<List<NamedModelConfig>>(emptyList()) }
     var currentConfigName by remember { mutableStateOf<String?>(null) }
@@ -135,10 +136,28 @@ fun ModelSelector(onConfigChange: (ModelConfig) -> Unit = {}) {
             HorizontalDivider()
         }
 
-        // Configure button
+        // Add New Config button
+        DropdownMenuItem(
+            text = { Text(Strings.addNewConfig) },
+            onClick = {
+                isNewConfig = true
+                showConfigDialog = true
+                expanded = false
+            },
+            leadingIcon = {
+                Icon(
+                    imageVector = AutoDevComposeIcons.Add,
+                    contentDescription = Strings.add,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        )
+
+        // Configure button (edit current config)
         DropdownMenuItem(
             text = { Text(Strings.configureModel) },
             onClick = {
+                isNewConfig = false
                 showConfigDialog = true
                 expanded = false
             },
@@ -154,9 +173,12 @@ fun ModelSelector(onConfigChange: (ModelConfig) -> Unit = {}) {
 
     if (showConfigDialog) {
         ModelConfigDialog(
-            currentConfig = currentConfig?.toModelConfig() ?: ModelConfig(),
-            currentConfigName = currentConfigName,
-            onDismiss = { showConfigDialog = false },
+            currentConfig = if (isNewConfig) ModelConfig() else (currentConfig?.toModelConfig() ?: ModelConfig()),
+            currentConfigName = if (isNewConfig) null else currentConfigName,
+            onDismiss = { 
+                showConfigDialog = false
+                isNewConfig = false
+            },
             onSave = { configName, newModelConfig ->
                 scope.launch {
                     try {

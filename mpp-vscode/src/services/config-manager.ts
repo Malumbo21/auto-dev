@@ -173,5 +173,68 @@ export class ConfigManager {
       configs: []
     });
   }
+
+  /**
+   * Save a single configuration
+   */
+  static async saveConfig(config: LLMConfig, setActive: boolean = false): Promise<void> {
+    try {
+      // Ensure directory exists
+      if (!fs.existsSync(this.CONFIG_DIR)) {
+        fs.mkdirSync(this.CONFIG_DIR, { recursive: true });
+      }
+
+      // Load existing config
+      let wrapper = await this.load();
+      const configFile = wrapper.getConfigFile();
+
+      // Check if config with same name exists
+      const existingIndex = configFile.configs.findIndex(c => c.name === config.name);
+      
+      if (existingIndex >= 0) {
+        // Update existing config
+        configFile.configs[existingIndex] = config;
+      } else {
+        // Add new config
+        configFile.configs.push(config);
+      }
+
+      // Set as active if requested
+      if (setActive) {
+        configFile.active = config.name;
+      }
+
+      // Ensure active is set if no active config
+      if (!configFile.active && configFile.configs.length > 0) {
+        configFile.active = configFile.configs[0].name;
+      }
+
+      // Write to file
+      const yamlContent = yaml.stringify(configFile, {
+        indent: 2,
+        lineWidth: 0
+      });
+      fs.writeFileSync(this.CONFIG_FILE, yamlContent, 'utf-8');
+    } catch (error) {
+      throw new Error(`Failed to save config: ${error}`);
+    }
+  }
+
+  /**
+   * Generate unique config name if name already exists
+   */
+  static generateUniqueConfigName(baseName: string, existingNames: string[]): string {
+    if (!existingNames.includes(baseName)) {
+      return baseName;
+    }
+
+    let counter = 1;
+    let newName = `${baseName}-${counter}`;
+    while (existingNames.includes(newName)) {
+      counter++;
+      newName = `${baseName}-${counter}`;
+    }
+    return newName;
+  }
 }
 

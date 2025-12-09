@@ -81,6 +81,8 @@ class IdeaAgentViewModel(
     // Show config dialog
     private val _showConfigDialog = MutableStateFlow(false)
     val showConfigDialog: StateFlow<Boolean> = _showConfigDialog.asStateFlow()
+    private val _isNewConfig = MutableStateFlow(false)
+    val isNewConfig: StateFlow<Boolean> = _isNewConfig.asStateFlow()
 
     // Current execution job (for cancellation)
     private var currentJob: Job? = null
@@ -585,6 +587,22 @@ class IdeaAgentViewModel(
      */
     fun setShowConfigDialog(show: Boolean) {
         _showConfigDialog.value = show
+    }
+
+    /**
+     * Show config dialog for adding a new config.
+     */
+    fun showAddNewConfigDialog() {
+        _isNewConfig.value = true
+        _showConfigDialog.value = true
+    }
+
+    /**
+     * Show config dialog for editing current config.
+     */
+    fun showEditConfigDialog() {
+        _isNewConfig.value = false
+        _showConfigDialog.value = true
     }
 
     /**

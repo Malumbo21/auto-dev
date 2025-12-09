@@ -32,6 +32,7 @@ class SwingBottomToolbar(
     private var availableConfigs: List<NamedModelConfig> = emptyList()
     private var onConfigSelect: (NamedModelConfig) -> Unit = {}
     private var onConfigureClick: () -> Unit = {}
+    private var onAddNewConfig: () -> Unit = {}
     private var isProcessing = false
     private var isEnhancing = false
 
@@ -51,6 +52,16 @@ class SwingBottomToolbar(
                 }
             }
             add(modelComboBox)
+
+            // Add New Config button
+            val addConfigButton = JButton(AllIcons.General.Add).apply {
+                toolTipText = "Add New Config"
+                preferredSize = Dimension(28, 28)
+                isBorderPainted = false
+                isContentAreaFilled = false
+                addActionListener { onAddNewConfig() }
+            }
+            add(addConfigButton)
 
             tokenLabel.foreground = JBUI.CurrentTheme.Label.disabledForeground()
             add(tokenLabel)
@@ -137,6 +148,10 @@ class SwingBottomToolbar(
 
     fun setOnConfigureClick(callback: () -> Unit) {
         onConfigureClick = callback
+    }
+
+    fun setOnAddNewConfig(callback: () -> Unit) {
+        onAddNewConfig = callback
     }
 }
 

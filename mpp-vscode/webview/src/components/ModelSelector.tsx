@@ -19,13 +19,15 @@ interface ModelSelectorProps {
   currentConfigName: string | null;
   onConfigSelect: (config: ModelConfig) => void;
   onConfigureClick: () => void;
+  onAddNewConfig?: () => void;
 }
 
 export const ModelSelector: React.FC<ModelSelectorProps> = ({
   availableConfigs,
   currentConfigName,
   onConfigSelect,
-  onConfigureClick
+  onConfigureClick,
+  onAddNewConfig
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -89,6 +91,24 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
           ) : (
             <>
               <div className="dropdown-item disabled">No saved configs</div>
+              <div className="dropdown-separator" />
+            </>
+          )}
+          
+          {onAddNewConfig && (
+            <>
+              <button
+                className="dropdown-item configure-item"
+                onClick={() => {
+                  onAddNewConfig();
+                  setIsOpen(false);
+                }}
+              >
+                <svg className="settings-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                </svg>
+                <span>Add New Config</span>
+              </button>
               <div className="dropdown-separator" />
             </>
           )}
