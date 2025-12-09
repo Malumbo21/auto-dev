@@ -22,6 +22,7 @@ import cc.unitmesh.agent.subagent.AnalysisAgent
 import cc.unitmesh.agent.subagent.ChartAgent
 import cc.unitmesh.agent.subagent.ErrorRecoveryAgent
 import cc.unitmesh.agent.subagent.NanoDSLAgent
+import cc.unitmesh.agent.subagent.PlotDSLAgent
 import cc.unitmesh.agent.tool.*
 import cc.unitmesh.agent.tool.filesystem.DefaultToolFileSystem
 import cc.unitmesh.agent.tool.filesystem.ToolFileSystem
@@ -99,6 +100,7 @@ class CodingAgent(
     private val analysisAgent = AnalysisAgent(llmService, contentThreshold = 15000)
     private val nanoDSLAgent = NanoDSLAgent(llmService)
     private val chartAgent = ChartAgent(llmService)
+    private val plotDSLAgent = PlotDSLAgent(llmService)
     private val mcpToolsInitializer = McpToolsInitializer()
 
     // 执行器
@@ -133,6 +135,14 @@ class CodingAgent(
         toolRegistry.registerTool(chartAgent)
         subAgentManager.registerSubAgent(chartAgent)
 
+        // PlotDSLAgent - only available on JVM/Android (checks isAvailable internally)
+        if (plotDSLAgent.isAvailable) {
+            registerTool(plotDSLAgent)
+            toolRegistry.registerTool(plotDSLAgent)
+        }
+
+        subAgentManager.registerSubAgent(plotDSLAgent)
+
         CoroutineScope(SupervisorJob() + Dispatchers.Default).launch {
             initializeWorkspace(projectPath)
         }
@@ -142,7 +152,8 @@ class CodingAgent(
         input: AgentTask,
         onProgress: (String) -> Unit
     ): ToolResult.AgentResult {
-        initializeWorkspace(input.projectPath)
+        // Note: initializeWorkspace is already called in init block, no need to call again here
+        // The buildContext() will handle MCP tools initialization if needed
 
         val context = buildContext(input)
         val systemPrompt = buildSystemPrompt(context)

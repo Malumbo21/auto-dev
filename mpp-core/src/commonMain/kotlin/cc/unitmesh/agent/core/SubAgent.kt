@@ -36,6 +36,16 @@ abstract class SubAgent<TInput : Any, TOutput : ToolResult>(
     open val priority: Int = 100
 
     /**
+     * 检查此 SubAgent 在当前平台是否可用
+     * 
+     * 用于平台相关的 SubAgent（如依赖 Lets-Plot 的 PlotDSLAgent）
+     * 在不支持的平台上跳过注册
+     * 
+     * @return 如果在当前平台可用返回 true，否则返回 false
+     */
+    open val isAvailable: Boolean = true
+
+    /**
      * 检查是否应该触发此 SubAgent
      *
      * @param context 当前上下文

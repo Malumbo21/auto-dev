@@ -1,5 +1,6 @@
 package cc.unitmesh.agent.subagent
 
+import cc.unitmesh.agent.Platform
 import cc.unitmesh.agent.core.SubAgent
 import cc.unitmesh.agent.logging.getLogger
 import cc.unitmesh.agent.model.AgentDefinition
@@ -42,6 +43,15 @@ class PlotDSLAgent(
     private val logger = getLogger("PlotDSLAgent")
 
     override val priority: Int = 45 // Slightly lower than NanoDSL for UI tasks
+    
+    /**
+     * PlotDSLAgent is only available on JVM Desktop and Android platforms
+     * where Lets-Plot Compose rendering is supported.
+     * 
+     * On iOS/JS/WASM platforms, this agent is not available as the
+     * charting library doesn't support these targets.
+     */
+    override val isAvailable: Boolean = Platform.isJvm || Platform.isAndroid
 
     override fun validateInput(input: Map<String, Any>): PlotDSLContext {
         val description = input["description"] as? String
