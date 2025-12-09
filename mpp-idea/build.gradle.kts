@@ -484,22 +484,31 @@ project(":") {
             group = "verification"
             description = "Verifies that no Compose/Kotlinx dependencies are included that would conflict with IntelliJ's bundled versions"
 
-            doLast {
-                val forbiddenPatterns = listOf(
-                    "org.jetbrains.compose",
-                    "org.jetbrains.skiko",
-                    "kotlinx-coroutines-core",
-                    "kotlinx-coroutines-swing",
-                    "kotlinx-serialization-json",
-                    "kotlinx-serialization-core"
-                )
+            val forbiddenPatterns = listOf(
+                "org.jetbrains.compose",
+                "org.jetbrains.skiko",
+                "kotlinx-coroutines-core",
+                "kotlinx-coroutines-swing",
+                "kotlinx-serialization-json",
+                "kotlinx-serialization-core"
+            )
 
-                val runtimeClasspath = configurations.getByName("runtimeClasspath")
+            // Capture dependency info at configuration time to avoid serializing Project
+            val runtimeClasspath = configurations.getByName("runtimeClasspath")
+            val dependencyNames = runtimeClasspath.incoming.artifacts.resolvedArtifacts.map { artifacts ->
+                artifacts.map { artifact ->
+                    val id = artifact.id.componentIdentifier.displayName
+                    id
+                }
+            }
+
+            inputs.property("dependencyNames", dependencyNames)
+
+            doLast {
+                val deps = dependencyNames.get()
                 val violations = mutableListOf<String>()
 
-                runtimeClasspath.resolvedConfiguration.resolvedArtifacts.forEach { artifact ->
-                    val id = artifact.moduleVersion.id
-                    val fullName = "${id.group}:${id.name}:${id.version}"
+                deps.forEach { fullName ->
                     forbiddenPatterns.forEach { pattern ->
                         if (fullName.contains(pattern)) {
                             violations.add(fullName)
