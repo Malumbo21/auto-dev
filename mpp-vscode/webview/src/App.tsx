@@ -9,6 +9,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Timeline } from './components/Timeline';
 import { ChatInput } from './components/ChatInput';
 import { ModelConfig } from './components/ModelSelector';
+import { ModelConfigDialog } from './components/ModelConfigDialog';
 import { SelectedFile } from './components/FileChip';
 import { CompletionItem } from './components/CompletionPopup';
 import { PlanData } from './components/plan';
@@ -73,6 +74,11 @@ const App: React.FC = () => {
 
   // Omnibar state
   const [showOmnibar, setShowOmnibar] = useState(false);
+
+  // Model config dialog state
+  const [showModelConfigDialog, setShowModelConfigDialog] = useState(false);
+  const [modelConfigDialogConfig, setModelConfigDialogConfig] = useState<ModelConfig | null>(null);
+  const [isNewConfig, setIsNewConfig] = useState(false);
 
   const { postMessage, onMessage, isVSCode } = useVSCode();
 
@@ -327,8 +333,22 @@ const App: React.FC = () => {
 
   // Handle open config
   const handleOpenConfig = useCallback(() => {
-    postMessage({ type: 'openConfig' });
-  }, [postMessage]);
+    const currentConfig = configState.availableConfigs.find(c => c.name === configState.currentConfigName);
+    if (currentConfig) {
+      setModelConfigDialogConfig(currentConfig);
+      setIsNewConfig(false);
+      setShowModelConfigDialog(true);
+    } else {
+      postMessage({ type: 'openConfig' });
+    }
+  }, [postMessage, configState]);
+
+  // Handle add new config
+  const handleAddNewConfig = useCallback(() => {
+    setModelConfigDialogConfig(null);
+    setIsNewConfig(true);
+    setShowModelConfigDialog(true);
+  }, []);
 
   // Handle stop execution
   const handleStop = useCallback(() => {
@@ -470,6 +490,7 @@ const App: React.FC = () => {
         onStop={handleStop}
         onConfigSelect={handleConfigSelect}
         onConfigureClick={handleOpenConfig}
+        onAddNewConfig={handleAddNewConfig}
         onMcpConfigClick={handleMcpConfigClick}
         onPromptOptimize={handlePromptOptimize}
         onGetCompletions={handleGetCompletions}
@@ -484,6 +505,16 @@ const App: React.FC = () => {
         totalTokens={totalTokens}
         currentPlan={currentPlan}
       />
+
+      {/* Model Config Dialog */}
+      {showModelConfigDialog && (
+        <ModelConfigDialog
+          isOpen={showModelConfigDialog}
+          onClose={() => setShowModelConfigDialog(false)}
+          currentConfig={modelConfigDialogConfig || undefined}
+          isNewConfig={isNewConfig}
+        />
+      )}
     </div>
   );
 };

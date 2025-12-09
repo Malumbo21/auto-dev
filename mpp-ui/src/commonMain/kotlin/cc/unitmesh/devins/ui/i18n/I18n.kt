@@ -66,6 +66,7 @@ object Strings {
     val confirm: String get() = AutoDevStrings.common_confirm.toString()
     val configure: String get() = AutoDevStrings.common_configure.toString()
     val loading: String get() = AutoDevStrings.common_loading.toString()
+    val add: String get() = AutoDevStrings.common_add.toString()
 
     // Chat UI
     val chatTitle: String get() = AutoDevStrings.chat_title.toString()
@@ -85,6 +86,7 @@ object Strings {
     val maxTokens: String get() = AutoDevStrings.modelConfig_maxTokens.toString()
     val advancedParameters: String get() = AutoDevStrings.modelConfig_advancedParameters.toString()
     val configureModel: String get() = AutoDevStrings.modelConfig_configureModel.toString()
+    val addNewConfig: String get() = AutoDevStrings.modelConfig_addNewConfig.toString()
     val noSavedConfigs: String get() = AutoDevStrings.modelConfig_noSavedConfigs.toString()
     val enterModel: String get() = AutoDevStrings.modelConfig_enterModel.toString()
     val enterApiKey: String get() = AutoDevStrings.modelConfig_enterApiKey.toString()

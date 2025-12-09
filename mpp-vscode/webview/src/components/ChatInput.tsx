@@ -13,6 +13,7 @@ interface ChatInputProps {
   onStop?: () => void;
   onConfigSelect?: (config: ModelConfig) => void;
   onConfigureClick?: () => void;
+  onAddNewConfig?: () => void;
   onMcpConfigClick?: () => void;
   onPromptOptimize?: (prompt: string) => Promise<string>;
   onGetCompletions?: (text: string, cursorPosition: number) => void;
@@ -34,6 +35,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   onStop,
   onConfigSelect,
   onConfigureClick,
+  onAddNewConfig,
   onMcpConfigClick,
   onPromptOptimize,
   onGetCompletions,
@@ -225,6 +227,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             currentConfigName={currentConfigName}
             onConfigSelect={onConfigSelect || (() => {})}
             onConfigureClick={onConfigureClick || (() => {})}
+            onAddNewConfig={onAddNewConfig}
           />
           {/* Token usage indicator */}
           {totalTokens != null && totalTokens > 0 && (

@@ -65,6 +65,7 @@ fun IdeaAgentApp(
     var isExecuting by remember { mutableStateOf(false) }
     var currentPlan by remember { mutableStateOf<AgentPlan?>(null) }
     var showConfigDialog by remember { mutableStateOf(false) }
+    var isNewConfig by remember { mutableStateOf(false) }
     var mcpPreloadingMessage by remember { mutableStateOf("") }
     var configWrapper by remember { mutableStateOf<AutoDevConfigWrapper?>(null) }
     var currentModelConfig by remember { mutableStateOf<ModelConfig?>(null) }
@@ -88,6 +89,9 @@ fun IdeaAgentApp(
     }
     IdeaLaunchedEffect(viewModel, project = project) {
         viewModel.showConfigDialog.collect { showConfigDialog = it }
+    }
+    IdeaLaunchedEffect(viewModel, project = project) {
+        viewModel.isNewConfig.collect { isNewConfig = it }
     }
     IdeaLaunchedEffect(viewModel, project = project) {
         viewModel.mcpPreloadingMessage.collect { mcpPreloadingMessage = it }
@@ -217,7 +221,8 @@ fun IdeaAgentApp(
                                 viewModel.setActiveConfig(config.name)
                             },
                             currentPlan = currentPlan,
-                            onConfigureClick = { viewModel.setShowConfigDialog(true) }
+                            onConfigureClick = { viewModel.showEditConfigDialog() },
+                            onAddNewConfig = { viewModel.showAddNewConfigDialog() }
                         )
                     }
                 )
@@ -266,7 +271,8 @@ fun IdeaAgentApp(
                                 onConfigSelect = { config ->
                                     viewModel.setActiveConfig(config.name)
                                 },
-                                onConfigureClick = { viewModel.setShowConfigDialog(true) }
+                                onConfigureClick = { viewModel.showEditConfigDialog() },
+                                onAddNewConfig = { viewModel.showAddNewConfigDialog() }
                             )
                         }
                     )
@@ -304,12 +310,13 @@ fun IdeaAgentApp(
     // DialogWrapper must be created on EDT, so we use invokeLater
     DisposableEffect(showConfigDialog) {
         if (showConfigDialog) {
-            val dialogConfig = currentModelConfig ?: ModelConfig()
+            val dialogConfig = if (isNewConfig) ModelConfig() else (currentModelConfig ?: ModelConfig())
+            val dialogConfigName = if (isNewConfig) null else currentConfigName
             com.intellij.openapi.application.ApplicationManager.getApplication().invokeLater {
                 IdeaModelConfigDialogWrapper.show(
                     project = project,
                     currentConfig = dialogConfig,
-                    currentConfigName = currentConfigName,
+                    currentConfigName = dialogConfigName,
                     onSave = { configName, newModelConfig ->
                         // If creating a new config (not editing current), ensure unique name
                         val existingNames = availableConfigs.map { it.name }

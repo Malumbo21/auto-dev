@@ -80,6 +80,7 @@ fun IdeaDevInInputArea(
     currentConfigName: String? = null,
     onConfigSelect: (NamedModelConfig) -> Unit = {},
     onConfigureClick: () -> Unit = {},
+    onAddNewConfig: () -> Unit = {},
     currentPlan: AgentPlan? = null
 ) {
     val scope = rememberIdeaCoroutineScope(project)
@@ -116,6 +117,11 @@ fun IdeaDevInInputArea(
         onDispose { }
     }
 
+    DisposableEffect(onAddNewConfig) {
+        swingInputArea?.setOnAddNewConfig(onAddNewConfig)
+        onDispose { }
+    }
+
     DisposableEffect(currentPlan) {
         swingInputArea?.setCurrentPlan(currentPlan)
         onDispose { }
@@ -140,6 +146,7 @@ fun IdeaDevInInputArea(
                 it.setCurrentConfigName(currentConfigName)
                 it.setOnConfigSelect(onConfigSelect)
                 it.setOnConfigureClick(onConfigureClick)
+                it.setOnAddNewConfig(onAddNewConfig)
                 it.setCurrentPlan(currentPlan)
             }
         },
@@ -325,6 +332,10 @@ class SwingDevInInputArea(
 
     fun setOnConfigureClick(callback: () -> Unit) {
         bottomToolbar.setOnConfigureClick(callback)
+    }
+
+    fun setOnAddNewConfig(callback: () -> Unit) {
+        bottomToolbar.setOnAddNewConfig(callback)
     }
 
     fun setCurrentPlan(plan: AgentPlan?) {

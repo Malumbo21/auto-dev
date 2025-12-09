@@ -35,6 +35,7 @@ fun IdeaModelSelector(
     currentConfigName: String?,
     onConfigSelect: (NamedModelConfig) -> Unit,
     onConfigureClick: () -> Unit,
+    onAddNewConfig: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -131,7 +132,32 @@ fun IdeaModelSelector(
                     separator()
                 }
 
-                // Configure button
+                // Add New Config button
+                selectableItem(
+                    selected = false,
+                    onClick = {
+                        onAddNewConfig()
+                        expanded = false
+                    }
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = IdeaComposeIcons.Add,
+                            contentDescription = null,
+                            tint = JewelTheme.globalColors.text.normal,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = "Add New Config",
+                            style = JewelTheme.defaultTextStyle.copy(fontSize = 13.sp)
+                        )
+                    }
+                }
+
+                // Configure button (edit current config)
                 selectableItem(
                     selected = false,
                     onClick = {
