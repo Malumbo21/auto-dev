@@ -184,6 +184,15 @@ kotlin {
                 implementation(project(":xuiper-ui"))
                 implementation(compose.desktop.currentOs)
 
+                // Lets-Plot Compose (Desktop only - macOS, Windows, Linux)
+                // https://github.com/JetBrains/lets-plot-compose
+                implementation("org.jetbrains.lets-plot:lets-plot-kotlin-kernel:4.12.0")
+                implementation("org.jetbrains.lets-plot:lets-plot-common:4.8.1")
+                implementation("org.jetbrains.lets-plot:canvas:4.8.1")
+                implementation("org.jetbrains.lets-plot:plot-raster:4.8.1")
+                implementation("org.jetbrains.lets-plot:lets-plot-image-export:4.8.1")
+                implementation("org.jetbrains.lets-plot:lets-plot-compose:3.0.1")
+
                 // WebView support (KCEF) - needed for MermaidRenderer initialization
                 implementation("io.github.kevinnzou:compose-webview-multiplatform:2.0.3")
 
@@ -241,6 +250,14 @@ kotlin {
                 implementation("androidx.activity:activity-compose:1.11.0")
                 implementation("androidx.appcompat:appcompat:1.6.1")
                 implementation("androidx.core:core-ktx:1.17.0")
+
+                // Lets-Plot Compose (Android)
+                // https://github.com/JetBrains/lets-plot-compose
+                implementation("org.jetbrains.lets-plot:lets-plot-kotlin-kernel:4.12.0")
+                implementation("org.jetbrains.lets-plot:lets-plot-common:4.8.1")
+                implementation("org.jetbrains.lets-plot:canvas:4.8.1")
+                implementation("org.jetbrains.lets-plot:plot-raster:4.8.1")
+                implementation("org.jetbrains.lets-plot:lets-plot-compose:3.0.1")
 
                 // Bonsai Tree View (Android)
                 implementation("cafe.adriel.bonsai:bonsai-core:1.2.0")
@@ -501,6 +518,29 @@ tasks.register<JavaExec>("runDocumentCli") {
     }
     if (project.hasProperty("docLanguage")) {
         systemProperty("language", project.property("docLanguage") as String)
+    }
+
+    standardInput = System.`in`
+}
+
+// Task to run PlotDSL CLI
+tasks.register<JavaExec>("runPlotDSLCli") {
+    group = "application"
+    description = "Run PlotDSL CLI for generating statistical charts from natural language"
+
+    val jvmCompilation = kotlin.jvm().compilations.getByName("main")
+    classpath(jvmCompilation.output, configurations["jvmRuntimeClasspath"])
+    mainClass.set("cc.unitmesh.server.cli.PlotDSLCli")
+
+    // Pass properties
+    if (project.hasProperty("plotDescription")) {
+        systemProperty("description", project.property("plotDescription") as String)
+    }
+    if (project.hasProperty("plotChartType")) {
+        systemProperty("chartType", project.property("plotChartType") as String)
+    }
+    if (project.hasProperty("plotTheme")) {
+        systemProperty("theme", project.property("plotTheme") as String)
     }
 
     standardInput = System.`in`

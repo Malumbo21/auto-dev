@@ -28,12 +28,24 @@ class SubAgentManager {
     
     /**
      * 注册 SubAgent
+     * 
+     * 注册前会检查 SubAgent 是否在当前平台可用。
+     * 如果不可用，则跳过注册并记录日志。
+     * 
+     * @param subAgent 要注册的 SubAgent
+     * @return 是否成功注册（如果不可用则返回 false）
      */
     fun <TInput : Any, TOutput : ToolResult> registerSubAgent(
         subAgent: SubAgent<TInput, TOutput>
-    ) {
+    ): Boolean {
+        if (!subAgent.isAvailable) {
+            logger.info { "⏭️ Skipped SubAgent: ${subAgent.name} (not available on current platform)" }
+            return false
+        }
+        
         subAgents[subAgent.name] = subAgent
         logger.info { "🤖 Registered SubAgent: ${subAgent.name}" }
+        return true
     }
 
     @Suppress("UNCHECKED_CAST")
