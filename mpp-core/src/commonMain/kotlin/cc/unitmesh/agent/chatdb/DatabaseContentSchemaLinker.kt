@@ -21,7 +21,7 @@ import kotlinx.serialization.json.Json
 class DatabaseContentSchemaLinker(
     private val llmService: KoogLLMService,
     private val databaseConnection: DatabaseConnection,
-    private val fallbackLinker: KeywordSchemaLinker = KeywordSchemaLinker()
+    private val fallbackLinker: SchemaLinker = KeywordSchemaLinker()
 ) : SchemaLinker() {
     
     private val json = Json { ignoreUnknownKeys = true }

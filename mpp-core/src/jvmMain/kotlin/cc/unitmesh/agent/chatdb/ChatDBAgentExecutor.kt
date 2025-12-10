@@ -43,12 +43,12 @@ class ChatDBAgentExecutor(
     private val logger = getLogger("ChatDBAgentExecutor")
     private val keywordSchemaLinker = KeywordSchemaLinker()
     private val schemaLinker: SchemaLinker = if (useLlmSchemaLinker) {
-        // Use DatabaseContentSchemaLinker for better accuracy (RSL-SQL approach)
-        // It filters system tables and uses sample data for semantic matching
-        DatabaseContentSchemaLinker(llmService, databaseConnection, keywordSchemaLinker)
+        val fallbackLinker = LlmSchemaLinker(llmService, databaseConnection, keywordSchemaLinker)
+        DatabaseContentSchemaLinker(llmService, databaseConnection, fallbackLinker)
     } else {
         keywordSchemaLinker
     }
+
     private val jsqlValidator = JSqlParserValidator()
     private val sqlReviseAgent = SqlReviseAgent(llmService, jsqlValidator)
     private val maxRevisionAttempts = 3
