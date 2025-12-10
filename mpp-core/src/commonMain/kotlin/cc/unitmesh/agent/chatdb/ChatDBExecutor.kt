@@ -66,13 +66,57 @@ class MultiDatabaseChatDBExecutor(
     // Cache for merged schema
     private var mergedSchema: MergedDatabaseSchema? = null
 
+    // Track if we have an active conversation
+    private var hasActiveConversation: Boolean = false
+
+    // Store the system prompt for conversation initialization
+    private var currentSystemPrompt: String? = null
+
+    /**
+     * Check if there's an active conversation that can be continued
+     */
+    fun hasActiveConversation(): Boolean = hasActiveConversation && conversationManager != null
+
+    /**
+     * Clear the current conversation and start fresh.
+     * Call this when user explicitly wants to start a new task/session.
+     */
+    fun clearConversation() {
+        currentIteration = 0
+        conversationManager?.clearHistory()
+        hasActiveConversation = false
+        currentSystemPrompt = null
+        logger.info { "ChatDB conversation cleared, ready for new query" }
+    }
+
+    /**
+     * Execute a ChatDB task, optionally continuing an existing conversation.
+     *
+     * @param task The ChatDB task to execute
+     * @param systemPrompt The system prompt for the conversation
+     * @param onProgress Progress callback
+     * @param continueConversation If true, continues the existing conversation context.
+     *                             If false, starts a new conversation (clears history).
+     */
     suspend fun execute(
         task: ChatDBTask,
         systemPrompt: String,
-        onProgress: (String) -> Unit = {}
+        onProgress: (String) -> Unit = {},
+        continueConversation: Boolean = false
     ): MultiDatabaseChatDBResult {
-        currentIteration = 0
-        conversationManager = ConversationManager(llmService, systemPrompt)
+        // Only reset if starting a new conversation
+        if (!continueConversation || !hasActiveConversation) {
+            currentIteration = 0
+            conversationManager = ConversationManager(llmService, systemPrompt)
+            currentSystemPrompt = systemPrompt
+            hasActiveConversation = true
+
+            onProgress("🚀 ChatDB Agent started (new session)")
+        } else {
+            // Continuing existing conversation - just reset iteration counter for this turn
+            currentIteration = 0
+            onProgress("💬 Continuing ChatDB conversation...")
+        }
 
         val errors = mutableListOf<String>()
         var generatedSql: String? = null

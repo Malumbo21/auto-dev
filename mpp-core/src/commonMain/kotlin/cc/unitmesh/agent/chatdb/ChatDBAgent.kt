@@ -118,10 +118,14 @@ class ChatDBAgent(
     ): ToolResult.AgentResult {
         logger.info { "Starting Multi-Database ChatDB Agent for query: ${input.query}" }
         logger.info { "Connected databases: ${databaseConfigs.keys}" }
-        
+
         val systemPrompt = buildSystemPrompt()
-        val result = executor.execute(input, systemPrompt, onProgress)
-        
+
+        // Check if we should continue existing conversation
+        val continueConversation = executor.hasActiveConversation()
+
+        val result = executor.execute(input, systemPrompt, onProgress, continueConversation)
+
         return ToolResult.AgentResult(
             success = result.success,
             content = result.message,
@@ -133,6 +137,68 @@ class ChatDBAgent(
                 "targetDatabases" to (result.targetDatabases?.joinToString(",") ?: "")
             )
         )
+    }
+
+    /**
+     * Execute a query, optionally continuing an existing conversation.
+     *
+     * @param input The ChatDB task to execute
+     * @param continueConversation If true, continues the existing conversation context.
+     *                             If false, starts a new conversation (clears history).
+     */
+    suspend fun executeQuery(input: ChatDBTask, continueConversation: Boolean = true): MultiDatabaseChatDBResult {
+        logger.info { "Executing ChatDB query: ${input.query}, continueConversation=$continueConversation" }
+        logger.info { "Connected databases: ${databaseConfigs.keys}" }
+
+        val systemPrompt = buildSystemPrompt()
+        return executor.execute(input, systemPrompt, {}, continueConversation)
+    }
+
+    /**
+     * Continue an existing conversation with a new query.
+     * This preserves the conversation history and context.
+     *
+     * @param query The user's follow-up query
+     * @return The query result
+     */
+    suspend fun continueConversation(query: String): MultiDatabaseChatDBResult {
+        val task = ChatDBTask(
+            query = query,
+            additionalContext = "",
+            maxRows = 100,
+            generateVisualization = true
+        )
+
+        val systemPrompt = buildSystemPrompt()
+
+        // Always continue conversation when using this method
+        return executor.execute(task, systemPrompt, {}, continueConversation = true)
+    }
+
+    /**
+     * Start a new conversation, clearing any existing history.
+     *
+     * @param input The new ChatDB task to start
+     * @return The query result
+     */
+    suspend fun startNewConversation(input: ChatDBTask): MultiDatabaseChatDBResult {
+        // Clear existing conversation first
+        executor.clearConversation()
+
+        val systemPrompt = buildSystemPrompt()
+        return executor.execute(input, systemPrompt, {}, continueConversation = false)
+    }
+
+    /**
+     * Check if there's an active conversation that can be continued
+     */
+    fun hasActiveConversation(): Boolean = executor.hasActiveConversation()
+
+    /**
+     * Clear the current conversation and start fresh
+     */
+    fun clearConversation() {
+        executor.clearConversation()
     }
 
     private fun buildSystemPrompt(): String {
