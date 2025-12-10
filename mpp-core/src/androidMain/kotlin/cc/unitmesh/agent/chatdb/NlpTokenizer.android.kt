@@ -17,7 +17,7 @@ actual object NlpTokenizer {
      * @return List of extracted keywords
      */
     actual fun extractKeywords(query: String, stopWords: Set<String>): List<String> {
-        return FallbackTokenizer.extractKeywords(query, stopWords)
+        return FallbackNlpTokenizer.extractKeywords(query, stopWords)
     }
 }
 

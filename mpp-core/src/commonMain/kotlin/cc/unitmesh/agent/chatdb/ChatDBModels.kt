@@ -110,35 +110,3 @@ data class SchemaLinkingResult(
      */
     val confidence: Double = 0.0
 )
-
-/**
- * SQL Revision Context - Context for the Revise Agent
- */
-@Serializable
-data class SqlRevisionContext(
-    /**
-     * Original natural language query
-     */
-    val originalQuery: String,
-    
-    /**
-     * Generated SQL that failed
-     */
-    val failedSql: String,
-    
-    /**
-     * Error message from execution
-     */
-    val errorMessage: String,
-    
-    /**
-     * Schema context
-     */
-    val schemaDescription: String,
-    
-    /**
-     * Previous revision attempts
-     */
-    val previousAttempts: List<String> = emptyList()
-)
-
