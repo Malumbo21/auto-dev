@@ -5,6 +5,8 @@ import cc.unitmesh.agent.database.*
 import cc.unitmesh.agent.executor.BaseAgentExecutor
 import cc.unitmesh.agent.logging.getLogger
 import cc.unitmesh.agent.orchestrator.ToolOrchestrator
+import cc.unitmesh.agent.render.ChatDBStepStatus
+import cc.unitmesh.agent.render.ChatDBStepType
 import cc.unitmesh.agent.render.CodingAgentRenderer
 import cc.unitmesh.agent.subagent.SqlValidator
 import cc.unitmesh.agent.subagent.SqlReviseAgent
@@ -70,45 +72,47 @@ class ChatDBAgentExecutor(
 
         try {
             // Step 1: Get database schema
-            val step1Message = "📊 Fetching database schema..."
-            onProgress(step1Message)
-            renderer.renderLLMResponseStart()
-            renderer.renderLLMResponseChunk(step1Message)
-            renderer.renderLLMResponseEnd()
+            renderer.renderChatDBStep(
+                stepType = ChatDBStepType.FETCH_SCHEMA,
+                status = ChatDBStepStatus.IN_PROGRESS,
+                title = "Fetching database schema..."
+            )
+            onProgress("📊 Fetching database schema...")
 
             val schema = task.schema ?: databaseConnection.getSchema()
             logger.info { "Database has ${schema.tables.size} tables: ${schema.tables.map { it.name }}" }
 
-            // Render schema details
-            val schemaDetails = buildString {
-                append("**Database Schema:**\n")
-                append("- Total tables: ${schema.tables.size}\n")
-                append("- Tables: ${schema.tables.joinToString(", ") { it.name }}")
-            }
-            renderer.renderLLMResponseStart()
-            renderer.renderLLMResponseChunk(schemaDetails)
-            renderer.renderLLMResponseEnd()
+            renderer.renderChatDBStep(
+                stepType = ChatDBStepType.FETCH_SCHEMA,
+                status = ChatDBStepStatus.SUCCESS,
+                title = "Database schema fetched",
+                details = mapOf(
+                    "totalTables" to schema.tables.size,
+                    "tables" to schema.tables.map { it.name }
+                )
+            )
 
             // Step 2: Schema Linking
-            val step2Message = "🔗 Performing schema linking..."
-            onProgress(step2Message)
-            renderer.renderLLMResponseStart()
-            renderer.renderLLMResponseChunk(step2Message)
-            renderer.renderLLMResponseEnd()
+            renderer.renderChatDBStep(
+                stepType = ChatDBStepType.SCHEMA_LINKING,
+                status = ChatDBStepStatus.IN_PROGRESS,
+                title = "Performing schema linking..."
+            )
+            onProgress("🔗 Performing schema linking...")
 
             val linkingResult = schemaLinker.link(task.query, schema)
             logger.info { "Schema linking found ${linkingResult.relevantTables.size} relevant tables: ${linkingResult.relevantTables}" }
             logger.info { "Schema linking keywords: ${linkingResult.keywords}" }
 
-            // Render schema linking details
-            val linkingDetails = buildString {
-                append("**Schema Linking Results:**\n")
-                append("- Relevant tables: ${linkingResult.relevantTables.joinToString(", ")}\n")
-                append("- Keywords: ${linkingResult.keywords.joinToString(", ")}")
-            }
-            renderer.renderLLMResponseStart()
-            renderer.renderLLMResponseChunk(linkingDetails)
-            renderer.renderLLMResponseEnd()
+            renderer.renderChatDBStep(
+                stepType = ChatDBStepType.SCHEMA_LINKING,
+                status = ChatDBStepStatus.SUCCESS,
+                title = "Schema linking completed",
+                details = mapOf(
+                    "relevantTables" to linkingResult.relevantTables,
+                    "keywords" to linkingResult.keywords
+                )
+            )
 
             // Step 3: Build context with relevant schema
             // If schema linking found too few tables, use all tables to avoid missing important ones
@@ -123,11 +127,12 @@ class ChatDBAgentExecutor(
             val initialMessage = buildInitialUserMessage(task, relevantSchema, effectiveLinkingResult)
 
             // Step 4: Generate SQL with LLM
-            val step4Message = "🤖 Generating SQL query..."
-            onProgress(step4Message)
-            renderer.renderLLMResponseStart()
-            renderer.renderLLMResponseChunk(step4Message + "\n\n")
-            renderer.renderLLMResponseEnd()
+            renderer.renderChatDBStep(
+                stepType = ChatDBStepType.GENERATE_SQL,
+                status = ChatDBStepStatus.IN_PROGRESS,
+                title = "Generating SQL query..."
+            )
+            onProgress("🤖 Generating SQL query...")
 
             val llmResponse = StringBuilder()
             val response = getLLMResponse(initialMessage, compileDevIns = false) { chunk ->
@@ -139,21 +144,29 @@ class ChatDBAgentExecutor(
             generatedSql = extractSqlFromResponse(llmResponse.toString())
             if (generatedSql == null) {
                 errors.add("Failed to extract SQL from LLM response")
+                renderer.renderChatDBStep(
+                    stepType = ChatDBStepType.GENERATE_SQL,
+                    status = ChatDBStepStatus.ERROR,
+                    title = "Failed to extract SQL",
+                    error = "Could not find SQL code block in LLM response"
+                )
                 return buildResult(false, errors, null, null, null, 0)
             }
 
-            // Render extracted SQL
-            val extractedSqlMessage = buildString {
-                append("**Generated SQL:**\n")
-                append("```sql\n")
-                append(generatedSql)
-                append("\n```")
-            }
-            renderer.renderLLMResponseStart()
-            renderer.renderLLMResponseChunk(extractedSqlMessage)
-            renderer.renderLLMResponseEnd()
+            renderer.renderChatDBStep(
+                stepType = ChatDBStepType.GENERATE_SQL,
+                status = ChatDBStepStatus.SUCCESS,
+                title = "SQL query generated",
+                details = mapOf("sql" to generatedSql)
+            )
 
             // Step 6: Validate SQL syntax and table names using SqlReviseAgent
+            renderer.renderChatDBStep(
+                stepType = ChatDBStepType.VALIDATE_SQL,
+                status = ChatDBStepStatus.IN_PROGRESS,
+                title = "Validating SQL..."
+            )
+
             var validatedSql = generatedSql
 
             // Get all table names from schema for whitelist validation
@@ -169,19 +182,25 @@ class ChatDBAgentExecutor(
 
             if (!tableValidation.isValid) {
                 val errorType = if (!syntaxValidation.isValid) "syntax" else "table name"
-                val revisionMessage = buildString {
-                    append("🔄 **SQL Validation Failed**\n\n")
-                    append("**Error Type:** $errorType\n")
-                    append("**Errors:**\n")
-                    tableValidation.errors.forEach { error ->
-                        append("- $error\n")
-                    }
-                    append("\nInvoking SqlReviseAgent to fix the SQL...")
-                }
+
+                renderer.renderChatDBStep(
+                    stepType = ChatDBStepType.VALIDATE_SQL,
+                    status = ChatDBStepStatus.ERROR,
+                    title = "SQL validation failed",
+                    details = mapOf(
+                        "errorType" to errorType,
+                        "errors" to tableValidation.errors
+                    ),
+                    error = tableValidation.errors.joinToString("; ")
+                )
+
                 onProgress("🔄 SQL validation failed ($errorType), invoking SqlReviseAgent...")
-                renderer.renderLLMResponseStart()
-                renderer.renderLLMResponseChunk(revisionMessage)
-                renderer.renderLLMResponseEnd()
+
+                renderer.renderChatDBStep(
+                    stepType = ChatDBStepType.REVISE_SQL,
+                    status = ChatDBStepStatus.IN_PROGRESS,
+                    title = "Revising SQL..."
+                )
 
                 val revisionInput = SqlRevisionInput(
                     originalQuery = task.query,
@@ -199,21 +218,33 @@ class ChatDBAgentExecutor(
 
                 if (revisionResult.success) {
                     validatedSql = revisionResult.content
-                    val successMessage = buildString {
-                        append("✅ **SQL Revised Successfully**\n\n")
-                        append("**Attempts:** $revisionAttempts\n")
-                        append("**Revised SQL:**\n")
-                        append("```sql\n")
-                        append(validatedSql)
-                        append("\n```")
-                    }
+
+                    renderer.renderChatDBStep(
+                        stepType = ChatDBStepType.REVISE_SQL,
+                        status = ChatDBStepStatus.SUCCESS,
+                        title = "SQL revised successfully",
+                        details = mapOf(
+                            "attempts" to revisionAttempts,
+                            "sql" to validatedSql
+                        )
+                    )
+
                     onProgress("✅ SQL revised successfully after $revisionAttempts attempts")
-                    renderer.renderLLMResponseStart()
-                    renderer.renderLLMResponseChunk(successMessage)
-                    renderer.renderLLMResponseEnd()
                 } else {
+                    renderer.renderChatDBStep(
+                        stepType = ChatDBStepType.REVISE_SQL,
+                        status = ChatDBStepStatus.ERROR,
+                        title = "SQL revision failed",
+                        error = revisionResult.content
+                    )
                     errors.add("SQL revision failed: ${revisionResult.content}")
                 }
+            } else {
+                renderer.renderChatDBStep(
+                    stepType = ChatDBStepType.VALIDATE_SQL,
+                    status = ChatDBStepStatus.SUCCESS,
+                    title = "SQL validation passed"
+                )
             }
 
             generatedSql = validatedSql
@@ -224,44 +255,56 @@ class ChatDBAgentExecutor(
                 var lastExecutionError: String? = null
 
                 while (executionRetries < maxExecutionRetries && queryResult == null) {
-                    val executionMessage = "⚡ Executing SQL query${if (executionRetries > 0) " (retry $executionRetries)" else ""}..."
-                    onProgress(executionMessage)
-                    renderer.renderLLMResponseStart()
-                    renderer.renderLLMResponseChunk(executionMessage + "\n\n")
-                    renderer.renderLLMResponseEnd()
+                    renderer.renderChatDBStep(
+                        stepType = ChatDBStepType.EXECUTE_SQL,
+                        status = ChatDBStepStatus.IN_PROGRESS,
+                        title = "Executing SQL query${if (executionRetries > 0) " (retry $executionRetries)" else ""}...",
+                        details = mapOf(
+                            "attempt" to (executionRetries + 1),
+                            "sql" to generatedSql!!
+                        )
+                    )
+
+                    onProgress("⚡ Executing SQL query${if (executionRetries > 0) " (retry $executionRetries)" else ""}...")
 
                     try {
                         queryResult = databaseConnection.executeQuery(generatedSql!!)
-                        val successMessage = buildString {
-                            append("✅ **Query Executed Successfully**\n\n")
-                            append("**Rows returned:** ${queryResult.rowCount}\n")
-                            append("**Columns:** ${queryResult.columns.joinToString(", ")}")
-                        }
+
+                        renderer.renderChatDBStep(
+                            stepType = ChatDBStepType.EXECUTE_SQL,
+                            status = ChatDBStepStatus.SUCCESS,
+                            title = "Query executed successfully",
+                            details = mapOf(
+                                "rowCount" to queryResult.rowCount,
+                                "columns" to queryResult.columns
+                            )
+                        )
+
                         onProgress("✅ Query returned ${queryResult.rowCount} rows")
-                        renderer.renderLLMResponseStart()
-                        renderer.renderLLMResponseChunk(successMessage)
-                        renderer.renderLLMResponseEnd()
                     } catch (e: Exception) {
                         lastExecutionError = e.message ?: "Unknown execution error"
                         logger.warn { "Query execution failed (attempt ${executionRetries + 1}): $lastExecutionError" }
 
-                        // Render execution error details
-                        val errorMessage = buildString {
-                            append("❌ **Query Execution Failed**\n\n")
-                            append("**Attempt:** ${executionRetries + 1}/$maxExecutionRetries\n")
-                            append("**Error:** $lastExecutionError")
-                        }
-                        renderer.renderLLMResponseStart()
-                        renderer.renderLLMResponseChunk(errorMessage)
-                        renderer.renderLLMResponseEnd()
+                        renderer.renderChatDBStep(
+                            stepType = ChatDBStepType.EXECUTE_SQL,
+                            status = ChatDBStepStatus.ERROR,
+                            title = "Query execution failed",
+                            details = mapOf(
+                                "attempt" to (executionRetries + 1),
+                                "maxAttempts" to maxExecutionRetries
+                            ),
+                            error = lastExecutionError
+                        )
 
                         // Try to revise SQL based on execution error
                         if (executionRetries < maxExecutionRetries - 1) {
-                            val retryMessage = "🔄 Attempting to fix SQL based on execution error..."
-                            onProgress(retryMessage)
-                            renderer.renderLLMResponseStart()
-                            renderer.renderLLMResponseChunk(retryMessage)
-                            renderer.renderLLMResponseEnd()
+                            onProgress("🔄 Attempting to fix SQL based on execution error...")
+
+                            renderer.renderChatDBStep(
+                                stepType = ChatDBStepType.REVISE_SQL,
+                                status = ChatDBStepStatus.IN_PROGRESS,
+                                title = "Revising SQL based on execution error..."
+                            )
 
                             val revisionInput = SqlRevisionInput(
                                 originalQuery = task.query,
@@ -278,19 +321,24 @@ class ChatDBAgentExecutor(
                             if (revisionResult.success && revisionResult.content != generatedSql) {
                                 generatedSql = revisionResult.content
                                 revisionAttempts++
-                                val revisedMessage = buildString {
-                                    append("🔧 **SQL Revised Based on Execution Error**\n\n")
-                                    append("**Revised SQL:**\n")
-                                    append("```sql\n")
-                                    append(generatedSql)
-                                    append("\n```\n\n")
-                                    append("Retrying execution...")
-                                }
+
+                                renderer.renderChatDBStep(
+                                    stepType = ChatDBStepType.REVISE_SQL,
+                                    status = ChatDBStepStatus.SUCCESS,
+                                    title = "SQL revised based on execution error",
+                                    details = mapOf(
+                                        "sql" to generatedSql
+                                    )
+                                )
+
                                 onProgress("🔧 SQL revised, retrying execution...")
-                                renderer.renderLLMResponseStart()
-                                renderer.renderLLMResponseChunk(revisedMessage)
-                                renderer.renderLLMResponseEnd()
                             } else {
+                                renderer.renderChatDBStep(
+                                    stepType = ChatDBStepType.REVISE_SQL,
+                                    status = ChatDBStepStatus.WARNING,
+                                    title = "SQL revision did not help",
+                                    error = "Revision did not produce a different SQL"
+                                )
                                 // Revision didn't help, break the loop
                                 break
                             }
@@ -307,13 +355,32 @@ class ChatDBAgentExecutor(
 
             // Step 8: Generate visualization if requested
             if (task.generateVisualization && queryResult != null && !queryResult.isEmpty()) {
-                val vizMessage = "📈 Generating visualization..."
-                onProgress(vizMessage)
-                renderer.renderLLMResponseStart()
-                renderer.renderLLMResponseChunk(vizMessage + "\n\n")
-                renderer.renderLLMResponseEnd()
+                renderer.renderChatDBStep(
+                    stepType = ChatDBStepType.GENERATE_VISUALIZATION,
+                    status = ChatDBStepStatus.IN_PROGRESS,
+                    title = "Generating visualization..."
+                )
+
+                onProgress("📈 Generating visualization...")
 
                 plotDslCode = generateVisualization(task.query, queryResult, onProgress)
+
+                if (plotDslCode != null) {
+                    renderer.renderChatDBStep(
+                        stepType = ChatDBStepType.GENERATE_VISUALIZATION,
+                        status = ChatDBStepStatus.SUCCESS,
+                        title = "Visualization generated",
+                        details = mapOf(
+                            "code" to plotDslCode
+                        )
+                    )
+                } else {
+                    renderer.renderChatDBStep(
+                        stepType = ChatDBStepType.GENERATE_VISUALIZATION,
+                        status = ChatDBStepStatus.WARNING,
+                        title = "Visualization not generated"
+                    )
+                }
             }
             
         } catch (e: Exception) {
@@ -332,10 +399,36 @@ class ChatDBAgentExecutor(
 
         // Render the final result to the timeline
         if (result.success) {
+            renderer.renderChatDBStep(
+                stepType = ChatDBStepType.FINAL_RESULT,
+                status = ChatDBStepStatus.SUCCESS,
+                title = "Query completed successfully",
+                details = buildMap {
+                    queryResult?.let {
+                        put("rowCount", it.rowCount)
+                        put("columns", it.columns)
+                    }
+                    if (revisionAttempts > 0) {
+                        put("revisionAttempts", revisionAttempts)
+                    }
+                    plotDslCode?.let { put("visualization", it) }
+                }
+            )
+
             renderer.renderLLMResponseStart()
             renderer.renderLLMResponseChunk(result.message)
             renderer.renderLLMResponseEnd()
         } else {
+            renderer.renderChatDBStep(
+                stepType = ChatDBStepType.FINAL_RESULT,
+                status = ChatDBStepStatus.ERROR,
+                title = "Query failed",
+                details = buildMap {
+                    generatedSql?.let { put("sql", it) }
+                },
+                error = errors.joinToString("; ")
+            )
+
             renderer.renderError(result.message)
         }
 

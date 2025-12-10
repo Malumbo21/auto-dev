@@ -67,6 +67,27 @@ interface CodingAgentRenderer {
     }
 
     /**
+     * Render a ChatDB execution step.
+     * This is an optional method primarily used by UI renderers (ComposeRenderer, JewelRenderer).
+     * Console renderers can ignore this or provide simple text output.
+     *
+     * @param stepType The type of step being executed
+     * @param status The current status of the step
+     * @param title The display title for the step (defaults to stepType.displayName)
+     * @param details Additional details about the step (e.g., table names, row counts, SQL)
+     * @param error Error message if the step failed
+     */
+    fun renderChatDBStep(
+        stepType: ChatDBStepType,
+        status: ChatDBStepStatus,
+        title: String = stepType.displayName,
+        details: Map<String, Any> = emptyMap(),
+        error: String? = null
+    ) {
+        // Default: no-op for renderers that don't support ChatDB steps
+    }
+
+    /**
      * Render a compact plan summary bar.
      * Called when plan is created or updated to show progress in a compact format.
      *

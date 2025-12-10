@@ -4,6 +4,8 @@ import androidx.compose.runtime.*
 import cc.unitmesh.agent.plan.AgentPlan
 import cc.unitmesh.agent.plan.MarkdownPlanParser
 import cc.unitmesh.agent.render.BaseRenderer
+import cc.unitmesh.agent.render.ChatDBStepStatus
+import cc.unitmesh.agent.render.ChatDBStepType
 import cc.unitmesh.agent.render.RendererUtils
 import cc.unitmesh.agent.render.TaskInfo
 import cc.unitmesh.agent.render.TaskStatus
@@ -783,6 +785,39 @@ class ComposeRenderer : BaseRenderer() {
     }
 
     /**
+     * Render a ChatDB execution step.
+     * Adds or updates a step in the timeline for interactive display.
+     */
+    override fun renderChatDBStep(
+        stepType: ChatDBStepType,
+        status: ChatDBStepStatus,
+        title: String,
+        details: Map<String, Any>,
+        error: String?
+    ) {
+        // Check if this step already exists in the timeline
+        val existingIndex = _timeline.indexOfLast {
+            it is ChatDBStepItem && it.stepType == stepType
+        }
+
+        val stepItem = ChatDBStepItem(
+            stepType = stepType,
+            status = status,
+            title = title,
+            details = details,
+            error = error
+        )
+
+        if (existingIndex >= 0) {
+            // Update existing step
+            _timeline[existingIndex] = stepItem
+        } else {
+            // Add new step
+            _timeline.add(stepItem)
+        }
+    }
+
+    /**
      * Render an Agent-generated sketch block (chart, nanodsl, mermaid, etc.)
      * Adds the sketch block to the timeline for interactive rendering.
      */
@@ -883,6 +918,11 @@ class ComposeRenderer : BaseRenderer() {
                     sketchLanguage = item.language,
                     sketchCode = item.code
                 )
+            }
+
+            is ChatDBStepItem -> {
+                // ChatDB steps are not persisted (they're runtime-only for UI display)
+                null
             }
         }
     }
@@ -1108,6 +1148,11 @@ class ComposeRenderer : BaseRenderer() {
                         timestamp = item.timestamp,
                         metadata = toMessageMetadata(item)
                     )
+                }
+
+                is ChatDBStepItem -> {
+                    // ChatDB steps are not persisted as messages
+                    null
                 }
             }
         }

@@ -236,6 +236,12 @@ fun RenderMessageItem(
                 metadata = timelineItem.metadata
             )
         }
+
+        is TimelineItem.ChatDBStepItem -> {
+            cc.unitmesh.devins.ui.compose.agent.chatdb.components.ChatDBStepCard(
+                step = timelineItem
+            )
+        }
     }
 }
 
