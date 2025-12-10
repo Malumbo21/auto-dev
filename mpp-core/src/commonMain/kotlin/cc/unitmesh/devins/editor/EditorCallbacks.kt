@@ -32,6 +32,22 @@ interface EditorCallbacks {
     }
     
     /**
+     * 当用户提交包含多模态内容（如图片）时调用
+     * @param text 用户输入的文本
+     * @param files 关联的文件上下文
+     * @param imageAnalysis 图片分析结果（来自视觉模型）
+     */
+    fun onSubmitWithMultimodal(text: String, files: List<FileContext>, imageAnalysis: String?) {
+        // 默认将图片分析结果追加到文本后发送
+        val fullText = if (imageAnalysis.isNullOrBlank()) {
+            text
+        } else {
+            "$text\n\n[Image Analysis]\n$imageAnalysis"
+        }
+        onSubmit(fullText, files)
+    }
+    
+    /**
      * 当文本内容变化时调用
      */
     fun onTextChanged(text: String) {}

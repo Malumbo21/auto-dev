@@ -12,7 +12,7 @@ import cc.unitmesh.llm.ModelConfig
 
 /**
  * 底部工具栏（重新设计版）
- * 布局：Workspace - Agent - Model Selector - @ Symbol - / Symbol - Settings - Send Button
+ * 布局：Workspace - Agent - Model Selector - @ Symbol - Image - Settings - Send Button
  * - 移动端：通过顶部菜单控制 Agent，底部显示当前选择
  * - Desktop：完整显示所有功能
  *
@@ -31,7 +31,12 @@ fun BottomToolbar(
     workspacePath: String? = null,
     totalTokenInfo: cc.unitmesh.llm.compression.TokenInfo? = null,
     modifier: Modifier = Modifier,
-    onModelConfigChange: (ModelConfig) -> Unit = {}
+    onModelConfigChange: (ModelConfig) -> Unit = {},
+    // Multimodal support
+    onImageClick: () -> Unit = {},
+    hasImages: Boolean = false,
+    imageCount: Int = 0,
+    visionModel: String? = null
 ) {
     val isMobile = Platform.isAndroid || Platform.isIOS
 
@@ -149,6 +154,44 @@ fun BottomToolbar(
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(20.dp)
                 )
+            }
+
+            // Image attachment button for multimodal
+            Box {
+                IconButton(
+                    onClick = onImageClick,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = AutoDevComposeIcons.AddPhotoAlternate,
+                        contentDescription = "Attach Image",
+                        tint = if (hasImages) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                
+                // Badge showing image count
+                if (hasImages && imageCount > 0) {
+                    Surface(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .size(16.dp),
+                        shape = MaterialTheme.shapes.extraSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                text = imageCount.toString(),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onPrimary
+                            )
+                        }
+                    }
+                }
             }
 
             // Prompt Enhancement button (Ctrl+P)

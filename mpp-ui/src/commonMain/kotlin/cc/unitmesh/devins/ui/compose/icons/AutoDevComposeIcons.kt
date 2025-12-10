@@ -117,6 +117,14 @@ object AutoDevComposeIcons {
     val Database: ImageVector get() = Icons.Default.Storage
     val Schema: ImageVector get() = Icons.Default.TableChart
 
+    // Multimodal / Image Icons
+    val Image: ImageVector get() = Icons.Default.Image
+    val AddPhotoAlternate: ImageVector get() = Icons.Default.AddPhotoAlternate
+    val Vision: ImageVector get() = Icons.Default.RemoveRedEye // Eye icon for vision
+    val CloudDone: ImageVector get() = Icons.Default.CloudDone
+    val ZoomIn: ImageVector get() = Icons.Default.ZoomIn
+    val ZoomOut: ImageVector get() = Icons.Default.ZoomOut
+
     /**
      * Custom icons converted from SVG resources
      * These icons are converted from ai.svg and mcp.svg to Compose ImageVector format

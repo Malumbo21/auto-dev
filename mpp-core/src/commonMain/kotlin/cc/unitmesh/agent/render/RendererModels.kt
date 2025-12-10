@@ -226,6 +226,24 @@ sealed class TimelineItem(
         override val timestamp: Long = Platform.getCurrentTimestamp(),
         override val id: String = generateId()
     ) : TimelineItem(timestamp, id)
+    
+    /**
+     * Multimodal analysis item for displaying vision model analysis progress and results.
+     * Shows image thumbnails, analysis progress, and streaming results.
+     */
+    data class MultimodalAnalysisItem(
+        val images: List<ImageInfo>,
+        val prompt: String,
+        val visionModel: String,
+        val status: MultimodalAnalysisStatus,
+        val progress: String? = null,
+        val streamingResult: String = "",
+        val finalResult: String? = null,
+        val error: String? = null,
+        val executionTimeMs: Long? = null,
+        override val timestamp: Long = Platform.getCurrentTimestamp(),
+        override val id: String = generateId()
+    ) : TimelineItem(timestamp, id)
 
     companion object {
         /**
@@ -277,5 +295,36 @@ enum class ChatDBStepStatus(val displayName: String) {
     APPROVED("Approved"),
     /** User rejected the operation */
     REJECTED("Rejected")
+}
+
+/**
+ * Image information for multimodal analysis display.
+ */
+data class ImageInfo(
+    val id: String,
+    val name: String,
+    val path: String? = null,
+    val mimeType: String = "image/png",
+    val uploadedUrl: String? = null,
+    val displaySize: String = "",
+    val compressionSavings: String? = null
+)
+
+/**
+ * Status of multimodal analysis.
+ */
+enum class MultimodalAnalysisStatus(val displayName: String) {
+    /** Images are being compressed */
+    COMPRESSING("Compressing images..."),
+    /** Images are being uploaded to cloud storage */
+    UPLOADING("Uploading to cloud..."),
+    /** Vision model is analyzing images */
+    ANALYZING("Analyzing with vision model..."),
+    /** Streaming response in progress */
+    STREAMING("Receiving analysis..."),
+    /** Analysis completed successfully */
+    COMPLETED("Analysis complete"),
+    /** Analysis failed */
+    FAILED("Analysis failed")
 }
 

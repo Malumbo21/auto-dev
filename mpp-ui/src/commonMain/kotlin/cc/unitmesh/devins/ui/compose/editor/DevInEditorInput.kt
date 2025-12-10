@@ -36,14 +36,17 @@ import cc.unitmesh.devins.ui.compose.editor.changes.FileChangeSummary
 import cc.unitmesh.devins.ui.compose.editor.completion.CompletionPopup
 import cc.unitmesh.devins.ui.compose.editor.plan.PlanSummaryBar
 import cc.unitmesh.devins.ui.compose.editor.completion.CompletionTrigger
-import cc.unitmesh.devins.ui.compose.editor.context.FileSearchPopup
 import cc.unitmesh.devins.ui.compose.editor.context.FileSearchProvider
 import cc.unitmesh.devins.ui.compose.editor.context.SelectedFileItem
 import cc.unitmesh.devins.ui.compose.editor.context.TopToolbar
 import cc.unitmesh.devins.ui.compose.editor.context.WorkspaceFileSearchProvider
 import cc.unitmesh.devins.ui.compose.editor.highlighting.DevInSyntaxHighlighter
+import cc.unitmesh.devins.ui.compose.editor.multimodal.AttachedImage
+import cc.unitmesh.devins.ui.compose.editor.multimodal.ImageAttachmentBar
+import cc.unitmesh.devins.ui.compose.editor.multimodal.ImagePreviewDialog
+import cc.unitmesh.devins.ui.compose.editor.multimodal.MultimodalState
 import cc.unitmesh.config.ConfigManager
-import cc.unitmesh.devins.ui.compose.sketch.getUtf8FontFamily
+import cc.unitmesh.devins.ui.platform.createFileChooser
 import cc.unitmesh.devins.workspace.WorkspaceManager
 import cc.unitmesh.llm.KoogLLMService
 import cc.unitmesh.llm.ModelConfig
@@ -79,7 +82,24 @@ fun DevInEditorInput(
     onModelConfigChange: (ModelConfig) -> Unit = {},
     dismissKeyboardOnSend: Boolean = true,
     renderer: cc.unitmesh.devins.ui.compose.agent.ComposeRenderer? = null,
-    fileSearchProvider: FileSearchProvider? = null
+    fileSearchProvider: FileSearchProvider? = null,
+    // Multimodal callbacks
+    /**
+     * Called when an image needs to be uploaded to cloud storage.
+     * Should return the uploaded URL on success, or throw an exception on failure.
+     * @param imagePath Path to the local image file
+     * @param imageId ID of the AttachedImage for status updates
+     * @param onProgress Callback for upload progress updates (0-100)
+     * @return Uploaded image URL
+     */
+    onImageUpload: (suspend (imagePath: String, imageId: String, onProgress: (Int) -> Unit) -> String)? = null,
+    /**
+     * Called to perform vision analysis on uploaded images.
+     * @param imageUrls List of uploaded image URLs
+     * @param prompt User's prompt text
+     * @return Analysis result string
+     */
+    onMultimodalAnalysis: (suspend (imageUrls: List<String>, prompt: String) -> String?)? = null
 ) {
     var textFieldValue by remember { mutableStateOf(TextFieldValue(initialText)) }
     var highlightedText by remember { mutableStateOf(initialText) }
@@ -105,6 +125,13 @@ fun DevInEditorInput(
 
     // File search provider - use WorkspaceFileSearchProvider as default if not provided
     val effectiveSearchProvider = remember { fileSearchProvider ?: WorkspaceFileSearchProvider() }
+    
+    // Multimodal state
+    var multimodalState by remember { mutableStateOf(MultimodalState()) }
+    var previewingImage by remember { mutableStateOf<AttachedImage?>(null) }
+    
+    // Need scope early for buildAndSendMessage
+    val scope = rememberCoroutineScope()
 
     // Helper function to convert SelectedFileItem to FileContext
     fun getFileContexts(): List<FileContext> = selectedFiles.map { file ->
@@ -119,28 +146,205 @@ fun DevInEditorInput(
     /**
      * Build and send message with file references (like IDEA's buildAndSendMessage).
      * Appends DevIns commands for selected files to the message.
+     * 
+     * If images are attached and all uploaded, performs multimodal analysis first, 
+     * then sends the combined result.
      */
     fun buildAndSendMessage(text: String) {
-        if (text.isBlank()) return
+        if (text.isBlank() && !multimodalState.hasImages) return
+        
+        // Don't allow sending if images are still uploading
+        if (multimodalState.isUploading) {
+            renderer?.renderError("Please wait for image upload to complete")
+            return
+        }
+        
+        // Don't allow sending if any upload failed
+        if (multimodalState.hasUploadError) {
+            renderer?.renderError("Some images failed to upload. Please remove or retry them.")
+            return
+        }
 
         // Generate DevIns commands for selected files
         val filesText = selectedFiles.joinToString("\n") { it.toDevInsCommand() }
         val fullText = if (filesText.isNotEmpty()) "$text\n$filesText" else text
 
-        // Send with file contexts
-        callbacks?.onSubmit(fullText, getFileContexts())
+        // If we have uploaded images, process them with multimodal analysis
+        if (multimodalState.allImagesUploaded && onMultimodalAnalysis != null) {
+            val imageUrls = multimodalState.images.mapNotNull { it.uploadedUrl }
+            val originalText = fullText
+            
+            // Update state to show analysis in progress
+            multimodalState = multimodalState.copy(
+                isAnalyzing = true,
+                analysisProgress = "Analyzing ${imageUrls.size} image(s) with ${multimodalState.visionModel}..."
+            )
+            
+            // Show progress in renderer
+            renderer?.renderInfo("Analyzing image(s) with ${multimodalState.visionModel}...")
+            
+            scope.launch {
+                try {
+                    // Perform multimodal analysis with uploaded URLs
+                    val analysisResult = onMultimodalAnalysis!!(imageUrls, originalText)
+                    
+                    // Update state with result
+                    multimodalState = multimodalState.copy(
+                        isAnalyzing = false,
+                        analysisProgress = null,
+                        analysisResult = analysisResult
+                    )
+                    
+                    // Send with multimodal result
+                    callbacks?.onSubmitWithMultimodal(originalText, getFileContexts(), analysisResult)
+                    
+                    // Clear input and images
+                    textFieldValue = TextFieldValue("")
+                    selectedFiles = emptyList()
+                    multimodalState = MultimodalState()
+                    showCompletion = false
+                    
+                } catch (e: Exception) {
+                    multimodalState = multimodalState.copy(
+                        isAnalyzing = false,
+                        analysisProgress = null,
+                        analysisError = e.message ?: "Analysis failed"
+                    )
+                    renderer?.renderError("Multimodal analysis failed: ${e.message}")
+                }
+            }
+        } else {
+            // No images - send directly
+            callbacks?.onSubmit(fullText, getFileContexts())
 
-        // Clear input and files
-        textFieldValue = TextFieldValue("")
-        selectedFiles = emptyList()
-        showCompletion = false
+            // Clear input and files
+            textFieldValue = TextFieldValue("")
+            selectedFiles = emptyList()
+            showCompletion = false
+        }
+    }
+    
+    /**
+     * Update the upload status of an image
+     */
+    fun updateImageStatus(imageId: String, status: cc.unitmesh.devins.ui.compose.editor.multimodal.ImageUploadStatus) {
+        multimodalState = multimodalState.copy(
+            images = multimodalState.images.map { img ->
+                if (img.id == imageId) img.copy(uploadStatus = status) else img
+            }
+        )
+    }
+    
+    /**
+     * Update the upload progress of an image
+     */
+    fun updateImageProgress(imageId: String, progress: Int) {
+        multimodalState = multimodalState.copy(
+            images = multimodalState.images.map { img ->
+                if (img.id == imageId) img.copy(uploadProgress = progress) else img
+            }
+        )
+    }
+    
+    /**
+     * Remove an image from the multimodal state
+     */
+    fun removeImage(imageId: String) {
+        multimodalState = multimodalState.copy(
+            images = multimodalState.images.filter { it.id != imageId }
+        )
+    }
+    
+    /**
+     * Upload a single image to cloud storage
+     */
+    suspend fun uploadImage(image: AttachedImage) {
+        if (onImageUpload == null || image.path == null) return
+        
+        val imageId = image.id
+        
+        // Update status to compressing
+        updateImageStatus(imageId, cc.unitmesh.devins.ui.compose.editor.multimodal.ImageUploadStatus.COMPRESSING)
+        
+        try {
+            // Update status to uploading
+            updateImageStatus(imageId, cc.unitmesh.devins.ui.compose.editor.multimodal.ImageUploadStatus.UPLOADING)
+            
+            // Perform upload with progress callback
+            val uploadedUrl = onImageUpload!!(image.path!!, imageId) { progress ->
+                updateImageProgress(imageId, progress)
+            }
+            
+            // Update status to completed with URL
+            multimodalState = multimodalState.copy(
+                images = multimodalState.images.map { img ->
+                    if (img.id == imageId) {
+                        img.copy(
+                            uploadStatus = cc.unitmesh.devins.ui.compose.editor.multimodal.ImageUploadStatus.COMPLETED,
+                            uploadedUrl = uploadedUrl,
+                            uploadProgress = 100
+                        )
+                    } else img
+                }
+            )
+            
+            println("✅ Image uploaded: $uploadedUrl")
+            
+        } catch (e: Exception) {
+            // Update status to failed
+            multimodalState = multimodalState.copy(
+                images = multimodalState.images.map { img ->
+                    if (img.id == imageId) {
+                        img.copy(
+                            uploadStatus = cc.unitmesh.devins.ui.compose.editor.multimodal.ImageUploadStatus.FAILED,
+                            uploadError = e.message ?: "Upload failed"
+                        )
+                    } else img
+                }
+            )
+            
+            println("❌ Image upload failed: ${e.message}")
+            renderer?.renderError("Image upload failed: ${e.message}")
+        }
+    }
+    
+    /**
+     * Add an image and start uploading it immediately
+     */
+    fun addImageAndUpload(image: AttachedImage) {
+        if (!multimodalState.canAddMoreImages) return
+        
+        // Add image with PENDING status
+        val newImage = image.copy(uploadStatus = cc.unitmesh.devins.ui.compose.editor.multimodal.ImageUploadStatus.PENDING)
+        multimodalState = multimodalState.copy(
+            images = multimodalState.images + newImage
+        )
+        
+        // Start upload if callback is available
+        if (onImageUpload != null && image.path != null) {
+            scope.launch {
+                uploadImage(newImage)
+            }
+        }
+    }
+    
+    /**
+     * Retry uploading a failed image
+     */
+    fun retryImageUpload(image: AttachedImage) {
+        if (image.path != null) {
+            // Reset status and retry
+            updateImageStatus(image.id, cc.unitmesh.devins.ui.compose.editor.multimodal.ImageUploadStatus.PENDING)
+            scope.launch {
+                uploadImage(image)
+            }
+        }
     }
 
     val highlighter = remember { DevInSyntaxHighlighter() }
     val manager = completionManager ?: remember { CompletionManager() }
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
-    val scope = rememberCoroutineScope()
 
     val isMobile = Platform.isAndroid || Platform.isIOS
     val isAndroid = Platform.isAndroid
@@ -591,11 +795,26 @@ fun DevInEditorInput(
                         }
                     }
 
+                    // Image attachment bar - shown when images are attached
+                    if (multimodalState.hasImages) {
+                        ImageAttachmentBar(
+                            images = multimodalState.images,
+                            onRemoveImage = { image -> removeImage(image.id) },
+                            onImageClick = { image -> previewingImage = image },
+                            onRetryUpload = { image -> retryImageUpload(image) },
+                            isAnalyzing = multimodalState.isAnalyzing,
+                            isUploading = multimodalState.isUploading,
+                            uploadedCount = multimodalState.uploadedCount,
+                            analysisProgress = multimodalState.analysisProgress,
+                            visionModel = multimodalState.visionModel
+                        )
+                    }
+                    
                     val currentWorkspace by WorkspaceManager.workspaceFlow.collectAsState()
 
                     BottomToolbar(
                         onSendClick = {
-                            if (textFieldValue.text.isNotBlank()) {
+                            if (multimodalState.canSend && (textFieldValue.text.isNotBlank() || multimodalState.allImagesUploaded)) {
                                 buildAndSendMessage(textFieldValue.text)
                                 // Force dismiss keyboard on mobile
                                 if (isMobile) {
@@ -603,8 +822,9 @@ fun DevInEditorInput(
                                 }
                             }
                         },
-                        sendEnabled = textFieldValue.text.isNotBlank(),
-                        isExecuting = isExecuting,
+                        // Send enabled only when: has text OR all images uploaded, AND not uploading, AND not analyzing
+                        sendEnabled = multimodalState.canSend && (textFieldValue.text.isNotBlank() || multimodalState.allImagesUploaded),
+                        isExecuting = isExecuting || multimodalState.isAnalyzing || multimodalState.isUploading,
                         onStopClick = onStopClick,
                         workspacePath = currentWorkspace?.rootPath,
                         onAtClick = {
@@ -643,7 +863,30 @@ fun DevInEditorInput(
                             showToolConfig = true
                         },
                         totalTokenInfo = renderer?.totalTokenInfo,
-                        onModelConfigChange = onModelConfigChange
+                        onModelConfigChange = onModelConfigChange,
+                        // Multimodal support
+                        onImageClick = {
+                            // Trigger image picker (only if upload callback is available)
+                            if (onImageUpload != null) {
+                                scope.launch {
+                                    val fileChooser = createFileChooser()
+                                    val selectedPath = fileChooser.chooseFile(
+                                        title = "Select Image",
+                                        initialDirectory = null,
+                                        fileExtensions = AttachedImage.SUPPORTED_EXTENSIONS
+                                    )
+                                    if (selectedPath != null) {
+                                        val image = AttachedImage.fromPath(selectedPath)
+                                        addImageAndUpload(image)
+                                    }
+                                }
+                            } else {
+                                renderer?.renderError("Image upload is not configured")
+                            }
+                        },
+                        hasImages = multimodalState.hasImages,
+                        imageCount = multimodalState.imageCount,
+                        visionModel = if (multimodalState.hasImages) multimodalState.visionModel else null
                     )
                 }
             }
@@ -657,6 +900,18 @@ fun DevInEditorInput(
                         }
                     },
                     llmService = llmService
+                )
+            }
+            
+            // Image preview dialog
+            if (previewingImage != null) {
+                ImagePreviewDialog(
+                    image = previewingImage!!,
+                    onDismiss = { previewingImage = null },
+                    onRemove = {
+                        removeImage(previewingImage!!.id)
+                        previewingImage = null
+                    }
                 )
             }
 

@@ -248,6 +248,13 @@ fun RenderMessageItem(
         is TimelineItem.InfoItem -> {
             InfoMessageItem(message = timelineItem.message)
         }
+        
+        is TimelineItem.MultimodalAnalysisItem -> {
+            MultimodalAnalysisItemView(
+                item = timelineItem,
+                onExpand = onExpand
+            )
+        }
     }
 }
 
@@ -611,6 +618,163 @@ fun AgentSketchBlockItem(
                 modifier = Modifier.fillMaxWidth()
             )
         }
+    }
+}
+
+/**
+ * Composable for rendering multimodal analysis progress and results.
+ * Shows image thumbnails, analysis status, and streaming/final results.
+ */
+@Composable
+fun MultimodalAnalysisItemView(
+    item: TimelineItem.MultimodalAnalysisItem,
+    onExpand: () -> Unit = {}
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+        ),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp)
+        ) {
+            // Header with vision model and status
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = AutoDevComposeIcons.Vision,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = "Vision Analysis",
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = "(${item.visionModel})",
+                        fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                
+                // Status indicator
+                StatusBadge(status = item.status)
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Image thumbnails row
+            if (item.images.isNotEmpty()) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    item.images.forEach { image ->
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(8.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Icon(
+                                    imageVector = AutoDevComposeIcons.Image,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(24.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                )
+                                Text(
+                                    text = image.name,
+                                    fontSize = 9.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+            
+            // Progress or result
+            when {
+                item.status == cc.unitmesh.agent.render.MultimodalAnalysisStatus.FAILED && item.error != null -> {
+                    Text(
+                        text = "Error: ${item.error}",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+                item.streamingResult.isNotEmpty() -> {
+                    // Show streaming/final result
+                    SketchRenderer.Render(
+                        content = item.streamingResult,
+                        isComplete = item.status == cc.unitmesh.agent.render.MultimodalAnalysisStatus.COMPLETED,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                item.progress != null -> {
+                    Text(
+                        text = item.progress!!,
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            
+            // Execution time for completed analysis
+            if (item.executionTimeMs != null) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Completed in ${item.executionTimeMs}ms",
+                    fontSize = 10.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Status badge for multimodal analysis
+ */
+@Composable
+private fun StatusBadge(status: cc.unitmesh.agent.render.MultimodalAnalysisStatus) {
+    val (text, color) = when (status) {
+        cc.unitmesh.agent.render.MultimodalAnalysisStatus.COMPRESSING -> "Compressing" to MaterialTheme.colorScheme.tertiary
+        cc.unitmesh.agent.render.MultimodalAnalysisStatus.UPLOADING -> "Uploading" to MaterialTheme.colorScheme.tertiary
+        cc.unitmesh.agent.render.MultimodalAnalysisStatus.ANALYZING -> "Analyzing" to MaterialTheme.colorScheme.primary
+        cc.unitmesh.agent.render.MultimodalAnalysisStatus.STREAMING -> "Receiving" to MaterialTheme.colorScheme.primary
+        cc.unitmesh.agent.render.MultimodalAnalysisStatus.COMPLETED -> "Done" to MaterialTheme.colorScheme.primary
+        cc.unitmesh.agent.render.MultimodalAnalysisStatus.FAILED -> "Failed" to MaterialTheme.colorScheme.error
+    }
+    
+    Surface(
+        shape = RoundedCornerShape(4.dp),
+        color = color.copy(alpha = 0.2f)
+    ) {
+        Text(
+            text = text,
+            fontSize = 10.sp,
+            color = color,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+        )
     }
 }
 

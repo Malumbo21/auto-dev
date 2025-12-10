@@ -7,6 +7,8 @@ import cc.unitmesh.agent.plan.MarkdownPlanParser
 import cc.unitmesh.agent.render.BaseRenderer
 import cc.unitmesh.agent.render.ChatDBStepStatus
 import cc.unitmesh.agent.render.ChatDBStepType
+import cc.unitmesh.agent.render.ImageInfo
+import cc.unitmesh.agent.render.MultimodalAnalysisStatus
 import cc.unitmesh.agent.render.RendererUtils
 import cc.unitmesh.agent.render.TaskInfo
 import cc.unitmesh.agent.render.TaskStatus
@@ -911,6 +913,94 @@ class ComposeRenderer : BaseRenderer() {
             )
         )
     }
+    
+    // ============================================================
+    // Multimodal Analysis Support
+    // ============================================================
+    
+    /**
+     * Start multimodal analysis - adds a new MultimodalAnalysisItem to timeline.
+     */
+    fun startMultimodalAnalysis(
+        images: List<ImageInfo>,
+        prompt: String,
+        visionModel: String
+    ): String {
+        val item = TimelineItem.MultimodalAnalysisItem(
+            images = images,
+            prompt = prompt,
+            visionModel = visionModel,
+            status = MultimodalAnalysisStatus.COMPRESSING
+        )
+        _timeline.add(item)
+        return item.id
+    }
+    
+    /**
+     * Update multimodal analysis status.
+     */
+    fun updateMultimodalAnalysisStatus(
+        itemId: String,
+        status: MultimodalAnalysisStatus,
+        progress: String? = null
+    ) {
+        val index = _timeline.indexOfFirst { it.id == itemId }
+        if (index >= 0) {
+            val item = _timeline[index] as? TimelineItem.MultimodalAnalysisItem ?: return
+            _timeline[index] = item.copy(
+                status = status,
+                progress = progress
+            )
+        }
+    }
+    
+    /**
+     * Append streaming result to multimodal analysis.
+     */
+    fun appendMultimodalAnalysisChunk(itemId: String, chunk: String) {
+        val index = _timeline.indexOfFirst { it.id == itemId }
+        if (index >= 0) {
+            val item = _timeline[index] as? TimelineItem.MultimodalAnalysisItem ?: return
+            _timeline[index] = item.copy(
+                status = MultimodalAnalysisStatus.STREAMING,
+                streamingResult = item.streamingResult + chunk
+            )
+        }
+    }
+    
+    /**
+     * Complete multimodal analysis with final result.
+     */
+    fun completeMultimodalAnalysis(
+        itemId: String,
+        result: String,
+        executionTimeMs: Long
+    ) {
+        val index = _timeline.indexOfFirst { it.id == itemId }
+        if (index >= 0) {
+            val item = _timeline[index] as? TimelineItem.MultimodalAnalysisItem ?: return
+            _timeline[index] = item.copy(
+                status = MultimodalAnalysisStatus.COMPLETED,
+                finalResult = result,
+                streamingResult = result,
+                executionTimeMs = executionTimeMs
+            )
+        }
+    }
+    
+    /**
+     * Fail multimodal analysis with error.
+     */
+    fun failMultimodalAnalysis(itemId: String, error: String) {
+        val index = _timeline.indexOfFirst { it.id == itemId }
+        if (index >= 0) {
+            val item = _timeline[index] as? TimelineItem.MultimodalAnalysisItem ?: return
+            _timeline[index] = item.copy(
+                status = MultimodalAnalysisStatus.FAILED,
+                error = error
+            )
+        }
+    }
 
     /**
      * Convert a TimelineItem to MessageMetadata for persistence
@@ -1002,6 +1092,11 @@ class ComposeRenderer : BaseRenderer() {
 
             is TimelineItem.InfoItem -> {
                 // Info items are not persisted (they're runtime-only for UI display)
+                null
+            }
+            
+            is TimelineItem.MultimodalAnalysisItem -> {
+                // Multimodal analysis items are not persisted (they're runtime-only)
                 null
             }
         }
@@ -1238,6 +1333,20 @@ class ComposeRenderer : BaseRenderer() {
                 is TimelineItem.InfoItem -> {
                     // Info items are not persisted as messages
                     null
+                }
+                
+                is TimelineItem.MultimodalAnalysisItem -> {
+                    // Multimodal analysis items can be saved with their final result
+                    if (item.finalResult != null) {
+                        cc.unitmesh.devins.llm.Message(
+                            role = MessageRole.ASSISTANT,
+                            content = "[Vision Analysis]\n${item.finalResult}",
+                            timestamp = item.timestamp,
+                            metadata = null // No specific metadata needed
+                        )
+                    } else {
+                        null
+                    }
                 }
             }
         }
