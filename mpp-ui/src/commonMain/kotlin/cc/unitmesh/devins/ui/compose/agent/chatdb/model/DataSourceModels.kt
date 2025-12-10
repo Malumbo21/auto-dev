@@ -15,9 +15,9 @@ enum class DatabaseDialect(val displayName: String, val defaultPort: Int) {
 
     companion object {
         fun fromString(value: String): DatabaseDialect {
-            return entries.find { 
-                it.name.equals(value, ignoreCase = true) || 
-                it.displayName.equals(value, ignoreCase = true) 
+            return entries.find {
+                it.name.equals(value, ignoreCase = true) ||
+                it.displayName.equals(value, ignoreCase = true)
             } ?: MYSQL
         }
     }
@@ -56,14 +56,14 @@ data class DataSourceConfig(
      */
     fun validate(): ValidationResult {
         val errors = mutableListOf<String>()
-        
+
         if (name.isBlank()) errors.add("Name is required")
         if (dialect != DatabaseDialect.SQLITE) {
             if (host.isBlank()) errors.add("Host is required")
             if (port <= 0 || port > 65535) errors.add("Port must be between 1 and 65535")
         }
         if (database.isBlank()) errors.add("Database name is required")
-        
+
         return if (errors.isEmpty()) {
             ValidationResult.Valid
         } else {
@@ -149,7 +149,11 @@ data class ChatDBState(
     val isLoading: Boolean = false,
     val error: String? = null,
     val isConfigDialogOpen: Boolean = false,
-    val editingDataSource: DataSourceConfig? = null
+    val editingDataSource: DataSourceConfig? = null,
+    /** Whether the config pane is shown (inline panel mode) */
+    val isConfigPaneOpen: Boolean = false,
+    /** The data source being configured in the pane */
+    val configuringDataSource: DataSourceConfig? = null
 ) {
     val selectedDataSource: DataSourceConfig?
         get() = dataSources.find { it.id == selectedDataSourceId }

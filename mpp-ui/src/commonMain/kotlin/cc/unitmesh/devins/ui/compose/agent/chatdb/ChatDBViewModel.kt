@@ -138,6 +138,72 @@ class ChatDBViewModel(
         state = state.copy(isConfigDialogOpen = false, editingDataSource = null)
     }
 
+    // --- Config Pane methods (inline panel mode) ---
+
+    fun openConfigPane(config: DataSourceConfig? = null) {
+        state = state.copy(isConfigPaneOpen = true, configuringDataSource = config)
+    }
+
+    fun closeConfigPane() {
+        state = state.copy(isConfigPaneOpen = false, configuringDataSource = null)
+    }
+
+    @OptIn(ExperimentalUuidApi::class)
+    fun saveFromPane(config: DataSourceConfig) {
+        val isNew = config.id.isBlank()
+        val savedConfig = config.copy(
+            id = if (isNew) Uuid.random().toString() else config.id,
+            createdAt = if (isNew) kotlinx.datetime.Clock.System.now().toEpochMilliseconds() else state.configuringDataSource?.createdAt ?: 0L,
+            updatedAt = kotlinx.datetime.Clock.System.now().toEpochMilliseconds()
+        )
+
+        state = if (isNew) {
+            state.copy(
+                dataSources = state.dataSources + savedConfig,
+                isConfigPaneOpen = false,
+                configuringDataSource = null,
+                selectedDataSourceId = savedConfig.id
+            )
+        } else {
+            state.copy(
+                dataSources = state.dataSources.map { if (it.id == savedConfig.id) savedConfig else it },
+                isConfigPaneOpen = false,
+                configuringDataSource = null
+            )
+        }
+        saveDataSources()
+    }
+
+    @OptIn(ExperimentalUuidApi::class)
+    fun saveAndConnectFromPane(config: DataSourceConfig) {
+        val isNew = config.id.isBlank()
+        val savedConfig = config.copy(
+            id = if (isNew) Uuid.random().toString() else config.id,
+            createdAt = if (isNew) kotlinx.datetime.Clock.System.now().toEpochMilliseconds() else state.configuringDataSource?.createdAt ?: 0L,
+            updatedAt = kotlinx.datetime.Clock.System.now().toEpochMilliseconds()
+        )
+
+        state = if (isNew) {
+            state.copy(
+                dataSources = state.dataSources + savedConfig,
+                isConfigPaneOpen = false,
+                configuringDataSource = null,
+                selectedDataSourceId = savedConfig.id
+            )
+        } else {
+            state.copy(
+                dataSources = state.dataSources.map { if (it.id == savedConfig.id) savedConfig else it },
+                isConfigPaneOpen = false,
+                configuringDataSource = null,
+                selectedDataSourceId = savedConfig.id
+            )
+        }
+        saveDataSources()
+
+        // Trigger connection
+        connect()
+    }
+
     fun connect() {
         val dataSource = state.selectedDataSource ?: return
 
