@@ -8,6 +8,8 @@ import cc.unitmesh.agent.orchestrator.ToolOrchestrator
 import cc.unitmesh.agent.render.ChatDBStepStatus
 import cc.unitmesh.agent.render.ChatDBStepType
 import cc.unitmesh.agent.render.CodingAgentRenderer
+import cc.unitmesh.agent.subagent.PlotDSLAgent
+import cc.unitmesh.agent.subagent.PlotDSLContext
 import cc.unitmesh.agent.subagent.SqlValidator
 import cc.unitmesh.agent.subagent.SqlReviseAgent
 import cc.unitmesh.agent.subagent.SqlRevisionInput
@@ -54,6 +56,7 @@ class MultiDatabaseChatDBExecutor(
     private val keywordSchemaLinker = KeywordSchemaLinker()
     private val sqlValidator = SqlValidator()
     private val sqlReviseAgent = SqlReviseAgent(llmService, sqlValidator)
+    private val plotDSLAgent = PlotDSLAgent(llmService)
     private val maxRevisionAttempts = 3
     private val maxExecutionRetries = 3
 
@@ -674,41 +677,53 @@ class MultiDatabaseChatDBExecutor(
     }
 
     /**
-     * Generate visualization for query results
+     * Generate visualization for query results using PlotDSLAgent
      */
     private suspend fun generateVisualization(
         query: String,
         result: QueryResult,
         onProgress: (String) -> Unit
     ): String? {
-        val visualizationPrompt = buildString {
-            appendLine("Based on the following query result, generate a PlotDSL visualization:")
+        // Check if PlotDSLAgent is available on this platform
+        if (!plotDSLAgent.isAvailable) {
+            logger.info { "PlotDSLAgent not available on this platform, skipping visualization" }
+            return null
+        }
+
+        // Build description for PlotDSLAgent
+        val description = buildString {
+            appendLine("Create a visualization for the following database query result:")
             appendLine()
             appendLine("**Original Query**: $query")
             appendLine()
-            appendLine("**Query Result** (${result.rowCount} rows):")
+            appendLine("**Data** (${result.rowCount} rows, columns: ${result.columns.joinToString(", ")}):")
             appendLine("```csv")
             appendLine(result.toCsvString())
             appendLine("```")
             appendLine()
-            appendLine("Generate a PlotDSL chart that best visualizes this data.")
-            appendLine("Choose an appropriate chart type (bar, line, scatter, etc.) based on the data.")
-            appendLine("Wrap the PlotDSL code in a ```plotdsl code block.")
+            appendLine("Choose the most appropriate chart type based on the data structure.")
         }
 
         try {
-            val response = getLLMResponse(visualizationPrompt, compileDevIns = false) { chunk ->
-                onProgress(chunk)
-            }
+            val plotContext = PlotDSLContext(description = description)
+            val agentResult = plotDSLAgent.execute(plotContext, onProgress)
 
-            val codeFence = CodeFence.parse(response)
-            if (codeFence.languageId.lowercase() == "plotdsl" && codeFence.text.isNotBlank()) {
-                return codeFence.text.trim()
-            }
+            if (agentResult.success) {
+                // Extract PlotDSL code from the result
+                val content = agentResult.content
+                val codeFence = CodeFence.parse(content)
+                if (codeFence.languageId.lowercase() == "plotdsl" && codeFence.text.isNotBlank()) {
+                    return codeFence.text.trim()
+                }
 
-            val plotPattern = Regex("```plotdsl\\s*([\\s\\S]*?)```", RegexOption.IGNORE_CASE)
-            val match = plotPattern.find(response)
-            return match?.groupValues?.get(1)?.trim()
+                // Try to find plotdsl block manually
+                val plotPattern = Regex("```plotdsl\\s*([\\s\\S]*?)```", RegexOption.IGNORE_CASE)
+                val match = plotPattern.find(content)
+                return match?.groupValues?.get(1)?.trim()
+            } else {
+                logger.warn { "PlotDSLAgent failed: ${agentResult.content}" }
+                return null
+            }
         } catch (e: Exception) {
             logger.error(e) { "Visualization generation failed" }
             return null

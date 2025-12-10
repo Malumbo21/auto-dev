@@ -450,7 +450,7 @@ class ChatDBViewModel(
                     // It will merge schemas, let LLM decide which database(s) to query,
                     // and execute SQL on the appropriate database(s)
                     agent.execute(task) { progress ->
-                        println("[ChatDB] Progress: $progress")
+//                        println("[ChatDB] Progress: $progress")
                     }
                 } finally {
                     agent.close()
