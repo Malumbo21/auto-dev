@@ -360,27 +360,51 @@ object ModelRegistry {
             "glm-4-flashx",     // 超快版
             "glm-4-long",       // 长文本
             "glm-4",            // 标准版
-            "glm-3-turbo"       // 快速版
+            "glm-3-turbo",      // 快速版
+            // Vision models (multimodal)
+            "glm-4.6v",         // 旗舰视觉推理 - 支持图片/视频/文件理解
+            "glm-4.5v",         // 视觉理解
+            "glm-4.1v-thinking" // 深度思考视觉
         )
 
         fun create(modelName: String): LLModel {
             val (contextLength, maxOutputTokens) = when {
                 modelName.contains("long") -> 1_000_000L to 128_000L
                 modelName.contains("plus") -> 128_000L to 128_000L
+                // Vision models have 128K context
+                modelName.contains("4.6v") -> 128_000L to 8_192L
+                modelName.contains("4.5v") -> 128_000L to 8_192L
+                modelName.contains("4.1v") -> 128_000L to 8_192L
                 else -> 128_000L to 8_192L
             }
 
-            return LLModel(
-                provider = LLMProvider.OpenAI,
-                id = modelName,
-                capabilities = listOf(
+            // Vision models have additional capabilities
+            val capabilities = if (modelName.contains("v")) {
+                listOf(
+                    LLMCapability.Completion,
+                    LLMCapability.Temperature,
+                    LLMCapability.Tools,
+                    LLMCapability.ToolChoice,
+                    LLMCapability.Vision.Image,
+                    LLMCapability.Vision.Video,
+                    LLMCapability.Document,
+                    LLMCapability.MultipleChoices
+                )
+            } else {
+                listOf(
                     LLMCapability.Completion,
                     LLMCapability.Temperature,
                     LLMCapability.Tools,
                     LLMCapability.ToolChoice,
                     LLMCapability.Vision.Image,
                     LLMCapability.MultipleChoices
-                ),
+                )
+            }
+
+            return LLModel(
+                provider = LLMProvider.OpenAI,
+                id = modelName,
+                capabilities = capabilities,
                 contextLength = contextLength,
                 maxOutputTokens = maxOutputTokens
             )

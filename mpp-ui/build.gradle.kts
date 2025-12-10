@@ -665,6 +665,58 @@ tasks.register<JavaExec>("runChatDBCli") {
     standardInput = System.`in`
 }
 
+// Task to run Vision CLI (Multimodal GLM-4.6V)
+tasks.register<JavaExec>("runVisionCli") {
+    group = "application"
+    description = "Run Vision CLI (Multimodal image understanding with GLM-4.6V)"
+
+    val jvmCompilation = kotlin.jvm().compilations.getByName("main")
+    classpath(jvmCompilation.output, configurations["jvmRuntimeClasspath"])
+    mainClass.set("cc.unitmesh.server.cli.VisionCli")
+
+    // Image and prompt properties
+    if (project.hasProperty("visionImage")) {
+        systemProperty("visionImage", project.property("visionImage") as String)
+    }
+    if (project.hasProperty("visionPrompt")) {
+        systemProperty("visionPrompt", project.property("visionPrompt") as String)
+    }
+    if (project.hasProperty("enableThinking")) {
+        systemProperty("enableThinking", project.property("enableThinking") as String)
+    }
+
+    // Tencent COS properties
+    if (project.hasProperty("cosSecretId")) {
+        systemProperty("cosSecretId", project.property("cosSecretId") as String)
+    }
+    if (project.hasProperty("cosSecretKey")) {
+        systemProperty("cosSecretKey", project.property("cosSecretKey") as String)
+    }
+    if (project.hasProperty("cosBucket")) {
+        systemProperty("cosBucket", project.property("cosBucket") as String)
+    }
+    if (project.hasProperty("cosRegion")) {
+        systemProperty("cosRegion", project.property("cosRegion") as String)
+    }
+
+    standardInput = System.`in`
+}
+
+// Task to test COS bucket region
+tasks.register<JavaExec>("runCosTest") {
+    group = "application"
+    description = "Test which region a Tencent COS bucket is in"
+
+    val jvmCompilation = kotlin.jvm().compilations.getByName("main")
+    classpath(jvmCompilation.output, configurations["jvmRuntimeClasspath"])
+    mainClass.set("cc.unitmesh.server.cli.CosTestCli")
+
+    // Pass bucket name as argument
+    if (project.hasProperty("bucket")) {
+        args(project.property("bucket") as String)
+    }
+}
+
 // Ktlint configuration
 configure<org.jlleitschuh.gradle.ktlint.KtlintExtension> {
     version.set("1.0.1")

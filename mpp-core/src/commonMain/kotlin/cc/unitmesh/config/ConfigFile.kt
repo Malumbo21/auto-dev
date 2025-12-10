@@ -118,6 +118,25 @@ class AutoDevConfigWrapper(val configFile: ConfigFile) {
         return getActiveConfig()?.toModelConfig()
     }
 
+    /**
+     * Get a model config by provider name (case-insensitive).
+     * Useful for getting config for a specific provider like GLM or QWEN.
+     */
+    fun getModelConfigByProvider(providerName: String): ModelConfig? {
+        return configFile.configs
+            .find { it.provider.equals(providerName, ignoreCase = true) }
+            ?.toModelConfig()
+    }
+
+    /**
+     * Get all configs for a specific provider.
+     */
+    fun getConfigsByProvider(providerName: String): List<NamedModelConfig> {
+        return configFile.configs.filter { 
+            it.provider.equals(providerName, ignoreCase = true) 
+        }
+    }
+
     fun getMcpServers(): Map<String, McpServerConfig> {
         return configFile.mcpServers ?: emptyMap()
     }
