@@ -2,18 +2,21 @@ package cc.unitmesh.agent.subagent
 
 import net.sf.jsqlparser.parser.CCJSqlParserUtil
 import net.sf.jsqlparser.statement.Statement
+import net.sf.jsqlparser.statement.select.Select
+import net.sf.jsqlparser.util.TablesNamesFinder
 
 /**
  * JVM implementation of SqlValidatorInterface using JSqlParser
- * 
+ *
  * This validator uses JSqlParser to validate SQL syntax.
  * It can detect:
  * - Syntax errors
  * - Malformed SQL statements
  * - Unsupported SQL constructs
+ * - Table names not in whitelist (schema validation)
  */
 class JSqlParserValidator : SqlValidatorInterface {
-    
+
     override fun validate(sql: String): SqlValidationResult {
         return try {
             val statement: Statement = CCJSqlParserUtil.parse(sql)
@@ -28,6 +31,65 @@ class JSqlParserValidator : SqlValidatorInterface {
                 errors = listOf(extractErrorMessage(e)),
                 warnings = emptyList()
             )
+        }
+    }
+
+    /**
+     * Validate SQL with table whitelist - ensures only allowed tables are used
+     *
+     * @param sql The SQL query to validate
+     * @param allowedTables Set of table names that are allowed in the query
+     * @return SqlValidationResult with errors if invalid tables are used
+     */
+    fun validateWithTableWhitelist(sql: String, allowedTables: Set<String>): SqlValidationResult {
+        return try {
+            val statement: Statement = CCJSqlParserUtil.parse(sql)
+
+            // Extract table names from the SQL
+            val tablesNamesFinder = TablesNamesFinder()
+            val usedTables = tablesNamesFinder.getTableList(statement)
+
+            // Check if all used tables are in the whitelist (case-insensitive)
+            val allowedTablesLower = allowedTables.map { it.lowercase() }.toSet()
+            val invalidTables = usedTables.filter { tableName ->
+                tableName.lowercase() !in allowedTablesLower
+            }
+
+            if (invalidTables.isNotEmpty()) {
+                SqlValidationResult(
+                    isValid = false,
+                    errors = listOf(
+                        "Invalid table(s) used: ${invalidTables.joinToString(", ")}. " +
+                        "Available tables: ${allowedTables.joinToString(", ")}"
+                    ),
+                    warnings = collectWarnings(statement)
+                )
+            } else {
+                SqlValidationResult(
+                    isValid = true,
+                    errors = emptyList(),
+                    warnings = collectWarnings(statement)
+                )
+            }
+        } catch (e: Exception) {
+            SqlValidationResult(
+                isValid = false,
+                errors = listOf(extractErrorMessage(e)),
+                warnings = emptyList()
+            )
+        }
+    }
+
+    /**
+     * Extract table names from SQL query
+     */
+    fun extractTableNames(sql: String): List<String> {
+        return try {
+            val statement: Statement = CCJSqlParserUtil.parse(sql)
+            val tablesNamesFinder = TablesNamesFinder()
+            tablesNamesFinder.getTableList(statement)
+        } catch (e: Exception) {
+            emptyList()
         }
     }
     

@@ -30,7 +30,8 @@ class ChatDBAgentExecutor(
     renderer: CodingAgentRenderer,
     private val databaseConnection: DatabaseConnection,
     maxIterations: Int = 10,
-    enableLLMStreaming: Boolean = true
+    enableLLMStreaming: Boolean = true,
+    useLlmSchemaLinker: Boolean = true
 ) : BaseAgentExecutor(
     projectPath = projectPath,
     llmService = llmService,
@@ -40,10 +41,16 @@ class ChatDBAgentExecutor(
     enableLLMStreaming = enableLLMStreaming
 ) {
     private val logger = getLogger("ChatDBAgentExecutor")
-    private val schemaLinker = SchemaLinker()
+    private val keywordSchemaLinker = KeywordSchemaLinker()
+    private val schemaLinker: SchemaLinker = if (useLlmSchemaLinker) {
+        LlmSchemaLinker(llmService, keywordSchemaLinker)
+    } else {
+        keywordSchemaLinker
+    }
     private val jsqlValidator = JSqlParserValidator()
     private val sqlReviseAgent = SqlReviseAgent(llmService, jsqlValidator)
     private val maxRevisionAttempts = 3
+    private val maxExecutionRetries = 3
 
     suspend fun execute(
         task: ChatDBTask,
@@ -87,17 +94,29 @@ class ChatDBAgentExecutor(
                 errors.add("Failed to extract SQL from LLM response")
                 return buildResult(false, errors, null, null, null, 0)
             }
-            
-            // Step 6: Validate and revise SQL using SqlReviseAgent
+
+            // Step 6: Validate SQL syntax and table names using SqlReviseAgent
             var validatedSql = generatedSql
-            val validation = jsqlValidator.validate(validatedSql!!)
-            if (!validation.isValid) {
-                onProgress("🔄 SQL validation failed, invoking SqlReviseAgent...")
+
+            // Get all table names from schema for whitelist validation
+            val allTableNames = schema.tables.map { it.name }.toSet()
+
+            // First validate syntax, then validate table names
+            val syntaxValidation = jsqlValidator.validate(validatedSql!!)
+            val tableValidation = if (syntaxValidation.isValid) {
+                jsqlValidator.validateWithTableWhitelist(validatedSql, allTableNames)
+            } else {
+                syntaxValidation
+            }
+
+            if (!tableValidation.isValid) {
+                val errorType = if (!syntaxValidation.isValid) "syntax" else "table name"
+                onProgress("🔄 SQL validation failed ($errorType), invoking SqlReviseAgent...")
 
                 val revisionInput = SqlRevisionInput(
                     originalQuery = task.query,
                     failedSql = validatedSql,
-                    errorMessage = validation.errors.joinToString("; "),
+                    errorMessage = tableValidation.errors.joinToString("; "),
                     schemaDescription = relevantSchema,
                     maxAttempts = maxRevisionAttempts
                 )
@@ -117,19 +136,56 @@ class ChatDBAgentExecutor(
             }
 
             generatedSql = validatedSql
-            
-            // Step 7: Execute SQL
+
+            // Step 7: Execute SQL with retry loop for execution errors
             if (generatedSql != null) {
-                onProgress("⚡ Executing SQL query...")
-                try {
-                    queryResult = databaseConnection.executeQuery(generatedSql)
-                    onProgress("✅ Query returned ${queryResult.rowCount} rows")
-                } catch (e: Exception) {
-                    errors.add("Query execution failed: ${e.message}")
-                    logger.error(e) { "Query execution failed" }
+                var executionRetries = 0
+                var lastExecutionError: String? = null
+
+                while (executionRetries < maxExecutionRetries && queryResult == null) {
+                    onProgress("⚡ Executing SQL query${if (executionRetries > 0) " (retry $executionRetries)" else ""}...")
+                    try {
+                        queryResult = databaseConnection.executeQuery(generatedSql!!)
+                        onProgress("✅ Query returned ${queryResult.rowCount} rows")
+                    } catch (e: Exception) {
+                        lastExecutionError = e.message ?: "Unknown execution error"
+                        logger.warn { "Query execution failed (attempt ${executionRetries + 1}): $lastExecutionError" }
+
+                        // Try to revise SQL based on execution error
+                        if (executionRetries < maxExecutionRetries - 1) {
+                            onProgress("🔄 Execution failed, attempting to fix SQL...")
+
+                            val revisionInput = SqlRevisionInput(
+                                originalQuery = task.query,
+                                failedSql = generatedSql!!,
+                                errorMessage = "Execution error: $lastExecutionError",
+                                schemaDescription = relevantSchema,
+                                maxAttempts = 1
+                            )
+
+                            val revisionResult = sqlReviseAgent.execute(revisionInput) { progress ->
+                                onProgress(progress)
+                            }
+
+                            if (revisionResult.success && revisionResult.content != generatedSql) {
+                                generatedSql = revisionResult.content
+                                revisionAttempts++
+                                onProgress("🔧 SQL revised, retrying execution...")
+                            } else {
+                                // Revision didn't help, break the loop
+                                break
+                            }
+                        }
+                        executionRetries++
+                    }
+                }
+
+                if (queryResult == null && lastExecutionError != null) {
+                    errors.add("Query execution failed after $executionRetries retries: $lastExecutionError")
+                    logger.error { "Query execution failed after $executionRetries retries" }
                 }
             }
-            
+
             // Step 8: Generate visualization if requested
             if (task.generateVisualization && queryResult != null && !queryResult.isEmpty()) {
                 onProgress("📈 Generating visualization...")

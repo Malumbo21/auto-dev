@@ -3,22 +3,23 @@ package cc.unitmesh.agent.chatdb
 import cc.unitmesh.agent.database.ColumnSchema
 import cc.unitmesh.agent.database.DatabaseSchema
 import cc.unitmesh.agent.database.TableSchema
+import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.test.assertNotNull
 
 /**
- * Tests for SchemaLinker - keyword-based schema linking for Text2SQL
+ * Tests for KeywordSchemaLinker - keyword-based schema linking for Text2SQL
  */
 class SchemaLinkerTest {
 
-    private val schemaLinker = SchemaLinker()
+    private val schemaLinker = KeywordSchemaLinker()
 
     // ============= Keyword Extraction Tests =============
 
     @Test
-    fun testExtractKeywordsBasic() {
+    fun testExtractKeywordsBasic() = runTest {
         val keywords = schemaLinker.extractKeywords("Show me all users")
 
         // "show" and "me" are stop words, "all" is also filtered
@@ -26,7 +27,7 @@ class SchemaLinkerTest {
     }
 
     @Test
-    fun testExtractKeywordsFiltersStopWords() {
+    fun testExtractKeywordsFiltersStopWords() = runTest {
         val keywords = schemaLinker.extractKeywords("Show me the top 10 users with the most orders")
 
         // Stop words should be filtered (show, me, the, top, most are in stopWords)
@@ -37,7 +38,7 @@ class SchemaLinkerTest {
     }
 
     @Test
-    fun testExtractKeywordsFiltersShortWords() {
+    fun testExtractKeywordsFiltersShortWords() = runTest {
         val keywords = schemaLinker.extractKeywords("Get a list of all items")
 
         // Short words (length <= 2) should be filtered
@@ -45,7 +46,7 @@ class SchemaLinkerTest {
     }
 
     @Test
-    fun testExtractKeywordsLowercase() {
+    fun testExtractKeywordsLowercase() = runTest {
         val keywords = schemaLinker.extractKeywords("Show USERS and ORDERS")
 
         assertTrue(keywords.contains("users"))
@@ -90,7 +91,7 @@ class SchemaLinkerTest {
     }
 
     @Test
-    fun testLinkSchemaFindsRelevantTables() {
+    fun testLinkSchemaFindsRelevantTables() = runTest {
         val schema = createTestSchema()
 
         val result = schemaLinker.link("Show me all users with their orders", schema)
@@ -100,7 +101,7 @@ class SchemaLinkerTest {
     }
 
     @Test
-    fun testLinkSchemaFindsRelevantColumns() {
+    fun testLinkSchemaFindsRelevantColumns() = runTest {
         val schema = createTestSchema()
 
         val result = schemaLinker.link("Show user names and order totals", schema)
@@ -109,7 +110,7 @@ class SchemaLinkerTest {
     }
 
     @Test
-    fun testLinkSchemaWithNoMatches() {
+    fun testLinkSchemaWithNoMatches() = runTest {
         val schema = createTestSchema()
 
         val result = schemaLinker.link("Show me the weather forecast", schema)
@@ -120,7 +121,7 @@ class SchemaLinkerTest {
     }
 
     @Test
-    fun testLinkSchemaWithPartialMatch() {
+    fun testLinkSchemaWithPartialMatch() = runTest {
         val schema = DatabaseSchema(
             tables = listOf(
                 TableSchema(
@@ -151,14 +152,14 @@ class SchemaLinkerTest {
     // ============= Edge Cases =============
 
     @Test
-    fun testExtractKeywordsEmptyQuery() {
+    fun testExtractKeywordsEmptyQuery() = runTest {
         val keywords = schemaLinker.extractKeywords("")
 
         assertTrue(keywords.isEmpty())
     }
 
     @Test
-    fun testLinkSchemaEmptySchema() {
+    fun testLinkSchemaEmptySchema() = runTest {
         val schema = DatabaseSchema(tables = emptyList())
         val result = schemaLinker.link("Show me all users", schema)
 
@@ -167,7 +168,7 @@ class SchemaLinkerTest {
     }
 
     @Test
-    fun testLinkSchemaWithSpecialCharacters() {
+    fun testLinkSchemaWithSpecialCharacters() = runTest {
         val schema = createTestSchema()
 
         val result = schemaLinker.link("Show me users' emails!", schema)
@@ -176,7 +177,7 @@ class SchemaLinkerTest {
     }
 
     @Test
-    fun testLinkSchemaWithNumbers() {
+    fun testLinkSchemaWithNumbers() = runTest {
         val schema = createTestSchema()
 
         val result = schemaLinker.link("Show top 10 users with orders over 100", schema)
