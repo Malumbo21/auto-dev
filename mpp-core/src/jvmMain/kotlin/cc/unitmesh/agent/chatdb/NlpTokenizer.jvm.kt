@@ -38,14 +38,14 @@ actual object NlpTokenizer {
         val currentLexer = lexer
         if (currentLexer == null) {
             // Fallback to simple tokenization if MyNLP initialization failed
-            return FallbackTokenizer.extractKeywords(query, stopWords)
+            return FallbackNlpTokenizer.extractKeywords(query, stopWords)
         }
         
         return try {
             extractKeywordsWithMyNlp(query, stopWords, currentLexer)
         } catch (e: Exception) {
             logger.warn(e) { "MyNLP tokenization failed, falling back to simple tokenization" }
-            FallbackTokenizer.extractKeywords(query, stopWords)
+            FallbackNlpTokenizer.extractKeywords(query, stopWords)
         }
     }
     
