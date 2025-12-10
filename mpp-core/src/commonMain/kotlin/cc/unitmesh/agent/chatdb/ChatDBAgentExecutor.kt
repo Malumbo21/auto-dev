@@ -87,8 +87,10 @@ class ChatDBAgentExecutor(
                 status = ChatDBStepStatus.SUCCESS,
                 title = "Database schema fetched",
                 details = mapOf(
+                    "databaseName" to (schema.databaseName ?: "Database"),
                     "totalTables" to schema.tables.size,
-                    "tables" to schema.tables.map { it.name }
+                    "tables" to schema.tables.map { it.name },
+                    "tableSchemas" to schemaToTableInfoList(schema)
                 )
             )
 
@@ -110,7 +112,8 @@ class ChatDBAgentExecutor(
                 title = "Schema linking completed",
                 details = mapOf(
                     "relevantTables" to linkingResult.relevantTables,
-                    "keywords" to linkingResult.keywords
+                    "keywords" to linkingResult.keywords,
+                    "relevantTableSchemas" to getTableInfoForNames(schema, linkingResult.relevantTables)
                 )
             )
 
@@ -275,8 +278,10 @@ class ChatDBAgentExecutor(
                             status = ChatDBStepStatus.SUCCESS,
                             title = "Query executed successfully",
                             details = mapOf(
+                                "sql" to generatedSql!!,
                                 "rowCount" to queryResult.rowCount,
-                                "columns" to queryResult.columns
+                                "columns" to queryResult.columns,
+                                "previewRows" to getPreviewRows(queryResult, 5)
                             )
                         )
 
@@ -408,6 +413,7 @@ class ChatDBAgentExecutor(
                     queryResult?.let {
                         put("rowCount", it.rowCount)
                         put("columns", it.columns)
+                        put("previewRows", getPreviewRows(it, 10))
                     }
                     if (revisionAttempts > 0) {
                         put("revisionAttempts", revisionAttempts)
@@ -658,5 +664,59 @@ class ChatDBAgentExecutor(
     override fun buildContinuationMessage(): String {
         return "Please continue with the database query based on the results above."
     }
-}
 
+    /**
+     * Convert DatabaseSchema to a list of table info maps for UI rendering
+     */
+    private fun schemaToTableInfoList(schema: DatabaseSchema): List<Map<String, Any>> {
+        return schema.tables.map { table ->
+            mapOf(
+                "name" to table.name,
+                "comment" to (table.comment ?: ""),
+                "columns" to table.columns.map { col ->
+                    mapOf(
+                        "name" to col.name,
+                        "type" to col.type,
+                        "nullable" to col.nullable,
+                        "isPrimaryKey" to col.isPrimaryKey,
+                        "isForeignKey" to col.isForeignKey,
+                        "comment" to (col.comment ?: ""),
+                        "defaultValue" to (col.defaultValue ?: "")
+                    )
+                }
+            )
+        }
+    }
+
+    /**
+     * Get table info maps for specific table names
+     */
+    private fun getTableInfoForNames(schema: DatabaseSchema, tableNames: List<String>): List<Map<String, Any>> {
+        return tableNames.mapNotNull { tableName ->
+            schema.getTable(tableName)?.let { table ->
+                mapOf(
+                    "name" to table.name,
+                    "comment" to (table.comment ?: ""),
+                    "columns" to table.columns.map { col ->
+                        mapOf(
+                            "name" to col.name,
+                            "type" to col.type,
+                            "nullable" to col.nullable,
+                            "isPrimaryKey" to col.isPrimaryKey,
+                            "isForeignKey" to col.isForeignKey,
+                            "comment" to (col.comment ?: ""),
+                            "defaultValue" to (col.defaultValue ?: "")
+                        )
+                    }
+                )
+            }
+        }
+    }
+
+    /**
+     * Get preview rows from query result (limited to first N rows)
+     */
+    private fun getPreviewRows(queryResult: QueryResult, maxRows: Int = 5): List<List<String>> {
+        return queryResult.rows.take(maxRows)
+    }
+}
