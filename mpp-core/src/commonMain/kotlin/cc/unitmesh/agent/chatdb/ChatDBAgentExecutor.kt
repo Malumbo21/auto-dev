@@ -70,12 +70,22 @@ class ChatDBAgentExecutor(
 
         try {
             // Step 1: Get database schema
-            onProgress("📊 Fetching database schema...")
+            val step1Message = "📊 Fetching database schema..."
+            onProgress(step1Message)
+            renderer.renderLLMResponseStart()
+            renderer.renderLLMResponseChunk(step1Message)
+            renderer.renderLLMResponseEnd()
+
             val schema = task.schema ?: databaseConnection.getSchema()
             logger.info { "Database has ${schema.tables.size} tables: ${schema.tables.map { it.name }}" }
 
             // Step 2: Schema Linking
-            onProgress("🔗 Performing schema linking...")
+            val step2Message = "🔗 Performing schema linking..."
+            onProgress(step2Message)
+            renderer.renderLLMResponseStart()
+            renderer.renderLLMResponseChunk(step2Message)
+            renderer.renderLLMResponseEnd()
+
             val linkingResult = schemaLinker.link(task.query, schema)
             logger.info { "Schema linking found ${linkingResult.relevantTables.size} relevant tables: ${linkingResult.relevantTables}" }
             logger.info { "Schema linking keywords: ${linkingResult.keywords}" }
@@ -91,9 +101,14 @@ class ChatDBAgentExecutor(
 
             val relevantSchema = buildRelevantSchemaDescription(schema, effectiveLinkingResult)
             val initialMessage = buildInitialUserMessage(task, relevantSchema, effectiveLinkingResult)
-            
+
             // Step 4: Generate SQL with LLM
-            onProgress("🤖 Generating SQL query...")
+            val step4Message = "🤖 Generating SQL query..."
+            onProgress(step4Message)
+            renderer.renderLLMResponseStart()
+            renderer.renderLLMResponseChunk(step4Message + "\n\n")
+            renderer.renderLLMResponseEnd()
+
             val llmResponse = StringBuilder()
             val response = getLLMResponse(initialMessage, compileDevIns = false) { chunk ->
                 onProgress(chunk)
@@ -123,7 +138,11 @@ class ChatDBAgentExecutor(
 
             if (!tableValidation.isValid) {
                 val errorType = if (!syntaxValidation.isValid) "syntax" else "table name"
-                onProgress("🔄 SQL validation failed ($errorType), invoking SqlReviseAgent...")
+                val revisionMessage = "🔄 SQL validation failed ($errorType), invoking SqlReviseAgent..."
+                onProgress(revisionMessage)
+                renderer.renderLLMResponseStart()
+                renderer.renderLLMResponseChunk(revisionMessage + "\n\n")
+                renderer.renderLLMResponseEnd()
 
                 val revisionInput = SqlRevisionInput(
                     originalQuery = task.query,
@@ -141,7 +160,11 @@ class ChatDBAgentExecutor(
 
                 if (revisionResult.success) {
                     validatedSql = revisionResult.content
-                    onProgress("✅ SQL revised successfully after $revisionAttempts attempts")
+                    val successMessage = "✅ SQL revised successfully after $revisionAttempts attempts"
+                    onProgress(successMessage)
+                    renderer.renderLLMResponseStart()
+                    renderer.renderLLMResponseChunk(successMessage + "\n\n")
+                    renderer.renderLLMResponseEnd()
                 } else {
                     errors.add("SQL revision failed: ${revisionResult.content}")
                 }
@@ -155,17 +178,30 @@ class ChatDBAgentExecutor(
                 var lastExecutionError: String? = null
 
                 while (executionRetries < maxExecutionRetries && queryResult == null) {
-                    onProgress("⚡ Executing SQL query${if (executionRetries > 0) " (retry $executionRetries)" else ""}...")
+                    val executionMessage = "⚡ Executing SQL query${if (executionRetries > 0) " (retry $executionRetries)" else ""}..."
+                    onProgress(executionMessage)
+                    renderer.renderLLMResponseStart()
+                    renderer.renderLLMResponseChunk(executionMessage + "\n\n")
+                    renderer.renderLLMResponseEnd()
+
                     try {
                         queryResult = databaseConnection.executeQuery(generatedSql!!)
-                        onProgress("✅ Query returned ${queryResult.rowCount} rows")
+                        val successMessage = "✅ Query returned ${queryResult.rowCount} rows"
+                        onProgress(successMessage)
+                        renderer.renderLLMResponseStart()
+                        renderer.renderLLMResponseChunk(successMessage + "\n\n")
+                        renderer.renderLLMResponseEnd()
                     } catch (e: Exception) {
                         lastExecutionError = e.message ?: "Unknown execution error"
                         logger.warn { "Query execution failed (attempt ${executionRetries + 1}): $lastExecutionError" }
 
                         // Try to revise SQL based on execution error
                         if (executionRetries < maxExecutionRetries - 1) {
-                            onProgress("🔄 Execution failed, attempting to fix SQL...")
+                            val retryMessage = "🔄 Execution failed, attempting to fix SQL..."
+                            onProgress(retryMessage)
+                            renderer.renderLLMResponseStart()
+                            renderer.renderLLMResponseChunk(retryMessage + "\n\n")
+                            renderer.renderLLMResponseEnd()
 
                             val revisionInput = SqlRevisionInput(
                                 originalQuery = task.query,
@@ -182,7 +218,11 @@ class ChatDBAgentExecutor(
                             if (revisionResult.success && revisionResult.content != generatedSql) {
                                 generatedSql = revisionResult.content
                                 revisionAttempts++
-                                onProgress("🔧 SQL revised, retrying execution...")
+                                val revisedMessage = "🔧 SQL revised, retrying execution..."
+                                onProgress(revisedMessage)
+                                renderer.renderLLMResponseStart()
+                                renderer.renderLLMResponseChunk(revisedMessage + "\n\n")
+                                renderer.renderLLMResponseEnd()
                             } else {
                                 // Revision didn't help, break the loop
                                 break
@@ -200,7 +240,12 @@ class ChatDBAgentExecutor(
 
             // Step 8: Generate visualization if requested
             if (task.generateVisualization && queryResult != null && !queryResult.isEmpty()) {
-                onProgress("📈 Generating visualization...")
+                val vizMessage = "📈 Generating visualization..."
+                onProgress(vizMessage)
+                renderer.renderLLMResponseStart()
+                renderer.renderLLMResponseChunk(vizMessage + "\n\n")
+                renderer.renderLLMResponseEnd()
+
                 plotDslCode = generateVisualization(task.query, queryResult, onProgress)
             }
             
@@ -208,8 +253,8 @@ class ChatDBAgentExecutor(
             logger.error(e) { "ChatDB execution failed" }
             errors.add("Execution failed: ${e.message}")
         }
-        
-        return buildResult(
+
+        val result = buildResult(
             success = errors.isEmpty() && queryResult != null,
             errors = errors,
             generatedSql = generatedSql,
@@ -217,6 +262,17 @@ class ChatDBAgentExecutor(
             plotDslCode = plotDslCode,
             revisionAttempts = revisionAttempts
         )
+
+        // Render the final result to the timeline
+        if (result.success) {
+            renderer.renderLLMResponseStart()
+            renderer.renderLLMResponseChunk(result.message)
+            renderer.renderLLMResponseEnd()
+        } else {
+            renderer.renderError(result.message)
+        }
+
+        return result
     }
 
     private fun resetExecution() {

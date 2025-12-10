@@ -54,8 +54,8 @@ fun ChatDBChatPane(
                 modifier = Modifier.fillMaxSize()
             )
 
-            // Welcome message when no messages
-            if (renderer.timeline.isEmpty()) {
+            // Welcome message when no messages and not streaming
+            if (renderer.timeline.isEmpty() && renderer.currentStreamingOutput.isEmpty() && !renderer.isProcessing) {
                 WelcomeMessage(
                     isConnected = connectionStatus is ConnectionStatus.Connected,
                     schema = schema,

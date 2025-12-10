@@ -335,19 +335,10 @@ class ChatDBViewModel(
                     generateVisualization = false
                 )
 
-                val result = agent.execute(task) { progress ->
+                // Execute the agent - it will render results to the timeline via the renderer
+                agent.execute(task) { progress ->
                     // Progress callback - can be used for UI updates
                     println("[ChatDB] Progress: $progress")
-                }
-
-                // Render the result to the timeline
-                if (result.success) {
-                    // Add the successful result as an assistant message to properly render markdown tables
-                    renderer.renderLLMResponseStart()
-                    renderer.renderLLMResponseChunk(result.content)
-                    renderer.renderLLMResponseEnd()
-                } else {
-                    renderer.renderError("Query failed: ${result.content}")
                 }
 
                 // Close the agent connection
