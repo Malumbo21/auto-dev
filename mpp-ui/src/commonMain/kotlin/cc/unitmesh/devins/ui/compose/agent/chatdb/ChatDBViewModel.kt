@@ -3,9 +3,8 @@ package cc.unitmesh.devins.ui.compose.agent.chatdb
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import cc.unitmesh.agent.chatdb.ChatDBAgent
 import cc.unitmesh.agent.chatdb.ChatDBTask
-import cc.unitmesh.agent.chatdb.MultiDatabaseChatDBAgent
+import cc.unitmesh.agent.chatdb.ChatDBAgent
 import cc.unitmesh.agent.config.McpToolConfigService
 import cc.unitmesh.agent.config.ToolConfigFile
 import cc.unitmesh.agent.database.DatabaseConfig
@@ -429,7 +428,7 @@ class ChatDBViewModel(
                 }
 
                 // Use MultiDatabaseChatDBAgent for unified schema linking and query execution
-                val agent = MultiDatabaseChatDBAgent(
+                val agent = ChatDBAgent(
                     projectPath = projectPath,
                     llmService = service,
                     databaseConfigs = databaseConfigs,

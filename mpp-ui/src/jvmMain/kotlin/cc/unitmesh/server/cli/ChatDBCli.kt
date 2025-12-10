@@ -1,7 +1,7 @@
 package cc.unitmesh.server.cli
 
-import cc.unitmesh.agent.chatdb.ChatDBAgent
 import cc.unitmesh.agent.chatdb.ChatDBTask
+import cc.unitmesh.agent.chatdb.ChatDBAgent
 import cc.unitmesh.agent.config.McpToolConfigService
 import cc.unitmesh.agent.config.ToolConfigFile
 import cc.unitmesh.agent.database.DatabaseConfig
@@ -46,12 +46,12 @@ object ChatDBCli {
         val dbUser = System.getProperty("dbUser") ?: args.getOrNull(3) ?: "root"
         val dbPassword = System.getProperty("dbPassword") ?: args.getOrNull(4) ?: ""
         val dbDialect = System.getProperty("dbDialect") ?: args.getOrNull(5) ?: "MariaDB"
-        
+
         val query = System.getProperty("dbQuery") ?: args.getOrNull(6) ?: run {
             System.err.println("Usage: -PdbName=<database> -PdbQuery=<query> [-PdbHost=localhost] [-PdbPort=3306] [-PdbUser=root] [-PdbPassword=]")
             return
         }
-        
+
         val generateVisualization = System.getProperty("generateVisualization")?.toBoolean() ?: true
         val maxRows = System.getProperty("maxRows")?.toIntOrNull() ?: 100
 
@@ -133,7 +133,7 @@ object ChatDBCli {
                 agent = ChatDBAgent(
                     projectPath = projectPath,
                     llmService = llmService,
-                    databaseConfig = databaseConfig,
+                    databaseConfigs = mapOf(dbName to databaseConfig),
                     maxIterations = 10,
                     renderer = renderer,
                     fileSystem = DefaultToolFileSystem(projectPath),

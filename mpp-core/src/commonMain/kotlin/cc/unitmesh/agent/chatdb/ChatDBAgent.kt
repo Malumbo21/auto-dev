@@ -23,24 +23,22 @@ import cc.unitmesh.llm.KoogLLMService
 import cc.unitmesh.llm.ModelConfig
 
 /**
- * ChatDB Agent - Text2SQL Agent for natural language database queries
+ * Multi-Database ChatDB Agent - Text2SQL Agent supporting multiple database connections
  * 
- * This agent converts natural language queries to SQL, executes them,
- * and optionally generates visualizations of the results.
+ * This agent converts natural language queries to SQL across multiple databases.
+ * It merges schemas from all connected databases and lets the LLM decide which
+ * database(s) to query based on the user's question.
  * 
  * Features:
- * - Schema Linking: Keyword-based search to find relevant tables/columns
- * - SQL Generation: LLM generates SQL from natural language
- * - Revise Agent: Self-correction loop using JSqlParser for SQL validation
- * - Query Execution: Execute validated SQL and return results
- * - Visualization: Optional PlotDSL generation for data visualization
- * 
- * Based on GitHub Issue #508: https://github.com/phodal/auto-dev/issues/508
+ * - Multi-Database Schema Linking: Merges schemas from all databases with database prefixes
+ * - Intelligent Database Selection: LLM determines which database to query
+ * - Parallel Execution: Can execute queries on multiple databases simultaneously
+ * - Unified Results: Combines results from multiple databases
  */
 class ChatDBAgent(
     private val projectPath: String,
     private val llmService: KoogLLMService,
-    private val databaseConfig: DatabaseConfig,
+    private val databaseConfigs: Map<String, DatabaseConfig>,
     override val maxIterations: Int = 10,
     private val renderer: CodingAgentRenderer = DefaultCodingAgentRenderer(),
     private val fileSystem: ToolFileSystem? = null,
@@ -49,17 +47,17 @@ class ChatDBAgent(
     private val enableLLMStreaming: Boolean = true
 ) : MainAgent<ChatDBTask, ToolResult.AgentResult>(
     AgentDefinition(
-        name = "ChatDBAgent",
-        displayName = "ChatDB Agent",
-        description = "Text2SQL Agent that converts natural language to SQL queries with schema linking and self-correction",
+        name = "MultiDatabaseChatDBAgent",
+        displayName = "Multi-Database ChatDB Agent",
+        description = "Text2SQL Agent that queries across multiple databases with intelligent database selection",
         promptConfig = PromptConfig(
-            systemPrompt = SYSTEM_PROMPT
+            systemPrompt = MULTI_DB_SYSTEM_PROMPT
         ),
         modelConfig = ModelConfig.default(),
         runConfig = RunConfig(maxTurns = 10, maxTimeMinutes = 5)
     )
 ) {
-    private val logger = getLogger("ChatDBAgent")
+    private val logger = getLogger("MultiDatabaseChatDBAgent")
     
     private val actualFileSystem = fileSystem ?: DefaultToolFileSystem(projectPath = projectPath)
     
@@ -79,18 +77,24 @@ class ChatDBAgent(
         mcpConfigService = mcpToolConfigService
     )
     
-    private var databaseConnection: DatabaseConnection? = null
+    // Database connections keyed by database name/id
+    private val databaseConnections: MutableMap<String, DatabaseConnection> = mutableMapOf()
     
-    private val executor: ChatDBAgentExecutor by lazy {
-        val connection = databaseConnection ?: createDatabaseConnection(databaseConfig)
-        databaseConnection = connection
+    private val executor: MultiDatabaseChatDBExecutor by lazy {
+        // Create connections for all configured databases
+        databaseConfigs.forEach { (id, config) ->
+            if (!databaseConnections.containsKey(id)) {
+                databaseConnections[id] = createDatabaseConnection(config)
+            }
+        }
         
-        ChatDBAgentExecutor(
+        MultiDatabaseChatDBExecutor(
             projectPath = projectPath,
             llmService = llmService,
             toolOrchestrator = toolOrchestrator,
             renderer = renderer,
-            databaseConnection = connection,
+            databaseConnections = databaseConnections,
+            databaseConfigs = databaseConfigs,
             maxIterations = maxIterations,
             enableLLMStreaming = enableLLMStreaming
         )
@@ -112,7 +116,8 @@ class ChatDBAgent(
         input: ChatDBTask,
         onProgress: (String) -> Unit
     ): ToolResult.AgentResult {
-        logger.info { "Starting ChatDB Agent for query: ${input.query}" }
+        logger.info { "Starting Multi-Database ChatDB Agent for query: ${input.query}" }
+        logger.info { "Connected databases: ${databaseConfigs.keys}" }
         
         val systemPrompt = buildSystemPrompt()
         val result = executor.execute(input, systemPrompt, onProgress)
@@ -124,13 +129,14 @@ class ChatDBAgent(
                 "generatedSql" to (result.generatedSql ?: ""),
                 "rowCount" to (result.queryResult?.rowCount?.toString() ?: "0"),
                 "revisionAttempts" to result.revisionAttempts.toString(),
-                "hasVisualization" to (result.plotDslCode != null).toString()
+                "hasVisualization" to (result.plotDslCode != null).toString(),
+                "targetDatabases" to (result.targetDatabases?.joinToString(",") ?: "")
             )
         )
     }
 
     private fun buildSystemPrompt(): String {
-        return SYSTEM_PROMPT
+        return MULTI_DB_SYSTEM_PROMPT
     }
 
     override fun formatOutput(output: ToolResult.AgentResult): String {
@@ -140,33 +146,73 @@ class ChatDBAgent(
     override fun getParameterClass(): String = "ChatDBTask"
 
     /**
-     * Close database connection when done
+     * Close all database connections when done
      */
     suspend fun close() {
-        databaseConnection?.close()
-        databaseConnection = null
+        databaseConnections.values.forEach { it.close() }
+        databaseConnections.clear()
     }
 
     companion object {
-        const val SYSTEM_PROMPT = """You are an expert SQL developer. Generate SQL queries from natural language.
+        const val MULTI_DB_SYSTEM_PROMPT = """You are an expert SQL developer working with MULTIPLE databases.
 
-CRITICAL RULES - YOU MUST FOLLOW THESE:
+IMPORTANT: You are connected to multiple databases. Each table in the schema is prefixed with its database name.
+Format: [database_name].table_name
+
+CRITICAL RULES:
 1. ONLY use table names provided in the schema - NEVER invent or guess table names
 2. ONLY use column names provided in the schema - NEVER invent or guess column names
-3. If a table or column doesn't exist in the schema, DO NOT use it
-4. Only generate SELECT queries (read-only operations)
-5. Always add LIMIT clause to prevent large result sets
+3. When generating SQL, use the table name WITHOUT the database prefix (the system will route to the correct database)
+4. If the user's question relates to tables in multiple databases, generate SEPARATE SQL queries for each database
+5. Always add LIMIT clause for SELECT queries to prevent large result sets
+
+SUPPORTED OPERATIONS:
+- SELECT: Read data (no approval required)
+- INSERT: Add new records (requires user approval)
+- UPDATE: Modify existing records (requires user approval)
+- DELETE: Remove records (requires user approval, HIGH RISK)
+- CREATE TABLE: Create new tables (requires user approval)
+- ALTER TABLE: Modify table structure (requires user approval, HIGH RISK)
+- DROP TABLE: Delete tables (requires user approval, HIGH RISK)
+- TRUNCATE: Remove all records (requires user approval, HIGH RISK)
+
+⚠️ WRITE OPERATIONS WARNING:
+- All write operations (INSERT, UPDATE, DELETE, CREATE, ALTER, DROP, TRUNCATE) require explicit user approval before execution
+- HIGH RISK operations (DELETE, DROP, TRUNCATE, ALTER) will be highlighted with additional warnings
+- Always confirm with the user before generating destructive SQL
 
 OUTPUT FORMAT:
-- Return ONLY the SQL query wrapped in ```sql code block
-- Do NOT include explanations, alternatives, or reasoning
-- Do NOT add comments outside the code block
-- Keep response concise - just the SQL
-
-Example response:
+- For single database query:
 ```sql
+-- database: <database_name>
 SELECT id, name FROM users WHERE status = 'active' LIMIT 100;
-```"""
+```
+
+- For multiple database queries:
+```sql
+-- database: db1
+SELECT * FROM users LIMIT 100;
+```
+```sql
+-- database: db2
+SELECT * FROM customers LIMIT 100;
+```
+
+- For write operations:
+```sql
+-- database: <database_name>
+INSERT INTO users (name, email) VALUES ('John', 'john@example.com');
+```
+
+```sql
+-- database: <database_name>
+CREATE TABLE new_table (
+    id INT PRIMARY KEY,
+    name VARCHAR(100)
+);
+```
+
+The "-- database: <name>" comment is REQUIRED to specify which database to execute the query on."""
     }
 }
 
