@@ -352,7 +352,7 @@ class MultiDatabaseChatDBExecutor(
                     )
                     onProgress("🔍 Performing dry run validation...")
 
-                    val dryRunResult = connection.dryRun(sql)
+                    var dryRunResult = connection.dryRun(sql)
 
                     if (!dryRunResult.isValid) {
                         // Dry run failed - SQL has errors
@@ -415,6 +415,26 @@ class MultiDatabaseChatDBExecutor(
                                 errors.add("[$dbName] Revised SQL still invalid: ${revisedDryRunResult.message}")
                                 continue
                             }
+                            // Update dryRunResult with the successful revised result
+                            dryRunResult = revisedDryRunResult
+
+                            // Render success for revised dry run
+                            val estimatedInfo = if (dryRunResult.estimatedRows != null) {
+                                " (estimated ${dryRunResult.estimatedRows} row(s) affected)"
+                            } else ""
+                            renderer.renderChatDBStep(
+                                stepType = ChatDBStepType.DRY_RUN,
+                                status = ChatDBStepStatus.SUCCESS,
+                                title = "Revised SQL passed validation$estimatedInfo",
+                                details = mapOf(
+                                    "database" to dbName,
+                                    "operationType" to operationType.name,
+                                    "sql" to sql,
+                                    "estimatedRows" to (dryRunResult.estimatedRows ?: "unknown"),
+                                    "warnings" to dryRunResult.warnings
+                                )
+                            )
+                            onProgress("✅ Revised SQL validation passed$estimatedInfo")
                         } else {
                             renderer.renderChatDBStep(
                                 stepType = ChatDBStepType.REVISE_SQL,
@@ -445,7 +465,7 @@ class MultiDatabaseChatDBExecutor(
                         onProgress("✅ Dry run validation passed$estimatedInfo")
                     }
 
-                    // Now request user approval
+                    // Now request user approval (with the latest dryRunResult)
                     val approved = requestSqlApproval(
                         sql = sql,
                         operationType = operationType,
