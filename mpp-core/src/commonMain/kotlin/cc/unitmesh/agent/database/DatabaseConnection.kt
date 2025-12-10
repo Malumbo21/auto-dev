@@ -131,85 +131,45 @@ data class QueryResult(
     }
 
     /**
-     * Convert result to formatted table string (for user display)
+     * Convert result to Markdown table format (for rendering with MarkdownTableRenderer)
+     * Shows all rows without truncation
      */
-    /**
-     * Convert result to formatted table string (for user display)
-     * @param maxDisplayRows Maximum number of rows to display (default 10)
-     */
-    fun toTableString(maxDisplayRows: Int = 10): String {
+    fun toTableString(): String {
         if (isEmpty()) return "No results"
-
-        val displayRows = rows.take(maxDisplayRows)
-        val hasMoreRows = rows.size > maxDisplayRows
-        val moreRowsText = if (hasMoreRows) "... (${rows.size - maxDisplayRows} more rows)" else null
-
-        // Calculate column widths (consider all rows for accurate width, but limit for performance)
-        val colWidths = columns.indices.map { colIdx ->
-            val headerWidth = columns[colIdx].length
-            val dataWidth = rows.take(100).maxOfOrNull {
-                if (colIdx < it.size) it[colIdx].length else 0
-            } ?: 4
-            val moreRowsWidth = if (colIdx == 0 && moreRowsText != null) moreRowsText.length else 0
-            maxOf(headerWidth, dataWidth, moreRowsWidth)
-        }
-
-        val totalWidth = colWidths.sumOf { it + 3 } + 1 // +3 for " │ " per column, +1 for final │
 
         val sb = StringBuilder()
 
-        // Header
-        sb.append("┌")
-        colWidths.forEach { width -> sb.append("─".repeat(width + 2)).append("┬") }
-        sb.setLength(sb.length - 1)
-        sb.append("┐\n")
+        // Header row
+        sb.append("| ")
+        sb.append(columns.joinToString(" | ") { escapeMarkdown(it) })
+        sb.append(" |\n")
 
-        // Column names
-        sb.append("│")
-        columns.forEachIndexed { idx, col ->
-            sb.append(" ").append(col.padEnd(colWidths[idx])).append(" │")
-        }
-        sb.append("\n")
-
-        // Separator
-        sb.append("├")
-        colWidths.forEach { width -> sb.append("─".repeat(width + 2)).append("┼") }
-        sb.setLength(sb.length - 1)
-        sb.append("┤\n")
+        // Separator row
+        sb.append("| ")
+        sb.append(columns.joinToString(" | ") { "---" })
+        sb.append(" |\n")
 
         // Data rows
-        displayRows.forEach { row ->
-            sb.append("│")
-            row.forEachIndexed { idx, value ->
+        rows.forEach { row ->
+            sb.append("| ")
+            sb.append(row.mapIndexed { idx, value ->
                 val str = value.ifEmpty { "NULL" }
-                // Truncate long values to fit column width
-                val displayStr = if (str.length > colWidths[idx]) {
-                    str.take(colWidths[idx] - 3) + "..."
-                } else {
-                    str
-                }
-                sb.append(" ").append(displayStr.padEnd(colWidths[idx])).append(" │")
-            }
-            sb.append("\n")
+                escapeMarkdown(str)
+            }.joinToString(" | "))
+            sb.append(" |\n")
         }
-
-        // More rows indicator (as a proper table row)
-        if (hasMoreRows && moreRowsText != null) {
-            sb.append("│")
-            sb.append(" ").append(moreRowsText.padEnd(colWidths[0])).append(" │")
-            for (idx in 1 until colWidths.size) {
-                sb.append(" ".repeat(colWidths[idx] + 2)).append("│")
-            }
-            sb.append("\n")
-        }
-
-        // Footer
-        sb.append("└")
-        colWidths.forEach { width -> sb.append("─".repeat(width + 2)).append("┴") }
-        sb.setLength(sb.length - 1)
-        sb.append("┘\n")
 
         return sb.toString()
+    }
+
+    /**
+     * Escape special Markdown characters in table cell content
+     */
+    private fun escapeMarkdown(text: String): String {
+        return text
+            .replace("|", "\\|")
+            .replace("\n", " ")
+            .replace("\r", "")
     }
 }
 
