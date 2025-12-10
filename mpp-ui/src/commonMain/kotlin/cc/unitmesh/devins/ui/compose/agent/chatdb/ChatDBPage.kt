@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import cc.unitmesh.devins.ui.base.ResizableSplitPane
 import cc.unitmesh.devins.ui.compose.agent.chatdb.components.*
 import cc.unitmesh.devins.workspace.Workspace
@@ -101,46 +100,3 @@ fun ChatDBPage(
         )
     }
 }
-
-@Composable
-private fun SchemaInfoDialog(
-    schema: cc.unitmesh.agent.database.DatabaseSchema?,
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Database Schema") },
-        text = {
-            if (schema != null) {
-                Column {
-                    Text(
-                        text = "${schema.tables.size} tables",
-                        style = MaterialTheme.typography.labelMedium
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    schema.tables.take(10).forEach { table ->
-                        Text(
-                            text = "• ${table.name} (${table.columns.size} columns)",
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-                    if (schema.tables.size > 10) {
-                        Text(
-                            text = "... and ${schema.tables.size - 10} more",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            } else {
-                Text("No schema available")
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Close")
-            }
-        }
-    )
-}
-
