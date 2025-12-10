@@ -11,12 +11,19 @@ import androidx.compose.ui.unit.dp
 import cc.unitmesh.agent.AgentType
 import cc.unitmesh.agent.Platform
 import cc.unitmesh.agent.render.TaskStatus
+import cc.unitmesh.config.CloudStorageConfig
+import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.devins.ui.base.ResizableSplitPane
 import cc.unitmesh.devins.ui.compose.chat.TopBarMenu
+import cc.unitmesh.devins.ui.compose.config.CloudStorageConfigDialog
 import cc.unitmesh.devins.ui.compose.editor.DevInEditorInput
+import cc.unitmesh.devins.ui.compose.editor.multimodal.ImageUploader
+import cc.unitmesh.devins.ui.compose.editor.multimodal.VisionAnalysisService
 import cc.unitmesh.devins.ui.state.UIStateManager
 import cc.unitmesh.devins.workspace.WorkspaceManager
 import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMProviderType
+import kotlinx.coroutines.launch
 
 @Composable
 fun AgentChatInterface(
@@ -53,8 +60,34 @@ fun AgentChatInterface(
     modifier: Modifier = Modifier
 ) {
     val isTreeViewVisibleState by UIStateManager.isTreeViewVisible.collectAsState()
+    val scope = rememberCoroutineScope()
 
     val currentWorkspace by WorkspaceManager.workspaceFlow.collectAsState()
+    
+    // Cloud storage configuration state
+    var cloudStorageConfig by remember { mutableStateOf<CloudStorageConfig?>(null) }
+    var showCloudStorageDialog by remember { mutableStateOf(false) }
+    var imageUploader by remember { mutableStateOf<ImageUploader?>(null) }
+    var visionService by remember { mutableStateOf<VisionAnalysisService?>(null) }
+    
+    // Load cloud storage config on start
+    LaunchedEffect(Unit) {
+        try {
+            val configWrapper = ConfigManager.load()
+            cloudStorageConfig = configWrapper.getCloudStorage()
+            if (cloudStorageConfig?.isConfigured() == true) {
+                imageUploader = ImageUploader(cloudStorageConfig!!)
+            }
+            // Get GLM API key for vision service
+            val glmConfig = configWrapper.getModelConfigByProvider(LLMProviderType.GLM.name)
+            if (glmConfig != null && glmConfig.apiKey.isNotBlank()) {
+                visionService = VisionAnalysisService(glmConfig.apiKey, "glm-4.6v")
+            }
+        } catch (e: Exception) {
+            println("Failed to load cloud storage config: ${e.message}")
+        }
+    }
+    
     val viewModel =
         remember(llmService, currentWorkspace?.rootPath, chatHistoryManager) {
             val workspace = currentWorkspace
@@ -193,7 +226,29 @@ fun AgentChatInterface(
                                     Modifier
                                         .fillMaxWidth()
                                         .imePadding()
-                                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                                // Multimodal support
+                                onImageUpload = if (imageUploader?.isConfigured() == true) {
+                                    { imagePath, _, onProgress ->
+                                        val result = imageUploader!!.uploadImage(imagePath, onProgress)
+                                        if (result.success && result.url != null) {
+                                            result.url
+                                        } else {
+                                            throw Exception(result.error ?: "Upload failed")
+                                        }
+                                    }
+                                } else {
+                                    // Show config dialog when trying to upload without config
+                                    { _, _, _ ->
+                                        showCloudStorageDialog = true
+                                        throw Exception("Please configure cloud storage first")
+                                    }
+                                },
+                                onMultimodalAnalysis = if (visionService != null) {
+                                    { imageUrls, prompt ->
+                                        visionService!!.analyzeImages(imageUrls, prompt)
+                                    }
+                                } else null
                             )
                         }
 
@@ -352,7 +407,29 @@ fun AgentChatInterface(
                     Modifier
                         .fillMaxWidth()
                         .imePadding()
-                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                // Multimodal support
+                onImageUpload = if (imageUploader?.isConfigured() == true) {
+                    { imagePath, _, onProgress ->
+                        val result = imageUploader!!.uploadImage(imagePath, onProgress)
+                        if (result.success && result.url != null) {
+                            result.url
+                        } else {
+                            throw Exception(result.error ?: "Upload failed")
+                        }
+                    }
+                } else {
+                    // Show config dialog when trying to upload without config
+                    { _, _, _ ->
+                        showCloudStorageDialog = true
+                        throw Exception("Please configure cloud storage first")
+                    }
+                },
+                onMultimodalAnalysis = if (visionService != null) {
+                    { imageUrls, prompt ->
+                        visionService!!.analyzeImages(imageUrls, prompt)
+                    }
+                } else null
             )
 
             ToolLoadingStatusBar(
@@ -363,6 +440,20 @@ fun AgentChatInterface(
                         .padding(horizontal = 12.dp, vertical = 4.dp)
             )
         }
+    }
+    
+    // Cloud Storage Configuration Dialog
+    if (showCloudStorageDialog) {
+        CloudStorageConfigDialog(
+            onDismiss = { showCloudStorageDialog = false },
+            onSave = { newConfig ->
+                cloudStorageConfig = newConfig
+                if (newConfig.isConfigured()) {
+                    imageUploader?.close()
+                    imageUploader = ImageUploader(newConfig)
+                }
+            }
+        )
     }
 }
 

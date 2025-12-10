@@ -40,7 +40,8 @@ public data class ConfigFile(
     val remoteServer: RemoteServerConfig? = null,
     val agentType: String? = "Local", // "Local" or "Remote" - which agent mode to use
     val lastWorkspace: WorkspaceInfo? = null, // Last opened workspace information
-    val issueTracker: IssueTrackerConfig? = null // Issue tracker configuration
+    val issueTracker: IssueTrackerConfig? = null, // Issue tracker configuration
+    val cloudStorage: CloudStorageConfig? = null // Cloud storage for multimodal image upload
 )
 
 /**
@@ -82,6 +83,38 @@ data class IssueTrackerConfig(
             "jira" -> token.isNotBlank() && serverUrl.isNotBlank()
             else -> false
         }
+    }
+}
+
+/**
+ * Cloud storage configuration for multimodal image upload.
+ * Currently supports Tencent COS (Cloud Object Storage).
+ * 
+ * Example config.yaml:
+ * ```yaml
+ * cloudStorage:
+ *   provider: tencent-cos
+ *   secretId: AKIDxxxxxxxxxx
+ *   secretKey: xxxxxxxxxx
+ *   bucket: autodev-images-1234567890
+ *   region: ap-beijing
+ * ```
+ */
+@Serializable
+data class CloudStorageConfig(
+    val provider: String = "tencent-cos", // Currently only "tencent-cos" is supported
+    val secretId: String = "",
+    val secretKey: String = "",
+    val bucket: String = "",
+    val region: String = "ap-beijing",
+    val enabled: Boolean = true
+) {
+    fun isConfigured(): Boolean {
+        return provider == "tencent-cos" &&
+            secretId.isNotBlank() &&
+            secretKey.isNotBlank() &&
+            bucket.isNotBlank() &&
+            region.isNotBlank()
     }
 }
 
@@ -167,6 +200,14 @@ class AutoDevConfigWrapper(val configFile: ConfigFile) {
 
     fun getLanguage(): String? {
         return configFile.language.takeIf { it?.isNotEmpty() == true }
+    }
+    
+    fun getCloudStorage(): CloudStorageConfig {
+        return configFile.cloudStorage ?: CloudStorageConfig()
+    }
+    
+    fun isCloudStorageConfigured(): Boolean {
+        return configFile.cloudStorage?.isConfigured() == true
     }
 
     companion object {
