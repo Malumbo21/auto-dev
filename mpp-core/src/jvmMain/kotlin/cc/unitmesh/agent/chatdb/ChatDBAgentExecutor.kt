@@ -275,27 +275,54 @@ class ChatDBAgentExecutor(
             appendLine()
             appendLine("Max rows: ${task.maxRows}")
             appendLine()
-            appendLine("Return ONLY the SQL in a ```sql code block. No explanations.")
+            appendLine("CRITICAL RULES:")
+            appendLine("1. Return ONLY ONE SQL statement - never multiple statements")
+            appendLine("2. Choose the BEST matching table if multiple similar tables exist")
+            appendLine("3. Wrap the SQL in a ```sql code block")
+            appendLine("4. No comments, no explanations, just the SQL")
         }
     }
 
     private fun extractSqlFromResponse(response: String): String? {
         val codeFence = CodeFence.parse(response)
         if (codeFence.languageId.lowercase() == "sql" && codeFence.text.isNotBlank()) {
-            return codeFence.text.trim()
+            return extractFirstStatement(codeFence.text.trim())
         }
 
         // Try to find SQL block manually
         val sqlPattern = Regex("```sql\\s*([\\s\\S]*?)```", RegexOption.IGNORE_CASE)
         val match = sqlPattern.find(response)
         if (match != null) {
-            return match.groupValues[1].trim()
+            return extractFirstStatement(match.groupValues[1].trim())
         }
 
         // Last resort: look for SELECT statement
         val selectPattern = Regex("(SELECT[\\s\\S]*?;)", RegexOption.IGNORE_CASE)
         val selectMatch = selectPattern.find(response)
         return selectMatch?.groupValues?.get(1)?.trim()
+    }
+
+    /**
+     * Extract only the first SQL statement if LLM returns multiple statements.
+     * This prevents "multiple statements" errors.
+     */
+    private fun extractFirstStatement(sql: String): String {
+        // Remove SQL comments (-- style)
+        val withoutComments = sql.lines()
+            .filterNot { it.trim().startsWith("--") }
+            .joinToString("\n")
+            .trim()
+
+        // If there are multiple statements separated by semicolons, take only the first
+        val statements = withoutComments.split(";")
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+
+        return if (statements.isNotEmpty()) {
+            statements.first() + ";"
+        } else {
+            withoutComments
+        }
     }
 
     private suspend fun generateVisualization(

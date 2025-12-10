@@ -60,9 +60,12 @@ class ExposedDatabaseConnection(
                 val metadata = connection.metaData
                 val tables = mutableListOf<TableSchema>()
 
-                // Get all tables
+                // Get current database/catalog name to filter tables
+                val currentCatalog = connection.catalog
+
+                // Get tables only from current database (catalog)
                 val tableTypes = arrayOf("TABLE", "VIEW")
-                val tableRs = metadata.getTables(null, null, "%", tableTypes)
+                val tableRs = metadata.getTables(currentCatalog, null, "%", tableTypes)
 
                 while (tableRs.next()) {
                     val tableName = tableRs.getString("TABLE_NAME")
@@ -72,10 +75,10 @@ class ExposedDatabaseConnection(
                         null
                     }
 
-                    // Get primary keys
+                    // Get primary keys for current catalog
                     val primaryKeys = mutableSetOf<String>()
                     try {
-                        val pkRs = metadata.getPrimaryKeys(null, null, tableName)
+                        val pkRs = metadata.getPrimaryKeys(currentCatalog, null, tableName)
                         while (pkRs.next()) {
                             primaryKeys.add(pkRs.getString("COLUMN_NAME"))
                         }
@@ -84,8 +87,8 @@ class ExposedDatabaseConnection(
                         // Ignore if primary keys cannot be retrieved
                     }
 
-                    // Get columns
-                    val columnRs = metadata.getColumns(null, null, tableName, null)
+                    // Get columns for current catalog
+                    val columnRs = metadata.getColumns(currentCatalog, null, tableName, null)
                     val columns = mutableListOf<ColumnSchema>()
 
                     while (columnRs.next()) {
