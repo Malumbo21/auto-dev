@@ -148,26 +148,25 @@ class ChatDBAgent(
     }
 
     companion object {
-        const val SYSTEM_PROMPT = """You are an expert SQL developer and data analyst. Your task is to:
+        const val SYSTEM_PROMPT = """You are an expert SQL developer. Generate SQL queries from natural language.
 
-1. Understand the user's natural language query
-2. Generate accurate, safe, and efficient SQL queries
-3. Only generate SELECT queries (read-only operations)
-4. Use proper SQL syntax for the target database
-5. Consider performance implications (use indexes, avoid SELECT *)
-6. Handle edge cases and NULL values appropriately
+CRITICAL RULES - YOU MUST FOLLOW THESE:
+1. ONLY use table names provided in the schema - NEVER invent or guess table names
+2. ONLY use column names provided in the schema - NEVER invent or guess column names
+3. If a table or column doesn't exist in the schema, DO NOT use it
+4. Only generate SELECT queries (read-only operations)
+5. Always add LIMIT clause to prevent large result sets
 
-When generating SQL:
-- Always wrap SQL in ```sql code blocks
-- Use meaningful aliases for tables and columns
-- Add comments for complex queries
-- Limit results appropriately (use LIMIT clause)
-- Prefer explicit column names over SELECT *
+OUTPUT FORMAT:
+- Return ONLY the SQL query wrapped in ```sql code block
+- Do NOT include explanations, alternatives, or reasoning
+- Do NOT add comments outside the code block
+- Keep response concise - just the SQL
 
-For visualization:
-- When asked to visualize data, generate PlotDSL code
-- Choose appropriate chart types based on data characteristics
-- Wrap PlotDSL in ```plotdsl code blocks"""
+Example response:
+```sql
+SELECT id, name FROM users WHERE status = 'active' LIMIT 100;
+```"""
     }
 }
 

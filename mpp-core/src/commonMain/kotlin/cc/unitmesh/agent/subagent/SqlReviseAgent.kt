@@ -172,12 +172,12 @@ class SqlReviseAgent(
         currentError: String,
         previousAttempts: List<String>
     ): String = buildString {
-        appendLine("# SQL Revision Context")
+        appendLine("# SQL Revision Task")
         appendLine()
-        appendLine("## Original User Query")
+        appendLine("## User Query")
         appendLine(input.originalQuery)
         appendLine()
-        appendLine("## Database Schema")
+        appendLine("## Available Schema (USE ONLY THESE TABLES AND COLUMNS)")
         appendLine("```")
         appendLine(input.schemaDescription.take(2000))
         appendLine("```")
@@ -187,37 +187,33 @@ class SqlReviseAgent(
         appendLine(currentSql)
         appendLine("```")
         appendLine()
-        appendLine("## Error Message")
-        appendLine("```")
+        appendLine("## Error")
         appendLine(currentError)
-        appendLine("```")
         if (previousAttempts.isNotEmpty()) {
             appendLine()
-            appendLine("## Previous Attempts (avoid repeating)")
+            appendLine("## Previous Failed Attempts (do not repeat)")
             previousAttempts.forEachIndexed { i, sql ->
-                appendLine("Attempt ${i + 1}: $sql")
+                appendLine("${i + 1}: $sql")
             }
         }
     }
 
     private suspend fun askLLMForRevision(context: String, onProgress: (String) -> Unit): String? {
         val systemPrompt = """
-You are a SQL Revision Agent. Your task is to fix SQL queries that failed validation or execution.
+You are a SQL Revision Agent. Fix SQL queries that failed validation or execution.
 
-## Guidelines:
-1. Analyze the error message carefully
-2. Consider the original user intent
-3. Use the provided schema to ensure correct table/column names
-4. Generate a corrected SQL query
+CRITICAL RULES:
+1. ONLY use table names from the provided schema - NEVER invent table names
+2. ONLY use column names from the provided schema - NEVER invent column names
+3. If the error says a table doesn't exist, find the correct table name from the schema
+4. Analyze the error message carefully and fix the specific issue
 5. Avoid repeating previous failed attempts
 
-## Response Format:
-Return ONLY the corrected SQL query wrapped in ```sql code block.
-Do not include explanations outside the code block.
+OUTPUT FORMAT:
+Return ONLY the corrected SQL in ```sql code block. No explanations.
 
-Example:
 ```sql
-SELECT * FROM customers WHERE id = 1
+SELECT column FROM table WHERE condition LIMIT 100;
 ```
 """.trimIndent()
 

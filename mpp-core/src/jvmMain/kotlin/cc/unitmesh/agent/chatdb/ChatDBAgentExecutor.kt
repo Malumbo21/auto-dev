@@ -217,10 +217,11 @@ class ChatDBAgentExecutor(
     ): String {
         val relevantTables = schema.tables.filter { it.name in linkingResult.relevantTables }
         return buildString {
-            appendLine("## Relevant Database Schema")
+            appendLine("## Database Schema (USE ONLY THESE TABLES)")
             appendLine()
             relevantTables.forEach { table ->
-                append(table.getDescription())
+                appendLine("Table: ${table.name}")
+                appendLine("Columns: ${table.columns.joinToString(", ") { "${it.name} (${it.type})" }}")
                 appendLine()
             }
         }
@@ -232,22 +233,19 @@ class ChatDBAgentExecutor(
         linkingResult: SchemaLinkingResult
     ): String {
         return buildString {
-            appendLine("Please generate a SQL query for the following request:")
-            appendLine()
-            appendLine("**User Query**: ${task.query}")
+            appendLine("Generate a SQL query for: ${task.query}")
             appendLine()
             if (task.additionalContext.isNotBlank()) {
-                appendLine("**Additional Context**: ${task.additionalContext}")
+                appendLine("Context: ${task.additionalContext}")
                 appendLine()
             }
-            appendLine("**Maximum Rows**: ${task.maxRows}")
+            appendLine("ALLOWED TABLES (use ONLY these): ${linkingResult.relevantTables.joinToString(", ")}")
             appendLine()
             appendLine(schemaDescription)
             appendLine()
-            appendLine("**Schema Linking Keywords**: ${linkingResult.keywords.joinToString(", ")}")
-            appendLine("**Confidence**: ${String.format("%.2f", linkingResult.confidence)}")
+            appendLine("Max rows: ${task.maxRows}")
             appendLine()
-            appendLine("Please generate a safe, read-only SQL query. Wrap the SQL in a ```sql code block.")
+            appendLine("Return ONLY the SQL in a ```sql code block. No explanations.")
         }
     }
 
