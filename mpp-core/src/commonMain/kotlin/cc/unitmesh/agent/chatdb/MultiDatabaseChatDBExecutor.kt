@@ -10,17 +10,28 @@ import cc.unitmesh.agent.render.ChatDBStepType
 import cc.unitmesh.agent.render.CodingAgentRenderer
 import cc.unitmesh.agent.subagent.SqlValidator
 import cc.unitmesh.agent.subagent.SqlReviseAgent
+import cc.unitmesh.agent.subagent.SqlRevisionInput
 import cc.unitmesh.devins.parser.CodeFence
 import cc.unitmesh.llm.KoogLLMService
 
 /**
  * Multi-Database ChatDB Executor - Executes Text2SQL across multiple databases
- * 
+ *
  * Key differences from single-database executor:
  * 1. Merges schemas from all databases with database name prefixes
  * 2. Parses SQL comments to determine target database
  * 3. Can execute queries on multiple databases in parallel
  * 4. Combines results from multiple databases
+ *
+ * Flow:
+ * 1. FETCH_SCHEMA - Fetch schemas from all databases
+ * 2. SCHEMA_LINKING - Use LLM/Keyword linker to find relevant tables
+ * 3. GENERATE_SQL - Generate SQL with database routing comments
+ * 4. VALIDATE_SQL - Validate SQL syntax and table names
+ * 5. REVISE_SQL - Fix SQL if validation fails
+ * 6. EXECUTE_SQL - Execute on target databases with retry
+ * 7. GENERATE_VISUALIZATION - Optional visualization
+ * 8. FINAL_RESULT - Return combined results
  */
 class MultiDatabaseChatDBExecutor(
     projectPath: String,
@@ -40,6 +51,7 @@ class MultiDatabaseChatDBExecutor(
     enableLLMStreaming = enableLLMStreaming
 ) {
     private val logger = getLogger("MultiDatabaseChatDBExecutor")
+    private val keywordSchemaLinker = KeywordSchemaLinker()
     private val sqlValidator = SqlValidator()
     private val sqlReviseAgent = SqlReviseAgent(llmService, sqlValidator)
     private val maxRevisionAttempts = 3
@@ -55,12 +67,13 @@ class MultiDatabaseChatDBExecutor(
     ): MultiDatabaseChatDBResult {
         currentIteration = 0
         conversationManager = ConversationManager(llmService, systemPrompt)
-        
+
         val errors = mutableListOf<String>()
         var generatedSql: String? = null
         val queryResults = mutableMapOf<String, QueryResult>()
         var revisionAttempts = 0
         val targetDatabases = mutableListOf<String>()
+        var plotDslCode: String? = null
 
         try {
             // Step 1: Fetch and merge schemas from all databases
@@ -87,27 +100,77 @@ class MultiDatabaseChatDBExecutor(
                             "tables" to schema.tables.map { it.name }
                         )
                     },
-                    "totalTables" to merged.totalTableCount
+                    "totalTables" to merged.totalTableCount,
+                    "tableSchemas" to merged.databases.flatMap { (dbName, schema) ->
+                        schema.tables.map { table ->
+                            mapOf(
+                                "name" to "[$dbName].${table.name}",
+                                "comment" to (table.comment ?: ""),
+                                "columns" to table.columns.map { col ->
+                                    mapOf(
+                                        "name" to col.name,
+                                        "type" to col.type,
+                                        "nullable" to col.nullable,
+                                        "isPrimaryKey" to col.isPrimaryKey,
+                                        "isForeignKey" to col.isForeignKey,
+                                        "comment" to (col.comment ?: "")
+                                    )
+                                }
+                            )
+                        }
+                    }
                 )
             )
 
-            // Step 2: Schema Linking with merged schema
+            // Step 2: Schema Linking - Find relevant tables using keyword linker
             renderer.renderChatDBStep(
                 stepType = ChatDBStepType.SCHEMA_LINKING,
                 status = ChatDBStepStatus.IN_PROGRESS,
-                title = "Analyzing query across ${merged.databases.size} databases..."
+                title = "Performing schema linking across ${merged.databases.size} databases..."
             )
-            onProgress("🔗 Analyzing query across databases...")
+            onProgress("🔗 Performing schema linking...")
 
-            val schemaContext = buildMultiDatabaseSchemaContext(merged, task.query)
-            
+            // Perform schema linking for each database
+            val linkingResults = mutableMapOf<String, SchemaLinkingResult>()
+            val allRelevantTables = mutableListOf<Map<String, Any>>()
+            val allKeywords = mutableSetOf<String>()
+
+            for ((dbId, schema) in merged.databases) {
+                val linkingResult = keywordSchemaLinker.link(task.query, schema)
+                linkingResults[dbId] = linkingResult
+                allKeywords.addAll(linkingResult.keywords)
+
+                // Collect relevant table schemas for UI
+                linkingResult.relevantTables.forEach { tableName ->
+                    schema.getTable(tableName)?.let { table ->
+                        allRelevantTables.add(mapOf(
+                            "name" to "[$dbId].${table.name}",
+                            "comment" to (table.comment ?: ""),
+                            "columns" to table.columns.map { col ->
+                                mapOf(
+                                    "name" to col.name,
+                                    "type" to col.type,
+                                    "nullable" to col.nullable,
+                                    "isPrimaryKey" to col.isPrimaryKey,
+                                    "isForeignKey" to col.isForeignKey
+                                )
+                            }
+                        ))
+                    }
+                }
+            }
+
+            val schemaContext = buildMultiDatabaseSchemaContext(merged, task.query, linkingResults)
+
             renderer.renderChatDBStep(
                 stepType = ChatDBStepType.SCHEMA_LINKING,
                 status = ChatDBStepStatus.SUCCESS,
-                title = "Schema analysis complete",
+                title = "Schema linking complete - found ${allRelevantTables.size} relevant tables",
                 details = mapOf(
                     "databasesAnalyzed" to merged.databases.keys.toList(),
-                    "schemaContext" to schemaContext.take(500) + "..."
+                    "keywords" to allKeywords.toList(),
+                    "relevantTableSchemas" to allRelevantTables,
+                    "schemaContext" to schemaContext.take(500) + if (schemaContext.length > 500) "..." else ""
                 )
             )
 
@@ -115,9 +178,9 @@ class MultiDatabaseChatDBExecutor(
             renderer.renderChatDBStep(
                 stepType = ChatDBStepType.GENERATE_SQL,
                 status = ChatDBStepStatus.IN_PROGRESS,
-                title = "Generating SQL..."
+                title = "Generating SQL query..."
             )
-            onProgress("🤖 Generating SQL...")
+            onProgress("🤖 Generating SQL query...")
 
             val sqlPrompt = buildMultiDatabaseSqlPrompt(task.query, schemaContext, task.maxRows)
             val sqlResponse = getLLMResponse(sqlPrompt, compileDevIns = false) { chunk ->
@@ -125,13 +188,19 @@ class MultiDatabaseChatDBExecutor(
             }
 
             // Parse SQL blocks with database targets
-            val sqlBlocks = parseSqlBlocksWithTargets(sqlResponse)
+            var sqlBlocks = parseSqlBlocksWithTargets(sqlResponse)
 
             if (sqlBlocks.isEmpty()) {
+                renderer.renderChatDBStep(
+                    stepType = ChatDBStepType.GENERATE_SQL,
+                    status = ChatDBStepStatus.ERROR,
+                    title = "Failed to extract SQL",
+                    error = "Could not find SQL code block in LLM response"
+                )
                 throw DatabaseException("No valid SQL generated")
             }
 
-            generatedSql = sqlBlocks.map { "${it.database}: ${it.sql}" }.joinToString("\n")
+            generatedSql = sqlBlocks.joinToString("\n\n") { "-- database: ${it.database}\n${it.sql}" }
             targetDatabases.addAll(sqlBlocks.map { it.database }.distinct())
 
             renderer.renderChatDBStep(
@@ -144,10 +213,110 @@ class MultiDatabaseChatDBExecutor(
                 )
             )
 
-            // Step 4: Execute SQL on target databases
+            // Step 4: Validate SQL for each database
+            renderer.renderChatDBStep(
+                stepType = ChatDBStepType.VALIDATE_SQL,
+                status = ChatDBStepStatus.IN_PROGRESS,
+                title = "Validating SQL..."
+            )
+            onProgress("🔍 Validating SQL...")
+
+            val validatedBlocks = mutableListOf<SqlBlock>()
+            var hasValidationErrors = false
+
+            for (block in sqlBlocks) {
+                val dbSchema = merged.databases[block.database]
+                val allTableNames = dbSchema?.tables?.map { it.name }?.toSet() ?: emptySet()
+
+                val syntaxValidation = sqlValidator.validate(block.sql)
+                val tableValidation = if (syntaxValidation.isValid) {
+                    sqlValidator.validateWithTableWhitelist(block.sql, allTableNames)
+                } else {
+                    syntaxValidation
+                }
+
+                if (!tableValidation.isValid) {
+                    hasValidationErrors = true
+                    val errorType = if (!syntaxValidation.isValid) "syntax" else "table name"
+
+                    renderer.renderChatDBStep(
+                        stepType = ChatDBStepType.VALIDATE_SQL,
+                        status = ChatDBStepStatus.ERROR,
+                        title = "SQL validation failed for ${block.database}",
+                        details = mapOf(
+                            "database" to block.database,
+                            "errorType" to errorType,
+                            "errors" to tableValidation.errors
+                        ),
+                        error = tableValidation.errors.joinToString("; ")
+                    )
+
+                    // Step 5: Revise SQL
+                    onProgress("🔄 SQL validation failed ($errorType), invoking SqlReviseAgent...")
+
+                    renderer.renderChatDBStep(
+                        stepType = ChatDBStepType.REVISE_SQL,
+                        status = ChatDBStepStatus.IN_PROGRESS,
+                        title = "Revising SQL for ${block.database}..."
+                    )
+
+                    val relevantSchema = buildSchemaDescriptionForDatabase(block.database, merged)
+                    val revisionInput = SqlRevisionInput(
+                        originalQuery = task.query,
+                        failedSql = block.sql,
+                        errorMessage = tableValidation.errors.joinToString("; "),
+                        schemaDescription = relevantSchema,
+                        maxAttempts = maxRevisionAttempts
+                    )
+
+                    val revisionResult = sqlReviseAgent.execute(revisionInput) { progress ->
+                        onProgress(progress)
+                    }
+
+                    revisionAttempts += revisionResult.metadata["attempts"]?.toIntOrNull() ?: 0
+
+                    if (revisionResult.success) {
+                        validatedBlocks.add(SqlBlock(block.database, revisionResult.content))
+                        renderer.renderChatDBStep(
+                            stepType = ChatDBStepType.REVISE_SQL,
+                            status = ChatDBStepStatus.SUCCESS,
+                            title = "SQL revised successfully for ${block.database}",
+                            details = mapOf(
+                                "database" to block.database,
+                                "attempts" to revisionAttempts,
+                                "sql" to revisionResult.content
+                            )
+                        )
+                        onProgress("✅ SQL revised successfully")
+                    } else {
+                        renderer.renderChatDBStep(
+                            stepType = ChatDBStepType.REVISE_SQL,
+                            status = ChatDBStepStatus.ERROR,
+                            title = "SQL revision failed for ${block.database}",
+                            error = revisionResult.content
+                        )
+                        errors.add("[${block.database}] SQL revision failed: ${revisionResult.content}")
+                    }
+                } else {
+                    validatedBlocks.add(block)
+                }
+            }
+
+            if (!hasValidationErrors) {
+                renderer.renderChatDBStep(
+                    stepType = ChatDBStepType.VALIDATE_SQL,
+                    status = ChatDBStepStatus.SUCCESS,
+                    title = "SQL validation passed for all databases"
+                )
+            }
+
+            sqlBlocks = validatedBlocks
+            generatedSql = sqlBlocks.joinToString("\n\n") { "-- database: ${it.database}\n${it.sql}" }
+
+            // Step 6: Execute SQL on target databases with retry
             for (sqlBlock in sqlBlocks) {
                 val dbName = sqlBlock.database
-                val sql = sqlBlock.sql
+                var sql = sqlBlock.sql
                 val connection = databaseConnections[dbName]
 
                 if (connection == null) {
@@ -155,44 +324,149 @@ class MultiDatabaseChatDBExecutor(
                     continue
                 }
 
-                renderer.renderChatDBStep(
-                    stepType = ChatDBStepType.EXECUTE_SQL,
-                    status = ChatDBStepStatus.IN_PROGRESS,
-                    title = "Executing on $dbName...",
-                    details = mapOf("database" to dbName, "sql" to sql)
-                )
-                onProgress("⚡ Executing SQL on $dbName...")
+                var executionRetries = 0
+                var lastExecutionError: String? = null
+                var result: QueryResult? = null
 
-                try {
-                    val result = connection.executeQuery(sql)
-                    queryResults[dbName] = result
-
+                while (executionRetries < maxExecutionRetries && result == null) {
                     renderer.renderChatDBStep(
                         stepType = ChatDBStepType.EXECUTE_SQL,
-                        status = ChatDBStepStatus.SUCCESS,
-                        title = "Query executed on $dbName",
+                        status = ChatDBStepStatus.IN_PROGRESS,
+                        title = "Executing on $dbName${if (executionRetries > 0) " (retry $executionRetries)" else ""}...",
                         details = mapOf(
                             "database" to dbName,
                             "sql" to sql,
-                            "rowCount" to result.rowCount,
-                            "columns" to result.columns,
-                            "previewRows" to result.rows.take(5)
+                            "attempt" to (executionRetries + 1)
                         )
                     )
-                } catch (e: Exception) {
-                    errors.add("[$dbName] ${e.message}")
+                    onProgress("⚡ Executing SQL on $dbName${if (executionRetries > 0) " (retry $executionRetries)" else ""}...")
+
+                    try {
+                        result = connection.executeQuery(sql)
+                        queryResults[dbName] = result
+
+                        renderer.renderChatDBStep(
+                            stepType = ChatDBStepType.EXECUTE_SQL,
+                            status = ChatDBStepStatus.SUCCESS,
+                            title = "Query executed on $dbName",
+                            details = mapOf(
+                                "database" to dbName,
+                                "sql" to sql,
+                                "rowCount" to result.rowCount,
+                                "columns" to result.columns,
+                                "previewRows" to result.rows.take(5)
+                            )
+                        )
+                        onProgress("✅ Query returned ${result.rowCount} rows from $dbName")
+                    } catch (e: Exception) {
+                        lastExecutionError = e.message ?: "Unknown execution error"
+                        logger.warn { "Query execution failed on $dbName (attempt ${executionRetries + 1}): $lastExecutionError" }
+
+                        renderer.renderChatDBStep(
+                            stepType = ChatDBStepType.EXECUTE_SQL,
+                            status = ChatDBStepStatus.ERROR,
+                            title = "Query execution failed on $dbName",
+                            details = mapOf(
+                                "database" to dbName,
+                                "attempt" to (executionRetries + 1),
+                                "maxAttempts" to maxExecutionRetries
+                            ),
+                            error = lastExecutionError
+                        )
+
+                        // Try to revise SQL based on execution error
+                        if (executionRetries < maxExecutionRetries - 1) {
+                            onProgress("🔄 Attempting to fix SQL based on execution error...")
+
+                            renderer.renderChatDBStep(
+                                stepType = ChatDBStepType.REVISE_SQL,
+                                status = ChatDBStepStatus.IN_PROGRESS,
+                                title = "Revising SQL based on execution error..."
+                            )
+
+                            val relevantSchema = buildSchemaDescriptionForDatabase(dbName, merged)
+                            val revisionInput = SqlRevisionInput(
+                                originalQuery = task.query,
+                                failedSql = sql,
+                                errorMessage = "Execution error: $lastExecutionError",
+                                schemaDescription = relevantSchema,
+                                maxAttempts = 1
+                            )
+
+                            val revisionResult = sqlReviseAgent.execute(revisionInput) { progress ->
+                                onProgress(progress)
+                            }
+
+                            if (revisionResult.success && revisionResult.content != sql) {
+                                sql = revisionResult.content
+                                revisionAttempts++
+
+                                renderer.renderChatDBStep(
+                                    stepType = ChatDBStepType.REVISE_SQL,
+                                    status = ChatDBStepStatus.SUCCESS,
+                                    title = "SQL revised based on execution error",
+                                    details = mapOf("database" to dbName, "sql" to sql)
+                                )
+                                onProgress("🔧 SQL revised, retrying execution...")
+                            } else {
+                                renderer.renderChatDBStep(
+                                    stepType = ChatDBStepType.REVISE_SQL,
+                                    status = ChatDBStepStatus.WARNING,
+                                    title = "SQL revision did not help",
+                                    error = "Revision did not produce a different SQL"
+                                )
+                                break
+                            }
+                        }
+                        executionRetries++
+                    }
+                }
+
+                if (result == null && lastExecutionError != null) {
+                    errors.add("[$dbName] Query execution failed after $executionRetries retries: $lastExecutionError")
+                }
+            }
+
+            // Step 7: Generate visualization if requested
+            val combinedResult = combineResults(queryResults)
+            if (task.generateVisualization && combinedResult.rowCount > 0) {
+                renderer.renderChatDBStep(
+                    stepType = ChatDBStepType.GENERATE_VISUALIZATION,
+                    status = ChatDBStepStatus.IN_PROGRESS,
+                    title = "Generating visualization..."
+                )
+                onProgress("📈 Generating visualization...")
+
+                plotDslCode = generateVisualization(task.query, combinedResult, onProgress)
+
+                if (plotDslCode != null) {
                     renderer.renderChatDBStep(
-                        stepType = ChatDBStepType.EXECUTE_SQL,
-                        status = ChatDBStepStatus.ERROR,
-                        title = "Query failed on $dbName",
-                        details = mapOf("database" to dbName, "sql" to sql, "error" to (e.message ?: "Unknown error"))
+                        stepType = ChatDBStepType.GENERATE_VISUALIZATION,
+                        status = ChatDBStepStatus.SUCCESS,
+                        title = "Visualization generated",
+                        details = mapOf("code" to plotDslCode)
+                    )
+                } else {
+                    renderer.renderChatDBStep(
+                        stepType = ChatDBStepType.GENERATE_VISUALIZATION,
+                        status = ChatDBStepStatus.WARNING,
+                        title = "Visualization not generated"
                     )
                 }
             }
 
-            // Step 5: Final result
+            // Step 8: Final result
             val success = queryResults.isNotEmpty()
-            val combinedResult = combineResults(queryResults)
+
+            val resultMessage = buildResultMessage(
+                success = success,
+                generatedSql = generatedSql,
+                queryResults = queryResults,
+                combinedResult = combinedResult,
+                revisionAttempts = revisionAttempts,
+                plotDslCode = plotDslCode,
+                errors = errors
+            )
 
             renderer.renderChatDBStep(
                 stepType = ChatDBStepType.FINAL_RESULT,
@@ -203,17 +477,28 @@ class MultiDatabaseChatDBExecutor(
                     "totalRows" to combinedResult.rowCount,
                     "columns" to combinedResult.columns,
                     "previewRows" to combinedResult.rows.take(10),
+                    "revisionAttempts" to revisionAttempts,
                     "errors" to errors
                 )
             )
 
+            // Render final message
+            if (success) {
+                renderer.renderLLMResponseStart()
+                renderer.renderLLMResponseChunk(resultMessage)
+                renderer.renderLLMResponseEnd()
+            } else {
+                renderer.renderError(resultMessage)
+            }
+
             return MultiDatabaseChatDBResult(
                 success = success,
-                message = if (success) "Query executed successfully on ${queryResults.size} database(s)" else errors.joinToString("\n"),
+                message = resultMessage,
                 generatedSql = generatedSql,
                 queryResult = combinedResult,
                 queryResultsByDatabase = queryResults,
                 targetDatabases = targetDatabases,
+                plotDslCode = plotDslCode,
                 revisionAttempts = revisionAttempts,
                 errors = errors
             )
@@ -226,6 +511,7 @@ class MultiDatabaseChatDBExecutor(
                 title = "Query failed",
                 details = mapOf("error" to (e.message ?: "Unknown error"))
             )
+            renderer.renderError("Query failed: ${e.message}")
             return MultiDatabaseChatDBResult(
                 success = false,
                 message = "Error: ${e.message}",
@@ -254,19 +540,35 @@ class MultiDatabaseChatDBExecutor(
     }
 
     /**
-     * Build schema context for multi-database prompt
+     * Build schema context for multi-database prompt with schema linking results
      */
-    private fun buildMultiDatabaseSchemaContext(merged: MergedDatabaseSchema, query: String): String {
+    private fun buildMultiDatabaseSchemaContext(
+        merged: MergedDatabaseSchema,
+        query: String,
+        linkingResults: Map<String, SchemaLinkingResult> = emptyMap()
+    ): String {
         val sb = StringBuilder()
         sb.append("=== AVAILABLE DATABASES AND TABLES ===\n\n")
 
         for ((dbId, schema) in merged.databases) {
             val displayName = databaseConfigs[dbId]?.databaseName ?: dbId
+            val linkingResult = linkingResults[dbId]
+            val relevantTables = linkingResult?.relevantTables?.toSet() ?: schema.tables.map { it.name }.toSet()
+
             sb.append("DATABASE: $dbId ($displayName)\n")
             sb.append("-".repeat(40)).append("\n")
 
-            for (table in schema.tables) {
-                sb.append("  Table: ${table.name}\n")
+            // Show relevant tables first (if schema linking was performed)
+            val sortedTables = if (linkingResult != null) {
+                schema.tables.sortedByDescending { it.name in relevantTables }
+            } else {
+                schema.tables
+            }
+
+            for (table in sortedTables) {
+                val isRelevant = table.name in relevantTables
+                val marker = if (isRelevant && linkingResult != null) " [RELEVANT]" else ""
+                sb.append("  Table: ${table.name}$marker\n")
                 if (table.comment != null) {
                     sb.append("    Comment: ${table.comment}\n")
                 }
@@ -285,6 +587,132 @@ class MultiDatabaseChatDBExecutor(
         }
 
         return sb.toString()
+    }
+
+    /**
+     * Build schema description for a specific database (for SQL revision)
+     */
+    private fun buildSchemaDescriptionForDatabase(dbId: String, merged: MergedDatabaseSchema): String {
+        val schema = merged.databases[dbId] ?: return ""
+        val displayName = databaseConfigs[dbId]?.databaseName ?: dbId
+
+        return buildString {
+            appendLine("## Database Schema: $displayName (USE ONLY THESE TABLES)")
+            appendLine()
+            for (table in schema.tables) {
+                appendLine("Table: ${table.name}")
+                appendLine("Columns: ${table.columns.joinToString(", ") { "${it.name} (${it.type})" }}")
+                appendLine()
+            }
+        }
+    }
+
+    /**
+     * Build result message for final output
+     */
+    private fun buildResultMessage(
+        success: Boolean,
+        generatedSql: String?,
+        queryResults: Map<String, QueryResult>,
+        combinedResult: QueryResult,
+        revisionAttempts: Int,
+        plotDslCode: String?,
+        errors: List<String>
+    ): String {
+        return if (success) {
+            buildString {
+                appendLine("## ✅ Query Executed Successfully")
+                appendLine()
+
+                if (queryResults.size > 1) {
+                    appendLine("**Databases Queried:** ${queryResults.keys.joinToString(", ")}")
+                    appendLine()
+                }
+
+                if (generatedSql != null) {
+                    appendLine("**Executed SQL:**")
+                    appendLine("```sql")
+                    appendLine(generatedSql)
+                    appendLine("```")
+                    appendLine()
+                }
+
+                if (revisionAttempts > 0) {
+                    appendLine("*Note: SQL was revised $revisionAttempts time(s) to fix validation/execution errors*")
+                    appendLine()
+                }
+
+                appendLine("**Results** (${combinedResult.rowCount} row${if (combinedResult.rowCount != 1) "s" else ""}):")
+                appendLine()
+                appendLine(combinedResult.toTableString())
+
+                if (plotDslCode != null) {
+                    appendLine()
+                    appendLine("**Visualization:**")
+                    appendLine("```plotdsl")
+                    appendLine(plotDslCode)
+                    appendLine("```")
+                }
+            }
+        } else {
+            buildString {
+                appendLine("## ❌ Query Failed")
+                appendLine()
+                appendLine("**Errors:**")
+                errors.forEach { error ->
+                    appendLine("- $error")
+                }
+                if (generatedSql != null) {
+                    appendLine()
+                    appendLine("**Failed SQL:**")
+                    appendLine("```sql")
+                    appendLine(generatedSql)
+                    appendLine("```")
+                }
+            }
+        }
+    }
+
+    /**
+     * Generate visualization for query results
+     */
+    private suspend fun generateVisualization(
+        query: String,
+        result: QueryResult,
+        onProgress: (String) -> Unit
+    ): String? {
+        val visualizationPrompt = buildString {
+            appendLine("Based on the following query result, generate a PlotDSL visualization:")
+            appendLine()
+            appendLine("**Original Query**: $query")
+            appendLine()
+            appendLine("**Query Result** (${result.rowCount} rows):")
+            appendLine("```csv")
+            appendLine(result.toCsvString())
+            appendLine("```")
+            appendLine()
+            appendLine("Generate a PlotDSL chart that best visualizes this data.")
+            appendLine("Choose an appropriate chart type (bar, line, scatter, etc.) based on the data.")
+            appendLine("Wrap the PlotDSL code in a ```plotdsl code block.")
+        }
+
+        try {
+            val response = getLLMResponse(visualizationPrompt, compileDevIns = false) { chunk ->
+                onProgress(chunk)
+            }
+
+            val codeFence = CodeFence.parse(response)
+            if (codeFence.languageId.lowercase() == "plotdsl" && codeFence.text.isNotBlank()) {
+                return codeFence.text.trim()
+            }
+
+            val plotPattern = Regex("```plotdsl\\s*([\\s\\S]*?)```", RegexOption.IGNORE_CASE)
+            val match = plotPattern.find(response)
+            return match?.groupValues?.get(1)?.trim()
+        } catch (e: Exception) {
+            logger.error(e) { "Visualization generation failed" }
+            return null
+        }
     }
 
     /**
