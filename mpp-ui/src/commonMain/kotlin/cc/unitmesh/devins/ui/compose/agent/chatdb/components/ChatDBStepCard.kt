@@ -164,7 +164,7 @@ private fun StepDetails(details: Map<String, Any>, stepType: ChatDBStepType) {
     ) {
         when (stepType) {
             ChatDBStepType.FETCH_SCHEMA -> {
-                // Database overview with table cards
+                // Single database mode
                 details["databaseName"]?.let { dbName ->
                     DetailRow("Database", dbName.toString())
                 }
@@ -172,7 +172,23 @@ private fun StepDetails(details: Map<String, Any>, stepType: ChatDBStepType) {
                     DetailRow("Total Tables", it.toString())
                 }
 
-                // Show table schema cards
+                // Multi-database mode - show databases list
+                @Suppress("UNCHECKED_CAST")
+                val databases = details["databases"] as? List<Map<String, Any>>
+                if (databases != null && databases.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Connected Databases",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    databases.forEach { dbInfo ->
+                        DatabaseInfoCard(dbInfo)
+                    }
+                }
+
+                // Show table schema cards (single database mode)
                 @Suppress("UNCHECKED_CAST")
                 val tableSchemas = details["tableSchemas"] as? List<Map<String, Any>>
                 if (tableSchemas != null && tableSchemas.isNotEmpty()) {
@@ -186,7 +202,7 @@ private fun StepDetails(details: Map<String, Any>, stepType: ChatDBStepType) {
                     tableSchemas.forEach { tableInfo ->
                         TableSchemaCard(tableInfo)
                     }
-                } else {
+                } else if (databases == null) {
                     // Fallback to simple table list
                     details["tables"]?.let { tables ->
                         if (tables is List<*>) {
@@ -197,7 +213,52 @@ private fun StepDetails(details: Map<String, Any>, stepType: ChatDBStepType) {
             }
 
             ChatDBStepType.SCHEMA_LINKING -> {
-                // Show relevant tables with their columns
+                // Multi-database mode - show analyzed databases
+                @Suppress("UNCHECKED_CAST")
+                val databasesAnalyzed = details["databasesAnalyzed"] as? List<String>
+                if (databasesAnalyzed != null && databasesAnalyzed.isNotEmpty()) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier.horizontalScroll(rememberScrollState())
+                    ) {
+                        Text(
+                            text = "Databases Analyzed:",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        databasesAnalyzed.forEach { dbName ->
+                            KeywordChip(dbName)
+                        }
+                    }
+                }
+
+                // Show schema context preview
+                details["schemaContext"]?.let { context ->
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Schema Context",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    ) {
+                        Text(
+                            text = context.toString(),
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 10.sp
+                            ),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.padding(8.dp),
+                            maxLines = 10
+                        )
+                    }
+                }
+
+                // Show keywords (single database mode)
                 details["keywords"]?.let { keywords ->
                     if (keywords is List<*> && keywords.isNotEmpty()) {
                         Row(
@@ -230,7 +291,7 @@ private fun StepDetails(details: Map<String, Any>, stepType: ChatDBStepType) {
                     relevantTableSchemas.forEach { tableInfo ->
                         TableSchemaCard(tableInfo, highlightRelevant = true)
                     }
-                } else {
+                } else if (databasesAnalyzed == null) {
                     // Fallback
                     details["relevantTables"]?.let { tables ->
                         if (tables is List<*>) {
@@ -241,8 +302,48 @@ private fun StepDetails(details: Map<String, Any>, stepType: ChatDBStepType) {
             }
 
             ChatDBStepType.GENERATE_SQL, ChatDBStepType.REVISE_SQL -> {
-                details["sql"]?.let { sql ->
-                    CodeBlock(code = sql.toString(), language = "sql")
+                // Multi-database mode - show target databases
+                @Suppress("UNCHECKED_CAST")
+                val targetDatabases = details["targetDatabases"] as? List<String>
+                if (targetDatabases != null && targetDatabases.isNotEmpty()) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier.horizontalScroll(rememberScrollState())
+                    ) {
+                        Text(
+                            text = "Target Databases:",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        targetDatabases.forEach { dbName ->
+                            KeywordChip(dbName)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                // Multi-database mode - show SQL blocks
+                @Suppress("UNCHECKED_CAST")
+                val sqlBlocks = details["sqlBlocks"] as? List<Map<String, Any>>
+                if (sqlBlocks != null && sqlBlocks.isNotEmpty()) {
+                    sqlBlocks.forEach { block ->
+                        val database = block["database"]?.toString() ?: "Unknown"
+                        val sql = block["sql"]?.toString() ?: ""
+                        Text(
+                            text = "Database: $database",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier.padding(bottom = 4.dp)
+                        )
+                        CodeBlock(code = sql, language = "sql")
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                } else {
+                    // Single database mode
+                    details["sql"]?.let { sql ->
+                        CodeBlock(code = sql.toString(), language = "sql")
+                    }
                 }
             }
 
@@ -272,6 +373,11 @@ private fun StepDetails(details: Map<String, Any>, stepType: ChatDBStepType) {
             }
 
             ChatDBStepType.EXECUTE_SQL -> {
+                // Multi-database mode - show database name
+                details["database"]?.let { dbName ->
+                    DetailRow("Database", dbName.toString())
+                }
+
                 // Show SQL that was executed
                 details["sql"]?.let { sql ->
                     CodeBlock(code = sql.toString(), language = "sql")
@@ -313,18 +419,64 @@ private fun StepDetails(details: Map<String, Any>, stepType: ChatDBStepType) {
             }
 
             ChatDBStepType.FINAL_RESULT -> {
-                // Show final SQL
+                // Multi-database mode - show databases queried
+                @Suppress("UNCHECKED_CAST")
+                val databases = details["databases"] as? List<String>
+                if (databases != null && databases.isNotEmpty()) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier.horizontalScroll(rememberScrollState())
+                    ) {
+                        Text(
+                            text = "Databases Queried:",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        databases.forEach { dbName ->
+                            KeywordChip(dbName)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                // Show final SQL (single database mode)
                 details["sql"]?.let { sql ->
                     CodeBlock(code = sql.toString(), language = "sql")
                 }
 
                 // Show result summary
-                details["rowCount"]?.let {
+                details["totalRows"]?.let {
                     DetailRow("Total Rows", it.toString())
+                }
+                details["rowCount"]?.let {
+                    if (details["totalRows"] == null) {
+                        DetailRow("Total Rows", it.toString())
+                    }
                 }
                 details["revisionAttempts"]?.let { attempts ->
                     if ((attempts as? Int ?: 0) > 0) {
                         DetailRow("Revision Attempts", attempts.toString())
+                    }
+                }
+
+                // Show errors if any
+                @Suppress("UNCHECKED_CAST")
+                val errors = details["errors"] as? List<String>
+                if (errors != null && errors.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Errors",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                    errors.forEach { error ->
+                        Text(
+                            text = "• $error",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(start = 8.dp)
+                        )
                     }
                 }
 
@@ -397,6 +549,94 @@ private fun CodeBlock(code: String, language: String) {
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.padding(12.dp)
             )
+        }
+    }
+}
+
+/**
+ * Card displaying database information for multi-database mode
+ */
+@Composable
+private fun DatabaseInfoCard(dbInfo: Map<String, Any>) {
+    var isExpanded by remember { mutableStateOf(false) }
+    val name = dbInfo["name"]?.toString() ?: "Unknown"
+    val displayName = dbInfo["displayName"]?.toString() ?: name
+    val tableCount = dbInfo["tableCount"]?.toString() ?: "0"
+
+    @Suppress("UNCHECKED_CAST")
+    val tables = dbInfo["tables"] as? List<String> ?: emptyList()
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        shape = RoundedCornerShape(6.dp),
+        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { isExpanded = !isExpanded }
+                .padding(8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = if (isExpanded) Icons.Default.KeyboardArrowDown
+                            else Icons.Default.KeyboardArrowRight,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(text = "🗄️", fontSize = 12.sp)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = displayName,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    if (name != displayName) {
+                        Text(
+                            text = " ($name)",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                Text(
+                    text = "$tableCount tables",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            AnimatedVisibility(
+                visible = isExpanded,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
+                if (tables.isNotEmpty()) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp, start = 24.dp)
+                    ) {
+                        Text(
+                            text = tables.joinToString(", "),
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontFamily = FontFamily.Monospace
+                            ),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
         }
     }
 }

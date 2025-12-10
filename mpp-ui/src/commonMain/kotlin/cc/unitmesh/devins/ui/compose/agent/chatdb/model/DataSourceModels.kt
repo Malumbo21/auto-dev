@@ -139,11 +139,26 @@ data class QueryResultDisplay(
 )
 
 /**
+ * Connection status for a specific data source (used in multi-datasource mode)
+ */
+data class DataSourceConnectionState(
+    val dataSourceId: String,
+    val status: ConnectionStatus = ConnectionStatus.Disconnected
+)
+
+/**
  * UI state for ChatDB page
+ *
+ * Supports multi-datasource selection: all configured data sources are selected by default,
+ * users can toggle individual data sources on/off.
  */
 data class ChatDBState(
     val dataSources: List<DataSourceConfig> = emptyList(),
-    val selectedDataSourceId: String? = null,
+    /** Set of selected data source IDs (multi-selection mode) */
+    val selectedDataSourceIds: Set<String> = emptySet(),
+    /** Connection status per data source */
+    val connectionStatuses: Map<String, ConnectionStatus> = emptyMap(),
+    /** Overall connection status (for backward compatibility) */
     val connectionStatus: ConnectionStatus = ConnectionStatus.Disconnected,
     val filterQuery: String = "",
     val isLoading: Boolean = false,
@@ -155,8 +170,28 @@ data class ChatDBState(
     /** The data source being configured in the pane */
     val configuringDataSource: DataSourceConfig? = null
 ) {
-    val selectedDataSource: DataSourceConfig?
-        get() = dataSources.find { it.id == selectedDataSourceId }
+    /** Get all selected data sources */
+    val selectedDataSources: List<DataSourceConfig>
+        get() = dataSources.filter { it.id in selectedDataSourceIds }
+
+    /** Check if a data source is selected */
+    fun isSelected(id: String): Boolean = id in selectedDataSourceIds
+
+    /** Get connection status for a specific data source */
+    fun getConnectionStatus(id: String): ConnectionStatus =
+        connectionStatuses[id] ?: ConnectionStatus.Disconnected
+
+    /** Check if any data source is connected */
+    val hasAnyConnection: Boolean
+        get() = connectionStatuses.values.any { it is ConnectionStatus.Connected }
+
+    /** Get count of connected data sources */
+    val connectedCount: Int
+        get() = connectionStatuses.values.count { it is ConnectionStatus.Connected }
+
+    /** Get count of selected data sources */
+    val selectedCount: Int
+        get() = selectedDataSourceIds.size
 
     val filteredDataSources: List<DataSourceConfig>
         get() = if (filterQuery.isBlank()) {

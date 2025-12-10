@@ -29,11 +29,15 @@ import cc.unitmesh.devins.ui.compose.icons.AutoDevComposeIcons
 
 /**
  * Chat pane for ChatDB - right side chat area for text-to-SQL
+ *
+ * Supports multi-datasource mode: shows connection status for multiple databases.
  */
 @Composable
 fun ChatDBChatPane(
     renderer: ComposeRenderer,
     connectionStatus: ConnectionStatus,
+    connectedCount: Int = 0,
+    selectedCount: Int = 0,
     schema: DatabaseSchema?,
     isGenerating: Boolean,
     onSendMessage: (String) -> Unit,
@@ -41,10 +45,14 @@ fun ChatDBChatPane(
     onNewSession: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val hasAnyConnection = connectedCount > 0
+
     Column(modifier = modifier.fillMaxSize()) {
-        // Connection status banner
+        // Connection status banner (multi-datasource aware)
         ConnectionStatusBanner(
             connectionStatus = connectionStatus,
+            connectedCount = connectedCount,
+            selectedCount = selectedCount,
             schema = schema,
             onNewSession = onNewSession,
             hasMessages = renderer.timeline.isNotEmpty()
@@ -60,7 +68,8 @@ fun ChatDBChatPane(
             // Welcome message when no messages and not streaming
             if (renderer.timeline.isEmpty() && renderer.currentStreamingOutput.isEmpty() && !renderer.isProcessing) {
                 WelcomeMessage(
-                    isConnected = connectionStatus is ConnectionStatus.Connected,
+                    isConnected = hasAnyConnection,
+                    connectedCount = connectedCount,
                     schema = schema,
                     onQuickQuery = onSendMessage,
                     modifier = Modifier.fillMaxSize()
@@ -73,7 +82,8 @@ fun ChatDBChatPane(
         // Input area
         ChatInputArea(
             isGenerating = isGenerating,
-            isConnected = connectionStatus is ConnectionStatus.Connected,
+            isConnected = hasAnyConnection,
+            connectedCount = connectedCount,
             onSendMessage = onSendMessage,
             onStopGeneration = onStopGeneration
         )
@@ -83,12 +93,16 @@ fun ChatDBChatPane(
 @Composable
 private fun ConnectionStatusBanner(
     connectionStatus: ConnectionStatus,
+    connectedCount: Int,
+    selectedCount: Int,
     schema: DatabaseSchema?,
     onNewSession: () -> Unit,
     hasMessages: Boolean
 ) {
-    when (connectionStatus) {
-        is ConnectionStatus.Connected -> {
+    val hasAnyConnection = connectedCount > 0
+
+    when {
+        hasAnyConnection -> {
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -110,13 +124,22 @@ private fun ConnectionStatusBanner(
                     )
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Connected",
+                            text = if (connectedCount == 1) "Connected" else "$connectedCount databases connected",
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.primary
                         )
-                        if (schema != null) {
+                        val statusText = buildString {
+                            if (schema != null) {
+                                append("${schema.tables.size} tables available")
+                            }
+                            if (connectedCount < selectedCount) {
+                                if (isNotEmpty()) append(" • ")
+                                append("${selectedCount - connectedCount} not connected")
+                            }
+                        }
+                        if (statusText.isNotEmpty()) {
                             Text(
-                                text = "${schema.tables.size} tables available",
+                                text = statusText,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -139,7 +162,8 @@ private fun ConnectionStatusBanner(
                 }
             }
         }
-        is ConnectionStatus.Disconnected -> {
+        selectedCount > 0 -> {
+            // Selected but not connected
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -160,20 +184,49 @@ private fun ConnectionStatusBanner(
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = "Not connected. Select a data source and connect.",
+                        text = "$selectedCount data source${if (selectedCount > 1) "s" else ""} selected. Click 'Connect All' to connect.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
         }
-        else -> { /* Connecting or Error handled elsewhere */ }
+        else -> {
+            // No data sources selected
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                )
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        AutoDevComposeIcons.CloudOff,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "No data sources selected. Select data sources from the left panel.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
     }
 }
 
 @Composable
 private fun WelcomeMessage(
     isConnected: Boolean,
+    connectedCount: Int = 0,
     schema: DatabaseSchema?,
     onQuickQuery: (String) -> Unit,
     modifier: Modifier = Modifier
@@ -203,10 +256,10 @@ private fun WelcomeMessage(
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = if (isConnected) {
-                "Ask questions about your data in natural language"
-            } else {
-                "Connect to a database to start querying"
+            text = when {
+                connectedCount > 1 -> "Query across $connectedCount databases in natural language"
+                isConnected -> "Ask questions about your data in natural language"
+                else -> "Connect to a database to start querying"
             },
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -244,6 +297,7 @@ private fun WelcomeMessage(
 private fun ChatInputArea(
     isGenerating: Boolean,
     isConnected: Boolean,
+    connectedCount: Int = 0,
     onSendMessage: (String) -> Unit,
     onStopGeneration: () -> Unit
 ) {
@@ -297,8 +351,13 @@ private fun ChatInputArea(
                     decorationBox = { innerTextField ->
                         Box {
                             if (inputText.text.isEmpty()) {
+                                val placeholderText = when {
+                                    connectedCount > 1 -> "Ask a question across $connectedCount databases..."
+                                    isConnected -> "Ask a question about your data..."
+                                    else -> "Connect to a database first"
+                                }
                                 Text(
-                                    text = if (isConnected) "Ask a question about your data..." else "Connect to a database first",
+                                    text = placeholderText,
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                                 )

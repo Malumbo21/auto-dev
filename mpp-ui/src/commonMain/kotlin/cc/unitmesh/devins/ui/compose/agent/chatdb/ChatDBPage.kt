@@ -52,16 +52,16 @@ fun ChatDBPage(
             maxRatio = 0.4f,
             saveKey = "chatdb_split_ratio",
             first = {
-                // Left panel - Data source management
+                // Left panel - Data source management (multi-selection mode)
                 DataSourcePanel(
                     dataSources = state.filteredDataSources,
-                    selectedDataSourceId = state.selectedDataSourceId,
-                    connectionStatus = state.connectionStatus,
+                    selectedDataSourceIds = state.selectedDataSourceIds,
+                    connectionStatuses = state.connectionStatuses,
                     filterQuery = state.filterQuery,
                     onFilterChange = viewModel::setFilterQuery,
-                    onSelectDataSource = { id ->
-                        viewModel.selectDataSource(id)
-                        // When selecting a different data source, show its config in the pane
+                    onToggleDataSource = { id ->
+                        viewModel.toggleDataSource(id)
+                        // When toggling a data source, optionally show its config in the pane
                         val selected = state.dataSources.find { it.id == id }
                         if (selected != null && state.isConfigPaneOpen) {
                             viewModel.openConfigPane(selected)
@@ -70,8 +70,10 @@ fun ChatDBPage(
                     onAddClick = { viewModel.openConfigPane(null) },
                     onEditClick = { config -> viewModel.openConfigPane(config) },
                     onDeleteClick = viewModel::deleteDataSource,
-                    onConnectClick = viewModel::connect,
-                    onDisconnectClick = viewModel::disconnect,
+                    onConnectClick = viewModel::connectDataSource,
+                    onDisconnectClick = viewModel::disconnectDataSource,
+                    onConnectAllClick = viewModel::connectAll,
+                    onDisconnectAllClick = viewModel::disconnectAll,
                     modifier = Modifier.fillMaxSize()
                 )
             },
@@ -89,6 +91,8 @@ fun ChatDBPage(
                     ChatDBChatPane(
                         renderer = viewModel.renderer,
                         connectionStatus = state.connectionStatus,
+                        connectedCount = state.connectedCount,
+                        selectedCount = state.selectedCount,
                         schema = viewModel.getSchema(),
                         isGenerating = viewModel.isGenerating,
                         onSendMessage = viewModel::sendMessage,

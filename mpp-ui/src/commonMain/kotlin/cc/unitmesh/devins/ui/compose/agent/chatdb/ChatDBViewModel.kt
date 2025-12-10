@@ -5,8 +5,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import cc.unitmesh.agent.chatdb.ChatDBAgent
 import cc.unitmesh.agent.chatdb.ChatDBTask
+import cc.unitmesh.agent.chatdb.MultiDatabaseChatDBAgent
 import cc.unitmesh.agent.config.McpToolConfigService
 import cc.unitmesh.agent.config.ToolConfigFile
+import cc.unitmesh.agent.database.DatabaseConfig
 import cc.unitmesh.agent.database.DatabaseConnection
 import cc.unitmesh.agent.database.DatabaseSchema
 import cc.unitmesh.agent.database.createDatabaseConnection
@@ -38,9 +40,9 @@ class ChatDBViewModel(
     private var llmService: KoogLLMService? = null
     private var currentExecutionJob: Job? = null
 
-    // Database connection
-    private var currentConnection: DatabaseConnection? = null
-    private var currentSchema: DatabaseSchema? = null
+    // Database connections (multi-datasource support)
+    private val connections: MutableMap<String, DatabaseConnection> = mutableMapOf()
+    private val schemas: MutableMap<String, DatabaseSchema> = mutableMapOf()
 
     // Data source repository for persistence
     private val dataSourceRepository: DataSourceRepository by lazy {
@@ -81,12 +83,13 @@ class ChatDBViewModel(
         scope.launch {
             try {
                 val dataSources = dataSourceRepository.getAll()
-                val defaultDataSource = dataSourceRepository.getDefault()
+                // Multi-datasource: select all data sources by default
+                val allIds = dataSources.map { it.id }.toSet()
                 state = state.copy(
                     dataSources = dataSources,
-                    selectedDataSourceId = defaultDataSource?.id
+                    selectedDataSourceIds = allIds
                 )
-                println("[ChatDB] Loaded ${dataSources.size} data sources")
+                println("[ChatDB] Loaded ${dataSources.size} data sources, all selected by default")
             } catch (e: Exception) {
                 println("[ChatDB] Failed to load data sources: ${e.message}")
                 state = state.copy(dataSources = emptyList())
@@ -122,13 +125,14 @@ class ChatDBViewModel(
     }
 
     fun deleteDataSource(id: String) {
+        // Disconnect this specific data source if connected
+        disconnectDataSource(id)
+
         state = state.copy(
             dataSources = state.dataSources.filter { it.id != id },
-            selectedDataSourceId = if (state.selectedDataSourceId == id) null else state.selectedDataSourceId
+            selectedDataSourceIds = state.selectedDataSourceIds - id,
+            connectionStatuses = state.connectionStatuses - id
         )
-        if (state.selectedDataSourceId == id) {
-            disconnect()
-        }
         deleteDataSourceFromRepository(id)
     }
 
@@ -168,11 +172,44 @@ class ChatDBViewModel(
         }
     }
 
-    fun selectDataSource(id: String) {
-        if (state.selectedDataSourceId == id) return
+    /**
+     * Toggle selection of a data source (multi-selection mode)
+     */
+    fun toggleDataSource(id: String) {
+        val newSelectedIds = if (id in state.selectedDataSourceIds) {
+            // Deselect: disconnect if connected
+            disconnectDataSource(id)
+            state.selectedDataSourceIds - id
+        } else {
+            // Select: add to selection
+            state.selectedDataSourceIds + id
+        }
+        state = state.copy(selectedDataSourceIds = newSelectedIds)
+    }
 
-        disconnect()
-        state = state.copy(selectedDataSourceId = id)
+    /**
+     * Select a data source (for backward compatibility, also used for single-click selection)
+     */
+    fun selectDataSource(id: String) {
+        if (id !in state.selectedDataSourceIds) {
+            state = state.copy(selectedDataSourceIds = state.selectedDataSourceIds + id)
+        }
+    }
+
+    /**
+     * Select all data sources
+     */
+    fun selectAllDataSources() {
+        val allIds = state.dataSources.map { it.id }.toSet()
+        state = state.copy(selectedDataSourceIds = allIds)
+    }
+
+    /**
+     * Deselect all data sources
+     */
+    fun deselectAllDataSources() {
+        disconnectAll()
+        state = state.copy(selectedDataSourceIds = emptySet())
     }
 
     fun setFilterQuery(query: String) {
@@ -215,7 +252,7 @@ class ChatDBViewModel(
                 dataSources = state.dataSources + savedConfig,
                 isConfigPaneOpen = false,
                 configuringDataSource = null,
-                selectedDataSourceId = savedConfig.id
+                selectedDataSourceIds = state.selectedDataSourceIds + savedConfig.id
             )
         } else {
             state.copy(
@@ -241,56 +278,120 @@ class ChatDBViewModel(
                 dataSources = state.dataSources + savedConfig,
                 isConfigPaneOpen = false,
                 configuringDataSource = null,
-                selectedDataSourceId = savedConfig.id
+                selectedDataSourceIds = state.selectedDataSourceIds + savedConfig.id
             )
         } else {
             state.copy(
                 dataSources = state.dataSources.map { if (it.id == savedConfig.id) savedConfig else it },
                 isConfigPaneOpen = false,
                 configuringDataSource = null,
-                selectedDataSourceId = savedConfig.id
+                selectedDataSourceIds = state.selectedDataSourceIds + savedConfig.id
             )
         }
         saveDataSource(savedConfig)
 
-        // Trigger connection
-        connect()
+        // Trigger connection for this specific data source
+        connectDataSource(savedConfig.id)
     }
 
-    fun connect() {
-        val dataSource = state.selectedDataSource ?: return
+    /**
+     * Connect all selected data sources
+     */
+    fun connectAll() {
+        state.selectedDataSources.forEach { dataSource ->
+            connectDataSource(dataSource.id)
+        }
+    }
+
+    /**
+     * Connect a specific data source
+     */
+    fun connectDataSource(id: String) {
+        val dataSource = state.dataSources.find { it.id == id } ?: return
 
         scope.launch {
-            state = state.copy(connectionStatus = ConnectionStatus.Connecting)
+            // Update status to connecting
+            state = state.copy(
+                connectionStatuses = state.connectionStatuses + (id to ConnectionStatus.Connecting),
+                connectionStatus = ConnectionStatus.Connecting
+            )
 
             try {
                 val connection = createDatabaseConnection(dataSource.toDatabaseConfig())
                 if (connection.isConnected()) {
-                    currentConnection = connection
-                    currentSchema = connection.getSchema()
-                    state = state.copy(connectionStatus = ConnectionStatus.Connected)
+                    connections[id] = connection
+                    schemas[id] = connection.getSchema()
+                    state = state.copy(
+                        connectionStatuses = state.connectionStatuses + (id to ConnectionStatus.Connected),
+                        connectionStatus = if (state.hasAnyConnection || true) ConnectionStatus.Connected else state.connectionStatus
+                    )
                     _notificationEvent.emit("Connected" to "Successfully connected to ${dataSource.name}")
                 } else {
-                    state = state.copy(connectionStatus = ConnectionStatus.Error("Failed to connect"))
+                    state = state.copy(
+                        connectionStatuses = state.connectionStatuses + (id to ConnectionStatus.Error("Failed to connect"))
+                    )
                 }
             } catch (e: Exception) {
-                state = state.copy(connectionStatus = ConnectionStatus.Error(e.message ?: "Unknown error"))
-                _notificationEvent.emit("Connection Failed" to (e.message ?: "Unknown error"))
+                state = state.copy(
+                    connectionStatuses = state.connectionStatuses + (id to ConnectionStatus.Error(e.message ?: "Unknown error"))
+                )
+                _notificationEvent.emit("Connection Failed" to "${dataSource.name}: ${e.message ?: "Unknown error"}")
             }
         }
     }
 
-    fun disconnect() {
+    /**
+     * Disconnect a specific data source
+     */
+    fun disconnectDataSource(id: String) {
         scope.launch {
             try {
-                currentConnection?.close()
+                connections[id]?.close()
             } catch (e: Exception) {
-                println("[ChatDB] Error closing connection: ${e.message}")
+                println("[ChatDB] Error closing connection for $id: ${e.message}")
             }
-            currentConnection = null
-            currentSchema = null
-            state = state.copy(connectionStatus = ConnectionStatus.Disconnected)
+            connections.remove(id)
+            schemas.remove(id)
+            state = state.copy(
+                connectionStatuses = state.connectionStatuses + (id to ConnectionStatus.Disconnected),
+                connectionStatus = if (connections.isEmpty()) ConnectionStatus.Disconnected else ConnectionStatus.Connected
+            )
         }
+    }
+
+    /**
+     * Disconnect all data sources
+     */
+    fun disconnectAll() {
+        scope.launch {
+            connections.forEach { (id, connection) ->
+                try {
+                    connection.close()
+                } catch (e: Exception) {
+                    println("[ChatDB] Error closing connection for $id: ${e.message}")
+                }
+            }
+            connections.clear()
+            schemas.clear()
+            state = state.copy(
+                connectionStatuses = emptyMap(),
+                connectionStatus = ConnectionStatus.Disconnected
+            )
+        }
+    }
+
+    /**
+     * Legacy connect method - connects all selected data sources
+     */
+    fun connect() {
+        connectAll()
+    }
+
+    /**
+     * Legacy disconnect method - disconnects all data sources
+     */
+    fun disconnect() {
+        disconnectAll()
     }
 
     fun sendMessage(text: String) {
@@ -308,21 +409,30 @@ class ChatDBViewModel(
                     return@launch
                 }
 
-                val dataSource = state.selectedDataSource
-                if (dataSource == null) {
-                    renderer.renderError("No database selected. Please select a data source first.")
+                // Get connected data sources
+                val connectedDataSources = state.selectedDataSources.filter { ds ->
+                    state.getConnectionStatus(ds.id) is ConnectionStatus.Connected
+                }
+
+                if (connectedDataSources.isEmpty()) {
+                    renderer.renderError("No database connected. Please connect to at least one data source first.")
                     isGenerating = false
                     return@launch
                 }
 
-                val databaseConfig = dataSource.toDatabaseConfig()
                 val projectPath = workspace?.rootPath ?: "."
                 val mcpConfigService = McpToolConfigService(ToolConfigFile())
 
-                val agent = ChatDBAgent(
+                // Build database configs map for multi-database agent
+                val databaseConfigs: Map<String, DatabaseConfig> = connectedDataSources.associate { ds ->
+                    ds.id to ds.toDatabaseConfig()
+                }
+
+                // Use MultiDatabaseChatDBAgent for unified schema linking and query execution
+                val agent = MultiDatabaseChatDBAgent(
                     projectPath = projectPath,
                     llmService = service,
-                    databaseConfig = databaseConfig,
+                    databaseConfigs = databaseConfigs,
                     maxIterations = 10,
                     renderer = renderer,
                     mcpToolConfigService = mcpConfigService,
@@ -335,14 +445,16 @@ class ChatDBViewModel(
                     generateVisualization = false
                 )
 
-                // Execute the agent - it will render results to the timeline via the renderer
-                agent.execute(task) { progress ->
-                    // Progress callback - can be used for UI updates
-                    println("[ChatDB] Progress: $progress")
+                try {
+                    // Execute the multi-database agent
+                    // It will merge schemas, let LLM decide which database(s) to query,
+                    // and execute SQL on the appropriate database(s)
+                    agent.execute(task) { progress ->
+                        println("[ChatDB] Progress: $progress")
+                    }
+                } finally {
+                    agent.close()
                 }
-
-                // Close the agent connection
-                agent.close()
 
             } catch (e: CancellationException) {
                 renderer.forceStop()
@@ -371,11 +483,30 @@ class ChatDBViewModel(
         renderer.clearMessages()
     }
 
-    fun getSchema(): DatabaseSchema? = currentSchema
+    /**
+     * Get combined schema from all connected data sources
+     */
+    fun getSchema(): DatabaseSchema? {
+        if (schemas.isEmpty()) return null
+
+        // Return the first schema for now, or combine them
+        // For multi-datasource, we might want to show all schemas
+        return schemas.values.firstOrNull()
+    }
+
+    /**
+     * Get all schemas from connected data sources
+     */
+    fun getAllSchemas(): Map<String, DatabaseSchema> = schemas.toMap()
+
+    /**
+     * Get schema for a specific data source
+     */
+    fun getSchemaForDataSource(id: String): DatabaseSchema? = schemas[id]
 
     fun dispose() {
         stopGeneration()
-        disconnect()
+        disconnectAll()
         scope.cancel()
     }
 }

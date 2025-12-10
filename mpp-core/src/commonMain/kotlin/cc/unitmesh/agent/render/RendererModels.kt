@@ -139,6 +139,16 @@ sealed class TimelineItem(
     ) : TimelineItem(timestamp, id)
 
     /**
+     * Info item for displaying informational messages (non-error, non-warning).
+     * Used for status updates, progress information, database context, etc.
+     */
+    data class InfoItem(
+        val message: String,
+        override val timestamp: Long = Platform.getCurrentTimestamp(),
+        override val id: String = generateId()
+    ) : TimelineItem(timestamp, id)
+
+    /**
      * Task completion item.
      */
     data class TaskCompleteItem(

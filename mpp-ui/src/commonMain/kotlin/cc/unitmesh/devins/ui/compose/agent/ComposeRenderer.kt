@@ -527,6 +527,10 @@ class ComposeRenderer : BaseRenderer() {
         _isProcessing = false
     }
 
+    override fun renderInfo(message: String) {
+        _timeline.add(TimelineItem.InfoItem(message = message))
+    }
+
     override fun renderRepeatWarning(
         toolName: String,
         count: Int
@@ -924,6 +928,11 @@ class ComposeRenderer : BaseRenderer() {
                 // ChatDB steps are not persisted (they're runtime-only for UI display)
                 null
             }
+
+            is TimelineItem.InfoItem -> {
+                // Info items are not persisted (they're runtime-only for UI display)
+                null
+            }
         }
     }
 
@@ -1152,6 +1161,11 @@ class ComposeRenderer : BaseRenderer() {
 
                 is ChatDBStepItem -> {
                     // ChatDB steps are not persisted as messages
+                    null
+                }
+
+                is TimelineItem.InfoItem -> {
+                    // Info items are not persisted as messages
                     null
                 }
             }

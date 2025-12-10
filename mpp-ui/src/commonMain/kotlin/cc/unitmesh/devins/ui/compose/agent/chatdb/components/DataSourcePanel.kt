@@ -19,29 +19,41 @@ import cc.unitmesh.devins.ui.compose.icons.AutoDevComposeIcons
 
 /**
  * Data Source Panel - Left side panel for managing database connections
+ *
+ * Supports multi-datasource selection: all data sources are selected by default,
+ * users can toggle individual data sources on/off using checkboxes.
  */
 @Composable
 fun DataSourcePanel(
     dataSources: List<DataSourceConfig>,
-    selectedDataSourceId: String?,
-    connectionStatus: ConnectionStatus,
+    selectedDataSourceIds: Set<String>,
+    connectionStatuses: Map<String, ConnectionStatus>,
     filterQuery: String,
     onFilterChange: (String) -> Unit,
-    onSelectDataSource: (String) -> Unit,
+    onToggleDataSource: (String) -> Unit,
     onAddClick: () -> Unit,
     onEditClick: (DataSourceConfig) -> Unit,
     onDeleteClick: (String) -> Unit,
-    onConnectClick: () -> Unit,
-    onDisconnectClick: () -> Unit,
+    onConnectClick: (String) -> Unit,
+    onDisconnectClick: (String) -> Unit,
+    onConnectAllClick: () -> Unit,
+    onDisconnectAllClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val selectedCount = selectedDataSourceIds.size
+    val connectedCount = connectionStatuses.values.count { it is ConnectionStatus.Connected }
+
     Column(
         modifier = modifier
             .fillMaxHeight()
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
     ) {
-        // Header with Add button
-        DataSourceHeader(onAddClick = onAddClick)
+        // Header with Add button and selection info
+        DataSourceHeader(
+            selectedCount = selectedCount,
+            totalCount = dataSources.size,
+            onAddClick = onAddClick
+        )
 
         HorizontalDivider()
 
@@ -60,29 +72,36 @@ fun DataSourcePanel(
             items(dataSources, key = { it.id }) { dataSource ->
                 DataSourceItem(
                     dataSource = dataSource,
-                    isSelected = dataSource.id == selectedDataSourceId,
-                    connectionStatus = if (dataSource.id == selectedDataSourceId) connectionStatus else ConnectionStatus.Disconnected,
-                    onClick = { onSelectDataSource(dataSource.id) },
+                    isSelected = dataSource.id in selectedDataSourceIds,
+                    connectionStatus = connectionStatuses[dataSource.id] ?: ConnectionStatus.Disconnected,
+                    onToggle = { onToggleDataSource(dataSource.id) },
                     onEditClick = { onEditClick(dataSource) },
-                    onDeleteClick = { onDeleteClick(dataSource.id) }
+                    onDeleteClick = { onDeleteClick(dataSource.id) },
+                    onConnectClick = { onConnectClick(dataSource.id) },
+                    onDisconnectClick = { onDisconnectClick(dataSource.id) }
                 )
             }
         }
 
-        // Connection controls
-        if (selectedDataSourceId != null) {
+        // Connection controls for all selected data sources
+        if (selectedDataSourceIds.isNotEmpty()) {
             HorizontalDivider()
-            ConnectionControls(
-                connectionStatus = connectionStatus,
-                onConnect = onConnectClick,
-                onDisconnect = onDisconnectClick
+            MultiConnectionControls(
+                selectedCount = selectedCount,
+                connectedCount = connectedCount,
+                onConnectAll = onConnectAllClick,
+                onDisconnectAll = onDisconnectAllClick
             )
         }
     }
 }
 
 @Composable
-private fun DataSourceHeader(onAddClick: () -> Unit) {
+private fun DataSourceHeader(
+    selectedCount: Int,
+    totalCount: Int,
+    onAddClick: () -> Unit
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -90,10 +109,19 @@ private fun DataSourceHeader(onAddClick: () -> Unit) {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = "Data Sources",
-            style = MaterialTheme.typography.titleMedium
-        )
+        Column {
+            Text(
+                text = "Data Sources",
+                style = MaterialTheme.typography.titleMedium
+            )
+            if (totalCount > 0) {
+                Text(
+                    text = "$selectedCount of $totalCount selected",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
         IconButton(
             onClick = onAddClick,
             modifier = Modifier.size(32.dp)
@@ -147,28 +175,40 @@ private fun DataSourceItem(
     dataSource: DataSourceConfig,
     isSelected: Boolean,
     connectionStatus: ConnectionStatus,
-    onClick: () -> Unit,
+    onToggle: () -> Unit,
     onEditClick: () -> Unit,
-    onDeleteClick: () -> Unit
+    onDeleteClick: () -> Unit,
+    onConnectClick: () -> Unit,
+    onDisconnectClick: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
+    val isConnected = connectionStatus is ConnectionStatus.Connected
+    val isConnecting = connectionStatus is ConnectionStatus.Connecting
 
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 2.dp)
-            .clickable(onClick = onClick),
+            .padding(horizontal = 8.dp, vertical = 2.dp),
         shape = RoundedCornerShape(8.dp),
         color = if (isSelected) {
-            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
         } else {
             MaterialTheme.colorScheme.surface
         }
     ) {
         Row(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Checkbox for selection
+            Checkbox(
+                checked = isSelected,
+                onCheckedChange = { onToggle() },
+                modifier = Modifier.size(24.dp)
+            )
+
+            Spacer(modifier = Modifier.width(8.dp))
+
             // Status indicator
             Box(
                 modifier = Modifier
@@ -184,7 +224,7 @@ private fun DataSourceItem(
                     )
             )
 
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(8.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -193,13 +233,78 @@ private fun DataSourceItem(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Text(
-                    text = dataSource.getDisplayUrl(),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = dataSource.getDisplayUrl(),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    // Connection status text
+                    when (connectionStatus) {
+                        is ConnectionStatus.Connected -> {
+                            Text(
+                                text = "Connected",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        is ConnectionStatus.Connecting -> {
+                            Text(
+                                text = "Connecting...",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.tertiary
+                            )
+                        }
+                        is ConnectionStatus.Error -> {
+                            Text(
+                                text = "Error",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                        else -> {}
+                    }
+                }
+            }
+
+            // Quick connect/disconnect button
+            if (isSelected) {
+                if (isConnecting) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else if (isConnected) {
+                    IconButton(
+                        onClick = onDisconnectClick,
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            AutoDevComposeIcons.CloudOff,
+                            contentDescription = "Disconnect",
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    }
+                } else {
+                    IconButton(
+                        onClick = onConnectClick,
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            AutoDevComposeIcons.Cloud,
+                            contentDescription = "Connect",
+                            modifier = Modifier.size(16.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
             }
 
             Box {
@@ -249,64 +354,54 @@ private fun DataSourceItem(
     }
 }
 
+/**
+ * Connection controls for multi-datasource mode
+ */
 @Composable
-private fun ConnectionControls(
-    connectionStatus: ConnectionStatus,
-    onConnect: () -> Unit,
-    onDisconnect: () -> Unit
+private fun MultiConnectionControls(
+    selectedCount: Int,
+    connectedCount: Int,
+    onConnectAll: () -> Unit,
+    onDisconnectAll: () -> Unit
 ) {
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(12.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        when (connectionStatus) {
-            is ConnectionStatus.Connected -> {
-                Button(
-                    onClick = onDisconnect,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Disconnect")
-                }
+        // Status text
+        Text(
+            text = "$connectedCount of $selectedCount connected",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // Connect All button
+            Button(
+                onClick = onConnectAll,
+                enabled = connectedCount < selectedCount,
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("Connect All")
             }
-            is ConnectionStatus.Connecting -> {
-                Button(
-                    onClick = {},
-                    enabled = false,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.onPrimary
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Connecting...")
-                }
-            }
-            else -> {
-                Button(
-                    onClick = onConnect,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Connect")
-                }
+
+            // Disconnect All button
+            OutlinedButton(
+                onClick = onDisconnectAll,
+                enabled = connectedCount > 0,
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error
+                )
+            ) {
+                Text("Disconnect All")
             }
         }
-    }
-
-    if (connectionStatus is ConnectionStatus.Error) {
-        Text(
-            text = connectionStatus.message,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.error,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
-        )
     }
 }
 

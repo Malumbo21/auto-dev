@@ -44,6 +44,15 @@ interface CodingAgentRenderer {
     fun renderTaskComplete(executionTimeMs: Long = 0L, toolsUsedCount: Int = 0)
     fun renderFinalResult(success: Boolean, message: String, iterations: Int)
     fun renderError(message: String)
+
+    /**
+     * Render an informational message (non-error, non-warning)
+     * Used for status updates, progress information, etc.
+     */
+    fun renderInfo(message: String) {
+        // Default: no-op, renderers can override to display info messages
+    }
+
     fun renderRepeatWarning(toolName: String, count: Int)
 
     fun renderRecoveryAdvice(recoveryAdvice: String)
