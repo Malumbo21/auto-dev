@@ -48,38 +48,56 @@ actual class SqlValidator actual constructor() : SqlValidatorInterface {
     
     actual override fun extractTableNames(sql: String): List<String> {
         val tables = mutableListOf<String>()
-        
+
         // Match FROM clause: FROM table_name or FROM schema.table_name
         val fromPattern = Regex("""FROM\s+([`"\[]?\w+[`"\]]?(?:\.[`"\[]?\w+[`"\]]?)?)""", RegexOption.IGNORE_CASE)
         fromPattern.findAll(sql).forEach { match ->
             tables.add(cleanTableName(match.groupValues[1]))
         }
-        
+
         // Match JOIN clause: JOIN table_name or LEFT/RIGHT/INNER/OUTER JOIN table_name
         val joinPattern = Regex("""(?:LEFT|RIGHT|INNER|OUTER|CROSS|FULL)?\s*JOIN\s+([`"\[]?\w+[`"\]]?(?:\.[`"\[]?\w+[`"\]]?)?)""", RegexOption.IGNORE_CASE)
         joinPattern.findAll(sql).forEach { match ->
             tables.add(cleanTableName(match.groupValues[1]))
         }
-        
+
         // Match UPDATE clause: UPDATE table_name
         val updatePattern = Regex("""UPDATE\s+([`"\[]?\w+[`"\]]?(?:\.[`"\[]?\w+[`"\]]?)?)""", RegexOption.IGNORE_CASE)
         updatePattern.findAll(sql).forEach { match ->
             tables.add(cleanTableName(match.groupValues[1]))
         }
-        
+
         // Match INSERT INTO clause: INSERT INTO table_name
         val insertPattern = Regex("""INSERT\s+INTO\s+([`"\[]?\w+[`"\]]?(?:\.[`"\[]?\w+[`"\]]?)?)""", RegexOption.IGNORE_CASE)
         insertPattern.findAll(sql).forEach { match ->
             tables.add(cleanTableName(match.groupValues[1]))
         }
-        
+
         // Match DELETE FROM clause: DELETE FROM table_name
         val deletePattern = Regex("""DELETE\s+FROM\s+([`"\[]?\w+[`"\]]?(?:\.[`"\[]?\w+[`"\]]?)?)""", RegexOption.IGNORE_CASE)
         deletePattern.findAll(sql).forEach { match ->
             tables.add(cleanTableName(match.groupValues[1]))
         }
-        
+
         return tables.distinct()
+    }
+
+    /**
+     * Detect SQL type using regex-based detection
+     */
+    actual override fun detectSqlType(sql: String): SqlOperationType {
+        val trimmedSql = sql.trim().uppercase()
+        return when {
+            trimmedSql.startsWith("SELECT") || trimmedSql.startsWith("WITH") -> SqlOperationType.SELECT
+            trimmedSql.startsWith("INSERT") -> SqlOperationType.INSERT
+            trimmedSql.startsWith("UPDATE") -> SqlOperationType.UPDATE
+            trimmedSql.startsWith("DELETE") -> SqlOperationType.DELETE
+            trimmedSql.startsWith("CREATE") -> SqlOperationType.CREATE
+            trimmedSql.startsWith("ALTER") -> SqlOperationType.ALTER
+            trimmedSql.startsWith("DROP") -> SqlOperationType.DROP
+            trimmedSql.startsWith("TRUNCATE") -> SqlOperationType.TRUNCATE
+            else -> SqlOperationType.UNKNOWN
+        }
     }
     
     private fun cleanTableName(name: String): String {

@@ -54,6 +54,31 @@ class IdeaDatabaseConnection(
         }
     }
 
+    override suspend fun executeUpdate(sql: String): UpdateResult = withContext(Dispatchers.IO) {
+        try {
+            val stmt = ideaConnection.prepareStatement(sql, java.sql.Statement.RETURN_GENERATED_KEYS)
+            val affectedRows = stmt.executeUpdate()
+
+            // Try to get generated keys
+            val generatedKeys = mutableListOf<String>()
+            try {
+                val keysRs = stmt.generatedKeys
+                while (keysRs.next()) {
+                    generatedKeys.add(keysRs.getString(1))
+                }
+                keysRs.close()
+            } catch (e: Exception) {
+                // Ignore if generated keys are not available
+            }
+
+            stmt.close()
+
+            UpdateResult.success(affectedRows, generatedKeys)
+        } catch (e: Exception) {
+            throw DatabaseException.queryFailed(sql, e.message ?: "Unknown error")
+        }
+    }
+
     override suspend fun getSchema(): DatabaseSchema = withContext(Dispatchers.IO) {
         try {
             val metadata = ideaConnection.metaData

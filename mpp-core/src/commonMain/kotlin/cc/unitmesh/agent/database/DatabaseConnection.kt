@@ -10,7 +10,7 @@ import kotlinx.serialization.Serializable
 interface DatabaseConnection {
     /**
      * Execute a SQL query
-     * 
+     *
      * @param sql SQL query statement (SELECT only)
      * @return Query result
      * @throws DatabaseException If execution fails
@@ -18,8 +18,17 @@ interface DatabaseConnection {
     suspend fun executeQuery(sql: String): QueryResult
 
     /**
+     * Execute a SQL update statement (INSERT, UPDATE, DELETE, CREATE, ALTER, DROP, etc.)
+     *
+     * @param sql SQL update statement
+     * @return UpdateResult containing affected row count and any generated keys
+     * @throws DatabaseException If execution fails
+     */
+    suspend fun executeUpdate(sql: String): UpdateResult
+
+    /**
      * Get database schema information
-     * 
+     *
      * @return DatabaseSchema containing all tables and columns
      * @throws DatabaseException If retrieval fails
      */
@@ -98,6 +107,46 @@ interface DatabaseConnection {
             true
         } catch (e: Exception) {
             false
+        }
+    }
+}
+
+/**
+ * Database update result (for INSERT, UPDATE, DELETE, DDL statements)
+ */
+@Serializable
+data class UpdateResult(
+    /**
+     * Number of rows affected by the update
+     */
+    val affectedRows: Int,
+
+    /**
+     * Generated keys (for INSERT with auto-increment)
+     */
+    val generatedKeys: List<String> = emptyList(),
+
+    /**
+     * Whether the update was successful
+     */
+    val success: Boolean = true,
+
+    /**
+     * Optional message (e.g., for DDL statements)
+     */
+    val message: String? = null
+) {
+    companion object {
+        fun success(affectedRows: Int, generatedKeys: List<String> = emptyList()): UpdateResult {
+            return UpdateResult(affectedRows, generatedKeys, true)
+        }
+
+        fun ddlSuccess(message: String = "DDL statement executed successfully"): UpdateResult {
+            return UpdateResult(0, emptyList(), true, message)
+        }
+
+        fun failure(message: String): UpdateResult {
+            return UpdateResult(0, emptyList(), false, message)
         }
     }
 }

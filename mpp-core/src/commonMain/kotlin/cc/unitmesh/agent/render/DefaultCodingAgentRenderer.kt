@@ -1,6 +1,7 @@
 package cc.unitmesh.agent.render
 
 import cc.unitmesh.agent.logging.getLogger
+import cc.unitmesh.agent.subagent.SqlOperationType
 
 /**
  * Default console renderer - simple text output
@@ -116,6 +117,30 @@ class DefaultCodingAgentRenderer : BaseRenderer() {
         println("🔐 Tool '$toolName' requires user confirmation")
         println("   Parameters: ${params.entries.joinToString(", ") { "${it.key}=${it.value}" }}")
         println("   (Auto-approved for now)")
+    }
+
+    override fun renderSqlApprovalRequest(
+        sql: String,
+        operationType: SqlOperationType,
+        affectedTables: List<String>,
+        isHighRisk: Boolean,
+        onApprove: () -> Unit,
+        onReject: () -> Unit
+    ) {
+        val riskIcon = if (isHighRisk) "!!" else "!"
+        println("\n$riskIcon SQL Write Operation Requires Approval")
+        println("-".repeat(50))
+        println("Operation: ${operationType.name}")
+        println("Affected Tables: ${affectedTables.joinToString(", ")}")
+        if (isHighRisk) {
+            println("WARNING: This is a HIGH-RISK operation!")
+        }
+        println("\nSQL:")
+        println(sql)
+        println("-".repeat(50))
+        // Default console renderer auto-rejects for safety
+        println("(Auto-rejected in console mode - use interactive UI for approval)")
+        onReject()
     }
 
     override fun renderAgentSketchBlock(

@@ -10,11 +10,14 @@ import cc.unitmesh.agent.render.ChatDBStepType
 import cc.unitmesh.agent.render.CodingAgentRenderer
 import cc.unitmesh.agent.subagent.PlotDSLAgent
 import cc.unitmesh.agent.subagent.PlotDSLContext
+import cc.unitmesh.agent.subagent.SqlOperationType
 import cc.unitmesh.agent.subagent.SqlValidator
 import cc.unitmesh.agent.subagent.SqlReviseAgent
 import cc.unitmesh.agent.subagent.SqlRevisionInput
 import cc.unitmesh.devins.parser.CodeFence
 import cc.unitmesh.llm.KoogLLMService
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
 
 /**
  * Multi-Database ChatDB Executor - Executes Text2SQL across multiple databases
@@ -327,6 +330,97 @@ class MultiDatabaseChatDBExecutor(
                     continue
                 }
 
+                // Detect SQL operation type
+                val operationType = sqlValidator.detectSqlType(sql)
+                val isWriteOperation = operationType.requiresApproval()
+                val isHighRisk = operationType.isHighRisk()
+
+                // If write operation, request approval
+                if (isWriteOperation) {
+                    val affectedTables = extractTablesFromSql(sql, merged.databases[dbName])
+
+                    val approved = requestSqlApproval(
+                        sql = sql,
+                        operationType = operationType,
+                        affectedTables = affectedTables,
+                        isHighRisk = isHighRisk,
+                        onProgress = onProgress
+                    )
+
+                    if (!approved) {
+                        renderer.renderChatDBStep(
+                            stepType = ChatDBStepType.EXECUTE_WRITE,
+                            status = ChatDBStepStatus.REJECTED,
+                            title = "Write operation rejected by user",
+                            details = mapOf(
+                                "database" to dbName,
+                                "operationType" to operationType.name,
+                                "sql" to sql
+                            )
+                        )
+                        errors.add("[$dbName] Write operation rejected by user: ${operationType.name}")
+                        continue
+                    }
+
+                    // Execute write operation
+                    renderer.renderChatDBStep(
+                        stepType = ChatDBStepType.EXECUTE_WRITE,
+                        status = ChatDBStepStatus.APPROVED,
+                        title = "Write operation approved, executing...",
+                        details = mapOf(
+                            "database" to dbName,
+                            "operationType" to operationType.name,
+                            "sql" to sql
+                        )
+                    )
+                    onProgress("✅ Write operation approved, executing...")
+
+                    try {
+                        val updateResult = connection.executeUpdate(sql)
+
+                        if (updateResult.success) {
+                            renderer.renderChatDBStep(
+                                stepType = ChatDBStepType.EXECUTE_WRITE,
+                                status = ChatDBStepStatus.SUCCESS,
+                                title = "Write operation completed on $dbName",
+                                details = mapOf(
+                                    "database" to dbName,
+                                    "operationType" to operationType.name,
+                                    "affectedRows" to updateResult.affectedRows,
+                                    "message" to (updateResult.message ?: "")
+                                )
+                            )
+                            onProgress("✅ ${operationType.name} completed: ${updateResult.affectedRows} row(s) affected")
+
+                            // Create a synthetic QueryResult for write operations
+                            queryResults[dbName] = QueryResult(
+                                columns = listOf("Operation", "Affected Rows", "Status"),
+                                rows = listOf(listOf(operationType.name, updateResult.affectedRows.toString(), "Success")),
+                                rowCount = 1
+                            )
+                        } else {
+                            renderer.renderChatDBStep(
+                                stepType = ChatDBStepType.EXECUTE_WRITE,
+                                status = ChatDBStepStatus.ERROR,
+                                title = "Write operation failed on $dbName",
+                                error = updateResult.message ?: "Unknown error"
+                            )
+                            errors.add("[$dbName] Write operation failed: ${updateResult.message}")
+                        }
+                    } catch (e: Exception) {
+                        val errorMsg = e.message ?: "Unknown execution error"
+                        renderer.renderChatDBStep(
+                            stepType = ChatDBStepType.EXECUTE_WRITE,
+                            status = ChatDBStepStatus.ERROR,
+                            title = "Write operation failed on $dbName",
+                            error = errorMsg
+                        )
+                        errors.add("[$dbName] Write operation failed: $errorMsg")
+                    }
+                    continue
+                }
+
+                // Regular SELECT query execution with retry
                 var executionRetries = 0
                 var lastExecutionError: String? = null
                 var result: QueryResult? = null
@@ -818,6 +912,65 @@ Generate the SQL:
         }
 
         return QueryResult(allColumns, allRows, allRows.size)
+    }
+
+    /**
+     * Request user approval for SQL write operation
+     * Returns true if approved, false if rejected
+     */
+    private suspend fun requestSqlApproval(
+        sql: String,
+        operationType: SqlOperationType,
+        affectedTables: List<String>,
+        isHighRisk: Boolean,
+        onProgress: (String) -> Unit
+    ): Boolean {
+        val riskLevel = if (isHighRisk) "⚠️ HIGH RISK" else "⚡ Write Operation"
+        onProgress("$riskLevel: ${operationType.name} requires approval")
+
+        return suspendCancellableCoroutine { continuation ->
+            renderer.renderSqlApprovalRequest(
+                sql = sql,
+                operationType = operationType,
+                affectedTables = affectedTables,
+                isHighRisk = isHighRisk,
+                onApprove = {
+                    if (continuation.isActive) {
+                        continuation.resume(true)
+                    }
+                },
+                onReject = {
+                    if (continuation.isActive) {
+                        continuation.resume(false)
+                    }
+                }
+            )
+        }
+    }
+
+    /**
+     * Extract table names from SQL statement
+     */
+    private fun extractTablesFromSql(sql: String, schema: DatabaseSchema?): List<String> {
+        if (schema == null) return emptyList()
+
+        val tableNames = schema.tables.map { it.name.lowercase() }.toSet()
+        val sqlLower = sql.lowercase()
+
+        return tableNames.filter { tableName ->
+            // Check for common SQL patterns that reference tables
+            sqlLower.contains(" $tableName ") ||
+            sqlLower.contains(" $tableName;") ||
+            sqlLower.contains(" $tableName\n") ||
+            sqlLower.contains("from $tableName") ||
+            sqlLower.contains("into $tableName") ||
+            sqlLower.contains("update $tableName") ||
+            sqlLower.contains("table $tableName") ||
+            sqlLower.contains("join $tableName")
+        }.map { tableName ->
+            // Return original case from schema
+            schema.tables.find { it.name.lowercase() == tableName }?.name ?: tableName
+        }
     }
 }
 

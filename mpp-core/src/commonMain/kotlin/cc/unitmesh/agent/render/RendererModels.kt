@@ -251,7 +251,11 @@ enum class ChatDBStepType(val displayName: String, val icon: String) {
     GENERATE_SQL("Generate SQL Query", "🤖"),
     VALIDATE_SQL("Validate SQL", "✓"),
     REVISE_SQL("Revise SQL", "🔄"),
+    /** Waiting for user approval before executing write operation */
+    AWAIT_APPROVAL("Awaiting Approval", "?"),
     EXECUTE_SQL("Execute SQL Query", "⚡"),
+    /** Execute write operation (INSERT, UPDATE, DELETE, DDL) */
+    EXECUTE_WRITE("Execute Write Operation", "!"),
     GENERATE_VISUALIZATION("Generate Visualization", "📈"),
     FINAL_RESULT("Query Result", "✅")
 }
@@ -264,6 +268,12 @@ enum class ChatDBStepStatus(val displayName: String) {
     IN_PROGRESS("In Progress"),
     SUCCESS("Success"),
     WARNING("Warning"),
-    ERROR("Error")
+    ERROR("Error"),
+    /** User approval is required */
+    AWAITING_APPROVAL("Awaiting Approval"),
+    /** User approved the operation */
+    APPROVED("Approved"),
+    /** User rejected the operation */
+    REJECTED("Rejected")
 }
 

@@ -12,6 +12,7 @@ import cc.unitmesh.agent.render.TaskStatus
 import cc.unitmesh.agent.render.TimelineItem
 import cc.unitmesh.agent.render.TimelineItem.*
 import cc.unitmesh.agent.render.ToolCallInfo
+import cc.unitmesh.agent.subagent.SqlOperationType
 import cc.unitmesh.agent.tool.ToolType
 import cc.unitmesh.agent.tool.impl.docql.DocQLSearchStats
 import cc.unitmesh.agent.tool.toToolType
@@ -80,6 +81,10 @@ class ComposeRenderer : BaseRenderer() {
     // Plan tracking from plan management tool
     private var _currentPlan by mutableStateOf<AgentPlan?>(null)
     val currentPlan: AgentPlan? get() = _currentPlan
+
+    // SQL approval state
+    private var _pendingSqlApproval by mutableStateOf<SqlApprovalRequest?>(null)
+    val pendingSqlApproval: SqlApprovalRequest? get() = _pendingSqlApproval
 
     // BaseRenderer implementation
 
@@ -563,6 +568,57 @@ class ComposeRenderer : BaseRenderer() {
         params: Map<String, Any>
     ) {
         // For now, just use error rendering since JS renderer doesn't have this method yet
+    }
+
+    override fun renderSqlApprovalRequest(
+        sql: String,
+        operationType: SqlOperationType,
+        affectedTables: List<String>,
+        isHighRisk: Boolean,
+        onApprove: () -> Unit,
+        onReject: () -> Unit
+    ) {
+        _pendingSqlApproval = SqlApprovalRequest(
+            sql = sql,
+            operationType = operationType,
+            affectedTables = affectedTables,
+            isHighRisk = isHighRisk,
+            onApprove = {
+                _pendingSqlApproval = null
+                onApprove()
+            },
+            onReject = {
+                _pendingSqlApproval = null
+                onReject()
+            }
+        )
+
+        // Also add to timeline for visibility
+        renderChatDBStep(
+            stepType = ChatDBStepType.AWAIT_APPROVAL,
+            status = ChatDBStepStatus.AWAITING_APPROVAL,
+            title = "Awaiting Approval: ${operationType.name}",
+            details = mapOf(
+                "sql" to sql,
+                "operationType" to operationType.name,
+                "affectedTables" to affectedTables.joinToString(", "),
+                "isHighRisk" to isHighRisk
+            )
+        )
+    }
+
+    /**
+     * Approve the pending SQL operation
+     */
+    fun approveSqlOperation() {
+        _pendingSqlApproval?.onApprove?.invoke()
+    }
+
+    /**
+     * Reject the pending SQL operation
+     */
+    fun rejectSqlOperation() {
+        _pendingSqlApproval?.onReject?.invoke()
     }
 
     // Public methods for UI interaction
@@ -1172,4 +1228,16 @@ class ComposeRenderer : BaseRenderer() {
         }
     }
 }
+
+/**
+ * Data class representing a pending SQL approval request
+ */
+data class SqlApprovalRequest(
+    val sql: String,
+    val operationType: SqlOperationType,
+    val affectedTables: List<String>,
+    val isHighRisk: Boolean,
+    val onApprove: () -> Unit,
+    val onReject: () -> Unit
+)
 

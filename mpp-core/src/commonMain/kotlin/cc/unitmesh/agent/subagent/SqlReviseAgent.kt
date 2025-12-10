@@ -278,6 +278,61 @@ interface SqlValidatorInterface {
     fun validate(sql: String): SqlValidationResult
     fun validateWithTableWhitelist(sql: String, allowedTables: Set<String>): SqlValidationResult
     fun extractTableNames(sql: String): List<String>
+
+    /**
+     * Detect the type of SQL statement.
+     * Used to determine if approval is needed for write operations.
+     *
+     * @param sql The SQL statement to analyze
+     * @return The detected SQL operation type
+     */
+    fun detectSqlType(sql: String): SqlOperationType
+}
+
+/**
+ * SQL operation types for determining approval requirements
+ */
+enum class SqlOperationType {
+    /** SELECT queries - read-only, no approval needed */
+    SELECT,
+    /** INSERT statements - requires approval */
+    INSERT,
+    /** UPDATE statements - requires approval */
+    UPDATE,
+    /** DELETE statements - requires approval */
+    DELETE,
+    /** CREATE statements (tables, indexes, etc.) - requires approval */
+    CREATE,
+    /** ALTER statements - requires approval */
+    ALTER,
+    /** DROP statements - requires approval, high risk */
+    DROP,
+    /** TRUNCATE statements - requires approval, high risk */
+    TRUNCATE,
+    /** Other DDL/DCL/TCL statements */
+    OTHER,
+    /** Unknown or unparseable SQL */
+    UNKNOWN;
+
+    /**
+     * Check if this operation type requires user approval
+     */
+    fun requiresApproval(): Boolean = this != SELECT && this != UNKNOWN
+
+    /**
+     * Check if this is a high-risk operation (DROP, TRUNCATE)
+     */
+    fun isHighRisk(): Boolean = this == DROP || this == TRUNCATE
+
+    /**
+     * Check if this is a write operation (INSERT, UPDATE, DELETE)
+     */
+    fun isWriteOperation(): Boolean = this == INSERT || this == UPDATE || this == DELETE
+
+    /**
+     * Check if this is a DDL operation (CREATE, ALTER, DROP, TRUNCATE)
+     */
+    fun isDdlOperation(): Boolean = this == CREATE || this == ALTER || this == DROP || this == TRUNCATE
 }
 
 /**

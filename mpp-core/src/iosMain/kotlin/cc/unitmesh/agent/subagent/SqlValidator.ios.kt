@@ -48,38 +48,56 @@ actual class SqlValidator actual constructor() : SqlValidatorInterface {
     
     actual override fun extractTableNames(sql: String): List<String> {
         val tables = mutableListOf<String>()
-        
+
         // Match FROM clause
         val fromPattern = Regex("""FROM\s+(\w+)""", RegexOption.IGNORE_CASE)
         fromPattern.findAll(sql).forEach { match ->
             tables.add(match.groupValues[1])
         }
-        
+
         // Match JOIN clause
         val joinPattern = Regex("""JOIN\s+(\w+)""", RegexOption.IGNORE_CASE)
         joinPattern.findAll(sql).forEach { match ->
             tables.add(match.groupValues[1])
         }
-        
+
         // Match UPDATE clause
         val updatePattern = Regex("""UPDATE\s+(\w+)""", RegexOption.IGNORE_CASE)
         updatePattern.findAll(sql).forEach { match ->
             tables.add(match.groupValues[1])
         }
-        
+
         // Match INSERT INTO clause
         val insertPattern = Regex("""INSERT\s+INTO\s+(\w+)""", RegexOption.IGNORE_CASE)
         insertPattern.findAll(sql).forEach { match ->
             tables.add(match.groupValues[1])
         }
-        
+
         // Match DELETE FROM clause
         val deletePattern = Regex("""DELETE\s+FROM\s+(\w+)""", RegexOption.IGNORE_CASE)
         deletePattern.findAll(sql).forEach { match ->
             tables.add(match.groupValues[1])
         }
-        
+
         return tables.distinct()
+    }
+
+    /**
+     * Detect SQL type using regex-based detection
+     */
+    actual override fun detectSqlType(sql: String): SqlOperationType {
+        val trimmedSql = sql.trim().uppercase()
+        return when {
+            trimmedSql.startsWith("SELECT") || trimmedSql.startsWith("WITH") -> SqlOperationType.SELECT
+            trimmedSql.startsWith("INSERT") -> SqlOperationType.INSERT
+            trimmedSql.startsWith("UPDATE") -> SqlOperationType.UPDATE
+            trimmedSql.startsWith("DELETE") -> SqlOperationType.DELETE
+            trimmedSql.startsWith("CREATE") -> SqlOperationType.CREATE
+            trimmedSql.startsWith("ALTER") -> SqlOperationType.ALTER
+            trimmedSql.startsWith("DROP") -> SqlOperationType.DROP
+            trimmedSql.startsWith("TRUNCATE") -> SqlOperationType.TRUNCATE
+            else -> SqlOperationType.UNKNOWN
+        }
     }
     
     private fun performBasicValidation(sql: String): SqlValidationResult {

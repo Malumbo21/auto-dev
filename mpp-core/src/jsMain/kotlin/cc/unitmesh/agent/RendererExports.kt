@@ -4,6 +4,7 @@ import cc.unitmesh.agent.plan.PlanSummaryData
 import cc.unitmesh.agent.plan.StepSummary
 import cc.unitmesh.agent.plan.TaskSummary
 import cc.unitmesh.agent.render.CodingAgentRenderer
+import cc.unitmesh.agent.subagent.SqlOperationType
 import kotlin.js.JsExport
 
 /**
@@ -194,6 +195,19 @@ class JsRendererAdapter(private val jsRenderer: JsCodingAgentRenderer) : CodingA
     override fun renderUserConfirmationRequest(toolName: String, params: Map<String, Any>) {
         // For now, just use error rendering since JS renderer doesn't have this method yet
         jsRenderer.renderError("Tool '$toolName' requires user confirmation: $params (Auto-approved)")
+    }
+
+    override fun renderSqlApprovalRequest(
+        sql: String,
+        operationType: SqlOperationType,
+        affectedTables: List<String>,
+        isHighRisk: Boolean,
+        onApprove: () -> Unit,
+        onReject: () -> Unit
+    ) {
+        // JS renderer auto-rejects for safety
+        jsRenderer.renderError("SQL write operation requires approval: ${operationType.name} on ${affectedTables.joinToString(", ")} (Auto-rejected)")
+        onReject()
     }
 
     override fun renderPlanSummary(summary: PlanSummaryData) {

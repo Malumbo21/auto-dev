@@ -136,6 +136,9 @@ private fun StepStatusBadge(status: ChatDBStepStatus) {
         ChatDBStepStatus.SUCCESS -> MaterialTheme.colorScheme.tertiary to "Success"
         ChatDBStepStatus.WARNING -> MaterialTheme.colorScheme.secondary to "Warning"
         ChatDBStepStatus.ERROR -> MaterialTheme.colorScheme.error to "Error"
+        ChatDBStepStatus.AWAITING_APPROVAL -> MaterialTheme.colorScheme.tertiary to "Awaiting Approval"
+        ChatDBStepStatus.APPROVED -> MaterialTheme.colorScheme.primary to "Approved"
+        ChatDBStepStatus.REJECTED -> MaterialTheme.colorScheme.error to "Rejected"
     }
 
     Surface(
@@ -495,6 +498,90 @@ private fun StepDetails(details: Map<String, Any>, stepType: ChatDBStepType) {
                         color = MaterialTheme.colorScheme.primary
                     )
                     DataPreviewTable(columns = columns, rows = previewRows)
+                }
+            }
+
+            ChatDBStepType.AWAIT_APPROVAL -> {
+                // Show SQL that requires approval
+                details["sql"]?.let { sql ->
+                    CodeBlock(code = sql.toString(), language = "sql")
+                }
+
+                // Show operation type
+                details["operationType"]?.let { opType ->
+                    DetailRow("Operation Type", opType.toString())
+                }
+
+                // Show affected tables
+                @Suppress("UNCHECKED_CAST")
+                val affectedTables = details["affectedTables"] as? List<String>
+                if (affectedTables != null && affectedTables.isNotEmpty()) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier.horizontalScroll(rememberScrollState())
+                    ) {
+                        Text(
+                            text = "Affected Tables:",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        affectedTables.forEach { tableName ->
+                            KeywordChip(tableName)
+                        }
+                    }
+                }
+
+                // Show high risk warning
+                val isHighRisk = details["isHighRisk"] as? Boolean ?: false
+                if (isHighRisk) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(text = "⚠️", fontSize = 16.sp)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "HIGH RISK OPERATION - This operation may cause data loss",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+
+            ChatDBStepType.EXECUTE_WRITE -> {
+                // Show database name
+                details["database"]?.let { dbName ->
+                    DetailRow("Database", dbName.toString())
+                }
+
+                // Show operation type
+                details["operationType"]?.let { opType ->
+                    DetailRow("Operation Type", opType.toString())
+                }
+
+                // Show SQL that was executed
+                details["sql"]?.let { sql ->
+                    CodeBlock(code = sql.toString(), language = "sql")
+                }
+
+                // Show affected rows
+                details["affectedRows"]?.let { rows ->
+                    DetailRow("Affected Rows", rows.toString())
+                }
+
+                // Show message if present
+                details["message"]?.let { message ->
+                    if (message.toString().isNotEmpty()) {
+                        DetailRow("Message", message.toString())
+                    }
                 }
             }
 

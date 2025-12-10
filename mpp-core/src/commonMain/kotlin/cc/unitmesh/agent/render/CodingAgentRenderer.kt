@@ -1,6 +1,7 @@
 package cc.unitmesh.agent.render
 
 import cc.unitmesh.agent.plan.PlanSummaryData
+import cc.unitmesh.agent.subagent.SqlOperationType
 import cc.unitmesh.agent.tool.ToolResult
 import cc.unitmesh.llm.compression.TokenInfo
 
@@ -112,6 +113,30 @@ interface CodingAgentRenderer {
     }
 
     fun renderUserConfirmationRequest(toolName: String, params: Map<String, Any>)
+
+    /**
+     * Request user approval for a SQL write operation.
+     * This is called when a write operation (INSERT, UPDATE, DELETE, CREATE, etc.) is detected.
+     * The renderer should display the SQL and allow the user to approve or reject.
+     *
+     * @param sql The SQL statement to be executed
+     * @param operationType The type of SQL operation (INSERT, UPDATE, DELETE, CREATE, etc.)
+     * @param affectedTables List of tables that will be affected
+     * @param isHighRisk Whether this is a high-risk operation (DROP, TRUNCATE)
+     * @param onApprove Callback to invoke when user approves the operation
+     * @param onReject Callback to invoke when user rejects the operation
+     */
+    fun renderSqlApprovalRequest(
+        sql: String,
+        operationType: SqlOperationType,
+        affectedTables: List<String>,
+        isHighRisk: Boolean,
+        onApprove: () -> Unit,
+        onReject: () -> Unit
+    ) {
+        // Default: auto-reject for safety (renderers should override to show UI)
+        onReject()
+    }
 
     /**
      * Add a live terminal session to the timeline.

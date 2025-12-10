@@ -2,6 +2,16 @@ package cc.unitmesh.agent.subagent
 
 import net.sf.jsqlparser.parser.CCJSqlParserUtil
 import net.sf.jsqlparser.statement.Statement
+import net.sf.jsqlparser.statement.alter.Alter
+import net.sf.jsqlparser.statement.create.table.CreateTable
+import net.sf.jsqlparser.statement.create.index.CreateIndex
+import net.sf.jsqlparser.statement.create.view.CreateView
+import net.sf.jsqlparser.statement.delete.Delete
+import net.sf.jsqlparser.statement.drop.Drop
+import net.sf.jsqlparser.statement.insert.Insert
+import net.sf.jsqlparser.statement.select.Select
+import net.sf.jsqlparser.statement.truncate.Truncate
+import net.sf.jsqlparser.statement.update.Update
 import net.sf.jsqlparser.util.TablesNamesFinder
 
 /**
@@ -91,7 +101,48 @@ actual class SqlValidator actual constructor() : SqlValidatorInterface {
             emptyList()
         }
     }
-    
+
+    /**
+     * Detect the type of SQL statement using JSqlParser
+     */
+    actual override fun detectSqlType(sql: String): SqlOperationType {
+        return try {
+            val statement: Statement = CCJSqlParserUtil.parse(sql)
+            when (statement) {
+                is Select -> SqlOperationType.SELECT
+                is Insert -> SqlOperationType.INSERT
+                is Update -> SqlOperationType.UPDATE
+                is Delete -> SqlOperationType.DELETE
+                is CreateTable, is CreateIndex, is CreateView -> SqlOperationType.CREATE
+                is Alter -> SqlOperationType.ALTER
+                is Drop -> SqlOperationType.DROP
+                is Truncate -> SqlOperationType.TRUNCATE
+                else -> SqlOperationType.OTHER
+            }
+        } catch (e: Exception) {
+            // Fallback to regex-based detection if parsing fails
+            detectSqlTypeByRegex(sql)
+        }
+    }
+
+    /**
+     * Fallback regex-based SQL type detection
+     */
+    private fun detectSqlTypeByRegex(sql: String): SqlOperationType {
+        val trimmedSql = sql.trim().uppercase()
+        return when {
+            trimmedSql.startsWith("SELECT") -> SqlOperationType.SELECT
+            trimmedSql.startsWith("INSERT") -> SqlOperationType.INSERT
+            trimmedSql.startsWith("UPDATE") -> SqlOperationType.UPDATE
+            trimmedSql.startsWith("DELETE") -> SqlOperationType.DELETE
+            trimmedSql.startsWith("CREATE") -> SqlOperationType.CREATE
+            trimmedSql.startsWith("ALTER") -> SqlOperationType.ALTER
+            trimmedSql.startsWith("DROP") -> SqlOperationType.DROP
+            trimmedSql.startsWith("TRUNCATE") -> SqlOperationType.TRUNCATE
+            else -> SqlOperationType.UNKNOWN
+        }
+    }
+
     /**
      * Validate SQL and return the parsed statement if valid
      */

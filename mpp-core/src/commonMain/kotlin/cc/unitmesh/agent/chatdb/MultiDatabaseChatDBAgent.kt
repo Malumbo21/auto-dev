@@ -165,8 +165,22 @@ CRITICAL RULES:
 2. ONLY use column names provided in the schema - NEVER invent or guess column names
 3. When generating SQL, use the table name WITHOUT the database prefix (the system will route to the correct database)
 4. If the user's question relates to tables in multiple databases, generate SEPARATE SQL queries for each database
-5. Only generate SELECT queries (read-only operations)
-6. Always add LIMIT clause to prevent large result sets
+5. Always add LIMIT clause for SELECT queries to prevent large result sets
+
+SUPPORTED OPERATIONS:
+- SELECT: Read data (no approval required)
+- INSERT: Add new records (requires user approval)
+- UPDATE: Modify existing records (requires user approval)
+- DELETE: Remove records (requires user approval, HIGH RISK)
+- CREATE TABLE: Create new tables (requires user approval)
+- ALTER TABLE: Modify table structure (requires user approval, HIGH RISK)
+- DROP TABLE: Delete tables (requires user approval, HIGH RISK)
+- TRUNCATE: Remove all records (requires user approval, HIGH RISK)
+
+⚠️ WRITE OPERATIONS WARNING:
+- All write operations (INSERT, UPDATE, DELETE, CREATE, ALTER, DROP, TRUNCATE) require explicit user approval before execution
+- HIGH RISK operations (DELETE, DROP, TRUNCATE, ALTER) will be highlighted with additional warnings
+- Always confirm with the user before generating destructive SQL
 
 OUTPUT FORMAT:
 - For single database query:
@@ -183,6 +197,20 @@ SELECT * FROM users LIMIT 100;
 ```sql
 -- database: db2
 SELECT * FROM customers LIMIT 100;
+```
+
+- For write operations:
+```sql
+-- database: <database_name>
+INSERT INTO users (name, email) VALUES ('John', 'john@example.com');
+```
+
+```sql
+-- database: <database_name>
+CREATE TABLE new_table (
+    id INT PRIMARY KEY,
+    name VARCHAR(100)
+);
 ```
 
 The "-- database: <name>" comment is REQUIRED to specify which database to execute the query on."""

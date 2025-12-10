@@ -54,6 +54,33 @@ class ExposedDatabaseConnection(
         }
     }
 
+    override suspend fun executeUpdate(sql: String): UpdateResult = withContext(Dispatchers.IO) {
+        try {
+            hikariDataSource.connection.use { connection ->
+                val stmt = connection.prepareStatement(sql, java.sql.Statement.RETURN_GENERATED_KEYS)
+                val affectedRows = stmt.executeUpdate()
+
+                // Try to get generated keys
+                val generatedKeys = mutableListOf<String>()
+                try {
+                    val keysRs = stmt.generatedKeys
+                    while (keysRs.next()) {
+                        generatedKeys.add(keysRs.getString(1))
+                    }
+                    keysRs.close()
+                } catch (e: Exception) {
+                    // Ignore if generated keys are not available
+                }
+
+                stmt.close()
+
+                UpdateResult.success(affectedRows, generatedKeys)
+            }
+        } catch (e: Exception) {
+            throw DatabaseException.queryFailed(sql, e.message ?: "Unknown error")
+        }
+    }
+
     override suspend fun getSchema(): DatabaseSchema = withContext(Dispatchers.IO) {
         try {
             hikariDataSource.connection.use { connection ->

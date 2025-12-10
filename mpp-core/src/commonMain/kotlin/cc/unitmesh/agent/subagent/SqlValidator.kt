@@ -48,5 +48,16 @@ expect class SqlValidator() : SqlValidatorInterface {
      * @return List of table names found in the query
      */
     override fun extractTableNames(sql: String): List<String>
+
+    /**
+     * Detect the type of SQL statement.
+     *
+     * On JVM platforms, this uses JSqlParser for accurate detection.
+     * On non-JVM platforms, this uses regex-based detection.
+     *
+     * @param sql The SQL statement to analyze
+     * @return The detected SQL operation type
+     */
+    override fun detectSqlType(sql: String): SqlOperationType
 }
 
