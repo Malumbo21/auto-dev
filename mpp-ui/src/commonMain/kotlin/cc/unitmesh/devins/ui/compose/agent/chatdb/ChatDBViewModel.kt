@@ -3,6 +3,10 @@ package cc.unitmesh.devins.ui.compose.agent.chatdb
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import cc.unitmesh.agent.chatdb.ChatDBAgent
+import cc.unitmesh.agent.chatdb.ChatDBTask
+import cc.unitmesh.agent.config.McpToolConfigService
+import cc.unitmesh.agent.config.ToolConfigFile
 import cc.unitmesh.agent.database.DatabaseConnection
 import cc.unitmesh.agent.database.DatabaseSchema
 import cc.unitmesh.agent.database.createDatabaseConnection
@@ -255,24 +259,44 @@ class ChatDBViewModel(
                     return@launch
                 }
 
-                val schemaContext = currentSchema?.getDescription() ?: "No database connected"
-                val systemPrompt = buildSystemPrompt(schemaContext)
-
-                val response = StringBuilder()
-                renderer.renderLLMResponseStart()
-
-                service.streamPrompt(
-                    userPrompt = "$systemPrompt\n\nUser: $text",
-                    compileDevIns = false
-                ).collect { chunk ->
-                    response.append(chunk)
-                    renderer.renderLLMResponseChunk(chunk)
+                val dataSource = state.selectedDataSource
+                if (dataSource == null) {
+                    renderer.renderError("No database selected. Please select a data source first.")
+                    isGenerating = false
+                    return@launch
                 }
 
-                renderer.renderLLMResponseEnd()
+                val databaseConfig = dataSource.toDatabaseConfig()
+                val projectPath = workspace?.rootPath ?: "."
+                val mcpConfigService = McpToolConfigService(ToolConfigFile())
 
-                // Try to extract and execute SQL if present
-                extractAndExecuteSQL(response.toString())
+                val agent = ChatDBAgent(
+                    projectPath = projectPath,
+                    llmService = service,
+                    databaseConfig = databaseConfig,
+                    maxIterations = 10,
+                    renderer = renderer,
+                    mcpToolConfigService = mcpConfigService,
+                    enableLLMStreaming = true
+                )
+
+                val task = ChatDBTask(
+                    query = text,
+                    maxRows = 100,
+                    generateVisualization = false
+                )
+
+                val result = agent.execute(task) { progress ->
+                    // Progress callback - can be used for UI updates
+                    println("[ChatDB] Progress: $progress")
+                }
+
+                if (!result.success) {
+                    renderer.renderError("Query failed: ${result.content}")
+                }
+
+                // Close the agent connection
+                agent.close()
 
             } catch (e: CancellationException) {
                 renderer.forceStop()
@@ -282,43 +306,6 @@ class ChatDBViewModel(
             } finally {
                 isGenerating = false
                 currentExecutionJob = null
-            }
-        }
-    }
-
-    private fun buildSystemPrompt(schemaContext: String): String {
-        return """You are a helpful SQL assistant. You help users write SQL queries based on their natural language questions.
-
-## Database Schema
-$schemaContext
-
-## Instructions
-1. Analyze the user's question and understand what data they need
-2. Generate the appropriate SQL query
-3. Wrap SQL queries in ```sql code blocks
-4. Explain your query briefly
-
-## Rules
-- Only generate SELECT queries for safety
-- Always use proper table and column names from the schema
-- If you're unsure about the schema, ask for clarification
-"""
-    }
-
-    private suspend fun extractAndExecuteSQL(response: String) {
-        val sqlPattern = Regex("```sql\\n([\\s\\S]*?)```", RegexOption.IGNORE_CASE)
-        val match = sqlPattern.find(response)
-
-        if (match != null && currentConnection != null) {
-            val sql = match.groupValues[1].trim()
-            try {
-                val result = currentConnection!!.executeQuery(sql)
-                // Display query result as a new message
-                renderer.renderLLMResponseStart()
-                renderer.renderLLMResponseChunk("\n\n**Query Result:**\n```\n${result.toTableString()}\n```")
-                renderer.renderLLMResponseEnd()
-            } catch (e: Exception) {
-                renderer.renderError("Query Error: ${e.message}")
             }
         }
     }

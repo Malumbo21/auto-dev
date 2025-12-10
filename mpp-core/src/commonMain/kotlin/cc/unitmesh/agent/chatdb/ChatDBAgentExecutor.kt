@@ -6,7 +6,7 @@ import cc.unitmesh.agent.executor.BaseAgentExecutor
 import cc.unitmesh.agent.logging.getLogger
 import cc.unitmesh.agent.orchestrator.ToolOrchestrator
 import cc.unitmesh.agent.render.CodingAgentRenderer
-import cc.unitmesh.agent.subagent.JSqlParserValidator
+import cc.unitmesh.agent.subagent.SqlValidator
 import cc.unitmesh.agent.subagent.SqlReviseAgent
 import cc.unitmesh.agent.subagent.SqlRevisionInput
 import cc.unitmesh.devins.parser.CodeFence
@@ -49,8 +49,8 @@ class ChatDBAgentExecutor(
         keywordSchemaLinker
     }
 
-    private val jsqlValidator = JSqlParserValidator()
-    private val sqlReviseAgent = SqlReviseAgent(llmService, jsqlValidator)
+    private val sqlValidator = SqlValidator()
+    private val sqlReviseAgent = SqlReviseAgent(llmService, sqlValidator)
     private val maxRevisionAttempts = 3
     private val maxExecutionRetries = 3
 
@@ -114,9 +114,9 @@ class ChatDBAgentExecutor(
             val allTableNames = schema.tables.map { it.name }.toSet()
 
             // First validate syntax, then validate table names
-            val syntaxValidation = jsqlValidator.validate(validatedSql!!)
+            val syntaxValidation = sqlValidator.validate(validatedSql!!)
             val tableValidation = if (syntaxValidation.isValid) {
-                jsqlValidator.validateWithTableWhitelist(validatedSql, allTableNames)
+                sqlValidator.validateWithTableWhitelist(validatedSql, allTableNames)
             } else {
                 syntaxValidation
             }

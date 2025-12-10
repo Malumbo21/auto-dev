@@ -276,6 +276,8 @@ data class SqlRevisionInput(
  */
 interface SqlValidatorInterface {
     fun validate(sql: String): SqlValidationResult
+    fun validateWithTableWhitelist(sql: String, allowedTables: Set<String>): SqlValidationResult
+    fun extractTableNames(sql: String): List<String>
 }
 
 /**

@@ -4,11 +4,11 @@ import org.junit.Test
 import kotlin.test.*
 
 /**
- * Tests for JSqlParserValidator - JVM-specific SQL validation using JSqlParser
+ * Tests for SqlValidator - JVM-specific SQL validation using JSqlParser
  */
 class JSqlParserValidatorTest {
 
-    private val validator = JSqlParserValidator()
+    private val validator = SqlValidator()
 
     // ============= Basic Validation Tests =============
 
@@ -144,7 +144,9 @@ class JSqlParserValidatorTest {
 
     @Test
     fun testValidateAndParseValid() {
-        val (result, statement) = validator.validateAndParse("SELECT * FROM users")
+        val pair = validator.validateAndParse("SELECT * FROM users")
+        val result = pair.first
+        val statement = pair.second
 
         assertTrue(result.isValid)
         assertNotNull(statement)
@@ -152,7 +154,9 @@ class JSqlParserValidatorTest {
 
     @Test
     fun testValidateAndParseInvalid() {
-        val (result, statement) = validator.validateAndParse("SELECT * FORM users")
+        val pair = validator.validateAndParse("SELECT * FORM users")
+        val result = pair.first
+        val statement = pair.second
 
         assertFalse(result.isValid)
         assertNull(statement)

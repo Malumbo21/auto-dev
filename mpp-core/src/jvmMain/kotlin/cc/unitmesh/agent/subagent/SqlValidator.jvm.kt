@@ -2,11 +2,10 @@ package cc.unitmesh.agent.subagent
 
 import net.sf.jsqlparser.parser.CCJSqlParserUtil
 import net.sf.jsqlparser.statement.Statement
-import net.sf.jsqlparser.statement.select.Select
 import net.sf.jsqlparser.util.TablesNamesFinder
 
 /**
- * JVM implementation of SqlValidatorInterface using JSqlParser
+ * JVM implementation of SqlValidator using JSqlParser.
  *
  * This validator uses JSqlParser to validate SQL syntax.
  * It can detect:
@@ -15,9 +14,9 @@ import net.sf.jsqlparser.util.TablesNamesFinder
  * - Unsupported SQL constructs
  * - Table names not in whitelist (schema validation)
  */
-class JSqlParserValidator : SqlValidatorInterface {
+actual class SqlValidator actual constructor() : SqlValidatorInterface {
 
-    override fun validate(sql: String): SqlValidationResult {
+    actual override fun validate(sql: String): SqlValidationResult {
         return try {
             val statement: Statement = CCJSqlParserUtil.parse(sql)
             SqlValidationResult(
@@ -41,7 +40,7 @@ class JSqlParserValidator : SqlValidatorInterface {
      * @param allowedTables Set of table names that are allowed in the query
      * @return SqlValidationResult with errors if invalid tables are used
      */
-    fun validateWithTableWhitelist(sql: String, allowedTables: Set<String>): SqlValidationResult {
+    actual override fun validateWithTableWhitelist(sql: String, allowedTables: Set<String>): SqlValidationResult {
         return try {
             val statement: Statement = CCJSqlParserUtil.parse(sql)
 
@@ -83,7 +82,7 @@ class JSqlParserValidator : SqlValidatorInterface {
     /**
      * Extract table names from SQL query
      */
-    fun extractTableNames(sql: String): List<String> {
+    actual override fun extractTableNames(sql: String): List<String> {
         return try {
             val statement: Statement = CCJSqlParserUtil.parse(sql)
             val tablesNamesFinder = TablesNamesFinder()
