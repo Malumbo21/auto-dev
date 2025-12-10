@@ -53,6 +53,38 @@ interface DatabaseConnection {
     }
 
     /**
+     * Get sample rows from a table (for Schema Linking context)
+     *
+     * @param tableName Table name
+     * @param limit Maximum number of rows to return (default 3)
+     * @return Sample rows as QueryResult
+     */
+    suspend fun getSampleRows(tableName: String, limit: Int = 3): QueryResult {
+        return try {
+            executeQuery("SELECT * FROM `$tableName` LIMIT $limit")
+        } catch (e: Exception) {
+            QueryResult(emptyList(), emptyList(), 0)
+        }
+    }
+
+    /**
+     * Get distinct values for a column (for Value Matching in Schema Linking)
+     *
+     * @param tableName Table name
+     * @param columnName Column name
+     * @param limit Maximum number of distinct values to return (default 10)
+     * @return List of distinct values as strings
+     */
+    suspend fun getDistinctValues(tableName: String, columnName: String, limit: Int = 10): List<String> {
+        return try {
+            val result = executeQuery("SELECT DISTINCT `$columnName` FROM `$tableName` LIMIT $limit")
+            result.rows.map { it.firstOrNull() ?: "" }.filter { it.isNotEmpty() }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    /**
      * Close database connection
      */
     suspend fun close()

@@ -43,7 +43,9 @@ class ChatDBAgentExecutor(
     private val logger = getLogger("ChatDBAgentExecutor")
     private val keywordSchemaLinker = KeywordSchemaLinker()
     private val schemaLinker: SchemaLinker = if (useLlmSchemaLinker) {
-        LlmSchemaLinker(llmService, keywordSchemaLinker)
+        // Use DatabaseContentSchemaLinker for better accuracy (RSL-SQL approach)
+        // It filters system tables and uses sample data for semantic matching
+        DatabaseContentSchemaLinker(llmService, databaseConnection, keywordSchemaLinker)
     } else {
         keywordSchemaLinker
     }
@@ -70,15 +72,25 @@ class ChatDBAgentExecutor(
             // Step 1: Get database schema
             onProgress("📊 Fetching database schema...")
             val schema = task.schema ?: databaseConnection.getSchema()
-            
+            logger.info { "Database has ${schema.tables.size} tables: ${schema.tables.map { it.name }}" }
+
             // Step 2: Schema Linking
             onProgress("🔗 Performing schema linking...")
             val linkingResult = schemaLinker.link(task.query, schema)
-            logger.info { "Schema linking found ${linkingResult.relevantTables.size} relevant tables" }
-            
+            logger.info { "Schema linking found ${linkingResult.relevantTables.size} relevant tables: ${linkingResult.relevantTables}" }
+            logger.info { "Schema linking keywords: ${linkingResult.keywords}" }
+
             // Step 3: Build context with relevant schema
-            val relevantSchema = buildRelevantSchemaDescription(schema, linkingResult)
-            val initialMessage = buildInitialUserMessage(task, relevantSchema, linkingResult)
+            // If schema linking found too few tables, use all tables to avoid missing important ones
+            val effectiveLinkingResult = if (linkingResult.relevantTables.size < 2 && schema.tables.size <= 10) {
+                logger.info { "Schema linking found few tables, using all ${schema.tables.size} tables" }
+                linkingResult.copy(relevantTables = schema.tables.map { it.name })
+            } else {
+                linkingResult
+            }
+
+            val relevantSchema = buildRelevantSchemaDescription(schema, effectiveLinkingResult)
+            val initialMessage = buildInitialUserMessage(task, relevantSchema, effectiveLinkingResult)
             
             // Step 4: Generate SQL with LLM
             onProgress("🤖 Generating SQL query...")
@@ -211,7 +223,11 @@ class ChatDBAgentExecutor(
         currentIteration = 0
     }
 
-    private fun buildRelevantSchemaDescription(
+    /**
+     * Build schema description with sample data for SQL generation
+     * Based on RSL-SQL research: sample data helps LLM understand table semantics
+     */
+    private suspend fun buildRelevantSchemaDescription(
         schema: DatabaseSchema,
         linkingResult: SchemaLinkingResult
     ): String {
@@ -222,6 +238,20 @@ class ChatDBAgentExecutor(
             relevantTables.forEach { table ->
                 appendLine("Table: ${table.name}")
                 appendLine("Columns: ${table.columns.joinToString(", ") { "${it.name} (${it.type})" }}")
+
+                // Add sample data to help LLM understand table content
+                try {
+                    val sampleRows = databaseConnection.getSampleRows(table.name, 2)
+                    if (!sampleRows.isEmpty()) {
+                        appendLine("Sample Data:")
+                        appendLine("  ${sampleRows.columns.joinToString(" | ")}")
+                        sampleRows.rows.take(2).forEach { row ->
+                            appendLine("  ${row.joinToString(" | ") { it.take(50) }}")
+                        }
+                    }
+                } catch (e: Exception) {
+                    // Ignore sample data errors
+                }
                 appendLine()
             }
         }

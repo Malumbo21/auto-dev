@@ -1,5 +1,6 @@
 package cc.unitmesh.agent.chatdb
 
+import cc.unitmesh.agent.database.DatabaseConnection
 import cc.unitmesh.agent.database.DatabaseSchema
 import cc.unitmesh.agent.database.TableSchema
 import cc.unitmesh.llm.KoogLLMService
@@ -8,20 +9,26 @@ import kotlinx.serialization.json.Json
 
 /**
  * LLM-based Schema Linker - Uses LLM to extract keywords and link schema
- * 
+ *
  * This implementation uses the LLM to:
  * 1. Extract semantic keywords from the natural language query
  * 2. Map natural language terms to database schema elements
- * 
+ * 3. Use sample data for better value matching (RSL-SQL approach)
+ *
  * Falls back to KeywordSchemaLinker if LLM fails.
+ *
+ * Based on research from:
+ * - RSL-SQL: Robust Schema Linking in Text-to-SQL Generation
+ * - A Survey of NL2SQL with Large Language Models
  */
 class LlmSchemaLinker(
     private val llmService: KoogLLMService,
+    private val databaseConnection: DatabaseConnection? = null,
     private val fallbackLinker: KeywordSchemaLinker = KeywordSchemaLinker()
 ) : SchemaLinker() {
-    
+
     private val json = Json { ignoreUnknownKeys = true }
-    
+
     companion object {
         private const val KEYWORD_EXTRACTION_PROMPT = """You are a database schema expert. Extract keywords from the user's natural language query that are relevant for finding database tables and columns.
 
@@ -35,11 +42,16 @@ Respond ONLY with a JSON object in this exact format:
 
 User Query: """
 
-        private const val SCHEMA_LINKING_PROMPT = """You are a database schema expert. Given a user query and database schema, identify the most relevant tables and columns.
+        // Enhanced Schema Linking prompt based on RSL-SQL research
+        private const val SCHEMA_LINKING_PROMPT = """You are a database schema expert. Given a user query and database schema with sample data, identify the most relevant tables and columns.
 
-IMPORTANT: You MUST only use table and column names that exist in the provided schema. Do NOT invent or hallucinate table/column names.
+CRITICAL RULES:
+1. You MUST only use table and column names that EXACTLY exist in the provided schema
+2. Do NOT invent or hallucinate table/column names
+3. Look at the sample data to understand what each table contains
+4. Match user's intent with the actual table/column names, not assumed names
 
-Database Schema:
+Database Schema with Sample Data:
 {{SCHEMA}}
 
 User Query: {{QUERY}}
@@ -129,7 +141,49 @@ Only include tables and columns that are directly relevant to answering the quer
         }
     }
     
-    private fun buildSchemaDescription(schema: DatabaseSchema): String {
+    /**
+     * Build schema description with sample data for better Schema Linking
+     * Based on RSL-SQL research: sample data helps LLM understand table semantics
+     */
+    private suspend fun buildSchemaDescription(schema: DatabaseSchema): String {
+        val tableDescriptions = mutableListOf<String>()
+
+        for (table in schema.tables) {
+            val description = buildString {
+                appendLine("Table: ${table.name}")
+
+                // Column information
+                val columns = table.columns.joinToString(", ") { col ->
+                    "${col.name} (${col.type}${if (col.isPrimaryKey) ", PK" else ""})"
+                }
+                appendLine("Columns: $columns")
+
+                // Add sample data if database connection is available
+                if (databaseConnection != null) {
+                    try {
+                        val sampleRows = databaseConnection.getSampleRows(table.name, 2)
+                        if (!sampleRows.isEmpty()) {
+                            appendLine("Sample Data:")
+                            appendLine("  ${sampleRows.columns.joinToString(" | ")}")
+                            sampleRows.rows.take(2).forEach { row ->
+                                appendLine("  ${row.joinToString(" | ") { it.take(30) }}")
+                            }
+                        }
+                    } catch (e: Exception) {
+                        // Ignore sample data errors
+                    }
+                }
+            }.trim()
+            tableDescriptions.add(description)
+        }
+
+        return tableDescriptions.joinToString("\n\n")
+    }
+
+    /**
+     * Build schema description without sample data (synchronous version)
+     */
+    private fun buildSchemaDescriptionSync(schema: DatabaseSchema): String {
         return schema.tables.joinToString("\n\n") { table ->
             val columns = table.columns.joinToString(", ") { col ->
                 "${col.name} (${col.type}${if (col.isPrimaryKey) ", PK" else ""})"
