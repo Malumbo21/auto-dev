@@ -361,6 +361,16 @@ class ChatDBViewModel(
         isGenerating = false
     }
 
+    /**
+     * Create a new session - clears the current chat timeline
+     */
+    fun newSession() {
+        if (isGenerating) {
+            stopGeneration()
+        }
+        renderer.clearMessages()
+    }
+
     fun getSchema(): DatabaseSchema? = currentSchema
 
     fun dispose() {

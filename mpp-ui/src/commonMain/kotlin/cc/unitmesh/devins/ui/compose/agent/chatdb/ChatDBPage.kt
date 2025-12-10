@@ -93,6 +93,7 @@ fun ChatDBPage(
                         isGenerating = viewModel.isGenerating,
                         onSendMessage = viewModel::sendMessage,
                         onStopGeneration = viewModel::stopGeneration,
+                        onNewSession = viewModel::newSession,
                         modifier = Modifier.fillMaxSize()
                     )
                 }

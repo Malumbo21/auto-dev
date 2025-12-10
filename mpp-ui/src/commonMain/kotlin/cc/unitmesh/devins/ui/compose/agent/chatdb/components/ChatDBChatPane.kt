@@ -38,13 +38,16 @@ fun ChatDBChatPane(
     isGenerating: Boolean,
     onSendMessage: (String) -> Unit,
     onStopGeneration: () -> Unit,
+    onNewSession: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxSize()) {
         // Connection status banner
         ConnectionStatusBanner(
             connectionStatus = connectionStatus,
-            schema = schema
+            schema = schema,
+            onNewSession = onNewSession,
+            hasMessages = renderer.timeline.isNotEmpty()
         )
 
         // Message list
@@ -80,7 +83,9 @@ fun ChatDBChatPane(
 @Composable
 private fun ConnectionStatusBanner(
     connectionStatus: ConnectionStatus,
-    schema: DatabaseSchema?
+    schema: DatabaseSchema?,
+    onNewSession: () -> Unit,
+    hasMessages: Boolean
 ) {
     when (connectionStatus) {
         is ConnectionStatus.Connected -> {
@@ -114,6 +119,20 @@ private fun ConnectionStatusBanner(
                                 text = "${schema.tables.size} tables available",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    // New session button (only show if there are messages)
+                    if (hasMessages) {
+                        FilledTonalIconButton(
+                            onClick = onNewSession,
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                AutoDevComposeIcons.Add,
+                                contentDescription = "New Session",
+                                modifier = Modifier.size(20.dp)
                             )
                         }
                     }

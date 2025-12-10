@@ -404,6 +404,7 @@ class ChatDBAgentExecutor(
                 status = ChatDBStepStatus.SUCCESS,
                 title = "Query completed successfully",
                 details = buildMap {
+                    generatedSql?.let { put("sql", it) }
                     queryResult?.let {
                         put("rowCount", it.rowCount)
                         put("columns", it.columns)
