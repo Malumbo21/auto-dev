@@ -1,0 +1,40 @@
+CREATE TABLE IF NOT EXISTS DataSource (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    dialect TEXT NOT NULL,
+    host TEXT NOT NULL,
+    port INTEGER NOT NULL,
+    databaseName TEXT NOT NULL,
+    username TEXT NOT NULL,
+    password TEXT NOT NULL,
+    description TEXT NOT NULL,
+    isDefault INTEGER NOT NULL DEFAULT 0,
+    createdAt INTEGER NOT NULL,
+    updatedAt INTEGER NOT NULL
+);
+
+selectById:
+SELECT * FROM DataSource WHERE id = ?;
+
+selectAll:
+SELECT * FROM DataSource ORDER BY updatedAt DESC;
+
+selectDefault:
+SELECT * FROM DataSource WHERE isDefault = 1 LIMIT 1;
+
+insertOrReplace:
+INSERT OR REPLACE INTO DataSource(id, name, dialect, host, port, databaseName, username, password, description, isDefault, createdAt, updatedAt)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+deleteById:
+DELETE FROM DataSource WHERE id = ?;
+
+deleteAll:
+DELETE FROM DataSource;
+
+clearDefault:
+UPDATE DataSource SET isDefault = 0 WHERE isDefault = 1;
+
+setDefault:
+UPDATE DataSource SET isDefault = 1 WHERE id = ?;
+

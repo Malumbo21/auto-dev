@@ -11,6 +11,7 @@ import cc.unitmesh.agent.database.DatabaseConnection
 import cc.unitmesh.agent.database.DatabaseSchema
 import cc.unitmesh.agent.database.createDatabaseConnection
 import cc.unitmesh.config.ConfigManager
+import cc.unitmesh.devins.db.DataSourceRepository
 import cc.unitmesh.devins.ui.compose.agent.ComposeRenderer
 import cc.unitmesh.devins.ui.compose.agent.chatdb.model.*
 import cc.unitmesh.devins.workspace.Workspace
@@ -40,6 +41,11 @@ class ChatDBViewModel(
     // Database connection
     private var currentConnection: DatabaseConnection? = null
     private var currentSchema: DatabaseSchema? = null
+
+    // Data source repository for persistence
+    private val dataSourceRepository: DataSourceRepository by lazy {
+        DataSourceRepository.getInstance()
+    }
 
     // UI State
     var state by mutableStateOf(ChatDBState())
@@ -72,9 +78,20 @@ class ChatDBViewModel(
     }
 
     private fun loadDataSources() {
-        // TODO: Load from persistent storage
-        // For now, use empty list
-        state = state.copy(dataSources = emptyList())
+        scope.launch {
+            try {
+                val dataSources = dataSourceRepository.getAll()
+                val defaultDataSource = dataSourceRepository.getDefault()
+                state = state.copy(
+                    dataSources = dataSources,
+                    selectedDataSourceId = defaultDataSource?.id
+                )
+                println("[ChatDB] Loaded ${dataSources.size} data sources")
+            } catch (e: Exception) {
+                println("[ChatDB] Failed to load data sources: ${e.message}")
+                state = state.copy(dataSources = emptyList())
+            }
+        }
     }
 
     @OptIn(ExperimentalUuidApi::class)
@@ -89,7 +106,7 @@ class ChatDBViewModel(
             isConfigDialogOpen = false,
             editingDataSource = null
         )
-        saveDataSources()
+        saveDataSource(newConfig)
     }
 
     fun updateDataSource(config: DataSourceConfig) {
@@ -101,7 +118,7 @@ class ChatDBViewModel(
             isConfigDialogOpen = false,
             editingDataSource = null
         )
-        saveDataSources()
+        saveDataSource(updated)
     }
 
     fun deleteDataSource(id: String) {
@@ -112,11 +129,43 @@ class ChatDBViewModel(
         if (state.selectedDataSourceId == id) {
             disconnect()
         }
-        saveDataSources()
+        deleteDataSourceFromRepository(id)
     }
 
     private fun saveDataSources() {
-        // TODO: Persist to storage
+        scope.launch {
+            try {
+                // Save all data sources to repository
+                state.dataSources.forEach { config ->
+                    dataSourceRepository.save(config)
+                }
+                println("[ChatDB] Saved ${state.dataSources.size} data sources")
+            } catch (e: Exception) {
+                println("[ChatDB] Failed to save data sources: ${e.message}")
+            }
+        }
+    }
+
+    private fun saveDataSource(config: DataSourceConfig) {
+        scope.launch {
+            try {
+                dataSourceRepository.save(config)
+                println("[ChatDB] Saved data source: ${config.id}")
+            } catch (e: Exception) {
+                println("[ChatDB] Failed to save data source: ${e.message}")
+            }
+        }
+    }
+
+    private fun deleteDataSourceFromRepository(id: String) {
+        scope.launch {
+            try {
+                dataSourceRepository.delete(id)
+                println("[ChatDB] Deleted data source: $id")
+            } catch (e: Exception) {
+                println("[ChatDB] Failed to delete data source: ${e.message}")
+            }
+        }
     }
 
     fun selectDataSource(id: String) {
@@ -175,7 +224,7 @@ class ChatDBViewModel(
                 configuringDataSource = null
             )
         }
-        saveDataSources()
+        saveDataSource(savedConfig)
     }
 
     @OptIn(ExperimentalUuidApi::class)
@@ -202,7 +251,7 @@ class ChatDBViewModel(
                 selectedDataSourceId = savedConfig.id
             )
         }
-        saveDataSources()
+        saveDataSource(savedConfig)
 
         // Trigger connection
         connect()
