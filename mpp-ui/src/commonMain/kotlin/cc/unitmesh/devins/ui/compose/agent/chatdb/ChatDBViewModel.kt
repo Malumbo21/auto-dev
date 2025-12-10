@@ -340,7 +340,13 @@ class ChatDBViewModel(
                     println("[ChatDB] Progress: $progress")
                 }
 
-                if (!result.success) {
+                // Render the result to the timeline
+                if (result.success) {
+                    // Add the successful result as an assistant message to properly render markdown tables
+                    renderer.renderLLMResponseStart()
+                    renderer.renderLLMResponseChunk(result.content)
+                    renderer.renderLLMResponseEnd()
+                } else {
                     renderer.renderError("Query failed: ${result.content}")
                 }
 
