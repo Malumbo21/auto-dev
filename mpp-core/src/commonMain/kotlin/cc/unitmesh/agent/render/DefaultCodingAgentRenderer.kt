@@ -124,6 +124,7 @@ class DefaultCodingAgentRenderer : BaseRenderer() {
         operationType: SqlOperationType,
         affectedTables: List<String>,
         isHighRisk: Boolean,
+        dryRunResult: cc.unitmesh.agent.database.DryRunResult?,
         onApprove: () -> Unit,
         onReject: () -> Unit
     ) {
@@ -134,6 +135,16 @@ class DefaultCodingAgentRenderer : BaseRenderer() {
         println("Affected Tables: ${affectedTables.joinToString(", ")}")
         if (isHighRisk) {
             println("WARNING: This is a HIGH-RISK operation!")
+        }
+        if (dryRunResult != null) {
+            println("\nDry Run Result:")
+            println("  Valid: ${dryRunResult.isValid}")
+            if (dryRunResult.estimatedRows != null) {
+                println("  Estimated Rows Affected: ${dryRunResult.estimatedRows}")
+            }
+            if (dryRunResult.warnings.isNotEmpty()) {
+                println("  Warnings: ${dryRunResult.warnings.joinToString(", ")}")
+            }
         }
         println("\nSQL:")
         println(sql)

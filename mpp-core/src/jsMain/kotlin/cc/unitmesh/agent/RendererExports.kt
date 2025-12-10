@@ -1,5 +1,6 @@
 package cc.unitmesh.agent
 
+import cc.unitmesh.agent.database.DryRunResult
 import cc.unitmesh.agent.plan.PlanSummaryData
 import cc.unitmesh.agent.plan.StepSummary
 import cc.unitmesh.agent.plan.TaskSummary
@@ -202,11 +203,13 @@ class JsRendererAdapter(private val jsRenderer: JsCodingAgentRenderer) : CodingA
         operationType: SqlOperationType,
         affectedTables: List<String>,
         isHighRisk: Boolean,
+        dryRunResult: DryRunResult?,
         onApprove: () -> Unit,
         onReject: () -> Unit
     ) {
         // JS renderer auto-rejects for safety
-        jsRenderer.renderError("SQL write operation requires approval: ${operationType.name} on ${affectedTables.joinToString(", ")} (Auto-rejected)")
+        val dryRunInfo = if (dryRunResult != null) " (dry run: ${if (dryRunResult.isValid) "passed" else "failed"})" else ""
+        jsRenderer.renderError("SQL write operation requires approval: ${operationType.name} on ${affectedTables.joinToString(", ")}$dryRunInfo (Auto-rejected)")
         onReject()
     }
 

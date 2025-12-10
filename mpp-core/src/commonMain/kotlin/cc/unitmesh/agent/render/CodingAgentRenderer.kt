@@ -1,5 +1,6 @@
 package cc.unitmesh.agent.render
 
+import cc.unitmesh.agent.database.DryRunResult
 import cc.unitmesh.agent.plan.PlanSummaryData
 import cc.unitmesh.agent.subagent.SqlOperationType
 import cc.unitmesh.agent.tool.ToolResult
@@ -123,6 +124,7 @@ interface CodingAgentRenderer {
      * @param operationType The type of SQL operation (INSERT, UPDATE, DELETE, CREATE, etc.)
      * @param affectedTables List of tables that will be affected
      * @param isHighRisk Whether this is a high-risk operation (DROP, TRUNCATE)
+     * @param dryRunResult Optional result from dry run validation (if available)
      * @param onApprove Callback to invoke when user approves the operation
      * @param onReject Callback to invoke when user rejects the operation
      */
@@ -131,6 +133,7 @@ interface CodingAgentRenderer {
         operationType: SqlOperationType,
         affectedTables: List<String>,
         isHighRisk: Boolean,
+        dryRunResult: DryRunResult? = null,
         onApprove: () -> Unit,
         onReject: () -> Unit
     ) {

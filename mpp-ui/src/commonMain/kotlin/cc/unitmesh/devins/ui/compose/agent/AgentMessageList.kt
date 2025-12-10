@@ -239,7 +239,9 @@ fun RenderMessageItem(
 
         is TimelineItem.ChatDBStepItem -> {
             cc.unitmesh.devins.ui.compose.agent.chatdb.components.ChatDBStepCard(
-                step = timelineItem
+                step = timelineItem,
+                onApprove = { renderer.approveSqlOperation() },
+                onReject = { renderer.rejectSqlOperation() }
             )
         }
 

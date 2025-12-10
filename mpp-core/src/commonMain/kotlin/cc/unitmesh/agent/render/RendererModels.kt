@@ -251,6 +251,8 @@ enum class ChatDBStepType(val displayName: String, val icon: String) {
     GENERATE_SQL("Generate SQL Query", "🤖"),
     VALIDATE_SQL("Validate SQL", "✓"),
     REVISE_SQL("Revise SQL", "🔄"),
+    /** Dry run to validate SQL without executing (uses transaction rollback) */
+    DRY_RUN("Dry Run Validation", "🧪"),
     /** Waiting for user approval before executing write operation */
     AWAIT_APPROVAL("Awaiting Approval", "?"),
     EXECUTE_SQL("Execute SQL Query", "⚡"),

@@ -5,6 +5,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -36,7 +37,9 @@ import cc.unitmesh.agent.render.TimelineItem
 @Composable
 fun ChatDBStepCard(
     step: TimelineItem.ChatDBStepItem,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onApprove: (() -> Unit)? = null,
+    onReject: (() -> Unit)? = null
 ) {
     var isExpanded by remember { mutableStateOf(step.status == ChatDBStepStatus.ERROR) }
 
@@ -120,7 +123,13 @@ fun ChatDBStepCard(
 
                     // Details
                     if (step.details.isNotEmpty()) {
-                        StepDetails(details = step.details, stepType = step.stepType)
+                        StepDetails(
+                            details = step.details,
+                            stepType = step.stepType,
+                            step = step,
+                            onApprove = onApprove,
+                            onReject = onReject
+                        )
                     }
                 }
             }
@@ -156,7 +165,13 @@ private fun StepStatusBadge(status: ChatDBStepStatus) {
 }
 
 @Composable
-private fun StepDetails(details: Map<String, Any>, stepType: ChatDBStepType) {
+private fun StepDetails(
+    details: Map<String, Any>,
+    stepType: ChatDBStepType,
+    step: TimelineItem.ChatDBStepItem,
+    onApprove: (() -> Unit)?,
+    onReject: (() -> Unit)?
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -501,6 +516,113 @@ private fun StepDetails(details: Map<String, Any>, stepType: ChatDBStepType) {
                 }
             }
 
+            ChatDBStepType.DRY_RUN -> {
+                // Show SQL being validated
+                details["sql"]?.let { sql ->
+                    CodeBlock(code = sql.toString(), language = "sql")
+                }
+
+                // Show dry run result
+                val isValid = details["isValid"] as? Boolean
+                val message = details["message"]?.toString()
+                @Suppress("UNCHECKED_CAST")
+                val errors = details["errors"] as? List<String>
+                @Suppress("UNCHECKED_CAST")
+                val warnings = details["warnings"] as? List<String>
+                val estimatedRows = details["estimatedRows"]
+
+                // Validation status
+                if (isValid != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = if (isValid) {
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                        } else {
+                            MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)
+                        }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = if (isValid) "✓" else "✗",
+                                fontSize = 16.sp,
+                                color = if (isValid) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.error
+                                }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (isValid) "Validation Passed" else "Validation Failed",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isValid) {
+                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                } else {
+                                    MaterialTheme.colorScheme.onErrorContainer
+                                }
+                            )
+                        }
+                    }
+                }
+
+                // Show message
+                if (!message.isNullOrEmpty()) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = message,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                // Show errors
+                if (!errors.isNullOrEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Errors:",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                    errors.forEach { error ->
+                        Text(
+                            text = "• $error",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+
+                // Show warnings
+                if (!warnings.isNullOrEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Warnings:",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.tertiary
+                    )
+                    warnings.forEach { warning ->
+                        Text(
+                            text = "• $warning",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.tertiary
+                        )
+                    }
+                }
+
+                // Show estimated rows
+                if (estimatedRows != null) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    DetailRow("Estimated Rows", estimatedRows.toString())
+                }
+            }
+
             ChatDBStepType.AWAIT_APPROVAL -> {
                 // Show SQL that requires approval
                 details["sql"]?.let { sql ->
@@ -551,6 +673,42 @@ private fun StepDetails(details: Map<String, Any>, stepType: ChatDBStepType) {
                                 color = MaterialTheme.colorScheme.onErrorContainer,
                                 fontWeight = FontWeight.Bold
                             )
+                        }
+                    }
+                }
+
+                // Show Approve/Reject buttons only when status is AWAITING_APPROVAL
+                if (step.status == ChatDBStepStatus.AWAITING_APPROVAL && (onApprove != null || onReject != null)) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Reject button
+                        if (onReject != null) {
+                            OutlinedButton(
+                                onClick = onReject,
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.error
+                                ),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
+                            ) {
+                                Text("Reject")
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
+
+                        // Approve button
+                        if (onApprove != null) {
+                            Button(
+                                onClick = onApprove,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary
+                                )
+                            ) {
+                                Text("Approve")
+                            }
                         }
                     }
                 }

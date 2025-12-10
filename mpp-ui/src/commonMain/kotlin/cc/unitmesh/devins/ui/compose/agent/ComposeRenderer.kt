@@ -1,6 +1,7 @@
 package cc.unitmesh.devins.ui.compose.agent
 
 import androidx.compose.runtime.*
+import cc.unitmesh.agent.database.DryRunResult
 import cc.unitmesh.agent.plan.AgentPlan
 import cc.unitmesh.agent.plan.MarkdownPlanParser
 import cc.unitmesh.agent.render.BaseRenderer
@@ -575,6 +576,7 @@ class ComposeRenderer : BaseRenderer() {
         operationType: SqlOperationType,
         affectedTables: List<String>,
         isHighRisk: Boolean,
+        dryRunResult: DryRunResult?,
         onApprove: () -> Unit,
         onReject: () -> Unit
     ) {
@@ -583,6 +585,7 @@ class ComposeRenderer : BaseRenderer() {
             operationType = operationType,
             affectedTables = affectedTables,
             isHighRisk = isHighRisk,
+            dryRunResult = dryRunResult,
             onApprove = {
                 _pendingSqlApproval = null
                 onApprove()
@@ -593,17 +596,29 @@ class ComposeRenderer : BaseRenderer() {
             }
         )
 
+        // Build details map with dry run info
+        val details = mutableMapOf<String, Any>(
+            "sql" to sql,
+            "operationType" to operationType.name,
+            "affectedTables" to affectedTables.joinToString(", "),
+            "isHighRisk" to isHighRisk
+        )
+        if (dryRunResult != null) {
+            details["dryRunValid"] = dryRunResult.isValid
+            if (dryRunResult.estimatedRows != null) {
+                details["estimatedRows"] = dryRunResult.estimatedRows!!
+            }
+            if (dryRunResult.warnings.isNotEmpty()) {
+                details["warnings"] = dryRunResult.warnings.joinToString(", ")
+            }
+        }
+
         // Also add to timeline for visibility
         renderChatDBStep(
             stepType = ChatDBStepType.AWAIT_APPROVAL,
             status = ChatDBStepStatus.AWAITING_APPROVAL,
             title = "Awaiting Approval: ${operationType.name}",
-            details = mapOf(
-                "sql" to sql,
-                "operationType" to operationType.name,
-                "affectedTables" to affectedTables.joinToString(", "),
-                "isHighRisk" to isHighRisk
-            )
+            details = details
         )
     }
 
@@ -1237,6 +1252,7 @@ data class SqlApprovalRequest(
     val operationType: SqlOperationType,
     val affectedTables: List<String>,
     val isHighRisk: Boolean,
+    val dryRunResult: DryRunResult? = null,
     val onApprove: () -> Unit,
     val onReject: () -> Unit
 )

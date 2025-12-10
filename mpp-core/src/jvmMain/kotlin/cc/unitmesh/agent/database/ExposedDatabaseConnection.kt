@@ -81,6 +81,105 @@ class ExposedDatabaseConnection(
         }
     }
 
+    /**
+     * Dry run SQL to validate without executing.
+     * Uses transaction rollback to test DML statements safely.
+     */
+    override suspend fun dryRun(sql: String): DryRunResult = withContext(Dispatchers.IO) {
+        try {
+            hikariDataSource.connection.use { connection ->
+                val originalAutoCommit = connection.autoCommit
+                try {
+                    // Disable auto-commit to use transaction
+                    connection.autoCommit = false
+
+                    val sqlUpper = sql.trim().uppercase()
+                    val warnings = mutableListOf<String>()
+
+                    when {
+                        // For SELECT, use EXPLAIN to validate
+                        sqlUpper.startsWith("SELECT") -> {
+                            val explainSql = "EXPLAIN $sql"
+                            val stmt = connection.prepareStatement(explainSql)
+                            try {
+                                stmt.executeQuery()
+                                stmt.close()
+                                DryRunResult.valid("SELECT query is valid")
+                            } catch (e: Exception) {
+                                DryRunResult.invalid("Query validation failed: ${e.message}")
+                            }
+                        }
+
+                        // For INSERT/UPDATE/DELETE, execute in transaction and rollback
+                        sqlUpper.startsWith("INSERT") ||
+                        sqlUpper.startsWith("UPDATE") ||
+                        sqlUpper.startsWith("DELETE") -> {
+                            val stmt = connection.prepareStatement(sql)
+                            try {
+                                val affectedRows = stmt.executeUpdate()
+                                stmt.close()
+                                // Rollback to undo the changes
+                                connection.rollback()
+                                DryRunResult.valid(
+                                    "Statement is valid (would affect $affectedRows row(s))",
+                                    estimatedRows = affectedRows
+                                )
+                            } catch (e: Exception) {
+                                connection.rollback()
+                                DryRunResult.invalid("Statement validation failed: ${e.message}")
+                            }
+                        }
+
+                        // For DDL (CREATE, ALTER, DROP), we can't safely dry run
+                        // Just validate syntax using EXPLAIN if possible
+                        sqlUpper.startsWith("CREATE") ||
+                        sqlUpper.startsWith("ALTER") ||
+                        sqlUpper.startsWith("DROP") ||
+                        sqlUpper.startsWith("TRUNCATE") -> {
+                            // For DDL, we can try to parse it but can't execute safely
+                            // Return a warning that DDL cannot be fully validated
+                            warnings.add("DDL statements cannot be fully validated without execution")
+
+                            // Try basic syntax check by preparing the statement
+                            try {
+                                val stmt = connection.prepareStatement(sql)
+                                stmt.close()
+                                DryRunResult(
+                                    isValid = true,
+                                    message = "DDL syntax appears valid (cannot fully validate without execution)",
+                                    warnings = warnings
+                                )
+                            } catch (e: Exception) {
+                                DryRunResult.invalid("DDL syntax error: ${e.message}")
+                            }
+                        }
+
+                        else -> {
+                            // Unknown statement type, try to prepare it
+                            try {
+                                val stmt = connection.prepareStatement(sql)
+                                stmt.close()
+                                DryRunResult.valid("Statement syntax is valid")
+                            } catch (e: Exception) {
+                                DryRunResult.invalid("Statement validation failed: ${e.message}")
+                            }
+                        }
+                    }
+                } finally {
+                    // Restore original auto-commit setting
+                    try {
+                        connection.rollback() // Ensure any pending changes are rolled back
+                        connection.autoCommit = originalAutoCommit
+                    } catch (e: Exception) {
+                        // Ignore cleanup errors
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            DryRunResult.invalid("Dry run failed: ${e.message}")
+        }
+    }
+
     override suspend fun getSchema(): DatabaseSchema = withContext(Dispatchers.IO) {
         try {
             hikariDataSource.connection.use { connection ->

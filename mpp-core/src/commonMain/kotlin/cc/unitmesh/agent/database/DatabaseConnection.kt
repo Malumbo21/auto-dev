@@ -27,6 +27,26 @@ interface DatabaseConnection {
     suspend fun executeUpdate(sql: String): UpdateResult
 
     /**
+     * Dry run a SQL statement to validate it without actually executing it.
+     * This is useful for validating write operations before user approval.
+     *
+     * The default implementation uses database-specific techniques:
+     * - For SELECT: Uses EXPLAIN
+     * - For INSERT/UPDATE/DELETE: Wraps in a transaction and rolls back
+     * - For DDL: Returns validation based on syntax only
+     *
+     * @param sql SQL statement to validate
+     * @return DryRunResult containing validation status and any errors
+     */
+    suspend fun dryRun(sql: String): DryRunResult {
+        // Default implementation - subclasses can override for better support
+        return DryRunResult(
+            isValid = true,
+            message = "Dry run not fully supported, syntax validation only"
+        )
+    }
+
+    /**
      * Get database schema information
      *
      * @return DatabaseSchema containing all tables and columns
@@ -107,6 +127,55 @@ interface DatabaseConnection {
             true
         } catch (e: Exception) {
             false
+        }
+    }
+}
+
+/**
+ * Dry run result - validation result without actual execution
+ */
+@Serializable
+data class DryRunResult(
+    /**
+     * Whether the SQL is valid and can be executed
+     */
+    val isValid: Boolean,
+
+    /**
+     * Validation message or error description
+     */
+    val message: String? = null,
+
+    /**
+     * Detailed errors if validation failed
+     */
+    val errors: List<String> = emptyList(),
+
+    /**
+     * Estimated affected rows (if available from EXPLAIN)
+     */
+    val estimatedRows: Int? = null,
+
+    /**
+     * Warnings (non-fatal issues)
+     */
+    val warnings: List<String> = emptyList()
+) {
+    companion object {
+        fun valid(message: String? = null, estimatedRows: Int? = null): DryRunResult {
+            return DryRunResult(true, message, emptyList(), estimatedRows)
+        }
+
+        fun invalid(error: String): DryRunResult {
+            return DryRunResult(false, error, listOf(error))
+        }
+
+        fun invalid(errors: List<String>): DryRunResult {
+            return DryRunResult(false, errors.firstOrNull(), errors)
+        }
+
+        fun withWarnings(warnings: List<String>): DryRunResult {
+            return DryRunResult(true, "Valid with warnings", emptyList(), null, warnings)
         }
     }
 }

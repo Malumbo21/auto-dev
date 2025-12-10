@@ -72,12 +72,14 @@ class ServerSideRenderer : CodingAgentRenderer {
         operationType: cc.unitmesh.agent.subagent.SqlOperationType,
         affectedTables: List<String>,
         isHighRisk: Boolean,
+        dryRunResult: cc.unitmesh.agent.database.DryRunResult?,
         onApprove: () -> Unit,
         onReject: () -> Unit
     ) {
         // Server-side renderer auto-rejects for safety
         // In a real implementation, this would send an event to the client for approval
-        eventChannel.trySend(AgentEvent.Error("SQL write operation requires approval: ${operationType.name} on ${affectedTables.joinToString(", ")}"))
+        val dryRunInfo = if (dryRunResult != null) " (dry run: ${if (dryRunResult.isValid) "passed" else "failed"})" else ""
+        eventChannel.trySend(AgentEvent.Error("SQL write operation requires approval: ${operationType.name} on ${affectedTables.joinToString(", ")}$dryRunInfo"))
         onReject()
     }
 

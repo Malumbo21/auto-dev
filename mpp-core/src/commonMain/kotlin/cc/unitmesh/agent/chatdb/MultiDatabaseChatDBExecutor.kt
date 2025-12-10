@@ -335,15 +335,123 @@ class MultiDatabaseChatDBExecutor(
                 val isWriteOperation = operationType.requiresApproval()
                 val isHighRisk = operationType.isHighRisk()
 
-                // If write operation, request approval
+                // If write operation, perform dry run first, then request approval
                 if (isWriteOperation) {
                     val affectedTables = extractTablesFromSql(sql, merged.databases[dbName])
 
+                    // Step: Dry run to validate SQL before asking for approval
+                    renderer.renderChatDBStep(
+                        stepType = ChatDBStepType.DRY_RUN,
+                        status = ChatDBStepStatus.IN_PROGRESS,
+                        title = "Validating ${operationType.name} operation...",
+                        details = mapOf(
+                            "database" to dbName,
+                            "operationType" to operationType.name,
+                            "sql" to sql
+                        )
+                    )
+                    onProgress("🔍 Performing dry run validation...")
+
+                    val dryRunResult = connection.dryRun(sql)
+
+                    if (!dryRunResult.isValid) {
+                        // Dry run failed - SQL has errors
+                        renderer.renderChatDBStep(
+                            stepType = ChatDBStepType.DRY_RUN,
+                            status = ChatDBStepStatus.ERROR,
+                            title = "Dry run failed: SQL validation error",
+                            details = mapOf(
+                                "database" to dbName,
+                                "operationType" to operationType.name,
+                                "sql" to sql,
+                                "errors" to dryRunResult.errors
+                            ),
+                            error = dryRunResult.message ?: dryRunResult.errors.firstOrNull() ?: "Unknown error"
+                        )
+                        errors.add("[$dbName] Dry run failed: ${dryRunResult.message}")
+
+                        // Try to revise SQL based on dry run error
+                        onProgress("🔄 SQL validation failed, attempting to revise...")
+
+                        renderer.renderChatDBStep(
+                            stepType = ChatDBStepType.REVISE_SQL,
+                            status = ChatDBStepStatus.IN_PROGRESS,
+                            title = "Revising SQL based on validation error..."
+                        )
+
+                        val relevantSchema = buildSchemaDescriptionForDatabase(dbName, merged)
+                        val revisionInput = SqlRevisionInput(
+                            originalQuery = task.query,
+                            failedSql = sql,
+                            errorMessage = "Dry run error: ${dryRunResult.message}",
+                            schemaDescription = relevantSchema,
+                            maxAttempts = maxRevisionAttempts
+                        )
+
+                        val revisionResult = sqlReviseAgent.execute(revisionInput) { progress ->
+                            onProgress(progress)
+                        }
+
+                        if (revisionResult.success) {
+                            sql = revisionResult.content
+                            revisionAttempts++
+
+                            renderer.renderChatDBStep(
+                                stepType = ChatDBStepType.REVISE_SQL,
+                                status = ChatDBStepStatus.SUCCESS,
+                                title = "SQL revised successfully",
+                                details = mapOf("database" to dbName, "sql" to sql)
+                            )
+
+                            // Re-run dry run with revised SQL
+                            val revisedDryRunResult = connection.dryRun(sql)
+                            if (!revisedDryRunResult.isValid) {
+                                renderer.renderChatDBStep(
+                                    stepType = ChatDBStepType.DRY_RUN,
+                                    status = ChatDBStepStatus.ERROR,
+                                    title = "Revised SQL still has errors",
+                                    error = revisedDryRunResult.message
+                                )
+                                errors.add("[$dbName] Revised SQL still invalid: ${revisedDryRunResult.message}")
+                                continue
+                            }
+                        } else {
+                            renderer.renderChatDBStep(
+                                stepType = ChatDBStepType.REVISE_SQL,
+                                status = ChatDBStepStatus.ERROR,
+                                title = "SQL revision failed",
+                                error = revisionResult.content
+                            )
+                            continue
+                        }
+                    } else {
+                        // Dry run succeeded
+                        val estimatedInfo = if (dryRunResult.estimatedRows != null) {
+                            " (estimated ${dryRunResult.estimatedRows} row(s) affected)"
+                        } else ""
+
+                        renderer.renderChatDBStep(
+                            stepType = ChatDBStepType.DRY_RUN,
+                            status = ChatDBStepStatus.SUCCESS,
+                            title = "Dry run passed$estimatedInfo",
+                            details = mapOf(
+                                "database" to dbName,
+                                "operationType" to operationType.name,
+                                "sql" to sql,
+                                "estimatedRows" to (dryRunResult.estimatedRows ?: "unknown"),
+                                "warnings" to dryRunResult.warnings
+                            )
+                        )
+                        onProgress("✅ Dry run validation passed$estimatedInfo")
+                    }
+
+                    // Now request user approval
                     val approved = requestSqlApproval(
                         sql = sql,
                         operationType = operationType,
                         affectedTables = affectedTables,
                         isHighRisk = isHighRisk,
+                        dryRunResult = dryRunResult,
                         onProgress = onProgress
                     )
 
@@ -923,10 +1031,14 @@ Generate the SQL:
         operationType: SqlOperationType,
         affectedTables: List<String>,
         isHighRisk: Boolean,
+        dryRunResult: DryRunResult? = null,
         onProgress: (String) -> Unit
     ): Boolean {
         val riskLevel = if (isHighRisk) "⚠️ HIGH RISK" else "⚡ Write Operation"
-        onProgress("$riskLevel: ${operationType.name} requires approval")
+        val dryRunInfo = if (dryRunResult?.estimatedRows != null) {
+            " (dry run: ${dryRunResult.estimatedRows} row(s) would be affected)"
+        } else ""
+        onProgress("$riskLevel: ${operationType.name} requires approval$dryRunInfo")
 
         return suspendCancellableCoroutine { continuation ->
             renderer.renderSqlApprovalRequest(
@@ -934,6 +1046,7 @@ Generate the SQL:
                 operationType = operationType,
                 affectedTables = affectedTables,
                 isHighRisk = isHighRisk,
+                dryRunResult = dryRunResult,
                 onApprove = {
                     if (continuation.isActive) {
                         continuation.resume(true)

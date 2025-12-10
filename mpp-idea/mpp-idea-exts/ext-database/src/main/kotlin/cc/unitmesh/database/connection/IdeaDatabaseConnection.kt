@@ -79,6 +79,100 @@ class IdeaDatabaseConnection(
         }
     }
 
+    /**
+     * Dry run SQL to validate without executing.
+     * Uses transaction rollback to test DML statements safely.
+     */
+    override suspend fun dryRun(sql: String): DryRunResult = withContext(Dispatchers.IO) {
+        try {
+            val originalAutoCommit = ideaConnection.autoCommit
+            try {
+                // Disable auto-commit to use transaction
+                ideaConnection.autoCommit = false
+
+                val sqlUpper = sql.trim().uppercase()
+                val warnings = mutableListOf<String>()
+
+                when {
+                    // For SELECT, use EXPLAIN to validate
+                    sqlUpper.startsWith("SELECT") -> {
+                        val explainSql = "EXPLAIN $sql"
+                        val stmt = ideaConnection.prepareStatement(explainSql)
+                        try {
+                            stmt.executeQuery()
+                            stmt.close()
+                            DryRunResult.valid("SELECT query is valid")
+                        } catch (e: Exception) {
+                            DryRunResult.invalid("Query validation failed: ${e.message}")
+                        }
+                    }
+
+                    // For INSERT/UPDATE/DELETE, execute in transaction and rollback
+                    sqlUpper.startsWith("INSERT") ||
+                    sqlUpper.startsWith("UPDATE") ||
+                    sqlUpper.startsWith("DELETE") -> {
+                        val stmt = ideaConnection.prepareStatement(sql)
+                        try {
+                            val affectedRows = stmt.executeUpdate()
+                            stmt.close()
+                            // Rollback to undo the changes
+                            ideaConnection.rollback()
+                            DryRunResult.valid(
+                                "Statement is valid (would affect $affectedRows row(s))",
+                                estimatedRows = affectedRows
+                            )
+                        } catch (e: Exception) {
+                            ideaConnection.rollback()
+                            DryRunResult.invalid("Statement validation failed: ${e.message}")
+                        }
+                    }
+
+                    // For DDL (CREATE, ALTER, DROP), we can't safely dry run
+                    sqlUpper.startsWith("CREATE") ||
+                    sqlUpper.startsWith("ALTER") ||
+                    sqlUpper.startsWith("DROP") ||
+                    sqlUpper.startsWith("TRUNCATE") -> {
+                        warnings.add("DDL statements cannot be fully validated without execution")
+
+                        // Try basic syntax check by preparing the statement
+                        try {
+                            val stmt = ideaConnection.prepareStatement(sql)
+                            stmt.close()
+                            DryRunResult(
+                                isValid = true,
+                                message = "DDL syntax appears valid (cannot fully validate without execution)",
+                                warnings = warnings
+                            )
+                        } catch (e: Exception) {
+                            DryRunResult.invalid("DDL syntax error: ${e.message}")
+                        }
+                    }
+
+                    else -> {
+                        // Unknown statement type, try to prepare it
+                        try {
+                            val stmt = ideaConnection.prepareStatement(sql)
+                            stmt.close()
+                            DryRunResult.valid("Statement syntax is valid")
+                        } catch (e: Exception) {
+                            DryRunResult.invalid("Statement validation failed: ${e.message}")
+                        }
+                    }
+                }
+            } finally {
+                // Restore original auto-commit setting
+                try {
+                    ideaConnection.rollback() // Ensure any pending changes are rolled back
+                    ideaConnection.autoCommit = originalAutoCommit
+                } catch (e: Exception) {
+                    // Ignore cleanup errors
+                }
+            }
+        } catch (e: Exception) {
+            DryRunResult.invalid("Dry run failed: ${e.message}")
+        }
+    }
+
     override suspend fun getSchema(): DatabaseSchema = withContext(Dispatchers.IO) {
         try {
             val metadata = ideaConnection.metaData
