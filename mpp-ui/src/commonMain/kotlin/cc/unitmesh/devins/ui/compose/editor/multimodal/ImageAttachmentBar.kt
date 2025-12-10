@@ -177,16 +177,23 @@ private fun ImageThumbnail(
             )
             .clickable(enabled = !isAnalyzing && !image.isUploading) { onClick() }
     ) {
-        // Placeholder for image (actual image loading is platform-specific)
+        // Background - different for uploaded vs local
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.surfaceVariant),
+                .background(
+                    if (image.isUploaded) {
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                    } else {
+                        MaterialTheme.colorScheme.surfaceVariant
+                    }
+                ),
             contentAlignment = Alignment.Center
         ) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier.padding(4.dp)
             ) {
                 // Show upload progress or image icon
                 when {
@@ -205,6 +212,15 @@ private fun ImageThumbnail(
                             tint = MaterialTheme.colorScheme.error
                         )
                     }
+                    image.isUploaded -> {
+                        // Show cloud icon for uploaded images
+                        Icon(
+                            imageVector = AutoDevComposeIcons.CloudDone,
+                            contentDescription = null,
+                            modifier = Modifier.size(24.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
                     else -> {
                         Icon(
                             imageVector = AutoDevComposeIcons.Image,
@@ -215,36 +231,45 @@ private fun ImageThumbnail(
                     }
                 }
                 
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(2.dp))
                 
-                // Show status text
-                val statusText = when {
-                    image.uploadStatus == ImageUploadStatus.COMPRESSING -> "Compressing..."
-                    image.uploadStatus == ImageUploadStatus.UPLOADING -> "Uploading..."
-                    image.isFailed -> "Failed"
-                    else -> image.name
-                }
-                
+                // Show file name (truncated)
                 Text(
-                    text = statusText,
+                    text = when {
+                        image.uploadStatus == ImageUploadStatus.COMPRESSING -> "Compressing..."
+                        image.uploadStatus == ImageUploadStatus.UPLOADING -> "Uploading..."
+                        image.isFailed -> "Failed"
+                        else -> image.name.take(12) + if (image.name.length > 12) "…" else ""
+                    },
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (image.isFailed) {
-                        MaterialTheme.colorScheme.error
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    color = when {
+                        image.isFailed -> MaterialTheme.colorScheme.error
+                        image.isUploaded -> MaterialTheme.colorScheme.primary
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     },
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(horizontal = 4.dp)
+                    overflow = TextOverflow.Ellipsis
                 )
                 
-                // Show size info only when not uploading
+                // Show size info - use compressedSize if available, otherwise originalSize
                 if (!image.isUploading && !image.isFailed) {
-                    Text(
-                        text = image.displaySize,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                    )
+                    val sizeText = when {
+                        image.compressedSize != null && image.compressedSize!! > 0 -> {
+                            formatSize(image.compressedSize!!)
+                        }
+                        image.originalSize > 0 -> {
+                            formatSize(image.originalSize)
+                        }
+                        else -> null
+                    }
+                    
+                    if (sizeText != null) {
+                        Text(
+                            text = sizeText,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                        )
+                    }
                     
                     // Show compression savings if available
                     image.compressionSavings?.let { savings ->
@@ -258,38 +283,24 @@ private fun ImageThumbnail(
             }
         }
         
-        // Upload status indicator
-        when {
-            image.isUploaded -> {
-                Icon(
-                    imageVector = AutoDevComposeIcons.CloudDone,
-                    contentDescription = "Uploaded",
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .padding(4.dp)
-                        .size(14.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            }
-            image.isFailed && onRetry != null -> {
-                // Retry button for failed uploads
-                IconButton(
-                    onClick = onRetry,
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .size(20.dp)
-                        .background(
-                            color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.9f),
-                            shape = CircleShape
-                        )
-                ) {
-                    Icon(
-                        imageVector = AutoDevComposeIcons.Refresh,
-                        contentDescription = "Retry",
-                        modifier = Modifier.size(12.dp),
-                        tint = MaterialTheme.colorScheme.onTertiaryContainer
+        // Retry button for failed uploads
+        if (image.isFailed && onRetry != null) {
+            IconButton(
+                onClick = onRetry,
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .size(20.dp)
+                    .background(
+                        color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.9f),
+                        shape = CircleShape
                     )
-                }
+            ) {
+                Icon(
+                    imageVector = AutoDevComposeIcons.Refresh,
+                    contentDescription = "Retry",
+                    modifier = Modifier.size(12.dp),
+                    tint = MaterialTheme.colorScheme.onTertiaryContainer
+                )
             }
         }
         
@@ -313,6 +324,17 @@ private fun ImageThumbnail(
                 )
             }
         }
+    }
+}
+
+/**
+ * Format file size to human readable string.
+ */
+private fun formatSize(bytes: Long): String {
+    return when {
+        bytes >= 1024 * 1024 -> "${bytes / (1024 * 1024)}MB"
+        bytes >= 1024 -> "${bytes / 1024}KB"
+        else -> "${bytes}B"
     }
 }
 

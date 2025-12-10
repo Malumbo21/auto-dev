@@ -230,18 +230,16 @@ fun AgentChatInterface(
                                 // Multimodal support
                                 onImageUpload = if (imageUploader?.isConfigured() == true) {
                                     { imagePath, _, onProgress ->
-                                        val result = imageUploader!!.uploadImage(imagePath, onProgress)
-                                        if (result.success && result.url != null) {
-                                            result.url
-                                        } else {
-                                            throw Exception(result.error ?: "Upload failed")
-                                        }
+                                        imageUploader!!.uploadImage(imagePath, onProgress)
                                     }
                                 } else {
                                     // Show config dialog when trying to upload without config
                                     { _, _, _ ->
                                         showCloudStorageDialog = true
-                                        throw Exception("Please configure cloud storage first")
+                                        cc.unitmesh.devins.ui.compose.editor.multimodal.ImageUploadResult(
+                                            success = false,
+                                            error = "Please configure cloud storage first"
+                                        )
                                     }
                                 },
                                 onMultimodalAnalysis = if (visionService != null) {
@@ -411,18 +409,16 @@ fun AgentChatInterface(
                 // Multimodal support
                 onImageUpload = if (imageUploader?.isConfigured() == true) {
                     { imagePath, _, onProgress ->
-                        val result = imageUploader!!.uploadImage(imagePath, onProgress)
-                        if (result.success && result.url != null) {
-                            result.url
-                        } else {
-                            throw Exception(result.error ?: "Upload failed")
-                        }
+                        imageUploader!!.uploadImage(imagePath, onProgress)
                     }
                 } else {
                     // Show config dialog when trying to upload without config
                     { _, _, _ ->
                         showCloudStorageDialog = true
-                        throw Exception("Please configure cloud storage first")
+                        cc.unitmesh.devins.ui.compose.editor.multimodal.ImageUploadResult(
+                            success = false,
+                            error = "Please configure cloud storage first"
+                        )
                     }
                 },
                 onMultimodalAnalysis = if (visionService != null) {
