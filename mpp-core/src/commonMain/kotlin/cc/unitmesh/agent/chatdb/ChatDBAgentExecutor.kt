@@ -79,6 +79,16 @@ class ChatDBAgentExecutor(
             val schema = task.schema ?: databaseConnection.getSchema()
             logger.info { "Database has ${schema.tables.size} tables: ${schema.tables.map { it.name }}" }
 
+            // Render schema details
+            val schemaDetails = buildString {
+                append("**Database Schema:**\n")
+                append("- Total tables: ${schema.tables.size}\n")
+                append("- Tables: ${schema.tables.joinToString(", ") { it.name }}")
+            }
+            renderer.renderLLMResponseStart()
+            renderer.renderLLMResponseChunk(schemaDetails)
+            renderer.renderLLMResponseEnd()
+
             // Step 2: Schema Linking
             val step2Message = "🔗 Performing schema linking..."
             onProgress(step2Message)
@@ -89,6 +99,16 @@ class ChatDBAgentExecutor(
             val linkingResult = schemaLinker.link(task.query, schema)
             logger.info { "Schema linking found ${linkingResult.relevantTables.size} relevant tables: ${linkingResult.relevantTables}" }
             logger.info { "Schema linking keywords: ${linkingResult.keywords}" }
+
+            // Render schema linking details
+            val linkingDetails = buildString {
+                append("**Schema Linking Results:**\n")
+                append("- Relevant tables: ${linkingResult.relevantTables.joinToString(", ")}\n")
+                append("- Keywords: ${linkingResult.keywords.joinToString(", ")}")
+            }
+            renderer.renderLLMResponseStart()
+            renderer.renderLLMResponseChunk(linkingDetails)
+            renderer.renderLLMResponseEnd()
 
             // Step 3: Build context with relevant schema
             // If schema linking found too few tables, use all tables to avoid missing important ones
@@ -122,6 +142,17 @@ class ChatDBAgentExecutor(
                 return buildResult(false, errors, null, null, null, 0)
             }
 
+            // Render extracted SQL
+            val extractedSqlMessage = buildString {
+                append("**Generated SQL:**\n")
+                append("```sql\n")
+                append(generatedSql)
+                append("\n```")
+            }
+            renderer.renderLLMResponseStart()
+            renderer.renderLLMResponseChunk(extractedSqlMessage)
+            renderer.renderLLMResponseEnd()
+
             // Step 6: Validate SQL syntax and table names using SqlReviseAgent
             var validatedSql = generatedSql
 
@@ -138,10 +169,18 @@ class ChatDBAgentExecutor(
 
             if (!tableValidation.isValid) {
                 val errorType = if (!syntaxValidation.isValid) "syntax" else "table name"
-                val revisionMessage = "🔄 SQL validation failed ($errorType), invoking SqlReviseAgent..."
-                onProgress(revisionMessage)
+                val revisionMessage = buildString {
+                    append("🔄 **SQL Validation Failed**\n\n")
+                    append("**Error Type:** $errorType\n")
+                    append("**Errors:**\n")
+                    tableValidation.errors.forEach { error ->
+                        append("- $error\n")
+                    }
+                    append("\nInvoking SqlReviseAgent to fix the SQL...")
+                }
+                onProgress("🔄 SQL validation failed ($errorType), invoking SqlReviseAgent...")
                 renderer.renderLLMResponseStart()
-                renderer.renderLLMResponseChunk(revisionMessage + "\n\n")
+                renderer.renderLLMResponseChunk(revisionMessage)
                 renderer.renderLLMResponseEnd()
 
                 val revisionInput = SqlRevisionInput(
@@ -160,10 +199,17 @@ class ChatDBAgentExecutor(
 
                 if (revisionResult.success) {
                     validatedSql = revisionResult.content
-                    val successMessage = "✅ SQL revised successfully after $revisionAttempts attempts"
-                    onProgress(successMessage)
+                    val successMessage = buildString {
+                        append("✅ **SQL Revised Successfully**\n\n")
+                        append("**Attempts:** $revisionAttempts\n")
+                        append("**Revised SQL:**\n")
+                        append("```sql\n")
+                        append(validatedSql)
+                        append("\n```")
+                    }
+                    onProgress("✅ SQL revised successfully after $revisionAttempts attempts")
                     renderer.renderLLMResponseStart()
-                    renderer.renderLLMResponseChunk(successMessage + "\n\n")
+                    renderer.renderLLMResponseChunk(successMessage)
                     renderer.renderLLMResponseEnd()
                 } else {
                     errors.add("SQL revision failed: ${revisionResult.content}")
@@ -186,21 +232,35 @@ class ChatDBAgentExecutor(
 
                     try {
                         queryResult = databaseConnection.executeQuery(generatedSql!!)
-                        val successMessage = "✅ Query returned ${queryResult.rowCount} rows"
-                        onProgress(successMessage)
+                        val successMessage = buildString {
+                            append("✅ **Query Executed Successfully**\n\n")
+                            append("**Rows returned:** ${queryResult.rowCount}\n")
+                            append("**Columns:** ${queryResult.columns.joinToString(", ")}")
+                        }
+                        onProgress("✅ Query returned ${queryResult.rowCount} rows")
                         renderer.renderLLMResponseStart()
-                        renderer.renderLLMResponseChunk(successMessage + "\n\n")
+                        renderer.renderLLMResponseChunk(successMessage)
                         renderer.renderLLMResponseEnd()
                     } catch (e: Exception) {
                         lastExecutionError = e.message ?: "Unknown execution error"
                         logger.warn { "Query execution failed (attempt ${executionRetries + 1}): $lastExecutionError" }
 
+                        // Render execution error details
+                        val errorMessage = buildString {
+                            append("❌ **Query Execution Failed**\n\n")
+                            append("**Attempt:** ${executionRetries + 1}/$maxExecutionRetries\n")
+                            append("**Error:** $lastExecutionError")
+                        }
+                        renderer.renderLLMResponseStart()
+                        renderer.renderLLMResponseChunk(errorMessage)
+                        renderer.renderLLMResponseEnd()
+
                         // Try to revise SQL based on execution error
                         if (executionRetries < maxExecutionRetries - 1) {
-                            val retryMessage = "🔄 Execution failed, attempting to fix SQL..."
+                            val retryMessage = "🔄 Attempting to fix SQL based on execution error..."
                             onProgress(retryMessage)
                             renderer.renderLLMResponseStart()
-                            renderer.renderLLMResponseChunk(retryMessage + "\n\n")
+                            renderer.renderLLMResponseChunk(retryMessage)
                             renderer.renderLLMResponseEnd()
 
                             val revisionInput = SqlRevisionInput(
@@ -218,10 +278,17 @@ class ChatDBAgentExecutor(
                             if (revisionResult.success && revisionResult.content != generatedSql) {
                                 generatedSql = revisionResult.content
                                 revisionAttempts++
-                                val revisedMessage = "🔧 SQL revised, retrying execution..."
-                                onProgress(revisedMessage)
+                                val revisedMessage = buildString {
+                                    append("🔧 **SQL Revised Based on Execution Error**\n\n")
+                                    append("**Revised SQL:**\n")
+                                    append("```sql\n")
+                                    append(generatedSql)
+                                    append("\n```\n\n")
+                                    append("Retrying execution...")
+                                }
+                                onProgress("🔧 SQL revised, retrying execution...")
                                 renderer.renderLLMResponseStart()
-                                renderer.renderLLMResponseChunk(revisedMessage + "\n\n")
+                                renderer.renderLLMResponseChunk(revisedMessage)
                                 renderer.renderLLMResponseEnd()
                             } else {
                                 // Revision didn't help, break the loop
@@ -431,22 +498,56 @@ class ChatDBAgentExecutor(
     ): ChatDBResult {
         val message = if (success) {
             buildString {
-                appendLine("Query executed successfully!")
-                if (queryResult != null) {
+                appendLine("## ✅ Query Executed Successfully")
+                appendLine()
+
+                // Show SQL that was executed
+                if (generatedSql != null) {
+                    appendLine("**Executed SQL:**")
+                    appendLine("```sql")
+                    appendLine(generatedSql)
+                    appendLine("```")
                     appendLine()
-                    appendLine("**Results** (${queryResult.rowCount} rows):")
+                }
+
+                // Show revision info if applicable
+                if (revisionAttempts > 0) {
+                    appendLine("*Note: SQL was revised $revisionAttempts time(s) to fix validation/execution errors*")
+                    appendLine()
+                }
+
+                // Show query results
+                if (queryResult != null) {
+                    appendLine("**Results** (${queryResult.rowCount} row${if (queryResult.rowCount != 1) "s" else ""}):")
+                    appendLine()
                     appendLine(queryResult.toTableString())
                 }
+
+                // Show visualization if generated
                 if (plotDslCode != null) {
                     appendLine()
-                    appendLine("**Visualization**:")
+                    appendLine("**Visualization:**")
                     appendLine("```plotdsl")
                     appendLine(plotDslCode)
                     appendLine("```")
                 }
             }
         } else {
-            "Query failed: ${errors.joinToString("; ")}"
+            buildString {
+                appendLine("## ❌ Query Failed")
+                appendLine()
+                appendLine("**Errors:**")
+                errors.forEach { error ->
+                    appendLine("- $error")
+                }
+                if (generatedSql != null) {
+                    appendLine()
+                    appendLine("**Failed SQL:**")
+                    appendLine("```sql")
+                    appendLine(generatedSql)
+                    appendLine("```")
+                }
+            }
         }
 
         return ChatDBResult(
