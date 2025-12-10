@@ -7,6 +7,8 @@ package cc.unitmesh.agent
  * - LOCAL: Simple local chat mode without heavy tooling
  * - CODING: Local coding agent with full tool access (file system, shell, etc.)
  * - CODE_REVIEW: Dedicated code review agent with git integration
+ * - KNOWLEDGE: Document reader mode for AI-native document reading
+ * - CHAT_DB: Database chat mode for text-to-SQL interactions
  * - REMOTE: Remote agent connected to mpp-server
  */
 enum class AgentType {
@@ -31,6 +33,11 @@ enum class AgentType {
     KNOWLEDGE,
 
     /**
+     * Database chat mode - text-to-SQL agent for database queries
+     */
+    CHAT_DB,
+
+    /**
      * Remote agent mode - connects to remote mpp-server for distributed execution
      */
     REMOTE;
@@ -40,6 +47,7 @@ enum class AgentType {
         CODING -> "Agentic"
         CODE_REVIEW -> "Review"
         KNOWLEDGE -> "Knowledge"
+        CHAT_DB -> "ChatDB"
         REMOTE -> "Remote"
     }
 
@@ -51,6 +59,7 @@ enum class AgentType {
                 "coding" -> CODING
                 "codereview" -> CODE_REVIEW
                 "documentreader", "documents" -> KNOWLEDGE
+                "chatdb", "database" -> CHAT_DB
                 else -> LOCAL_CHAT
             }
         }

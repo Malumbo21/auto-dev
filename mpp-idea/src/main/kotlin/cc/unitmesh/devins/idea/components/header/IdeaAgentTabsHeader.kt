@@ -256,6 +256,7 @@ private fun getAgentTypeColor(type: AgentType): Color = when (type) {
     AgentType.CODING -> IdeaAutoDevColors.Blue.c400
     AgentType.CODE_REVIEW -> IdeaAutoDevColors.Indigo.c400
     AgentType.KNOWLEDGE -> IdeaAutoDevColors.Green.c400
+    AgentType.CHAT_DB -> IdeaAutoDevColors.Cyan.c400
     AgentType.REMOTE -> IdeaAutoDevColors.Amber.c400
     AgentType.LOCAL_CHAT -> JewelTheme.globalColors.text.normal
 }
@@ -267,6 +268,7 @@ private fun getAgentTypeIcon(type: AgentType): ImageVector = when (type) {
     AgentType.CODING -> IdeaComposeIcons.Code
     AgentType.CODE_REVIEW -> IdeaComposeIcons.Review
     AgentType.KNOWLEDGE -> IdeaComposeIcons.Book
+    AgentType.CHAT_DB -> IdeaComposeIcons.Database
     AgentType.REMOTE -> IdeaComposeIcons.Cloud
     AgentType.LOCAL_CHAT -> IdeaComposeIcons.Chat
 }

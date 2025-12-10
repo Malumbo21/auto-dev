@@ -1,15 +1,19 @@
 package cc.unitmesh.devins.ui.compose.agent
 
 import androidx.compose.runtime.*
+import cc.unitmesh.agent.database.DryRunResult
 import cc.unitmesh.agent.plan.AgentPlan
 import cc.unitmesh.agent.plan.MarkdownPlanParser
 import cc.unitmesh.agent.render.BaseRenderer
+import cc.unitmesh.agent.render.ChatDBStepStatus
+import cc.unitmesh.agent.render.ChatDBStepType
 import cc.unitmesh.agent.render.RendererUtils
 import cc.unitmesh.agent.render.TaskInfo
 import cc.unitmesh.agent.render.TaskStatus
 import cc.unitmesh.agent.render.TimelineItem
 import cc.unitmesh.agent.render.TimelineItem.*
 import cc.unitmesh.agent.render.ToolCallInfo
+import cc.unitmesh.agent.subagent.SqlOperationType
 import cc.unitmesh.agent.tool.ToolType
 import cc.unitmesh.agent.tool.impl.docql.DocQLSearchStats
 import cc.unitmesh.agent.tool.toToolType
@@ -78,6 +82,10 @@ class ComposeRenderer : BaseRenderer() {
     // Plan tracking from plan management tool
     private var _currentPlan by mutableStateOf<AgentPlan?>(null)
     val currentPlan: AgentPlan? get() = _currentPlan
+
+    // SQL approval state
+    private var _pendingSqlApproval by mutableStateOf<SqlApprovalRequest?>(null)
+    val pendingSqlApproval: SqlApprovalRequest? get() = _pendingSqlApproval
 
     // BaseRenderer implementation
 
@@ -525,6 +533,10 @@ class ComposeRenderer : BaseRenderer() {
         _isProcessing = false
     }
 
+    override fun renderInfo(message: String) {
+        _timeline.add(TimelineItem.InfoItem(message = message))
+    }
+
     override fun renderRepeatWarning(
         toolName: String,
         count: Int
@@ -557,6 +569,71 @@ class ComposeRenderer : BaseRenderer() {
         params: Map<String, Any>
     ) {
         // For now, just use error rendering since JS renderer doesn't have this method yet
+    }
+
+    override fun renderSqlApprovalRequest(
+        sql: String,
+        operationType: SqlOperationType,
+        affectedTables: List<String>,
+        isHighRisk: Boolean,
+        dryRunResult: DryRunResult?,
+        onApprove: () -> Unit,
+        onReject: () -> Unit
+    ) {
+        _pendingSqlApproval = SqlApprovalRequest(
+            sql = sql,
+            operationType = operationType,
+            affectedTables = affectedTables,
+            isHighRisk = isHighRisk,
+            dryRunResult = dryRunResult,
+            onApprove = {
+                _pendingSqlApproval = null
+                onApprove()
+            },
+            onReject = {
+                _pendingSqlApproval = null
+                onReject()
+            }
+        )
+
+        // Build details map with dry run info
+        val details = mutableMapOf<String, Any>(
+            "sql" to sql,
+            "operationType" to operationType.name,
+            "affectedTables" to affectedTables.joinToString(", "),
+            "isHighRisk" to isHighRisk
+        )
+        if (dryRunResult != null) {
+            details["dryRunValid"] = dryRunResult.isValid
+            if (dryRunResult.estimatedRows != null) {
+                details["estimatedRows"] = dryRunResult.estimatedRows!!
+            }
+            if (dryRunResult.warnings.isNotEmpty()) {
+                details["warnings"] = dryRunResult.warnings.joinToString(", ")
+            }
+        }
+
+        // Also add to timeline for visibility
+        renderChatDBStep(
+            stepType = ChatDBStepType.AWAIT_APPROVAL,
+            status = ChatDBStepStatus.AWAITING_APPROVAL,
+            title = "Awaiting Approval: ${operationType.name}",
+            details = details
+        )
+    }
+
+    /**
+     * Approve the pending SQL operation
+     */
+    fun approveSqlOperation() {
+        _pendingSqlApproval?.onApprove?.invoke()
+    }
+
+    /**
+     * Reject the pending SQL operation
+     */
+    fun rejectSqlOperation() {
+        _pendingSqlApproval?.onReject?.invoke()
     }
 
     // Public methods for UI interaction
@@ -783,6 +860,39 @@ class ComposeRenderer : BaseRenderer() {
     }
 
     /**
+     * Render a ChatDB execution step.
+     * Adds or updates a step in the timeline for interactive display.
+     */
+    override fun renderChatDBStep(
+        stepType: ChatDBStepType,
+        status: ChatDBStepStatus,
+        title: String,
+        details: Map<String, Any>,
+        error: String?
+    ) {
+        // Check if this step already exists in the timeline
+        val existingIndex = _timeline.indexOfLast {
+            it is ChatDBStepItem && it.stepType == stepType
+        }
+
+        val stepItem = ChatDBStepItem(
+            stepType = stepType,
+            status = status,
+            title = title,
+            details = details,
+            error = error
+        )
+
+        if (existingIndex >= 0) {
+            // Update existing step
+            _timeline[existingIndex] = stepItem
+        } else {
+            // Add new step
+            _timeline.add(stepItem)
+        }
+    }
+
+    /**
      * Render an Agent-generated sketch block (chart, nanodsl, mermaid, etc.)
      * Adds the sketch block to the timeline for interactive rendering.
      */
@@ -883,6 +993,16 @@ class ComposeRenderer : BaseRenderer() {
                     sketchLanguage = item.language,
                     sketchCode = item.code
                 )
+            }
+
+            is ChatDBStepItem -> {
+                // ChatDB steps are not persisted (they're runtime-only for UI display)
+                null
+            }
+
+            is TimelineItem.InfoItem -> {
+                // Info items are not persisted (they're runtime-only for UI display)
+                null
             }
         }
     }
@@ -1109,8 +1229,31 @@ class ComposeRenderer : BaseRenderer() {
                         metadata = toMessageMetadata(item)
                     )
                 }
+
+                is ChatDBStepItem -> {
+                    // ChatDB steps are not persisted as messages
+                    null
+                }
+
+                is TimelineItem.InfoItem -> {
+                    // Info items are not persisted as messages
+                    null
+                }
             }
         }
     }
 }
+
+/**
+ * Data class representing a pending SQL approval request
+ */
+data class SqlApprovalRequest(
+    val sql: String,
+    val operationType: SqlOperationType,
+    val affectedTables: List<String>,
+    val isHighRisk: Boolean,
+    val dryRunResult: DryRunResult? = null,
+    val onApprove: () -> Unit,
+    val onReject: () -> Unit
+)
 

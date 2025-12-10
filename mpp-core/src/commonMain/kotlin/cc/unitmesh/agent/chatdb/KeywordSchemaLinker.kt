@@ -1,0 +1,121 @@
+package cc.unitmesh.agent.chatdb
+
+import cc.unitmesh.agent.database.DatabaseSchema
+import cc.unitmesh.agent.database.TableSchema
+
+/**
+ * Keyword-based Schema Linker - Uses keyword matching and fuzzy matching
+ *
+ * This is the default/fallback implementation that doesn't require LLM calls.
+ * It extracts keywords from the query and matches them against table/column names.
+ */
+class KeywordSchemaLinker : SchemaLinker() {
+
+    /**
+     * Link natural language query to relevant schema elements
+     */
+    override suspend fun link(query: String, schema: DatabaseSchema): SchemaLinkingResult {
+        val keywords = extractKeywords(query)
+        val relevantTables = mutableListOf<String>()
+        val relevantColumns = mutableListOf<String>()
+        var totalScore = 0.0
+        var matchCount = 0
+
+        for (table in schema.tables) {
+            val tableScore = calculateTableRelevance(table, keywords)
+            if (tableScore > 0) {
+                relevantTables.add(table.name)
+                totalScore += tableScore
+                matchCount++
+
+                // Find relevant columns in this table
+                for (column in table.columns) {
+                    val columnScore = calculateColumnRelevance(column.name, column.comment, keywords)
+                    if (columnScore > 0) {
+                        relevantColumns.add("${table.name}.${column.name}")
+                    }
+                }
+            }
+        }
+
+        // If no tables matched, include all tables (fallback)
+        if (relevantTables.isEmpty()) {
+            relevantTables.addAll(schema.tables.map { it.name })
+        }
+
+        val confidence = if (matchCount > 0) (totalScore / matchCount).coerceIn(0.0, 1.0) else 0.0
+
+        return SchemaLinkingResult(
+            relevantTables = relevantTables,
+            relevantColumns = relevantColumns,
+            keywords = keywords,
+            confidence = confidence
+        )
+    }
+
+    /**
+     * Extract keywords from natural language query using platform-specific NLP tokenization.
+     *
+     * On JVM, this uses MyNLP for proper Chinese word segmentation.
+     * On other platforms, this falls back to simple regex-based tokenization.
+     */
+    override suspend fun extractKeywords(query: String): List<String> {
+        return NlpTokenizer.extractKeywords(query, STOP_WORDS)
+    }
+
+    /**
+     * Calculate relevance score for a table
+     */
+    private fun calculateTableRelevance(table: TableSchema, keywords: List<String>): Double {
+        var score = 0.0
+        val tableName = table.name.lowercase()
+        val tableComment = table.comment?.lowercase() ?: ""
+
+        for (keyword in keywords) {
+            // Exact match in table name
+            if (tableName == keyword) {
+                score += 1.0
+            }
+            // Partial match in table name
+            else if (tableName.contains(keyword) || keyword.contains(tableName)) {
+                score += 0.7
+            }
+            // Match in table comment
+            else if (tableComment.contains(keyword)) {
+                score += 0.5
+            }
+            // Fuzzy match (Levenshtein distance)
+            else if (fuzzyMatch(tableName, keyword)) {
+                score += 0.3
+            }
+
+            // Check column names
+            for (column in table.columns) {
+                val colName = column.name.lowercase()
+                if (colName == keyword || colName.contains(keyword)) {
+                    score += 0.4
+                }
+            }
+        }
+
+        return score
+    }
+
+    /**
+     * Calculate relevance score for a column
+     */
+    private fun calculateColumnRelevance(columnName: String, comment: String?, keywords: List<String>): Double {
+        var score = 0.0
+        val colName = columnName.lowercase()
+        val colComment = comment?.lowercase() ?: ""
+
+        for (keyword in keywords) {
+            if (colName == keyword) score += 1.0
+            else if (colName.contains(keyword)) score += 0.7
+            else if (colComment.contains(keyword)) score += 0.5
+            else if (fuzzyMatch(colName, keyword)) score += 0.3
+        }
+
+        return score
+    }
+}

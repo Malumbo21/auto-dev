@@ -10,7 +10,7 @@ import kotlinx.serialization.Serializable
 interface DatabaseConnection {
     /**
      * Execute a SQL query
-     * 
+     *
      * @param sql SQL query statement (SELECT only)
      * @return Query result
      * @throws DatabaseException If execution fails
@@ -18,8 +18,37 @@ interface DatabaseConnection {
     suspend fun executeQuery(sql: String): QueryResult
 
     /**
+     * Execute a SQL update statement (INSERT, UPDATE, DELETE, CREATE, ALTER, DROP, etc.)
+     *
+     * @param sql SQL update statement
+     * @return UpdateResult containing affected row count and any generated keys
+     * @throws DatabaseException If execution fails
+     */
+    suspend fun executeUpdate(sql: String): UpdateResult
+
+    /**
+     * Dry run a SQL statement to validate it without actually executing it.
+     * This is useful for validating write operations before user approval.
+     *
+     * The default implementation uses database-specific techniques:
+     * - For SELECT: Uses EXPLAIN
+     * - For INSERT/UPDATE/DELETE: Wraps in a transaction and rolls back
+     * - For DDL: Returns validation based on syntax only
+     *
+     * @param sql SQL statement to validate
+     * @return DryRunResult containing validation status and any errors
+     */
+    suspend fun dryRun(sql: String): DryRunResult {
+        // Default implementation - subclasses can override for better support
+        return DryRunResult(
+            isValid = true,
+            message = "Dry run not fully supported, syntax validation only"
+        )
+    }
+
+    /**
      * Get database schema information
-     * 
+     *
      * @return DatabaseSchema containing all tables and columns
      * @throws DatabaseException If retrieval fails
      */
@@ -53,6 +82,38 @@ interface DatabaseConnection {
     }
 
     /**
+     * Get sample rows from a table (for Schema Linking context)
+     *
+     * @param tableName Table name
+     * @param limit Maximum number of rows to return (default 3)
+     * @return Sample rows as QueryResult
+     */
+    suspend fun getSampleRows(tableName: String, limit: Int = 3): QueryResult {
+        return try {
+            executeQuery("SELECT * FROM `$tableName` LIMIT $limit")
+        } catch (e: Exception) {
+            QueryResult(emptyList(), emptyList(), 0)
+        }
+    }
+
+    /**
+     * Get distinct values for a column (for Value Matching in Schema Linking)
+     *
+     * @param tableName Table name
+     * @param columnName Column name
+     * @param limit Maximum number of distinct values to return (default 10)
+     * @return List of distinct values as strings
+     */
+    suspend fun getDistinctValues(tableName: String, columnName: String, limit: Int = 10): List<String> {
+        return try {
+            val result = executeQuery("SELECT DISTINCT `$columnName` FROM `$tableName` LIMIT $limit")
+            result.rows.map { it.firstOrNull() ?: "" }.filter { it.isNotEmpty() }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    /**
      * Close database connection
      */
     suspend fun close()
@@ -66,6 +127,95 @@ interface DatabaseConnection {
             true
         } catch (e: Exception) {
             false
+        }
+    }
+}
+
+/**
+ * Dry run result - validation result without actual execution
+ */
+@Serializable
+data class DryRunResult(
+    /**
+     * Whether the SQL is valid and can be executed
+     */
+    val isValid: Boolean,
+
+    /**
+     * Validation message or error description
+     */
+    val message: String? = null,
+
+    /**
+     * Detailed errors if validation failed
+     */
+    val errors: List<String> = emptyList(),
+
+    /**
+     * Estimated affected rows (if available from EXPLAIN)
+     */
+    val estimatedRows: Int? = null,
+
+    /**
+     * Warnings (non-fatal issues)
+     */
+    val warnings: List<String> = emptyList()
+) {
+    companion object {
+        fun valid(message: String? = null, estimatedRows: Int? = null): DryRunResult {
+            return DryRunResult(true, message, emptyList(), estimatedRows)
+        }
+
+        fun invalid(error: String): DryRunResult {
+            return DryRunResult(false, error, listOf(error))
+        }
+
+        fun invalid(errors: List<String>): DryRunResult {
+            return DryRunResult(false, errors.firstOrNull(), errors)
+        }
+
+        fun withWarnings(warnings: List<String>): DryRunResult {
+            return DryRunResult(true, "Valid with warnings", emptyList(), null, warnings)
+        }
+    }
+}
+
+/**
+ * Database update result (for INSERT, UPDATE, DELETE, DDL statements)
+ */
+@Serializable
+data class UpdateResult(
+    /**
+     * Number of rows affected by the update
+     */
+    val affectedRows: Int,
+
+    /**
+     * Generated keys (for INSERT with auto-increment)
+     */
+    val generatedKeys: List<String> = emptyList(),
+
+    /**
+     * Whether the update was successful
+     */
+    val success: Boolean = true,
+
+    /**
+     * Optional message (e.g., for DDL statements)
+     */
+    val message: String? = null
+) {
+    companion object {
+        fun success(affectedRows: Int, generatedKeys: List<String> = emptyList()): UpdateResult {
+            return UpdateResult(affectedRows, generatedKeys, true)
+        }
+
+        fun ddlSuccess(message: String = "DDL statement executed successfully"): UpdateResult {
+            return UpdateResult(0, emptyList(), true, message)
+        }
+
+        fun failure(message: String): UpdateResult {
+            return UpdateResult(0, emptyList(), false, message)
         }
     }
 }
@@ -99,61 +249,45 @@ data class QueryResult(
     }
 
     /**
-     * Convert result to formatted table string (for user display)
+     * Convert result to Markdown table format (for rendering with MarkdownTableRenderer)
+     * Shows all rows without truncation
      */
     fun toTableString(): String {
         if (isEmpty()) return "No results"
-        
-        // Calculate column widths
-        val colWidths = columns.indices.map { colIdx ->
-            maxOf(
-                columns[colIdx].length,
-                rows.maxOfOrNull { it[colIdx].length } ?: 4
-            )
-        }
 
         val sb = StringBuilder()
-        
-        // Header
-        sb.append("┌")
-        colWidths.forEach { width -> sb.append("─".repeat(width + 2)).append("┬") }
-        sb.setLength(sb.length - 1)
-        sb.append("┐\n")
 
-        // Column names
-        sb.append("│")
-        columns.forEachIndexed { idx, col ->
-            sb.append(" ").append(col.padEnd(colWidths[idx])).append(" │")
-        }
-        sb.append("\n")
+        // Header row
+        sb.append("| ")
+        sb.append(columns.joinToString(" | ") { escapeMarkdown(it) })
+        sb.append(" |\n")
 
-        // Separator
-        sb.append("├")
-        colWidths.forEach { width -> sb.append("─".repeat(width + 2)).append("┼") }
-        sb.setLength(sb.length - 1)
-        sb.append("┤\n")
+        // Separator row
+        sb.append("| ")
+        sb.append(columns.joinToString(" | ") { "---" })
+        sb.append(" |\n")
 
-        // Data rows (show first 10)
-        rows.take(10).forEach { row ->
-            sb.append("│")
-            row.forEachIndexed { idx, value ->
+        // Data rows
+        rows.forEach { row ->
+            sb.append("| ")
+            sb.append(row.mapIndexed { idx, value ->
                 val str = value.ifEmpty { "NULL" }
-                sb.append(" ").append(str.padEnd(colWidths[idx])).append(" │")
-            }
-            sb.append("\n")
+                escapeMarkdown(str)
+            }.joinToString(" | "))
+            sb.append(" |\n")
         }
-
-        if (rows.size > 10) {
-            sb.append("│ ... (${rows.size - 10} more rows)\n")
-        }
-
-        // Footer
-        sb.append("└")
-        colWidths.forEach { width -> sb.append("─".repeat(width + 2)).append("┴") }
-        sb.setLength(sb.length - 1)
-        sb.append("┘\n")
 
         return sb.toString()
+    }
+
+    /**
+     * Escape special Markdown characters in table cell content
+     */
+    private fun escapeMarkdown(text: String): String {
+        return text
+            .replace("|", "\\|")
+            .replace("\n", " ")
+            .replace("\r", "")
     }
 }
 

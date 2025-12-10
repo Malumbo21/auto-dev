@@ -172,6 +172,7 @@ configure(subprojects) {
         testImplementation("junit:junit:4.13.2")
         testImplementation("org.opentest4j:opentest4j:1.3.0")
         testRuntimeOnly("org.junit.vintage:junit-vintage-engine:5.9.3")
+        testImplementation("org.assertj:assertj-core:3.24.2")
         testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-debug:1.7.0") {
             exclude(group = "net.java.dev.jna", module = "jna-platform")
             exclude(group = "net.java.dev.jna", module = "jna")

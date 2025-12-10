@@ -352,6 +352,13 @@ fun IdeaAgentApp(
                     } ?: IdeaEmptyStateMessage("Loading Knowledge Agent...")
                 }
             }
+            AgentType.CHAT_DB -> {
+                // ChatDB mode - Text2SQL agent for database queries
+                // TODO: Implement ChatDB UI when ready
+                Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                    IdeaEmptyStateMessage("ChatDB Agent coming soon...")
+                }
+            }
         }
 
         // Tool loading status bar

@@ -18,21 +18,25 @@ class DatabaseConnectionTest {
             ),
             rowCount = 3
         )
-        
+
         assertEquals(3, result.rowCount)
         assertFalse(result.isEmpty())
         assertEquals(3, result.columns.size)
         assertEquals(3, result.rows.size)
-        
+
         val csv = result.toCsvString()
         assertTrue(csv.contains("id,name,email"))
         assertTrue(csv.contains("Alice"))
-        
+
+        // Test Markdown table format
         val table = result.toTableString()
-        assertTrue(table.contains("id"))
-        assertTrue(table.contains("Alice"))
-        
-        println("Query result table:")
+        assertTrue(table.contains("| id | name | email |"))
+        assertTrue(table.contains("| --- | --- | --- |"))
+        assertTrue(table.contains("| 1 | Alice | alice@example.com |"))
+        assertTrue(table.contains("| 2 | Bob | bob@example.com |"))
+        assertTrue(table.contains("| 3 | Charlie | charlie@example.com |"))
+
+        println("Query result table (Markdown format):")
         println(result.toTableString())
     }
 

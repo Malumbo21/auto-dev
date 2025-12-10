@@ -236,6 +236,51 @@ fun RenderMessageItem(
                 metadata = timelineItem.metadata
             )
         }
+
+        is TimelineItem.ChatDBStepItem -> {
+            cc.unitmesh.devins.ui.compose.agent.chatdb.components.ChatDBStepCard(
+                step = timelineItem,
+                onApprove = { renderer.approveSqlOperation() },
+                onReject = { renderer.rejectSqlOperation() }
+            )
+        }
+
+        is TimelineItem.InfoItem -> {
+            InfoMessageItem(message = timelineItem.message)
+        }
+    }
+}
+
+/**
+ * Simple info message item for displaying informational messages
+ */
+@Composable
+private fun InfoMessageItem(message: String) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                AutoDevComposeIcons.Info,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 

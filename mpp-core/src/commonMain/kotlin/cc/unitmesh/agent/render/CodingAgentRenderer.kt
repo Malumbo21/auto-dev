@@ -1,6 +1,8 @@
 package cc.unitmesh.agent.render
 
+import cc.unitmesh.agent.database.DryRunResult
 import cc.unitmesh.agent.plan.PlanSummaryData
+import cc.unitmesh.agent.subagent.SqlOperationType
 import cc.unitmesh.agent.tool.ToolResult
 import cc.unitmesh.llm.compression.TokenInfo
 
@@ -44,6 +46,15 @@ interface CodingAgentRenderer {
     fun renderTaskComplete(executionTimeMs: Long = 0L, toolsUsedCount: Int = 0)
     fun renderFinalResult(success: Boolean, message: String, iterations: Int)
     fun renderError(message: String)
+
+    /**
+     * Render an informational message (non-error, non-warning)
+     * Used for status updates, progress information, etc.
+     */
+    fun renderInfo(message: String) {
+        // Default: no-op, renderers can override to display info messages
+    }
+
     fun renderRepeatWarning(toolName: String, count: Int)
 
     fun renderRecoveryAdvice(recoveryAdvice: String)
@@ -67,6 +78,27 @@ interface CodingAgentRenderer {
     }
 
     /**
+     * Render a ChatDB execution step.
+     * This is an optional method primarily used by UI renderers (ComposeRenderer, JewelRenderer).
+     * Console renderers can ignore this or provide simple text output.
+     *
+     * @param stepType The type of step being executed
+     * @param status The current status of the step
+     * @param title The display title for the step (defaults to stepType.displayName)
+     * @param details Additional details about the step (e.g., table names, row counts, SQL)
+     * @param error Error message if the step failed
+     */
+    fun renderChatDBStep(
+        stepType: ChatDBStepType,
+        status: ChatDBStepStatus,
+        title: String = stepType.displayName,
+        details: Map<String, Any> = emptyMap(),
+        error: String? = null
+    ) {
+        // Default: no-op for renderers that don't support ChatDB steps
+    }
+
+    /**
      * Render a compact plan summary bar.
      * Called when plan is created or updated to show progress in a compact format.
      *
@@ -82,6 +114,32 @@ interface CodingAgentRenderer {
     }
 
     fun renderUserConfirmationRequest(toolName: String, params: Map<String, Any>)
+
+    /**
+     * Request user approval for a SQL write operation.
+     * This is called when a write operation (INSERT, UPDATE, DELETE, CREATE, etc.) is detected.
+     * The renderer should display the SQL and allow the user to approve or reject.
+     *
+     * @param sql The SQL statement to be executed
+     * @param operationType The type of SQL operation (INSERT, UPDATE, DELETE, CREATE, etc.)
+     * @param affectedTables List of tables that will be affected
+     * @param isHighRisk Whether this is a high-risk operation (DROP, TRUNCATE)
+     * @param dryRunResult Optional result from dry run validation (if available)
+     * @param onApprove Callback to invoke when user approves the operation
+     * @param onReject Callback to invoke when user rejects the operation
+     */
+    fun renderSqlApprovalRequest(
+        sql: String,
+        operationType: SqlOperationType,
+        affectedTables: List<String>,
+        isHighRisk: Boolean,
+        dryRunResult: DryRunResult? = null,
+        onApprove: () -> Unit,
+        onReject: () -> Unit
+    ) {
+        // Default: auto-reject for safety (renderers should override to show UI)
+        onReject()
+    }
 
     /**
      * Add a live terminal session to the timeline.

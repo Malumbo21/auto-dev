@@ -1,8 +1,11 @@
 package cc.unitmesh.devins.idea.renderer
 
+import cc.unitmesh.agent.database.DryRunResult
 import cc.unitmesh.agent.plan.AgentPlan
 import cc.unitmesh.agent.plan.MarkdownPlanParser
 import cc.unitmesh.agent.render.BaseRenderer
+import cc.unitmesh.agent.render.ChatDBStepStatus
+import cc.unitmesh.agent.render.ChatDBStepType
 import cc.unitmesh.devins.llm.MessageRole
 import cc.unitmesh.agent.render.RendererUtils
 
@@ -11,6 +14,7 @@ import cc.unitmesh.agent.render.TaskStatus
 import cc.unitmesh.agent.render.TimelineItem
 import cc.unitmesh.agent.render.ToolCallDisplayInfo
 import cc.unitmesh.agent.render.ToolCallInfo
+import cc.unitmesh.agent.subagent.SqlOperationType
 import cc.unitmesh.agent.tool.ToolType
 import cc.unitmesh.agent.tool.toToolType
 import cc.unitmesh.devins.llm.Message
@@ -87,6 +91,10 @@ class JewelRenderer : BaseRenderer() {
     // Task tracking (from task-boundary tool)
     private val _tasks = MutableStateFlow<List<TaskInfo>>(emptyList())
     val tasks: StateFlow<List<TaskInfo>> = _tasks.asStateFlow()
+
+    // SQL approval state
+    private val _pendingSqlApproval = MutableStateFlow<SqlApprovalRequest?>(null)
+    val pendingSqlApproval: StateFlow<SqlApprovalRequest?> = _pendingSqlApproval.asStateFlow()
 
     /**
      * Set the current plan directly.
@@ -536,6 +544,71 @@ class JewelRenderer : BaseRenderer() {
         )
     }
 
+    override fun renderSqlApprovalRequest(
+        sql: String,
+        operationType: SqlOperationType,
+        affectedTables: List<String>,
+        isHighRisk: Boolean,
+        dryRunResult: DryRunResult?,
+        onApprove: () -> Unit,
+        onReject: () -> Unit
+    ) {
+        _pendingSqlApproval.value = SqlApprovalRequest(
+            sql = sql,
+            operationType = operationType,
+            affectedTables = affectedTables,
+            isHighRisk = isHighRisk,
+            dryRunResult = dryRunResult,
+            onApprove = {
+                _pendingSqlApproval.value = null
+                onApprove()
+            },
+            onReject = {
+                _pendingSqlApproval.value = null
+                onReject()
+            }
+        )
+
+        // Build details map with dry run info
+        val details = mutableMapOf<String, Any>(
+            "sql" to sql,
+            "operationType" to operationType.name,
+            "affectedTables" to affectedTables.joinToString(", "),
+            "isHighRisk" to isHighRisk
+        )
+        if (dryRunResult != null) {
+            details["dryRunValid"] = dryRunResult.isValid
+            if (dryRunResult.estimatedRows != null) {
+                details["estimatedRows"] = dryRunResult.estimatedRows!!
+            }
+            if (dryRunResult.warnings.isNotEmpty()) {
+                details["warnings"] = dryRunResult.warnings.joinToString(", ")
+            }
+        }
+
+        // Also add to timeline for visibility
+        renderChatDBStep(
+            stepType = ChatDBStepType.AWAIT_APPROVAL,
+            status = ChatDBStepStatus.AWAITING_APPROVAL,
+            title = "Awaiting Approval: ${operationType.name}",
+            details = details
+        )
+    }
+
+    /**
+     * Approve the pending SQL operation
+     */
+    fun approveSqlOperation() {
+        _pendingSqlApproval.value?.onApprove?.invoke()
+    }
+
+    /**
+     * Reject the pending SQL operation
+     */
+    fun rejectSqlOperation() {
+        _pendingSqlApproval.value?.onReject?.invoke()
+    }
+
     override fun updateTokenInfo(tokenInfo: TokenInfo) {
         _lastMessageTokenInfo = tokenInfo
         _totalTokenInfo.update { current ->
@@ -783,4 +856,17 @@ class JewelRenderer : BaseRenderer() {
         }
     }
 }
+
+/**
+ * Data class representing a pending SQL approval request
+ */
+data class SqlApprovalRequest(
+    val sql: String,
+    val operationType: SqlOperationType,
+    val affectedTables: List<String>,
+    val isHighRisk: Boolean,
+    val dryRunResult: DryRunResult? = null,
+    val onApprove: () -> Unit,
+    val onReject: () -> Unit
+)
 

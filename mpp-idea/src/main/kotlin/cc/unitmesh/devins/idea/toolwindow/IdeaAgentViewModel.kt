@@ -243,14 +243,7 @@ class IdeaAgentViewModel(
         // Save to config file for persistence
         coroutineScope.launch {
             try {
-                val typeString = when (agentType) {
-                    AgentType.REMOTE -> "Remote"
-                    AgentType.LOCAL_CHAT -> "Local"
-                    AgentType.CODING -> "Coding"
-                    AgentType.CODE_REVIEW -> "CodeReview"
-                    AgentType.KNOWLEDGE -> "Documents"
-                }
-
+                val typeString = agentType.getDisplayName()
                 AutoDevConfigWrapper.saveAgentTypePreference(typeString)
             } catch (e: Exception) {
                 // Silently fail - not critical if we can't save preference

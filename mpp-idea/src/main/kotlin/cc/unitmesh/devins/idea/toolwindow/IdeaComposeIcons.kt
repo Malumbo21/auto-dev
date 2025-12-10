@@ -1738,5 +1738,60 @@ object IdeaComposeIcons {
         }.build()
     }
 
+    /**
+     * Database icon (cylinder shape representing database storage)
+     */
+    val Database: ImageVector by lazy {
+        ImageVector.Builder(
+            name = "Database",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = 24f,
+            viewportHeight = 24f
+        ).apply {
+            path(
+                fill = SolidColor(Color.Black)
+            ) {
+                // Database cylinder icon (Storage icon)
+                moveTo(2f, 20f)
+                horizontalLineToRelative(20f)
+                verticalLineToRelative(-4f)
+                horizontalLineTo(2f)
+                verticalLineToRelative(4f)
+                close()
+                moveTo(4f, 17f)
+                horizontalLineToRelative(2f)
+                verticalLineToRelative(2f)
+                horizontalLineTo(4f)
+                verticalLineToRelative(-2f)
+                close()
+                moveTo(2f, 4f)
+                verticalLineToRelative(4f)
+                horizontalLineToRelative(20f)
+                verticalLineTo(4f)
+                horizontalLineTo(2f)
+                close()
+                moveTo(6f, 7f)
+                horizontalLineTo(4f)
+                verticalLineTo(5f)
+                horizontalLineToRelative(2f)
+                verticalLineToRelative(2f)
+                close()
+                moveTo(2f, 14f)
+                horizontalLineToRelative(20f)
+                verticalLineToRelative(-4f)
+                horizontalLineTo(2f)
+                verticalLineToRelative(4f)
+                close()
+                moveTo(4f, 11f)
+                horizontalLineToRelative(2f)
+                verticalLineToRelative(2f)
+                horizontalLineTo(4f)
+                verticalLineToRelative(-2f)
+                close()
+            }
+        }.build()
+    }
+
 }
 

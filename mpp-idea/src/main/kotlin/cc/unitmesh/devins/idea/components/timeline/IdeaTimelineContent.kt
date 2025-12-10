@@ -97,6 +97,17 @@ fun IdeaTimelineItemView(
             // Agent-generated sketch block (chart, nanodsl, mermaid, etc.)
             IdeaAgentSketchBlockBubble(item, project = project)
         }
+        is TimelineItem.ChatDBStepItem -> {
+            // ChatDB execution step - display as info bubble
+            IdeaInfoBubble(
+                message = "${item.stepType.icon} ${item.stepType.displayName}: ${item.title}",
+                status = item.status.displayName
+            )
+        }
+        is TimelineItem.InfoItem -> {
+            // Info message bubble
+            IdeaInfoBubble(message = item.message)
+        }
     }
 }
 
@@ -252,6 +263,48 @@ fun IdeaEmptyStateMessage(text: String) {
                 color = JewelTheme.globalColors.text.info
             )
         )
+    }
+}
+
+/**
+ * Info bubble for displaying informational messages.
+ */
+@Composable
+fun IdeaInfoBubble(
+    message: String,
+    status: String? = null
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp)
+            .background(
+                JewelTheme.globalColors.panelBackground.copy(alpha = 0.5f),
+                shape = RoundedCornerShape(6.dp)
+            )
+            .padding(8.dp)
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = message,
+                style = JewelTheme.defaultTextStyle.copy(
+                    fontSize = 12.sp,
+                    color = JewelTheme.globalColors.text.info
+                )
+            )
+            if (status != null) {
+                Text(
+                    text = "[$status]",
+                    style = JewelTheme.defaultTextStyle.copy(
+                        fontSize = 10.sp,
+                        color = JewelTheme.globalColors.text.info.copy(alpha = 0.6f)
+                    )
+                )
+            }
+        }
     }
 }
 

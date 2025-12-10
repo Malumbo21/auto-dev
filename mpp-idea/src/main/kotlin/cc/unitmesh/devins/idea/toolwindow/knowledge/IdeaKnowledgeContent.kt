@@ -838,6 +838,65 @@ private fun ChatMessageItem(item: TimelineItem) {
                 }
             }
         }
+
+        is TimelineItem.ChatDBStepItem -> {
+            // ChatDB execution step
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(JewelTheme.globalColors.panelBackground.copy(alpha = 0.5f))
+                    .padding(8.dp)
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = item.stepType.icon,
+                        style = JewelTheme.defaultTextStyle.copy(fontSize = 14.sp)
+                    )
+                    Column {
+                        Text(
+                            text = item.stepType.displayName,
+                            style = JewelTheme.defaultTextStyle.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp
+                            )
+                        )
+                        Text(
+                            text = item.title,
+                            style = JewelTheme.defaultTextStyle.copy(fontSize = 11.sp)
+                        )
+                    }
+                }
+            }
+        }
+
+        is TimelineItem.InfoItem -> {
+            // Info message
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(IdeaAutoDevColors.Blue.c400.copy(alpha = 0.1f))
+                    .padding(8.dp)
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = IdeaComposeIcons.Info,
+                        contentDescription = "Info",
+                        modifier = Modifier.size(16.dp),
+                        tint = IdeaAutoDevColors.Blue.c400
+                    )
+                    Text(
+                        text = item.message,
+                        style = JewelTheme.defaultTextStyle.copy(fontSize = 12.sp)
+                    )
+                }
+            }
+        }
     }
 }
 

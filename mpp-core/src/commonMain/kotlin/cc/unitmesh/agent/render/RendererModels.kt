@@ -139,6 +139,16 @@ sealed class TimelineItem(
     ) : TimelineItem(timestamp, id)
 
     /**
+     * Info item for displaying informational messages (non-error, non-warning).
+     * Used for status updates, progress information, database context, etc.
+     */
+    data class InfoItem(
+        val message: String,
+        override val timestamp: Long = Platform.getCurrentTimestamp(),
+        override val id: String = generateId()
+    ) : TimelineItem(timestamp, id)
+
+    /**
      * Task completion item.
      */
     data class TaskCompleteItem(
@@ -203,6 +213,20 @@ sealed class TimelineItem(
         override val id: String = generateId()
     ) : TimelineItem(timestamp, id)
 
+    /**
+     * ChatDB execution step item for displaying database query execution steps.
+     * Each step can be expanded/collapsed and shows detailed information.
+     */
+    data class ChatDBStepItem(
+        val stepType: ChatDBStepType,
+        val status: ChatDBStepStatus,
+        val title: String,
+        val details: Map<String, Any> = emptyMap(),
+        val error: String? = null,
+        override val timestamp: Long = Platform.getCurrentTimestamp(),
+        override val id: String = generateId()
+    ) : TimelineItem(timestamp, id)
+
     companion object {
         /**
          * Thread-safe counter for generating unique IDs.
@@ -216,5 +240,42 @@ sealed class TimelineItem(
          */
         fun generateId(): String = "${Platform.getCurrentTimestamp()}-${random.nextInt(0, Int.MAX_VALUE)}"
     }
+}
+
+/**
+ * ChatDB execution step types
+ */
+enum class ChatDBStepType(val displayName: String, val icon: String) {
+    FETCH_SCHEMA("Fetch Database Schema", "📊"),
+    SCHEMA_LINKING("Schema Linking", "🔗"),
+    GENERATE_SQL("Generate SQL Query", "🤖"),
+    VALIDATE_SQL("Validate SQL", "✓"),
+    REVISE_SQL("Revise SQL", "🔄"),
+    /** Dry run to validate SQL without executing (uses transaction rollback) */
+    DRY_RUN("Dry Run Validation", "🧪"),
+    /** Waiting for user approval before executing write operation */
+    AWAIT_APPROVAL("Awaiting Approval", "?"),
+    EXECUTE_SQL("Execute SQL Query", "⚡"),
+    /** Execute write operation (INSERT, UPDATE, DELETE, DDL) */
+    EXECUTE_WRITE("Execute Write Operation", "!"),
+    GENERATE_VISUALIZATION("Generate Visualization", "📈"),
+    FINAL_RESULT("Query Result", "✅")
+}
+
+/**
+ * ChatDB execution step status
+ */
+enum class ChatDBStepStatus(val displayName: String) {
+    PENDING("Pending"),
+    IN_PROGRESS("In Progress"),
+    SUCCESS("Success"),
+    WARNING("Warning"),
+    ERROR("Error"),
+    /** User approval is required */
+    AWAITING_APPROVAL("Awaiting Approval"),
+    /** User approved the operation */
+    APPROVED("Approved"),
+    /** User rejected the operation */
+    REJECTED("Rejected")
 }
 
