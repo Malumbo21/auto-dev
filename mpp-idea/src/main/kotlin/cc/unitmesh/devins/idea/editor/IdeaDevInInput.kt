@@ -68,6 +68,7 @@ class IdeaDevInInput(
     
     // Multimodal support
     private val imageUploadManager: IdeaImageUploadManager? = if (onImageUpload != null || onImageUploadBytes != null) {
+        println("🖼️ IdeaDevInInput: Creating ImageUploadManager (upload=${onImageUpload != null}, bytes=${onImageUploadBytes != null}, analysis=${onMultimodalAnalysis != null})")
         IdeaImageUploadManager(
             project = project,
             uploadCallback = onImageUpload,
@@ -83,13 +84,19 @@ class IdeaDevInInput(
                 }
             })
         }
-    } else null
+    } else {
+        println("🖼️ IdeaDevInInput: No multimodal callbacks provided")
+        null
+    }
     
     /** Current multimodal state */
     val multimodalState: IdeaMultimodalState get() = imageUploadManager?.state ?: IdeaMultimodalState()
     
     /** Check if multimodal support is enabled */
     val isMultimodalEnabled: Boolean get() = imageUploadManager != null
+    
+    /** Check if vision analysis is available */
+    val isVisionAnalysisEnabled: Boolean get() = onMultimodalAnalysis != null
 
     // Internal document listener to notify text changes
     private val internalDocumentListener = object : DocumentListener {
@@ -322,8 +329,12 @@ class IdeaDevInInput(
         val inputText = text.trim()
         val state = multimodalState
         
+        println("📤 submitInput called: text='${inputText.take(30)}...', hasImages=${state.hasImages}, allUploaded=${state.allImagesUploaded}")
+        println("   onMultimodalAnalysis=${onMultimodalAnalysis != null}")
+        
         // Check if we can submit
         if (inputText.isEmpty() && !state.hasImages) {
+            println("   ❌ Nothing to submit (no text, no images)")
             return
         }
         
@@ -342,6 +353,7 @@ class IdeaDevInInput(
         // If we have uploaded images and multimodal analysis is enabled, perform analysis first
         if (state.allImagesUploaded && state.hasImages && onMultimodalAnalysis != null) {
             val imageUrls = state.images.mapNotNull { it.uploadedUrl }
+            println("   🔍 Starting vision analysis for ${imageUrls.size} images...")
             
             imageUploadManager?.setAnalyzing(true, "Analyzing ${imageUrls.size} image(s)...")
             
@@ -374,7 +386,8 @@ class IdeaDevInInput(
                 }
             }
         } else if (state.hasImages && state.allImagesUploaded) {
-            // Submit with images but no analysis callback
+            // Submit with images but no analysis callback - this should not happen normally
+            println("   ⚠️ Images uploaded but no analysis callback configured, submitting without analysis")
             editorListeners.multicaster.onSubmitWithMultimodal(
                 inputText,
                 trigger,
@@ -385,6 +398,7 @@ class IdeaDevInInput(
             imageUploadManager?.clearImages()
         } else {
             // No images - standard submit
+            println("   📝 Standard text submit (no images)")
             if (inputText.isNotEmpty()) {
                 editorListeners.multicaster.onSubmit(inputText, trigger)
             }

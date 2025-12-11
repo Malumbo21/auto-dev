@@ -30,6 +30,8 @@
         <projectService serviceImplementation="cc.unitmesh.devins.idea.services.IdeaToolConfigService"/>
         <!-- Project-level service for Omnibar data provider -->
         <projectService serviceImplementation="cc.unitmesh.devins.idea.omnibar.IdeaOmnibarDataProvider"/>
+        <!-- Project-level service for multimodal image upload and vision analysis -->
+        <projectService serviceImplementation="cc.unitmesh.devins.idea.editor.multimodal.IdeaMultimodalService"/>
         <!-- ToolWindow for Agent UI with tab-based navigation (Advanced version) -->
         <toolWindow factoryClass="cc.unitmesh.devins.idea.toolwindow.IdeaAgentToolWindowFactory"
                     id="Xuiper Agents"

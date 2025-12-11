@@ -2,6 +2,7 @@ package cc.unitmesh.devins.idea.editor.multimodal
 
 import cc.unitmesh.config.CloudStorageConfig
 import cc.unitmesh.config.ConfigManager
+import cc.unitmesh.llm.LLMProviderType
 import cc.unitmesh.llm.ModelConfig
 import cc.unitmesh.llm.multimodal.ImageCompressor
 import cc.unitmesh.llm.multimodal.MultimodalLLMService
@@ -37,6 +38,9 @@ import java.io.File
 class IdeaMultimodalService(private val project: Project) : Disposable {
 
     companion object {
+        /** Default vision model name for GLM/ZhiPu */
+        const val VISION_MODEL_NAME = "glm-4.6v"
+        
         fun getInstance(project: Project): IdeaMultimodalService {
             return project.getService(IdeaMultimodalService::class.java)
         }
@@ -46,44 +50,77 @@ class IdeaMultimodalService(private val project: Project) : Disposable {
     private var multimodalLLMService: MultimodalLLMService? = null
     private var cloudStorageConfig: CloudStorageConfig? = null
     private var isInitialized = false
+    
+    /** Current vision model being used */
+    var currentVisionModel: String = VISION_MODEL_NAME
+        private set
 
     /**
      * Initialize the service with configuration.
      * Call this before using the callbacks.
+     * This method blocks until initialization is complete.
      */
     fun initialize() {
         if (isInitialized) return
 
-        // Run blocking since this is typically called from UI thread during setup
-        ApplicationManager.getApplication().executeOnPooledThread {
-            runBlocking {
-                try {
-                    val config = ConfigManager.load()
-                    cloudStorageConfig = config.getCloudStorage()
+        // Synchronous initialization - blocks until complete
+        runBlocking {
+            try {
+                val config = ConfigManager.load()
+                cloudStorageConfig = config.getCloudStorage()
 
-                    // Initialize COS uploader if configured
-                    val cosConfig = cloudStorageConfig
-                    if (cosConfig != null && cosConfig.isConfigured()) {
-                        cosUploader = TencentCosUploader(
-                            secretId = cosConfig.secretId,
-                            secretKey = cosConfig.secretKey,
-                            region = cosConfig.region,
-                            bucket = cosConfig.bucket
-                        )
-                        println("✅ Tencent COS uploader initialized: ${cosConfig.bucket}")
-                    }
-
-                    // Initialize multimodal LLM service
-                    val activeModelConfig = config.getActiveModelConfig()
-                    if (activeModelConfig != null && activeModelConfig.isValid()) {
-                        multimodalLLMService = MultimodalLLMService(activeModelConfig, cosUploader)
-                        println("✅ Multimodal LLM service initialized: ${activeModelConfig.modelName}")
-                    }
-
-                    isInitialized = true
-                } catch (e: Exception) {
-                    println("❌ Failed to initialize IdeaMultimodalService: ${e.message}")
+                // Initialize COS uploader if configured
+                val cosConfig = cloudStorageConfig
+                if (cosConfig != null && cosConfig.isConfigured()) {
+                    cosUploader = TencentCosUploader(
+                        secretId = cosConfig.secretId,
+                        secretKey = cosConfig.secretKey,
+                        region = cosConfig.region,
+                        bucket = cosConfig.bucket
+                    )
+                    println("✅ Tencent COS uploader initialized: ${cosConfig.bucket}")
+                } else {
+                    println("⚠️ Cloud storage not configured - image upload will be disabled")
                 }
+
+                // Initialize multimodal LLM service with vision-capable model
+                // Look for GLM/ZhiPu config specifically, as it's the primary supported vision provider
+                val glmConfig = config.getModelConfigByProvider("GLM") 
+                    ?: config.getModelConfigByProvider("zhipu")
+                    ?: config.getModelConfigByProvider("ZHIPU")
+                
+                println("📋 Looking for GLM/ZhiPu vision config...")
+                if (glmConfig != null) {
+                    println("   Found GLM config with API Key: ${glmConfig.apiKey.take(10)}...")
+                    
+                    // Create vision-specific ModelConfig with glm-4.6v model name
+                    val visionModelConfig = glmConfig.copy(
+                        modelName = VISION_MODEL_NAME  // Force vision model
+                    )
+                    multimodalLLMService = MultimodalLLMService(visionModelConfig, cosUploader)
+                    currentVisionModel = VISION_MODEL_NAME
+                    println("✅ Multimodal LLM service initialized with vision model: ${visionModelConfig.modelName}")
+                } else {
+                    // Fall back to active config if it's GLM
+                    val activeConfig = config.getActiveModelConfig()
+                    if (activeConfig != null && activeConfig.provider == LLMProviderType.GLM) {
+                        val visionModelConfig = activeConfig.copy(modelName = VISION_MODEL_NAME)
+                        multimodalLLMService = MultimodalLLMService(visionModelConfig, cosUploader)
+                        currentVisionModel = VISION_MODEL_NAME
+                        println("✅ Using active GLM config with vision model: ${visionModelConfig.modelName}")
+                    } else {
+                        println("⚠️ No GLM/ZhiPu config found - vision analysis will be disabled")
+                        println("   Hint: Add a GLM/ZhiPu configuration to enable vision analysis")
+                        println("   Available providers: ${config.getAllConfigs().map { it.provider }}")
+                    }
+                }
+
+                isInitialized = true
+                println("✅ IdeaMultimodalService initialized (COS: ${cosUploader != null}, Vision: ${multimodalLLMService != null})")
+            } catch (e: Exception) {
+                println("❌ Failed to initialize IdeaMultimodalService: ${e.message}")
+                e.printStackTrace()
+                isInitialized = true // Mark as initialized to prevent retry loops
             }
         }
     }
@@ -106,22 +143,65 @@ class IdeaMultimodalService(private val project: Project) : Disposable {
 
     /**
      * Create callbacks for use with IdeaDevInInput or IdeaMultimodalInputPanel.
+     * Callbacks check for service availability at CALL time, not creation time.
      */
     fun createCallbacks(): MultimodalCallbacks {
-        if (!isInitialized) initialize()
+        if (!isInitialized) {
+            println("⚠️ IdeaMultimodalService not initialized, initializing now...")
+            initialize()
+        }
+
+        val hasUploader = cosUploader != null
+        val hasVision = multimodalLLMService != null
+        
+        println("📦 Creating multimodal callbacks: upload=$hasUploader, vision=$hasVision")
 
         return MultimodalCallbacks(
-            uploadCallback = if (cosUploader != null) { path, id, onProgress ->
-                uploadImageFromPath(path, onProgress)
-            } else null,
+            // Upload callback - check at call time
+            uploadCallback = { path, id, onProgress ->
+                if (cosUploader != null) {
+                    uploadImageFromPath(path, onProgress)
+                } else {
+                    println("⚠️ Upload callback: cosUploader is null")
+                    IdeaImageUploadResult(success = false, error = "Cloud storage not configured")
+                }
+            },
 
-            uploadBytesCallback = if (cosUploader != null) { bytes, name, mime, id, onProgress ->
-                uploadImageBytes(bytes, name, mime, onProgress)
-            } else null,
+            // Upload bytes callback - check at call time
+            uploadBytesCallback = { bytes, name, mime, id, onProgress ->
+                if (cosUploader != null) {
+                    uploadImageBytes(bytes, name, mime, onProgress)
+                } else {
+                    println("⚠️ Upload bytes callback: cosUploader is null")
+                    IdeaImageUploadResult(success = false, error = "Cloud storage not configured")
+                }
+            },
 
-            analysisCallback = if (multimodalLLMService != null) { urls, prompt, onChunk ->
-                analyzeImages(urls, prompt, onChunk)
-            } else null
+            // Vision analysis callback - ALWAYS created, checks at call time
+            // This is the key fix: don't return null callback, return callback that checks at runtime
+            analysisCallback = { urls, prompt, onChunk ->
+                println("🔍 Vision analysis requested: ${urls.size} images, prompt='${prompt.take(50)}...'")
+                println("   multimodalLLMService available: ${multimodalLLMService != null}")
+                
+                if (multimodalLLMService != null) {
+                    analyzeImages(urls, prompt, onChunk)
+                } else {
+                    // Try to re-initialize if service is not available
+                    println("⚠️ multimodalLLMService is null, attempting re-initialization...")
+                    if (!isInitialized) {
+                        initialize()
+                    }
+                    
+                    if (multimodalLLMService != null) {
+                        println("✅ Re-initialization successful, proceeding with analysis")
+                        analyzeImages(urls, prompt, onChunk)
+                    } else {
+                        println("❌ Vision service still not available after re-init")
+                        onChunk("[Vision analysis unavailable - service not configured]")
+                        null
+                    }
+                }
+            }
         )
     }
 
@@ -289,13 +369,15 @@ class IdeaMultimodalService(private val project: Project) : Disposable {
 
 /**
  * Container for multimodal callbacks.
+ * Note: Callbacks are always non-null now (they check service availability at call time)
  */
 data class MultimodalCallbacks(
-    val uploadCallback: ImageUploadCallback?,
-    val uploadBytesCallback: ImageUploadBytesCallback?,
-    val analysisCallback: MultimodalAnalysisCallback?
+    val uploadCallback: ImageUploadCallback,
+    val uploadBytesCallback: ImageUploadBytesCallback,
+    val analysisCallback: MultimodalAnalysisCallback
 ) {
-    val isUploadConfigured: Boolean get() = uploadCallback != null || uploadBytesCallback != null
-    val isAnalysisConfigured: Boolean get() = analysisCallback != null
+    // These now always return true since callbacks are always provided
+    val isUploadConfigured: Boolean get() = true
+    val isAnalysisConfigured: Boolean get() = true
 }
 

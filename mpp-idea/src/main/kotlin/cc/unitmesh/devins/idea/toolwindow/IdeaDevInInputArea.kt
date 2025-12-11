@@ -232,6 +232,7 @@ class SwingDevInInputArea(
 
         // Get multimodal callbacks if enabled
         val callbacks = multimodalService?.createCallbacks()
+        logger.info("Multimodal callbacks created: ${callbacks != null}, analysis=${callbacks?.isAnalysisConfigured}")
 
         // DevIn Editor (native Swing) with multimodal support
         val editorPanel = JPanel(BorderLayout()).apply {
@@ -239,7 +240,7 @@ class SwingDevInInputArea(
                 project = project,
                 disposable = parentDisposable,
                 showAgent = true,
-                // Multimodal callbacks
+                // Multimodal callbacks - non-nullable when multimodalService is available
                 onImageUpload = callbacks?.uploadCallback,
                 onImageUploadBytes = callbacks?.uploadBytesCallback,
                 onMultimodalAnalysis = callbacks?.analysisCallback,
