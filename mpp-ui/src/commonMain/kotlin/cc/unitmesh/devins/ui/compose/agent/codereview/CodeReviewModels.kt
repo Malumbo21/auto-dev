@@ -31,7 +31,13 @@ data class CodeReviewState(
     // File viewer
     val fileViewerPath: String? = null,
     val fileViewerStartLine: Int? = null,
-    val fileViewerEndLine: Int? = null
+    val fileViewerEndLine: Int? = null,
+    // PR Review Comments
+    val prNumber: Int? = null,
+    val prCommentThreads: Map<String, List<cc.unitmesh.agent.review.PRCommentThread>> = emptyMap(), // Grouped by file path
+    val isLoadingPRComments: Boolean = false,
+    val prCommentsError: String? = null,
+    val expandedThreadId: String? = null // Currently expanded thread ID
 )
 
 /**

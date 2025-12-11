@@ -619,7 +619,14 @@ fun CompactFileDiffItem(
 }
 
 @Composable
-fun DiffHunkView(hunk: DiffHunk) {
+fun DiffHunkView(
+    hunk: DiffHunk,
+    commentThreadsByLine: Map<Int, List<cc.unitmesh.agent.review.PRCommentThread>> = emptyMap(),
+    onThreadClick: ((cc.unitmesh.agent.review.PRCommentThread) -> Unit)? = null,
+    expandedThreadId: String? = null,
+    onResolveThread: ((cc.unitmesh.agent.review.PRCommentThread) -> Unit)? = null,
+    onUnresolveThread: ((cc.unitmesh.agent.review.PRCommentThread) -> Unit)? = null
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -641,7 +648,17 @@ fun DiffHunkView(hunk: DiffHunk) {
         hunk.lines.forEach { line ->
             // Skip HEADER type lines (they're handled above)
             if (line.type != DiffLineType.HEADER) {
-                DiffLineView(line)
+                val lineNumber = line.newLineNumber ?: line.oldLineNumber
+                val threadsForLine = lineNumber?.let { commentThreadsByLine[it] } ?: emptyList()
+
+                DiffLineView(
+                    line = line,
+                    commentThreads = threadsForLine,
+                    onThreadClick = onThreadClick,
+                    expandedThreadId = expandedThreadId,
+                    onResolveThread = onResolveThread,
+                    onUnresolveThread = onUnresolveThread
+                )
             }
         }
     }
@@ -649,7 +666,14 @@ fun DiffHunkView(hunk: DiffHunk) {
 
 
 @Composable
-fun DiffLineView(line: DiffLine) {
+fun DiffLineView(
+    line: DiffLine,
+    commentThreads: List<cc.unitmesh.agent.review.PRCommentThread> = emptyList(),
+    onThreadClick: ((cc.unitmesh.agent.review.PRCommentThread) -> Unit)? = null,
+    expandedThreadId: String? = null,
+    onResolveThread: ((cc.unitmesh.agent.review.PRCommentThread) -> Unit)? = null,
+    onUnresolveThread: ((cc.unitmesh.agent.review.PRCommentThread) -> Unit)? = null
+) {
     val (backgroundColor, textColor, prefix) = when (line.type) {
         DiffLineType.ADDED -> Triple(
             AutoDevColors.Diff.Dark.addedBg,
@@ -676,53 +700,76 @@ fun DiffLineView(line: DiffLine) {
         )
     }
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(backgroundColor)
-            .padding(horizontal = 4.dp, vertical = 1.dp)
-    ) {
-        // Old line number
-        Text(
-            text = line.oldLineNumber?.toString() ?: "",
-            fontFamily = FontFamily.Companion.Monospace,
-            fontSize = 10.sp,
-            color = AutoDevColors.Diff.Dark.lineNumber,
-            modifier = Modifier.width(32.dp),
-            textAlign = TextAlign.End
-        )
+    val hasComments = commentThreads.isNotEmpty()
 
-        Spacer(modifier = Modifier.width(4.dp))
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(backgroundColor)
+                .padding(horizontal = 4.dp, vertical = 1.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Old line number
+            Text(
+                text = line.oldLineNumber?.toString() ?: "",
+                fontFamily = FontFamily.Companion.Monospace,
+                fontSize = 10.sp,
+                color = AutoDevColors.Diff.Dark.lineNumber,
+                modifier = Modifier.width(32.dp),
+                textAlign = TextAlign.End
+            )
 
-        // New line number
-        Text(
-            text = line.newLineNumber?.toString() ?: "",
-            fontFamily = FontFamily.Companion.Monospace,
-            fontSize = 10.sp,
-            color = AutoDevColors.Diff.Dark.lineNumber,
-            modifier = Modifier.width(32.dp),
-            textAlign = TextAlign.End
-        )
+            Spacer(modifier = Modifier.width(4.dp))
 
-        Spacer(modifier = Modifier.width(8.dp))
+            // New line number
+            Text(
+                text = line.newLineNumber?.toString() ?: "",
+                fontFamily = FontFamily.Companion.Monospace,
+                fontSize = 10.sp,
+                color = AutoDevColors.Diff.Dark.lineNumber,
+                modifier = Modifier.width(32.dp),
+                textAlign = TextAlign.End
+            )
 
-        // Line prefix (+/-/ )
-        Text(
-            text = prefix,
-            fontFamily = FontFamily.Companion.Monospace,
-            fontSize = 11.sp,
-            color = textColor,
-            modifier = Modifier.width(12.dp)
-        )
+            Spacer(modifier = Modifier.width(8.dp))
 
-        // Line content
-        Text(
-            text = line.content,
-            fontFamily = FontFamily.Companion.Monospace,
-            fontSize = 11.sp,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(1f)
-        )
+            // Line prefix (+/-/ )
+            Text(
+                text = prefix,
+                fontFamily = FontFamily.Companion.Monospace,
+                fontSize = 11.sp,
+                color = textColor,
+                modifier = Modifier.width(12.dp)
+            )
+
+            // Line content
+            Text(
+                text = line.content,
+                fontFamily = FontFamily.Companion.Monospace,
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f)
+            )
+
+            // PR comment indicator
+            if (hasComments) {
+                cc.unitmesh.devins.ui.compose.agent.codereview.pr.InlinePRCommentIndicator(
+                    threads = commentThreads,
+                    onThreadClick = onThreadClick
+                )
+            }
+        }
+
+        // Expanded comment threads
+        commentThreads.filter { it.id == expandedThreadId }.forEach { thread ->
+            cc.unitmesh.devins.ui.compose.agent.codereview.pr.PRCommentThreadView(
+                thread = thread,
+                modifier = Modifier.padding(start = 80.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
+                onResolve = onResolveThread?.let { { it(thread) } },
+                onUnresolve = onUnresolveThread?.let { { it(thread) } }
+            )
+        }
     }
 }
 

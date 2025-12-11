@@ -52,6 +52,9 @@ open class CodeReviewViewModel(
     // Issue tracker service
     private val issueService = IssueService(workspace.rootPath ?: "")
 
+    // PR Review service (lazy initialized based on repository type)
+    private var prReviewService: cc.unitmesh.agent.review.PRReviewService? = null
+
     // State
     private val _state = MutableStateFlow(CodeReviewState())
     val state: StateFlow<CodeReviewState> = _state.asStateFlow()
@@ -1115,7 +1118,7 @@ open class CodeReviewViewModel(
                         issueCacheAge = result.cacheAgeDisplay
                     )
                 }
-                
+
                 if (result.fromCache) {
                     AutoDevLogger.debug("CodeReviewViewModel") {
                         "Loaded cached issue for commit ${commit.shortHash} (cached ${result.cacheAgeDisplay})"
@@ -1134,7 +1137,7 @@ open class CodeReviewViewModel(
             }
         }
     }
-    
+
     /**
      * Force refresh issue for a specific commit (bypasses cache)
      */
@@ -1213,6 +1216,165 @@ open class CodeReviewViewModel(
     open fun dispose() {
         currentJob?.cancel()
         scope.cancel()
+    }
+
+    // ==================== PR Review Comments ====================
+
+    /**
+     * Initialize PR review service based on repository URL
+     * @param token Optional authentication token
+     */
+    suspend fun initializePRReviewService(token: String? = null) {
+        try {
+            val remoteUrl = cachedRemoteUrl ?: gitOps.getRemoteUrl("origin")
+            if (remoteUrl == null) {
+                AutoDevLogger.warn("CodeReviewViewModel") {
+                    "Cannot initialize PR review service: no remote URL"
+                }
+                return
+            }
+
+            prReviewService = cc.unitmesh.agent.review.PRReviewServiceFactory.createFromUrl(remoteUrl, token)
+
+            AutoDevLogger.info("CodeReviewViewModel") {
+                "PR review service initialized: ${prReviewService?.getPlatformType() ?: "none"}"
+            }
+        } catch (e: Exception) {
+            AutoDevLogger.error("CodeReviewViewModel") {
+                "Failed to initialize PR review service: ${e.message}"
+            }
+        }
+    }
+
+    /**
+     * Set PR number for loading comments
+     */
+    fun setPRNumber(prNumber: Int) {
+        updateState { it.copy(prNumber = prNumber) }
+        scope.launch {
+            loadPRComments(prNumber)
+        }
+    }
+
+    /**
+     * Load PR comments for a specific PR
+     */
+    suspend fun loadPRComments(prNumber: Int) {
+        val service = prReviewService
+        if (service == null || !service.isConfigured()) {
+            AutoDevLogger.warn("CodeReviewViewModel") {
+                "PR review service not configured, cannot load comments"
+            }
+            updateState {
+                it.copy(prCommentsError = "PR review service not configured")
+            }
+            return
+        }
+
+        updateState { it.copy(isLoadingPRComments = true, prCommentsError = null) }
+
+        try {
+            val threads = service.getCommentThreads(prNumber)
+
+            // Group threads by file path
+            val threadsByFile = threads.groupBy { it.location.filePath }
+
+            updateState {
+                it.copy(
+                    prCommentThreads = threadsByFile,
+                    isLoadingPRComments = false,
+                    prNumber = prNumber
+                )
+            }
+
+            AutoDevLogger.info("CodeReviewViewModel") {
+                "Loaded ${threads.size} PR comment threads for PR #$prNumber"
+            }
+        } catch (e: Exception) {
+            AutoDevLogger.error("CodeReviewViewModel") {
+                "Failed to load PR comments: ${e.message}"
+            }
+            updateState {
+                it.copy(
+                    isLoadingPRComments = false,
+                    prCommentsError = "Failed to load comments: ${e.message}"
+                )
+            }
+        }
+    }
+
+    /**
+     * Get comment threads for a specific file
+     */
+    fun getCommentThreadsForFile(filePath: String): List<cc.unitmesh.agent.review.PRCommentThread> {
+        return currentState.prCommentThreads[filePath] ?: emptyList()
+    }
+
+    /**
+     * Get comment threads for a specific line in a file
+     */
+    fun getCommentThreadsForLine(filePath: String, lineNumber: Int): List<cc.unitmesh.agent.review.PRCommentThread> {
+        return getCommentThreadsForFile(filePath).filter {
+            it.location.lineNumber == lineNumber
+        }
+    }
+
+    /**
+     * Toggle expanded state of a comment thread
+     */
+    fun toggleThreadExpanded(threadId: String) {
+        updateState {
+            it.copy(
+                expandedThreadId = if (it.expandedThreadId == threadId) null else threadId
+            )
+        }
+    }
+
+    /**
+     * Resolve a comment thread
+     */
+    fun resolveThread(thread: cc.unitmesh.agent.review.PRCommentThread) {
+        val prNumber = currentState.prNumber ?: return
+        val service = prReviewService ?: return
+
+        scope.launch {
+            try {
+                val result = service.resolveThread(prNumber, thread.id)
+                if (result.success) {
+                    // Reload comments to get updated state
+                    loadPRComments(prNumber)
+                } else {
+                    AutoDevLogger.warn("CodeReviewViewModel") {
+                        "Failed to resolve thread: ${result.error}"
+                    }
+                }
+            } catch (e: Exception) {
+                AutoDevLogger.error("CodeReviewViewModel") {
+                    "Error resolving thread: ${e.message}"
+                }
+            }
+        }
+    }
+
+    /**
+     * Unresolve a comment thread
+     */
+    fun unresolveThread(thread: cc.unitmesh.agent.review.PRCommentThread) {
+        val prNumber = currentState.prNumber ?: return
+        val service = prReviewService ?: return
+
+        scope.launch {
+            try {
+                val result = service.unresolveThread(prNumber, thread.id)
+                if (result.success) {
+                    loadPRComments(prNumber)
+                }
+            } catch (e: Exception) {
+                AutoDevLogger.error("CodeReviewViewModel") {
+                    "Error unresolving thread: ${e.message}"
+                }
+            }
+        }
     }
 
     companion object {
