@@ -46,6 +46,7 @@ import cc.unitmesh.devins.ui.compose.editor.multimodal.ImageAttachmentBar
 import cc.unitmesh.devins.ui.compose.editor.multimodal.ImagePreviewDialog
 import cc.unitmesh.devins.ui.compose.editor.multimodal.ImageUploadManager
 import cc.unitmesh.config.ConfigManager
+import cc.unitmesh.devins.ui.platform.createClipboardImageReader
 import cc.unitmesh.devins.ui.platform.createFileChooser
 import cc.unitmesh.devins.workspace.WorkspaceManager
 import cc.unitmesh.llm.KoogLLMService
@@ -94,6 +95,16 @@ fun DevInEditorInput(
      */
     onImageUpload: (suspend (imagePath: String, imageId: String, onProgress: (Int) -> Unit) -> cc.unitmesh.devins.ui.compose.editor.multimodal.ImageUploadResult)? = null,
     /**
+     * Called when an image from bytes (e.g., pasted from clipboard) needs to be uploaded.
+     * @param imageBytes Image data as bytes
+     * @param fileName Suggested file name
+     * @param mimeType MIME type of the image
+     * @param imageId ID of the AttachedImage for status updates
+     * @param onProgress Callback for upload progress updates (0-100)
+     * @return ImageUploadResult with URL, sizes, and status
+     */
+    onImageUploadBytes: (suspend (imageBytes: ByteArray, fileName: String, mimeType: String, imageId: String, onProgress: (Int) -> Unit) -> cc.unitmesh.devins.ui.compose.editor.multimodal.ImageUploadResult)? = null,
+    /**
      * Called to perform vision analysis on uploaded images.
      * @param imageUrls List of uploaded image URLs
      * @param prompt User's prompt text
@@ -136,10 +147,11 @@ fun DevInEditorInput(
     val scope = rememberCoroutineScope()
 
     // Image upload manager - handles all image upload state and operations
-    val imageUploadManager = remember(scope, onImageUpload) {
+    val imageUploadManager = remember(scope, onImageUpload, onImageUploadBytes) {
         ImageUploadManager(
             scope = scope,
             uploadCallback = onImageUpload,
+            uploadBytesCallback = onImageUploadBytes,
             onError = { error -> renderer?.renderError(error) }
         )
     }
@@ -536,6 +548,31 @@ fun DevInEditorInput(
             event.key == Key.P && event.isCtrlPressed -> {
                 enhanceCurrentInput()
                 true
+            }
+
+            // Ctrl+V / Cmd+V 粘贴图片
+            event.key == Key.V && (event.isCtrlPressed || event.isMetaPressed) -> {
+                // Check for image in clipboard
+                if (onImageUploadBytes != null) {
+                    val clipboardReader = createClipboardImageReader()
+                    val clipboardImage = clipboardReader.readImage()
+                    if (clipboardImage != null) {
+                        // Add image from clipboard bytes
+                        imageUploadManager.addImageFromBytes(
+                            bytes = clipboardImage.bytes,
+                            mimeType = clipboardImage.mimeType,
+                            suggestedName = clipboardImage.suggestedName
+                        )
+                        // Return true to consume the event only if we handled an image
+                        true
+                    } else {
+                        // No image in clipboard, let normal text paste continue
+                        false
+                    }
+                } else {
+                    // Image upload not configured, let normal paste continue
+                    false
+                }
             }
 
             // 其他键不处理，让系统和输入法处理

@@ -16,9 +16,21 @@ actual class ImageUploader actual constructor(private val config: CloudStorageCo
             error = "Image upload is not yet supported on Android. Coming soon!"
         )
     }
-    
+
+    actual suspend fun uploadImageBytes(
+        imageBytes: ByteArray,
+        fileName: String,
+        mimeType: String,
+        onProgress: (Int) -> Unit
+    ): ImageUploadResult {
+        return ImageUploadResult(
+            success = false,
+            error = "Image upload is not yet supported on Android. Coming soon!"
+        )
+    }
+
     actual fun isConfigured(): Boolean = false
-    
+
     actual fun close() {}
 }
 
@@ -36,7 +48,7 @@ actual class VisionAnalysisService actual constructor(
     ): String {
         throw UnsupportedOperationException("Vision analysis is not yet supported on Android")
     }
-    
+
     actual fun close() {}
 }
 

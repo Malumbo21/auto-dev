@@ -224,15 +224,24 @@ object ImageCompressor {
 
         when (format) {
             OutputFormat.JPEG -> {
+                // JPEG doesn't support alpha channel, so we need to convert ARGB to RGB
+                val rgbImage = if (image.type == BufferedImage.TYPE_INT_ARGB ||
+                                   image.type == BufferedImage.TYPE_4BYTE_ABGR ||
+                                   image.colorModel.hasAlpha()) {
+                    convertToRgb(image)
+                } else {
+                    image
+                }
+
                 val writer = ImageIO.getImageWritersByFormatName("jpeg").next()
                 val param = writer.defaultWriteParam.apply {
                     compressionMode = ImageWriteParam.MODE_EXPLICIT
                     compressionQuality = quality
                 }
-                
+
                 val ios = ImageIO.createImageOutputStream(baos)
                 writer.output = ios
-                writer.write(null, IIOImage(image, null, null), param)
+                writer.write(null, IIOImage(rgbImage, null, null), param)
                 ios.close()
                 writer.dispose()
             }
@@ -243,6 +252,25 @@ object ImageCompressor {
         }
 
         return baos.toByteArray()
+    }
+
+    /**
+     * Convert an image with alpha channel to RGB format.
+     * This is necessary for JPEG encoding which doesn't support transparency.
+     */
+    private fun convertToRgb(source: BufferedImage): BufferedImage {
+        val rgbImage = BufferedImage(source.width, source.height, BufferedImage.TYPE_INT_RGB)
+        val g2d = rgbImage.createGraphics()
+
+        // Fill with white background (for transparent areas)
+        g2d.color = java.awt.Color.WHITE
+        g2d.fillRect(0, 0, source.width, source.height)
+
+        // Draw the original image on top
+        g2d.drawImage(source, 0, 0, null)
+        g2d.dispose()
+
+        return rgbImage
     }
 
     /**

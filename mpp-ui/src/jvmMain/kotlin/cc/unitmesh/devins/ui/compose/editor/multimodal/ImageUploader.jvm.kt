@@ -106,6 +106,95 @@ actual class ImageUploader actual constructor(private val config: CloudStorageCo
         }
     }
 
+    actual suspend fun uploadImageBytes(
+        imageBytes: ByteArray,
+        fileName: String,
+        mimeType: String,
+        onProgress: (Int) -> Unit
+    ): ImageUploadResult = withContext(Dispatchers.IO) {
+        if (cosUploader == null) {
+            return@withContext ImageUploadResult(
+                success = false,
+                error = "Cloud storage not configured"
+            )
+        }
+
+        try {
+            val originalSize = imageBytes.size.toLong()
+            onProgress(10)
+
+            // Determine extension from mimeType or fileName
+            val extension = when {
+                mimeType.contains("jpeg") || mimeType.contains("jpg") -> "jpg"
+                mimeType.contains("png") -> "png"
+                mimeType.contains("gif") -> "gif"
+                mimeType.contains("webp") -> "webp"
+                else -> fileName.substringAfterLast('.', "png")
+            }
+
+            // Create temporary file from bytes
+            val tempInputFile = File.createTempFile("pasted_", ".$extension")
+            tempInputFile.writeBytes(imageBytes)
+            tempInputFile.deleteOnExit()
+
+            onProgress(20)
+
+            // Compress image using ImageCompressor
+            val compressionResult = ImageCompressor.compress(tempInputFile, ImageCompressor.Config.BALANCED)
+
+            onProgress(40)
+
+            println("Pasted image compressed: ${originalSize / 1024}KB -> ${compressionResult.compressedSize / 1024}KB")
+
+            // Create temporary file with compressed image
+            val compressedExtension = "jpg" // BALANCED uses JPEG
+            val tempCompressedFile = File.createTempFile("compressed_pasted_", ".$compressedExtension")
+            tempCompressedFile.writeBytes(compressionResult.bytes)
+            tempCompressedFile.deleteOnExit()
+
+            onProgress(60)
+
+            // Generate object key
+            val timestamp = System.currentTimeMillis()
+            val uuid = UUID.randomUUID().toString().substring(0, 8)
+            val baseName = fileName.substringBeforeLast('.').ifEmpty { "pasted_image" }
+            val objectKey = "multimodal/$timestamp/${uuid}_$baseName.$compressedExtension"
+
+            // Upload to COS
+            val uploadResult = cosUploader.uploadImage(tempCompressedFile, objectKey)
+
+            onProgress(90)
+
+            // Clean up temp files
+            tempInputFile.delete()
+            tempCompressedFile.delete()
+
+            onProgress(100)
+
+            uploadResult.fold(
+                onSuccess = { url ->
+                    ImageUploadResult(
+                        success = true,
+                        url = url,
+                        originalSize = originalSize,
+                        compressedSize = compressionResult.compressedSize
+                    )
+                },
+                onFailure = { e ->
+                    ImageUploadResult(
+                        success = false,
+                        error = e.message ?: "Upload failed"
+                    )
+                }
+            )
+        } catch (e: Exception) {
+            ImageUploadResult(
+                success = false,
+                error = e.message ?: "Upload failed"
+            )
+        }
+    }
+
     actual fun isConfigured(): Boolean = config.isConfigured() && cosUploader != null
 
     actual fun close() {

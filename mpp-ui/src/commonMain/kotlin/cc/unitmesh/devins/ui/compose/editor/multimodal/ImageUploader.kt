@@ -28,12 +28,28 @@ expect class ImageUploader(config: CloudStorageConfig) {
         imagePath: String,
         onProgress: (Int) -> Unit = {}
     ): ImageUploadResult
-    
+
+    /**
+     * Upload an image from bytes to cloud storage.
+     * Used for pasted images from clipboard.
+     * @param imageBytes Image data as bytes
+     * @param fileName Suggested file name
+     * @param mimeType MIME type of the image
+     * @param onProgress Progress callback (0-100)
+     * @return Upload result with URL or error
+     */
+    suspend fun uploadImageBytes(
+        imageBytes: ByteArray,
+        fileName: String,
+        mimeType: String = "image/png",
+        onProgress: (Int) -> Unit = {}
+    ): ImageUploadResult
+
     /**
      * Check if the uploader is properly configured.
      */
     fun isConfigured(): Boolean
-    
+
     /**
      * Close and release resources.
      */
@@ -59,7 +75,7 @@ expect class VisionAnalysisService(
         prompt: String,
         onChunk: (String) -> Unit = {}
     ): String
-    
+
     /**
      * Close and release resources.
      */

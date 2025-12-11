@@ -254,6 +254,20 @@ fun AgentChatInterface(
                                         )
                                     }
                                 },
+                                onImageUploadBytes = if (imageUploader?.isConfigured() == true) {
+                                    { imageBytes, fileName, mimeType, _, onProgress ->
+                                        imageUploader!!.uploadImageBytes(imageBytes, fileName, mimeType, onProgress)
+                                    }
+                                } else {
+                                    // Show config dialog when trying to upload without config
+                                    { _, _, _, _, _ ->
+                                        showCloudStorageDialog = true
+                                        cc.unitmesh.devins.ui.compose.editor.multimodal.ImageUploadResult(
+                                            success = false,
+                                            error = "Please configure cloud storage first"
+                                        )
+                                    }
+                                },
                                 onMultimodalAnalysis = if (visionService != null) {
                                     { imageUrls, prompt, onChunk ->
                                         visionService!!.analyzeImages(imageUrls, prompt, onChunk)
@@ -430,6 +444,20 @@ fun AgentChatInterface(
                 } else {
                     // Show config dialog when trying to upload without config
                     { _, _, _ ->
+                        showCloudStorageDialog = true
+                        cc.unitmesh.devins.ui.compose.editor.multimodal.ImageUploadResult(
+                            success = false,
+                            error = "Please configure cloud storage first"
+                        )
+                    }
+                },
+                onImageUploadBytes = if (imageUploader?.isConfigured() == true) {
+                    { imageBytes, fileName, mimeType, _, onProgress ->
+                        imageUploader!!.uploadImageBytes(imageBytes, fileName, mimeType, onProgress)
+                    }
+                } else {
+                    // Show config dialog when trying to upload without config
+                    { _, _, _, _, _ ->
                         showCloudStorageDialog = true
                         cc.unitmesh.devins.ui.compose.editor.multimodal.ImageUploadResult(
                             success = false,

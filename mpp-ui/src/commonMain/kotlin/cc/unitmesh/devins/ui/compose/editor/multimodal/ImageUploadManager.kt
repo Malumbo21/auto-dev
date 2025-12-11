@@ -17,6 +17,7 @@ import kotlinx.coroutines.launch
 class ImageUploadManager(
     private val scope: CoroutineScope,
     private val uploadCallback: (suspend (imagePath: String, imageId: String, onProgress: (Int) -> Unit) -> ImageUploadResult)? = null,
+    private val uploadBytesCallback: (suspend (imageBytes: ByteArray, fileName: String, mimeType: String, imageId: String, onProgress: (Int) -> Unit) -> ImageUploadResult)? = null,
     private val onError: ((String) -> Unit)? = null
 ) {
     private val _state = MutableStateFlow(MultimodalState())
@@ -55,6 +56,67 @@ class ImageUploadManager(
             scope.launch {
                 uploadImage(newImage)
             }
+        }
+    }
+
+    /**
+     * Add an image from bytes (e.g., pasted from clipboard) and start uploading it immediately.
+     * Uses StateFlow.update() for atomic state updates.
+     */
+    fun addImageFromBytes(bytes: ByteArray, mimeType: String, suggestedName: String) {
+        // Create AttachedImage from bytes
+        val image = AttachedImage.fromBytes(bytes, mimeType, suggestedName)
+        val newImage = image.copy(uploadStatus = ImageUploadStatus.PENDING)
+        var shouldUpload = false
+
+        _state.update { current ->
+            if (!current.canAddMoreImages) {
+                current // Return unchanged if can't add more
+            } else {
+                shouldUpload = true
+                current.copy(images = current.images + newImage)
+            }
+        }
+
+        // Start upload if bytes callback is available and image was added
+        if (shouldUpload && uploadBytesCallback != null) {
+            scope.launch {
+                uploadImageBytes(newImage, bytes, mimeType, suggestedName)
+            }
+        }
+    }
+
+    /**
+     * Upload an image from bytes to cloud storage.
+     * All state updates use StateFlow.update() for atomic operations.
+     */
+    private suspend fun uploadImageBytes(image: AttachedImage, bytes: ByteArray, mimeType: String, fileName: String) {
+        if (uploadBytesCallback == null) return
+
+        val imageId = image.id
+        updateStatus(imageId, ImageUploadStatus.COMPRESSING)
+
+        try {
+            // Update status to uploading
+            updateStatus(imageId, ImageUploadStatus.UPLOADING)
+
+            // Perform upload with progress callback
+            val result = uploadBytesCallback.invoke(bytes, fileName, mimeType, imageId) { progress ->
+                // Update progress, only if still uploading
+                updateProgress(imageId, progress)
+            }
+
+            if (result.success && result.url != null) {
+                // Update to completed with URL
+                updateToCompleted(imageId, result)
+                println("Pasted image uploaded: ${result.url}")
+            } else {
+                throw Exception(result.error ?: "Upload failed")
+            }
+
+        } catch (e: Exception) {
+            updateToFailed(imageId, e.message ?: "Upload failed")
+            onError?.invoke("Image upload failed: ${e.message}")
         }
     }
 

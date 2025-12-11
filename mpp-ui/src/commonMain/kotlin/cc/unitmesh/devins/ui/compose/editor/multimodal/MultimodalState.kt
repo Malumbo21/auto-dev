@@ -120,6 +120,19 @@ data class AttachedImage(
                 mimeType = mimeType
             )
         }
+
+        /**
+         * Create an AttachedImage from bytes (e.g., pasted from clipboard).
+         */
+        fun fromBytes(bytes: ByteArray, mimeType: String, suggestedName: String): AttachedImage {
+            return AttachedImage(
+                name = suggestedName,
+                path = null,
+                bytes = bytes,
+                mimeType = mimeType,
+                originalSize = bytes.size.toLong()
+            )
+        }
     }
 }
 
