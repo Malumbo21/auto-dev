@@ -1,14 +1,11 @@
 package cc.unitmesh.devins.ui.compose.editor.multimodal
 
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import kotlin.jvm.Synchronized
 
 /**
  * Manages image upload state and operations.
@@ -36,19 +33,25 @@ class ImageUploadManager(
     fun isUploadConfigured(): Boolean = uploadCallback != null
 
     /**
-     * Add an image and start uploading it immediately
+     * Add an image and start uploading it immediately.
+     * Uses StateFlow.update() for atomic state updates.
      */
-    @Synchronized
     fun addImageAndUpload(image: AttachedImage) {
-        val current = _state.value
-        if (!current.canAddMoreImages) return
-
-        // Add image with PENDING status
+        // Add image with PENDING status using atomic update
         val newImage = image.copy(uploadStatus = ImageUploadStatus.PENDING)
-        _state.value = current.copy(images = current.images + newImage)
+        var shouldUpload = false
 
-        // Start upload if callback is available
-        if (uploadCallback != null && image.path != null) {
+        _state.update { current ->
+            if (!current.canAddMoreImages) {
+                current // Return unchanged if can't add more
+            } else {
+                shouldUpload = true
+                current.copy(images = current.images + newImage)
+            }
+        }
+
+        // Start upload if callback is available and image was added
+        if (shouldUpload && uploadCallback != null && image.path != null) {
             scope.launch {
                 uploadImage(newImage)
             }
@@ -56,34 +59,36 @@ class ImageUploadManager(
     }
 
     /**
-     * Remove an image from the state
+     * Remove an image from the state.
+     * Uses StateFlow.update() for atomic state updates.
      */
-    @Synchronized
     fun removeImage(imageId: String) {
-        val current = _state.value
-        _state.value = current.copy(images = current.images.filter { it.id != imageId })
+        _state.update { current ->
+            current.copy(images = current.images.filter { it.id != imageId })
+        }
     }
 
     /**
-     * Retry uploading a failed image
+     * Retry uploading a failed image.
+     * Uses StateFlow.update() for atomic state updates.
      */
-    @Synchronized
     fun retryUpload(image: AttachedImage) {
         if (image.path == null) return
 
-        // Reset status to PENDING
-        val current = _state.value
-        _state.value = current.copy(
-            images = current.images.map { img ->
-                if (img.id == image.id) {
-                    img.copy(
-                        uploadStatus = ImageUploadStatus.PENDING,
-                        uploadError = null,
-                        uploadProgress = 0
-                    )
-                } else img
-            }
-        )
+        // Reset status to PENDING using atomic update
+        _state.update { current ->
+            current.copy(
+                images = current.images.map { img ->
+                    if (img.id == image.id) {
+                        img.copy(
+                            uploadStatus = ImageUploadStatus.PENDING,
+                            uploadError = null,
+                            uploadProgress = 0
+                        )
+                    } else img
+                }
+            )
+        }
 
         scope.launch {
             uploadImage(image)
@@ -91,64 +96,64 @@ class ImageUploadManager(
     }
 
     /**
-     * Clear all images
+     * Clear all images.
+     * Uses StateFlow.update() for atomic state updates.
      */
-    @Synchronized
     fun clearImages() {
         _state.value = MultimodalState()
     }
 
     /**
-     * Set analysis state
+     * Set analysis state.
+     * Uses StateFlow.update() for atomic state updates.
      */
-    @Synchronized
     fun setAnalyzing(isAnalyzing: Boolean, progress: String? = null) {
-        val current = _state.value
-        _state.value = current.copy(
-            isAnalyzing = isAnalyzing,
-            analysisProgress = progress
-        )
+        _state.update { current ->
+            current.copy(
+                isAnalyzing = isAnalyzing,
+                analysisProgress = progress
+            )
+        }
     }
 
     /**
-     * Set analysis result
+     * Set analysis result.
+     * Uses StateFlow.update() for atomic state updates.
      */
-    @Synchronized
     fun setAnalysisResult(result: String?, error: String? = null) {
-        val current = _state.value
-        _state.value = current.copy(
-            isAnalyzing = false,
-            analysisProgress = null,
-            analysisResult = result,
-            analysisError = error
-        )
+        _state.update { current ->
+            current.copy(
+                isAnalyzing = false,
+                analysisProgress = null,
+                analysisResult = result,
+                analysisError = error
+            )
+        }
     }
 
     /**
-     * Update analysis progress with streaming content
+     * Update analysis progress with streaming content.
+     * Uses StateFlow.update() for atomic state updates.
      */
-    @Synchronized
     fun updateAnalysisProgress(progress: String) {
-        val current = _state.value
-        _state.value = current.copy(
-            analysisProgress = progress
-        )
+        _state.update { current ->
+            current.copy(analysisProgress = progress)
+        }
     }
 
     /**
-     * Set the vision model to use for analysis
+     * Set the vision model to use for analysis.
+     * Uses StateFlow.update() for atomic state updates.
      */
-    @Synchronized
     fun setVisionModel(model: String) {
-        val current = _state.value
-        _state.value = current.copy(
-            visionModel = model
-        )
+        _state.update { current ->
+            current.copy(visionModel = model)
+        }
     }
 
     /**
      * Upload a single image to cloud storage.
-     * All state updates use direct assignment with synchronized blocks.
+     * All state updates use StateFlow.update() for atomic operations.
      */
     private suspend fun uploadImage(image: AttachedImage) {
         if (uploadCallback == null || image.path == null) return
@@ -180,76 +185,75 @@ class ImageUploadManager(
         }
     }
 
-    @Synchronized
     private fun updateProgress(imageId: String, progress: Int) {
-        val current = _state.value
-        _state.value = current.copy(
-            images = current.images.map { img ->
-                if (img.id == imageId &&
-                    (img.uploadStatus == ImageUploadStatus.UPLOADING ||
-                     img.uploadStatus == ImageUploadStatus.COMPRESSING)) {
-                    img.copy(uploadProgress = progress)
-                } else img
-            }
-        )
+        _state.update { current ->
+            current.copy(
+                images = current.images.map { img ->
+                    if (img.id == imageId &&
+                        (img.uploadStatus == ImageUploadStatus.UPLOADING ||
+                         img.uploadStatus == ImageUploadStatus.COMPRESSING)) {
+                        img.copy(uploadProgress = progress)
+                    } else img
+                }
+            )
+        }
     }
 
-    @Synchronized
     private fun updateToCompleted(imageId: String, result: ImageUploadResult) {
-        val current = _state.value
-        _state.value = current.copy(
-            images = current.images.map { img ->
-                if (img.id == imageId) {
-                    img.copy(
-                        uploadStatus = ImageUploadStatus.COMPLETED,
-                        uploadedUrl = result.url,
-                        uploadProgress = 100,
-                        originalSize = result.originalSize,
-                        compressedSize = result.compressedSize
-                    )
-                } else img
-            }
-        )
+        _state.update { current ->
+            current.copy(
+                images = current.images.map { img ->
+                    if (img.id == imageId) {
+                        img.copy(
+                            uploadStatus = ImageUploadStatus.COMPLETED,
+                            uploadedUrl = result.url,
+                            uploadProgress = 100,
+                            originalSize = result.originalSize,
+                            compressedSize = result.compressedSize
+                        )
+                    } else img
+                }
+            )
+        }
     }
 
-    @Synchronized
     private fun updateToFailed(imageId: String, error: String) {
-        val current = _state.value
-        _state.value = current.copy(
-            images = current.images.map { img ->
-                if (img.id == imageId) {
-                    img.copy(
-                        uploadStatus = ImageUploadStatus.FAILED,
-                        uploadError = error
-                    )
-                } else img
-            }
-        )
+        _state.update { current ->
+            current.copy(
+                images = current.images.map { img ->
+                    if (img.id == imageId) {
+                        img.copy(
+                            uploadStatus = ImageUploadStatus.FAILED,
+                            uploadError = error
+                        )
+                    } else img
+                }
+            )
+        }
     }
 
     /**
      * Update image status atomically.
      * Prevents downgrading from terminal states unless retrying.
-     * Uses synchronized block to ensure thread safety.
+     * Uses StateFlow.update() for atomic state updates.
      */
-    @Synchronized
     private fun updateStatus(imageId: String, status: ImageUploadStatus) {
-        val current = _state.value
-        val newState = current.copy(
-            images = current.images.map { img ->
-                if (img.id == imageId) {
-                    val isTerminal = img.uploadStatus == ImageUploadStatus.COMPLETED ||
-                        img.uploadStatus == ImageUploadStatus.FAILED
-                    val isRetry = status == ImageUploadStatus.PENDING
-                    if (isTerminal && !isRetry) {
-                        img // Don't update terminal states
-                    } else {
-                        img.copy(uploadStatus = status)
-                    }
-                } else img
-            }
-        )
-        _state.value = newState
+        _state.update { current ->
+            current.copy(
+                images = current.images.map { img ->
+                    if (img.id == imageId) {
+                        val isTerminal = img.uploadStatus == ImageUploadStatus.COMPLETED ||
+                            img.uploadStatus == ImageUploadStatus.FAILED
+                        val isRetry = status == ImageUploadStatus.PENDING
+                        if (isTerminal && !isRetry) {
+                            img // Don't update terminal states
+                        } else {
+                            img.copy(uploadStatus = status)
+                        }
+                    } else img
+                }
+            )
+        }
     }
 }
 

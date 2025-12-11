@@ -142,9 +142,6 @@ kotlin {
                 // Rich text editor for Compose
                 implementation("com.mohamedrejeb.richeditor:richeditor-compose:1.0.0-rc13")
 
-                // ComposeCharts - Cross-platform chart library
-                implementation("io.github.ehsannarmani:compose-charts:0.2.0")
-
                 // Coroutines
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
 
@@ -183,6 +180,9 @@ kotlin {
                 implementation(project(":mpp-viewer-web"))
                 implementation(project(":xuiper-ui"))
                 implementation(compose.desktop.currentOs)
+
+                // ComposeCharts - Cross-platform chart library (JVM)
+                implementation("io.github.ehsannarmani:compose-charts:0.2.0")
 
                 // Lets-Plot Compose (Desktop only - macOS, Windows, Linux)
                 // https://github.com/JetBrains/lets-plot-compose
@@ -251,6 +251,9 @@ kotlin {
                 implementation("androidx.appcompat:appcompat:1.6.1")
                 implementation("androidx.core:core-ktx:1.17.0")
 
+                // ComposeCharts - Cross-platform chart library (Android)
+                implementation("io.github.ehsannarmani:compose-charts:0.2.0")
+
                 // Lets-Plot Compose (Android)
                 // https://github.com/JetBrains/lets-plot-compose
                 implementation("org.jetbrains.lets-plot:lets-plot-kotlin-kernel:4.12.0")
@@ -292,6 +295,9 @@ kotlin {
                 api(compose.foundation)
                 api(compose.material3)
                 api(compose.ui)
+
+                // ComposeCharts - Cross-platform chart library (iOS)
+                implementation("io.github.ehsannarmani:compose-charts:0.2.0")
 
                 // SQLDelight - iOS SQLite driver
                 implementation("app.cash.sqldelight:native-driver:2.1.0")
@@ -335,6 +341,9 @@ kotlin {
                 implementation(devNpm("copy-webpack-plugin", "12.0.2"))
 
                 implementation(npm("wasm-git", "0.0.13"))
+
+                // ComposeCharts - Cross-platform chart library (WasmJS)
+                implementation("io.github.ehsannarmani:compose-charts:0.2.0")
 
                 // SQLDelight - Web Worker driver (same as JS)
                 implementation(npm("sql.js", "1.8.0"))
