@@ -1,6 +1,7 @@
 package cc.unitmesh.devins.ui.compose.agent
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -248,7 +249,7 @@ fun RenderMessageItem(
         is TimelineItem.InfoItem -> {
             InfoMessageItem(message = timelineItem.message)
         }
-        
+
         is TimelineItem.MultimodalAnalysisItem -> {
             MultimodalAnalysisItemView(
                 item = timelineItem,
@@ -311,6 +312,12 @@ expect fun LiveTerminalItem(
     output: String? = null
 )
 
+/**
+ * Image analysis section delimiter - used to detect and collapse image analysis results
+ */
+private const val IMAGE_ANALYSIS_START = "########################################\n# Image Analysis Result"
+private const val IMAGE_ANALYSIS_END = "# End of Image Analysis\n########################################"
+
 @Composable
 fun MessageItem(
     message: Message,
@@ -336,11 +343,21 @@ fun MessageItem(
                             modifier = Modifier.fillMaxWidth()
                         )
                     } else {
-                        Text(
-                            text = message.content,
-                            fontFamily = getUtf8FontFamily(),
-                            style = MaterialTheme.typography.bodyMedium
-                        )
+                        // Check if message contains image analysis result
+                        val analysisStartIndex = message.content.indexOf(IMAGE_ANALYSIS_START)
+                        if (analysisStartIndex > 0) {
+                            // User message with image analysis - show collapsible
+                            UserMessageWithImageAnalysis(
+                                content = message.content,
+                                analysisStartIndex = analysisStartIndex
+                            )
+                        } else {
+                            Text(
+                                text = message.content,
+                                fontFamily = getUtf8FontFamily(),
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
                     }
 
                     if (!isUser && tokenInfo != null && tokenInfo.totalTokens > 0) {
@@ -352,6 +369,100 @@ fun MessageItem(
                             fontFamily = FontFamily.Monospace
                         )
                     }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * User message with collapsible image analysis result section
+ */
+@Composable
+private fun UserMessageWithImageAnalysis(
+    content: String,
+    analysisStartIndex: Int
+) {
+    var isExpanded by remember { mutableStateOf(false) }
+
+    // Extract user's original text (before the analysis section)
+    val userText = content.substring(0, analysisStartIndex).trim()
+
+    // Extract analysis content (between the delimiters)
+    val analysisEndIndex = content.indexOf(IMAGE_ANALYSIS_END)
+    val analysisContent = if (analysisEndIndex > analysisStartIndex) {
+        content.substring(analysisStartIndex, analysisEndIndex + IMAGE_ANALYSIS_END.length)
+            .removePrefix(IMAGE_ANALYSIS_START)
+            .removeSuffix(IMAGE_ANALYSIS_END)
+            .trim()
+            .lines()
+            .dropWhile { it.isBlank() || it.startsWith("#") || it.contains("vision model analyzed") }
+            .joinToString("\n")
+            .trim()
+    } else {
+        content.substring(analysisStartIndex)
+            .removePrefix(IMAGE_ANALYSIS_START)
+            .trim()
+    }
+
+    Column {
+        // User's original text
+        if (userText.isNotBlank()) {
+            Text(
+                text = userText,
+                fontFamily = getUtf8FontFamily(),
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+
+        // Collapsible image analysis section
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { isExpanded = !isExpanded },
+            shape = RoundedCornerShape(6.dp),
+            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+        ) {
+            Column(modifier = Modifier.padding(8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = AutoDevComposeIcons.Vision,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "Image Analysis",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    Icon(
+                        imageVector = if (isExpanded) AutoDevComposeIcons.ExpandLess else AutoDevComposeIcons.ExpandMore,
+                        contentDescription = if (isExpanded) "Collapse" else "Expand",
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                if (isExpanded && analysisContent.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = analysisContent,
+                        fontFamily = getUtf8FontFamily(),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         }
@@ -670,13 +781,13 @@ fun MultimodalAnalysisItemView(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                
+
                 // Status indicator
                 StatusBadge(status = item.status)
             }
-            
+
             Spacer(modifier = Modifier.height(8.dp))
-            
+
             // Image thumbnails row
             if (item.images.isNotEmpty()) {
                 Row(
@@ -708,10 +819,10 @@ fun MultimodalAnalysisItemView(
                         }
                     }
                 }
-                
+
                 Spacer(modifier = Modifier.height(8.dp))
             }
-            
+
             // Progress or result
             when {
                 item.status == cc.unitmesh.agent.render.MultimodalAnalysisStatus.FAILED && item.error != null -> {
@@ -737,7 +848,7 @@ fun MultimodalAnalysisItemView(
                     )
                 }
             }
-            
+
             // Execution time for completed analysis
             if (item.executionTimeMs != null) {
                 Spacer(modifier = Modifier.height(4.dp))
@@ -764,7 +875,7 @@ private fun StatusBadge(status: cc.unitmesh.agent.render.MultimodalAnalysisStatu
         cc.unitmesh.agent.render.MultimodalAnalysisStatus.COMPLETED -> "Done" to MaterialTheme.colorScheme.primary
         cc.unitmesh.agent.render.MultimodalAnalysisStatus.FAILED -> "Failed" to MaterialTheme.colorScheme.error
     }
-    
+
     Surface(
         shape = RoundedCornerShape(4.dp),
         color = color.copy(alpha = 0.2f)
