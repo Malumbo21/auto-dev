@@ -57,70 +57,92 @@ class IdeaMultimodalService(private val project: Project) : Disposable {
 
     /**
      * Initialize the service with configuration.
-     * Call this before using the callbacks.
-     * This method blocks until initialization is complete.
+     * This method is safe to call from any thread - it won't block the EDT.
+     * Uses a CountDownLatch to wait for initialization without blocking EDT.
      */
     fun initialize() {
         if (isInitialized) return
 
-        // Synchronous initialization - blocks until complete
-        runBlocking {
-            try {
-                val config = ConfigManager.load()
-                cloudStorageConfig = config.getCloudStorage()
+        // Use a lock to prevent multiple simultaneous initializations
+        synchronized(this) {
+            if (isInitialized) return
+            
+            // Check if we're on EDT - if so, don't wait for completion
+            val isEdt = ApplicationManager.getApplication().isDispatchThread
+            val latch = if (!isEdt) java.util.concurrent.CountDownLatch(1) else null
+            
+            // Run initialization on pooled thread to avoid blocking EDT
+            ApplicationManager.getApplication().executeOnPooledThread {
+                runBlocking {
+                    try {
+                        val config = ConfigManager.load()
+                        cloudStorageConfig = config.getCloudStorage()
 
-                // Initialize COS uploader if configured
-                val cosConfig = cloudStorageConfig
-                if (cosConfig != null && cosConfig.isConfigured()) {
-                    cosUploader = TencentCosUploader(
-                        secretId = cosConfig.secretId,
-                        secretKey = cosConfig.secretKey,
-                        region = cosConfig.region,
-                        bucket = cosConfig.bucket
-                    )
-                    println("✅ Tencent COS uploader initialized: ${cosConfig.bucket}")
-                } else {
-                    println("⚠️ Cloud storage not configured - image upload will be disabled")
-                }
+                        // Initialize COS uploader if configured
+                        val cosConfig = cloudStorageConfig
+                        if (cosConfig != null && cosConfig.isConfigured()) {
+                            cosUploader = TencentCosUploader(
+                                secretId = cosConfig.secretId,
+                                secretKey = cosConfig.secretKey,
+                                region = cosConfig.region,
+                                bucket = cosConfig.bucket
+                            )
+                            println("✅ Tencent COS uploader initialized: ${cosConfig.bucket}")
+                        } else {
+                            println("⚠️ Cloud storage not configured - image upload will be disabled")
+                        }
 
-                // Initialize multimodal LLM service with vision-capable model
-                // Look for GLM/ZhiPu config specifically, as it's the primary supported vision provider
-                val glmConfig = config.getModelConfigByProvider("GLM") 
-                    ?: config.getModelConfigByProvider("zhipu")
-                    ?: config.getModelConfigByProvider("ZHIPU")
-                
-                println("📋 Looking for GLM/ZhiPu vision config...")
-                if (glmConfig != null) {
-                    println("   Found GLM config with API Key: ${glmConfig.apiKey.take(10)}...")
-                    
-                    // Create vision-specific ModelConfig with glm-4.6v model name
-                    val visionModelConfig = glmConfig.copy(
-                        modelName = VISION_MODEL_NAME  // Force vision model
-                    )
-                    multimodalLLMService = MultimodalLLMService(visionModelConfig, cosUploader)
-                    currentVisionModel = VISION_MODEL_NAME
-                    println("✅ Multimodal LLM service initialized with vision model: ${visionModelConfig.modelName}")
-                } else {
-                    // Fall back to active config if it's GLM
-                    val activeConfig = config.getActiveModelConfig()
-                    if (activeConfig != null && activeConfig.provider == LLMProviderType.GLM) {
-                        val visionModelConfig = activeConfig.copy(modelName = VISION_MODEL_NAME)
-                        multimodalLLMService = MultimodalLLMService(visionModelConfig, cosUploader)
-                        currentVisionModel = VISION_MODEL_NAME
-                        println("✅ Using active GLM config with vision model: ${visionModelConfig.modelName}")
-                    } else {
-                        println("⚠️ No GLM/ZhiPu config found - vision analysis will be disabled")
-                        println("   Hint: Add a GLM/ZhiPu configuration to enable vision analysis")
-                        println("   Available providers: ${config.getAllConfigs().map { it.provider }}")
+                        // Initialize multimodal LLM service with vision-capable model
+                        // Look for GLM/ZhiPu config specifically, as it's the primary supported vision provider
+                        val glmConfig = config.getModelConfigByProvider("GLM") 
+                            ?: config.getModelConfigByProvider("zhipu")
+                            ?: config.getModelConfigByProvider("ZHIPU")
+                        
+                        println("📋 Looking for GLM/ZhiPu vision config...")
+                        if (glmConfig != null) {
+                            println("   Found GLM config with API Key: ${glmConfig.apiKey.take(10)}...")
+                            
+                            // Create vision-specific ModelConfig with glm-4.6v model name
+                            val visionModelConfig = glmConfig.copy(
+                                modelName = VISION_MODEL_NAME  // Force vision model
+                            )
+                            multimodalLLMService = MultimodalLLMService(visionModelConfig, cosUploader)
+                            currentVisionModel = VISION_MODEL_NAME
+                            println("✅ Multimodal LLM service initialized with vision model: ${visionModelConfig.modelName}")
+                        } else {
+                            // Fall back to active config if it's GLM
+                            val activeConfig = config.getActiveModelConfig()
+                            if (activeConfig != null && activeConfig.provider == LLMProviderType.GLM) {
+                                val visionModelConfig = activeConfig.copy(modelName = VISION_MODEL_NAME)
+                                multimodalLLMService = MultimodalLLMService(visionModelConfig, cosUploader)
+                                currentVisionModel = VISION_MODEL_NAME
+                                println("✅ Using active GLM config with vision model: ${visionModelConfig.modelName}")
+                            } else {
+                                println("⚠️ No GLM/ZhiPu config found - vision analysis will be disabled")
+                                println("   Hint: Add a GLM/ZhiPu configuration to enable vision analysis")
+                                println("   Available providers: ${config.getAllConfigs().map { it.provider }}")
+                            }
+                        }
+
+                        isInitialized = true
+                        println("✅ IdeaMultimodalService initialized (COS: ${cosUploader != null}, Vision: ${multimodalLLMService != null})")
+                    } catch (e: Exception) {
+                        println("❌ Failed to initialize IdeaMultimodalService: ${e.message}")
+                        e.printStackTrace()
+                        isInitialized = true // Mark as initialized to prevent retry loops
+                    } finally {
+                        latch?.countDown()
                     }
                 }
-
-                isInitialized = true
-                println("✅ IdeaMultimodalService initialized (COS: ${cosUploader != null}, Vision: ${multimodalLLMService != null})")
-            } catch (e: Exception) {
-                println("❌ Failed to initialize IdeaMultimodalService: ${e.message}")
-                e.printStackTrace()
-                isInitialized = true // Mark as initialized to prevent retry loops
+            }
+            
+            // If not on EDT, wait for initialization to complete (with timeout)
+            if (!isEdt && latch != null) {
+                try {
+                    latch.await(10, java.util.concurrent.TimeUnit.SECONDS)
+                } catch (e: InterruptedException) {
+                    println("⚠️ Initialization wait interrupted")
+                }
             }
         }
     }

@@ -74,7 +74,19 @@ class IdeaImageUploadManager(
         listeners.remove(listener)
     }
     
+    // Debounce mechanism for UI updates
+    private var lastUiUpdateTime = 0L
+    private val uiUpdateDebounceMs = 100L // Only update UI every 100ms
+    
     private fun updateState(updater: (IdeaMultimodalState) -> IdeaMultimodalState) {
+        updateStateInternal(forceUiUpdate = false, updater)
+    }
+    
+    private fun updateStateForced(updater: (IdeaMultimodalState) -> IdeaMultimodalState) {
+        updateStateInternal(forceUiUpdate = true, updater)
+    }
+    
+    private fun updateStateInternal(forceUiUpdate: Boolean, updater: (IdeaMultimodalState) -> IdeaMultimodalState) {
         var current: IdeaMultimodalState
         var next: IdeaMultimodalState
         do {
@@ -82,9 +94,16 @@ class IdeaImageUploadManager(
             next = updater(current)
         } while (!stateRef.compareAndSet(current, next))
         
-        // Notify listeners on EDT
-        ApplicationManager.getApplication().invokeLater {
-            listeners.forEach { it.onStateChanged(next) }
+        // Debounce UI updates to prevent EDT spam during streaming
+        val now = System.currentTimeMillis()
+        val shouldUpdate = forceUiUpdate || (now - lastUiUpdateTime) >= uiUpdateDebounceMs
+        
+        if (shouldUpdate && listeners.isNotEmpty()) {
+            lastUiUpdateTime = now
+            // Notify listeners on EDT
+            ApplicationManager.getApplication().invokeLater {
+                listeners.forEach { it.onStateChanged(stateRef.get()) } // Get latest state
+            }
         }
     }
     
@@ -143,15 +162,68 @@ class IdeaImageUploadManager(
     
     /**
      * Add an image from BufferedImage (e.g., from clipboard).
+     * This method is safe to call from EDT - heavy operations are done in background.
      */
     fun addImageFromBufferedImage(image: java.awt.image.BufferedImage, suggestedName: String? = null) {
-        val attachedImage = IdeaAttachedImage.fromBufferedImage(
-            image, 
-            suggestedName ?: "pasted_image_${System.currentTimeMillis()}.png"
-        )
-        val bytes = attachedImage.bytes ?: return
+        val name = suggestedName ?: "pasted_image_${System.currentTimeMillis()}.png"
         
-        addImageFromBytes(bytes, attachedImage.mimeType, attachedImage.name)
+        // Create placeholder immediately for UI feedback
+        val placeholderId = "pending_${System.currentTimeMillis()}"
+        val placeholder = IdeaAttachedImage(
+            id = placeholderId,
+            name = name,
+            path = null,
+            bytes = null,
+            thumbnail = image,  // Show thumbnail immediately
+            mimeType = "image/png",
+            originalSize = 0,
+            uploadStatus = IdeaImageUploadStatus.PENDING
+        )
+        
+        // Add placeholder to state
+        updateState { current ->
+            if (!current.canAddMoreImages) current
+            else current.copy(images = current.images + placeholder)
+        }
+        
+        // Encode image in background thread to avoid blocking EDT
+        ApplicationManager.getApplication().executeOnPooledThread {
+            try {
+                val attachedImage = IdeaAttachedImage.fromBufferedImage(image, name)
+                val bytes = attachedImage.bytes
+                
+                if (bytes == null) {
+                    // Remove placeholder if encoding failed
+                    updateState { current ->
+                        current.copy(images = current.images.filter { it.id != placeholderId })
+                    }
+                    return@executeOnPooledThread
+                }
+                
+                // Replace placeholder with real image and start upload
+                updateState { current ->
+                    current.copy(images = current.images.map { img ->
+                        if (img.id == placeholderId) attachedImage.copy(
+                            id = placeholderId,
+                            uploadStatus = IdeaImageUploadStatus.PENDING
+                        ) else img
+                    })
+                }
+                
+                // Continue with upload
+                if (uploadBytesCallback != null) {
+                    kotlinx.coroutines.runBlocking {
+                        uploadImageBytes(attachedImage.copy(id = placeholderId), bytes, "image/png", name)
+                    }
+                }
+            } catch (e: Exception) {
+                println("Error processing pasted image: ${e.message}")
+                // Remove placeholder on error
+                updateState { current ->
+                    current.copy(images = current.images.filter { it.id != placeholderId })
+                }
+            }
+        }
     }
     
     /**
@@ -202,14 +274,14 @@ class IdeaImageUploadManager(
      * Clear all images.
      */
     fun clearImages() {
-        updateState { IdeaMultimodalState() }
+        updateStateForced { IdeaMultimodalState() }
     }
     
     /**
      * Set analysis state.
      */
     fun setAnalyzing(isAnalyzing: Boolean, progress: String? = null) {
-        updateState { current ->
+        updateStateForced { current ->
             current.copy(
                 isAnalyzing = isAnalyzing,
                 analysisProgress = progress
@@ -221,7 +293,7 @@ class IdeaImageUploadManager(
      * Set analysis result.
      */
     fun setAnalysisResult(result: String?, error: String? = null) {
-        updateState { current ->
+        updateStateForced { current ->
             current.copy(
                 isAnalyzing = false,
                 analysisProgress = null,
