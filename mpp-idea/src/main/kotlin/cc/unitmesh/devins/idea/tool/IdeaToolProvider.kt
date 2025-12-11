@@ -3,7 +3,6 @@ package cc.unitmesh.devins.idea.tool
 import cc.unitmesh.agent.tool.ExecutableTool
 import cc.unitmesh.devti.provider.toolchain.ToolchainFunctionProvider
 import com.intellij.openapi.project.Project
-import kotlinx.coroutines.runBlocking
 
 /**
  * ToolProvider implementation for IntelliJ IDEA.
@@ -19,16 +18,17 @@ class IdeaToolProvider(private val project: Project) {
 
     /**
      * Provide all IDEA tools from ToolchainFunctionProvider extensions.
+     * This is a suspend function to avoid blocking the calling thread.
      * This method does not require ToolDependencies as IDEA tools use Project context instead.
      */
-    fun provideTools(): List<ExecutableTool<*, *>> {
+    suspend fun provideTools(): List<ExecutableTool<*, *>> {
         val providers = ToolchainFunctionProvider.all()
         val tools = mutableListOf<ExecutableTool<*, *>>()
 
         for (provider in providers) {
             try {
-                // Get tool infos from the provider
-                val toolInfos = runBlocking { provider.toolInfos(project) }
+                // Get tool infos from the provider (suspend call - no blocking)
+                val toolInfos = provider.toolInfos(project)
 
                 // Create an adapter for each tool
                 for (agentTool in toolInfos) {
@@ -42,10 +42,10 @@ class IdeaToolProvider(private val project: Project) {
 
                 // If no toolInfos, try to create tools from funcNames
                 if (toolInfos.isEmpty()) {
-                    val funcNames = runBlocking { provider.funcNames() }
+                    val funcNames = provider.funcNames()
                     for (funcName in funcNames) {
                         // Check if this provider is applicable for this function
-                        val isApplicable = runBlocking { provider.isApplicable(project, funcName) }
+                        val isApplicable = provider.isApplicable(project, funcName)
                         if (isApplicable) {
                             val agentTool = cc.unitmesh.devti.agent.tool.AgentTool(
                                 name = funcName,

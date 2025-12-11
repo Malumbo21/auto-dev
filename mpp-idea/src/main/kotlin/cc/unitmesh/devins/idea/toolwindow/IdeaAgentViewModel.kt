@@ -47,8 +47,8 @@ class IdeaAgentViewModel(
     val renderer = JewelRenderer()
 
     // Current agent type tab (using mpp-core's AgentType)
-    // Initialize with value from config to avoid flicker
-    private val _currentAgentType = MutableStateFlow(loadInitialAgentType())
+    // Initialize with default value, will be updated asynchronously from config
+    private val _currentAgentType = MutableStateFlow(AgentType.CODING)
     val currentAgentType: StateFlow<AgentType> = _currentAgentType.asStateFlow()
 
     // Is executing a task
@@ -103,24 +103,6 @@ class IdeaAgentViewModel(
     }
 
     /**
-     * Load initial agent type synchronously to avoid UI flicker.
-     * This is called during initialization before the UI is rendered.
-     */
-    private fun loadInitialAgentType(): AgentType {
-        return try {
-            // Use runBlocking to load config synchronously during initialization
-            // This is acceptable here as it only happens once during ViewModel creation
-            runBlocking {
-                val wrapper = ConfigManager.load()
-                wrapper.getAgentType()
-            }
-        } catch (e: Exception) {
-            // If config doesn't exist or is invalid, default to CODING
-            AgentType.CODING
-        }
-    }
-
-    /**
      * Load configuration from ConfigManager (~/.autodev/config.yaml)
      * Uses Dispatchers.IO to avoid blocking EDT
      */
@@ -132,6 +114,10 @@ class IdeaAgentViewModel(
                 val modelConfig = wrapper.getActiveModelConfig()
                 _currentModelConfig.value = modelConfig
 
+                // Update agent type from config (async to avoid blocking EDT)
+                val agentType = wrapper.getAgentType()
+                _currentAgentType.value = agentType
+
                 // Create LLM service if config is valid
                 // Inject IDEA compiler service for full IDE feature support
                 if (modelConfig != null && modelConfig.isValid()) {
@@ -142,9 +128,6 @@ class IdeaAgentViewModel(
                     // Start MCP preloading after LLM service is created
                     startMcpPreloading()
                 }
-
-                // Agent type is already loaded in initialization, no need to update again
-                // This prevents the flicker issue where the tab changes after UI is rendered
             } catch (e: Exception) {
                 // Config file doesn't exist or is invalid, use defaults
                 _configWrapper.value = null
@@ -294,8 +277,9 @@ class IdeaAgentViewModel(
     /**
      * Register IDEA-specific tools from ToolchainFunctionProvider extensions.
      * This bridges IDEA's extension point system with mpp-core's tool registry.
+     * This is a suspend function to avoid blocking the calling thread.
      */
-    private fun registerIdeaTools(agent: CodingAgent) {
+    private suspend fun registerIdeaTools(agent: CodingAgent) {
         try {
             val ideaToolProvider = IdeaToolProvider.create(project)
             val ideaTools = ideaToolProvider.provideTools()

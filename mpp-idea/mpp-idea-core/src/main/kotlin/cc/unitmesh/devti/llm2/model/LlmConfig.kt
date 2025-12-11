@@ -1,10 +1,9 @@
 package cc.unitmesh.devti.llm2.model
 
-import cc.unitmesh.config.ConfigManager
+import cc.unitmesh.devti.llms.LLMProviderAdapter
 import cc.unitmesh.devti.settings.AutoDevSettingsState
 import cc.unitmesh.llm.LLMProviderType
 import cc.unitmesh.llm.ModelConfig
-import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.*
 import kotlinx.serialization.descriptors.*
 import kotlinx.serialization.encoding.*
@@ -173,25 +172,17 @@ data class LlmConfig(
 
     /**
      * Try to load ModelConfig from ConfigManager (~/.autodev/config.yaml)
+     * Uses cached config from LLMProviderAdapter to avoid blocking EDT.
      * Returns null if no valid config is found
      */
     private fun loadFromConfigManager(): ModelConfig? {
-        return try {
-            runBlocking {
-                val wrapper = ConfigManager.load()
-                val activeConfig = wrapper.getActiveModelConfig()
-                if (activeConfig != null && activeConfig.apiKey.isNotEmpty()) {
-                    println("[LlmConfig.loadFromConfigManager] Loaded active config: ${wrapper.getActiveName()}")
-                    activeConfig
-                } else {
-                    println("[LlmConfig.loadFromConfigManager] No valid active config found in ConfigManager")
-                    null
-                }
-            }
-        } catch (e: Exception) {
-            println("[LlmConfig.loadFromConfigManager] Error loading from ConfigManager: ${e.message}")
-            null
+        val config = LLMProviderAdapter.getCachedConfig()
+        if (config != null) {
+            println("[LlmConfig.loadFromConfigManager] Using cached config from LLMProviderAdapter")
+        } else {
+            println("[LlmConfig.loadFromConfigManager] No cached config available")
         }
+        return config
     }
 
     /**

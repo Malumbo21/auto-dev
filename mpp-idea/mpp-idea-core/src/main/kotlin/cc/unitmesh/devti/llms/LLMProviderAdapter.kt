@@ -14,12 +14,13 @@ import cc.unitmesh.devti.prompting.optimizer.PromptOptimizer
 import cc.unitmesh.devti.settings.coder.coderSetting
 import cc.unitmesh.llm.KoogLLMService
 import cc.unitmesh.llm.ModelConfig
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.project.Project
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.runBlocking
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Adapter that bridges the old LLMProvider interface with the new LLMProvider2 implementation.
@@ -37,6 +38,70 @@ class LLMProviderAdapter(
     private var currentProvider: LLMProvider2? = null
 
     override val defaultTimeout: Long get() = 600
+
+    companion object {
+        // Cached config loaded asynchronously to avoid blocking EDT
+        private val cachedConfig = AtomicReference<ModelConfig?>(null)
+        @Volatile
+        private var configLoaded = false
+        private val configLoadLock = Any()
+
+        /**
+         * Preload config asynchronously. Should be called during plugin initialization.
+         */
+        fun preloadConfig() {
+            if (configLoaded) return
+            ApplicationManager.getApplication().executeOnPooledThread {
+                loadConfigInBackground()
+            }
+        }
+
+        /**
+         * Load config in background thread (non-blocking)
+         */
+        private fun loadConfigInBackground() {
+            synchronized(configLoadLock) {
+                if (configLoaded) return
+                try {
+                    // Use suspendCancellableCoroutine alternative - direct blocking on pooled thread is OK
+                    val wrapper = kotlinx.coroutines.runBlocking {
+                        ConfigManager.load()
+                    }
+                    if (wrapper.isValid()) {
+                        val activeConfig = wrapper.getActiveModelConfig()
+                        if (activeConfig != null && activeConfig.apiKey.isNotEmpty()) {
+                            cachedConfig.set(activeConfig)
+                        }
+                    }
+                } catch (e: Exception) {
+                    // Config load failed, will use fallback
+                } finally {
+                    configLoaded = true
+                }
+            }
+        }
+
+        /**
+         * Get cached config or null if not loaded yet
+         */
+        fun getCachedConfig(): ModelConfig? {
+            if (!configLoaded) {
+                // Trigger background load if not started
+                preloadConfig()
+            }
+            return cachedConfig.get()
+        }
+
+        /**
+         * Invalidate cached config (call when config changes)
+         */
+        fun invalidateCache() {
+            synchronized(configLoadLock) {
+                configLoaded = false
+                cachedConfig.set(null)
+            }
+        }
+    }
 
     override fun stream(
         promptText: String,
@@ -116,27 +181,14 @@ class LLMProviderAdapter(
 
     /**
      * Try to load ModelConfig from ConfigManager (~/.autodev/config.yaml)
+     * Uses cached config to avoid blocking EDT.
      */
     private fun tryLoadFromConfigManager(): ModelConfig? {
-        return try {
-            runBlocking {
-                val wrapper = ConfigManager.load()
-                if (wrapper.isValid()) {
-                    val activeConfig = wrapper.getActiveModelConfig()
-                    if (activeConfig != null && activeConfig.apiKey.isNotEmpty()) {
-                        logger.info("Loaded valid config from ConfigManager: ${wrapper.getActiveName()}")
-                        activeConfig
-                    } else {
-                        null
-                    }
-                } else {
-                    null
-                }
-            }
-        } catch (e: Exception) {
-            logger.debug("ConfigManager load failed: ${e.message}")
-            null
+        val config = getCachedConfig()
+        if (config != null) {
+            logger.info("Using cached config from ConfigManager")
         }
+        return config
     }
 
     /**

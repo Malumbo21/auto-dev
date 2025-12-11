@@ -1,5 +1,6 @@
 package cc.unitmesh.devti.llm2
 
+import cc.unitmesh.devti.llms.LLMProviderAdapter
 import cc.unitmesh.llm.provider.GithubCopilotClientProvider
 import cc.unitmesh.llm.provider.LLMClientRegistry
 import com.intellij.openapi.diagnostic.Logger
@@ -9,11 +10,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Startup activity that initializes GitHub Copilot support.
+ * Startup activity that initializes GitHub Copilot support and preloads LLM config.
  * 
  * This activity:
- * 1. Registers GithubCopilotClientProvider with LLMClientRegistry
- * 2. Initializes GithubCopilotManager for model caching
+ * 1. Preloads LLM configuration from ~/.autodev/config.yaml (async, non-blocking)
+ * 2. Registers GithubCopilotClientProvider with LLMClientRegistry
+ * 3. Initializes GithubCopilotManager for model caching
  * 
  * This ensures that when users select GitHub Copilot models,
  * the ExecutorFactory can create the appropriate executor.
@@ -24,6 +26,10 @@ class GithubCopilotModelInitActivity : ProjectActivity {
     override suspend fun execute(project: Project) {
         withContext(Dispatchers.IO) {
             try {
+                // Preload LLM config asynchronously to avoid blocking EDT later
+                LLMProviderAdapter.preloadConfig()
+                logger.info("LLM config preloading started")
+
                 // Check if GitHub Copilot is configured
                 if (!GithubCopilotDetector.isGithubCopilotConfigured()) {
                     logger.info("GitHub Copilot is not configured, skipping initialization")
