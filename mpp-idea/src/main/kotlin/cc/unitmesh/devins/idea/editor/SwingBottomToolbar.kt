@@ -1,26 +1,30 @@
 package cc.unitmesh.devins.idea.editor
 
 import cc.unitmesh.devti.llm2.GithubCopilotDetector
+import cc.unitmesh.devins.idea.editor.multimodal.IdeaMultimodalState
 import cc.unitmesh.llm.NamedModelConfig
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.ComboBox
+import com.intellij.ui.JBColor
 import com.intellij.ui.components.JBLabel
 import com.intellij.util.ui.JBUI
 import java.awt.BorderLayout
+import java.awt.Color
 import java.awt.Dimension
 import java.awt.FlowLayout
 import javax.swing.*
 
 /**
  * Swing-based bottom toolbar for the input section.
- * Provides send/stop buttons, model selector, and token info.
+ * Provides send/stop buttons, model selector, token info, and image attachment button.
  */
 class SwingBottomToolbar(
     private val project: Project?,
     private val onSendClick: () -> Unit,
     private val onStopClick: () -> Unit,
-    private val onPromptOptimizationClick: () -> Unit
+    private val onPromptOptimizationClick: () -> Unit,
+    private val onImageClick: (() -> Unit)? = null // Optional image attachment callback
 ) : JPanel(BorderLayout()) {
 
     private val modelComboBox = ComboBox<String>()
@@ -29,6 +33,21 @@ class SwingBottomToolbar(
     private val stopButton = JButton("Stop", AllIcons.Actions.Suspend)
     private val optimizeButton = JButton(AllIcons.Actions.Lightning)
     private val settingsButton = JButton(AllIcons.General.Settings)
+    
+    // Image attachment button
+    private val imageButton = JButton(AllIcons.FileTypes.Image).apply {
+        toolTipText = "Attach Image (Ctrl+V to paste)"
+        preferredSize = Dimension(32, 28)
+        isBorderPainted = false
+        isContentAreaFilled = false
+        isVisible = onImageClick != null
+    }
+    
+    // Image count badge label
+    private val imageCountLabel = JBLabel().apply {
+        isVisible = false
+        foreground = JBColor(Color(0, 120, 212), Color(100, 180, 255))
+    }
 
     private var availableConfigs: List<NamedModelConfig> = emptyList()
     private var onConfigSelect: (NamedModelConfig) -> Unit = {}
@@ -38,6 +57,7 @@ class SwingBottomToolbar(
     private var isProcessing = false
     private var isEnhancing = false
     private var isRefreshingCopilot = false
+    private var imageCount = 0
     
     // Refresh GitHub Copilot button (only shown when Copilot is configured)
     private val refreshCopilotButton = JButton(AllIcons.Actions.Refresh).apply {
@@ -87,6 +107,13 @@ class SwingBottomToolbar(
         // Right side: Action buttons
         val rightPanel = JPanel(FlowLayout(FlowLayout.RIGHT, 4, 0)).apply {
             isOpaque = false
+
+            // Image attachment button (only if callback is provided)
+            if (onImageClick != null) {
+                imageButton.addActionListener { onImageClick.invoke() }
+                add(imageButton)
+                add(imageCountLabel)
+            }
 
             settingsButton.apply {
                 toolTipText = "MCP Configuration"
@@ -182,6 +209,46 @@ class SwingBottomToolbar(
     
     fun updateCopilotAvailability() {
         refreshCopilotButton.isVisible = GithubCopilotDetector.isGithubCopilotConfigured()
+    }
+    
+    /**
+     * Update the toolbar based on multimodal state.
+     * Shows image count badge when images are attached.
+     */
+    fun updateMultimodalState(state: IdeaMultimodalState) {
+        imageCount = state.imageCount
+        
+        if (state.hasImages) {
+            imageCountLabel.text = "${state.imageCount}"
+            imageCountLabel.isVisible = true
+            imageButton.toolTipText = when {
+                state.isUploading -> "Uploading ${state.uploadingCount} image(s)..."
+                state.allImagesUploaded -> "${state.imageCount} image(s) ready"
+                state.hasUploadError -> "Some uploads failed - click to manage"
+                else -> "Attach Image (${state.imageCount} attached)"
+            }
+            
+            // Change icon color based on state
+            imageButton.foreground = when {
+                state.hasUploadError -> JBColor.RED
+                state.allImagesUploaded -> JBColor(Color(0, 120, 212), Color(100, 180, 255))
+                else -> null
+            }
+        } else {
+            imageCountLabel.isVisible = false
+            imageButton.toolTipText = "Attach Image (Ctrl+V to paste)"
+            imageButton.foreground = null
+        }
+        
+        // Update send button state based on multimodal state
+        sendButton.isEnabled = state.canSend && !isProcessing
+    }
+    
+    /**
+     * Enable or disable the image button.
+     */
+    fun setImageEnabled(enabled: Boolean) {
+        imageButton.isEnabled = enabled
     }
 }
 

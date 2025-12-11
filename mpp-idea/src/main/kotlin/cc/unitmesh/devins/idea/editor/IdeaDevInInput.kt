@@ -1,5 +1,6 @@
 package cc.unitmesh.devins.idea.editor
 
+import cc.unitmesh.devins.idea.editor.multimodal.*
 import cc.unitmesh.devti.language.DevInLanguage
 import cc.unitmesh.devti.util.InsertUtil
 import com.intellij.codeInsight.AutoPopupController
@@ -12,6 +13,7 @@ import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.EditorModificationUtil
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.application.runReadAction
 import com.intellij.openapi.editor.actions.IncrementalFindAction
@@ -21,6 +23,7 @@ import com.intellij.openapi.editor.ex.EditorEx
 import com.intellij.openapi.fileTypes.FileTypes
 import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiFileFactory
@@ -29,7 +32,10 @@ import com.intellij.ui.EditorTextField
 import com.intellij.util.EventDispatcher
 import com.intellij.util.ui.JBUI
 import java.awt.Color
+import java.awt.Toolkit
+import java.awt.datatransfer.DataFlavor
 import java.awt.event.KeyEvent
+import java.awt.image.BufferedImage
 import java.util.*
 import javax.swing.KeyStroke
 
@@ -42,6 +48,7 @@ import javax.swing.KeyStroke
  * - Integration with IntelliJ's completion system (lookup listener)
  * - Auto-completion for @, /, $, : characters
  * - Placeholder text support
+ * - Multimodal support: image paste (Ctrl/Cmd+V), file selection, upload tracking
  *
  * Based on AutoDevInput from core module but adapted for standalone mpp-idea usage.
  */
@@ -49,10 +56,40 @@ class IdeaDevInInput(
     private val project: Project,
     private val listeners: List<DocumentListener> = emptyList(),
     val disposable: Disposable?,
-    private val showAgent: Boolean = true
+    private val showAgent: Boolean = true,
+    // Multimodal callbacks
+    private val onImageUpload: ImageUploadCallback? = null,
+    private val onImageUploadBytes: ImageUploadBytesCallback? = null,
+    private val onMultimodalAnalysis: MultimodalAnalysisCallback? = null,
+    private val onError: ((String) -> Unit)? = null
 ) : EditorTextField(project, FileTypes.PLAIN_TEXT), Disposable {
 
     private val editorListeners = EventDispatcher.create(IdeaInputListener::class.java)
+    
+    // Multimodal support
+    private val imageUploadManager: IdeaImageUploadManager? = if (onImageUpload != null || onImageUploadBytes != null) {
+        IdeaImageUploadManager(
+            project = project,
+            uploadCallback = onImageUpload,
+            uploadBytesCallback = onImageUploadBytes,
+            onError = onError
+        ).also { manager ->
+            disposable?.let { Disposer.register(it, manager) }
+            
+            // Listen for state changes and notify listeners
+            manager.addListener(object : IdeaMultimodalStateListener {
+                override fun onStateChanged(state: IdeaMultimodalState) {
+                    editorListeners.multicaster.onMultimodalStateChanged(state)
+                }
+            })
+        }
+    } else null
+    
+    /** Current multimodal state */
+    val multimodalState: IdeaMultimodalState get() = imageUploadManager?.state ?: IdeaMultimodalState()
+    
+    /** Check if multimodal support is enabled */
+    val isMultimodalEnabled: Boolean get() = imageUploadManager != null
 
     // Internal document listener to notify text changes
     private val internalDocumentListener = object : DocumentListener {
@@ -63,11 +100,22 @@ class IdeaDevInInput(
 
     // Enter key handling - submit on Enter, newline on Shift/Ctrl/Cmd+Enter
     private val submitAction = DumbAwareAction.create {
-        val text = text.trim()
-        if (text.isNotEmpty()) {
-            editorListeners.multicaster.onSubmit(text, IdeaInputTrigger.Key)
+        submitInput(IdeaInputTrigger.Key)
+    }
+    
+    // Image paste action (Ctrl+V / Cmd+V for images)
+    private val imagePasteAction = DumbAwareAction.create {
+        if (!tryPasteImage()) {
+            // If no image in clipboard, let the default paste action handle it
+            val editor = editor ?: return@create
+            com.intellij.openapi.editor.actions.PasteAction().actionPerformed(it)
         }
     }
+    
+    private val imagePasteShortcutSet = CustomShortcutSet(
+        KeyboardShortcut(KeyStroke.getKeyStroke(KeyEvent.VK_V, KeyEvent.CTRL_DOWN_MASK), null),
+        KeyboardShortcut(KeyStroke.getKeyStroke(KeyEvent.VK_V, KeyEvent.META_DOWN_MASK), null)
+    )
 
     private val enterShortcutSet = CustomShortcutSet(
         KeyboardShortcut(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), null)
@@ -123,6 +171,11 @@ class IdeaDevInInput(
                 KeyboardShortcut(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, KeyEvent.SHIFT_DOWN_MASK), null),
             ), this
         )
+        
+        // Register image paste shortcut (Ctrl+V / Cmd+V) if multimodal is enabled
+        if (imageUploadManager != null) {
+            imagePasteAction.registerCustomShortcutSet(imagePasteShortcutSet, this)
+        }
 
         listeners.forEach { listener ->
             document.addDocumentListener(listener)
@@ -258,6 +311,192 @@ class IdeaDevInInput(
      */
     fun clearInput() {
         recreateDocument()
+    }
+    
+    // ========== Multimodal Support ==========
+    
+    /**
+     * Submit the input, handling multimodal content if present.
+     */
+    private fun submitInput(trigger: IdeaInputTrigger) {
+        val inputText = text.trim()
+        val state = multimodalState
+        
+        // Check if we can submit
+        if (inputText.isEmpty() && !state.hasImages) {
+            return
+        }
+        
+        // Don't allow sending if images are still uploading
+        if (state.isUploading) {
+            onError?.invoke("Please wait for image upload to complete")
+            return
+        }
+        
+        // Don't allow sending if any upload failed
+        if (state.hasUploadError) {
+            onError?.invoke("Some images failed to upload. Please remove or retry them.")
+            return
+        }
+        
+        // If we have uploaded images and multimodal analysis is enabled, perform analysis first
+        if (state.allImagesUploaded && state.hasImages && onMultimodalAnalysis != null) {
+            val imageUrls = state.images.mapNotNull { it.uploadedUrl }
+            
+            imageUploadManager?.setAnalyzing(true, "Analyzing ${imageUrls.size} image(s)...")
+            
+            ApplicationManager.getApplication().executeOnPooledThread {
+                kotlinx.coroutines.runBlocking {
+                    try {
+                        val analysisResult = onMultimodalAnalysis.invoke(imageUrls, inputText) { chunk ->
+                            imageUploadManager?.updateAnalysisProgress(chunk)
+                        }
+                        
+                        imageUploadManager?.setAnalysisResult(analysisResult)
+                        
+                        // Submit with multimodal content on EDT
+                        ApplicationManager.getApplication().invokeLater {
+                            editorListeners.multicaster.onSubmitWithMultimodal(
+                                inputText, 
+                                trigger, 
+                                state,
+                                analysisResult
+                            )
+                            
+                            // Clear input and images
+                            clearInput()
+                            imageUploadManager?.clearImages()
+                        }
+                    } catch (e: Exception) {
+                        imageUploadManager?.setAnalysisResult(null, e.message ?: "Analysis failed")
+                        onError?.invoke("Multimodal analysis failed: ${e.message}")
+                    }
+                }
+            }
+        } else if (state.hasImages && state.allImagesUploaded) {
+            // Submit with images but no analysis callback
+            editorListeners.multicaster.onSubmitWithMultimodal(
+                inputText,
+                trigger,
+                state,
+                null
+            )
+            clearInput()
+            imageUploadManager?.clearImages()
+        } else {
+            // No images - standard submit
+            if (inputText.isNotEmpty()) {
+                editorListeners.multicaster.onSubmit(inputText, trigger)
+            }
+        }
+    }
+    
+    /**
+     * Try to paste an image from clipboard.
+     * @return true if an image was found and added, false otherwise
+     */
+    private fun tryPasteImage(): Boolean {
+        if (imageUploadManager == null) return false
+        
+        try {
+            val clipboard = Toolkit.getDefaultToolkit().systemClipboard
+            
+            if (!clipboard.isDataFlavorAvailable(DataFlavor.imageFlavor)) {
+                return false
+            }
+            
+            val image = clipboard.getData(DataFlavor.imageFlavor) as? java.awt.Image ?: return false
+            val bufferedImage = toBufferedImage(image)
+            
+            imageUploadManager.addImageFromBufferedImage(bufferedImage)
+            return true
+        } catch (e: Exception) {
+            println("Error reading image from clipboard: ${e.message}")
+            return false
+        }
+    }
+    
+    /**
+     * Convert any Image to BufferedImage.
+     */
+    private fun toBufferedImage(image: java.awt.Image): BufferedImage {
+        if (image is BufferedImage) {
+            return image
+        }
+        
+        val width = image.getWidth(null)
+        val height = image.getHeight(null)
+        
+        if (width <= 0 || height <= 0) {
+            throw IllegalArgumentException("Invalid image dimensions: ${width}x${height}")
+        }
+        
+        val bufferedImage = BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB)
+        val graphics = bufferedImage.createGraphics()
+        try {
+            graphics.drawImage(image, 0, 0, null)
+        } finally {
+            graphics.dispose()
+        }
+        return bufferedImage
+    }
+    
+    /**
+     * Add an image from a file path.
+     */
+    fun addImageFromPath(path: String) {
+        if (imageUploadManager == null) {
+            onError?.invoke("Multimodal support is not configured")
+            return
+        }
+        
+        val image = IdeaAttachedImage.fromPath(path)
+        imageUploadManager.addImageAndUpload(image)
+    }
+    
+    /**
+     * Add an image from bytes (e.g., programmatically).
+     */
+    fun addImageFromBytes(bytes: ByteArray, mimeType: String, name: String) {
+        if (imageUploadManager == null) {
+            onError?.invoke("Multimodal support is not configured")
+            return
+        }
+        
+        imageUploadManager.addImageFromBytes(bytes, mimeType, name)
+    }
+    
+    /**
+     * Remove an attached image.
+     */
+    fun removeImage(imageId: String) {
+        imageUploadManager?.removeImage(imageId)
+    }
+    
+    /**
+     * Clear all attached images.
+     */
+    fun clearImages() {
+        imageUploadManager?.clearImages()
+    }
+    
+    /**
+     * Get the upload manager for external UI components (e.g., IdeaImageAttachmentPanel).
+     */
+    fun getImageUploadManager(): IdeaImageUploadManager? = imageUploadManager
+    
+    /**
+     * Trigger submit programmatically (e.g., from external button).
+     */
+    fun triggerSubmit(trigger: IdeaInputTrigger = IdeaInputTrigger.Button) {
+        submitInput(trigger)
+    }
+    
+    /**
+     * Trigger stop event.
+     */
+    fun triggerStop() {
+        editorListeners.multicaster.onStop()
     }
 }
 

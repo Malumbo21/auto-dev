@@ -7,6 +7,7 @@ import androidx.compose.ui.awt.SwingPanel
 import cc.unitmesh.agent.plan.AgentPlan
 import cc.unitmesh.devins.idea.compose.rememberIdeaCoroutineScope
 import cc.unitmesh.devins.idea.editor.*
+import cc.unitmesh.devins.idea.editor.multimodal.*
 import cc.unitmesh.llm.NamedModelConfig
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
@@ -173,13 +174,20 @@ fun IdeaDevInInputArea(
 /**
  * Pure Swing-based input area.
  * Uses native Swing toolbars to avoid z-index issues with Compose popups.
+ * 
+ * Multimodal support:
+ * - Paste images with Ctrl/Cmd+V
+ * - Click image button to select images
+ * - Images are uploaded to cloud storage and analyzed with vision models
  */
 class SwingDevInInputArea(
     private val project: Project,
     private val parentDisposable: Disposable,
     private val onSend: (String) -> Unit,
     private val onAbort: () -> Unit,
-    private val scope: CoroutineScope
+    private val scope: CoroutineScope,
+    /** Enable multimodal image support */
+    private val enableMultimodal: Boolean = true
 ) : JPanel(BorderLayout()), Disposable {
 
     private val logger = Logger.getInstance(SwingDevInInputArea::class.java)
@@ -192,6 +200,12 @@ class SwingDevInInputArea(
     // Swing toolbars
     private lateinit var topToolbar: SwingTopToolbar
     private lateinit var bottomToolbar: SwingBottomToolbar
+    
+    // Multimodal support
+    private var imageAttachmentPanel: IdeaImageAttachmentPanel? = null
+    private val multimodalService: IdeaMultimodalService? = if (enableMultimodal) {
+        IdeaMultimodalService.getInstance(project).also { it.initialize() }
+    } else null
 
     // Callbacks for config selection
     private var currentPlan: AgentPlan? = null
@@ -216,12 +230,20 @@ class SwingDevInInputArea(
         }
         contentPanel.add(topToolbar)
 
-        // DevIn Editor (native Swing)
+        // Get multimodal callbacks if enabled
+        val callbacks = multimodalService?.createCallbacks()
+
+        // DevIn Editor (native Swing) with multimodal support
         val editorPanel = JPanel(BorderLayout()).apply {
             val input = IdeaDevInInput(
                 project = project,
                 disposable = parentDisposable,
-                showAgent = true
+                showAgent = true,
+                // Multimodal callbacks
+                onImageUpload = callbacks?.uploadCallback,
+                onImageUploadBytes = callbacks?.uploadBytesCallback,
+                onMultimodalAnalysis = callbacks?.analysisCallback,
+                onError = { error -> logger.warn("Multimodal error: $error") }
             ).apply {
                 recreateDocument()
 
@@ -235,6 +257,17 @@ class SwingDevInInputArea(
                             sendMessage(text)
                         }
                     }
+                    
+                    override fun onSubmitWithMultimodal(
+                        text: String,
+                        trigger: IdeaInputTrigger,
+                        multimodalState: IdeaMultimodalState,
+                        analysisResult: String?
+                    ) {
+                        if (!isProcessing) {
+                            sendMessageWithMultimodal(text, multimodalState, analysisResult)
+                        }
+                    }
 
                     override fun onStop() {
                         onAbort()
@@ -242,7 +275,12 @@ class SwingDevInInputArea(
 
                     override fun onTextChanged(text: String) {
                         inputText = text
-                        bottomToolbar.setSendEnabled(text.isNotBlank() && !isProcessing)
+                        updateSendButtonState()
+                    }
+                    
+                    override fun onMultimodalStateChanged(state: IdeaMultimodalState) {
+                        bottomToolbar.updateMultimodalState(state)
+                        updateSendButtonState()
                     }
                 })
             }
@@ -251,28 +289,48 @@ class SwingDevInInputArea(
             devInInput = input
 
             add(input, BorderLayout.CENTER)
+            
+            // Add image attachment panel below the input (if multimodal enabled)
+            if (enableMultimodal && input.getImageUploadManager() != null) {
+                imageAttachmentPanel = IdeaImageAttachmentPanel(
+                    project = project,
+                    uploadManager = input.getImageUploadManager()!!,
+                    parentDisposable = parentDisposable
+                ).apply {
+                    maximumSize = Dimension(Int.MAX_VALUE, 100)
+                }
+                add(imageAttachmentPanel, BorderLayout.SOUTH)
+            }
+            
             minimumSize = Dimension(200, 60)
             preferredSize = Dimension(Int.MAX_VALUE, 100)
         }
         contentPanel.add(editorPanel)
 
-        // Bottom toolbar (pure Swing)
+        // Bottom toolbar (pure Swing) with image button
         bottomToolbar = SwingBottomToolbar(
             project = project,
             onSendClick = {
-                val text = devInInput?.text?.trim() ?: inputText.trim()
-                if (text.isNotBlank() && !isProcessing) {
-                    sendMessage(text)
-                }
+                devInInput?.triggerSubmit(IdeaInputTrigger.Button)
             },
             onStopClick = onAbort,
-            onPromptOptimizationClick = { handlePromptOptimization() }
+            onPromptOptimizationClick = { handlePromptOptimization() },
+            onImageClick = if (enableMultimodal && callbacks?.isUploadConfigured == true) {
+                { imageAttachmentPanel?.selectImageFile() }
+            } else null
         ).apply {
             maximumSize = Dimension(Int.MAX_VALUE, 40)
         }
         contentPanel.add(bottomToolbar)
 
         add(contentPanel, BorderLayout.CENTER)
+    }
+    
+    private fun updateSendButtonState() {
+        val hasText = inputText.isNotBlank()
+        val multimodalState = devInInput?.multimodalState ?: IdeaMultimodalState()
+        val canSend = multimodalState.canSend && (hasText || multimodalState.allImagesUploaded)
+        bottomToolbar.setSendEnabled(canSend && !isProcessing)
     }
 
     private fun sendMessage(text: String) {
@@ -281,6 +339,57 @@ class SwingDevInInputArea(
         val fullText = if (filesText.isNotEmpty()) "$text\n$filesText" else text
         onSend(fullText)
         devInInput?.clearInput()
+        inputText = ""
+        topToolbar.clearFiles()
+        bottomToolbar.setSendEnabled(false)
+    }
+    
+    /**
+     * Send message with multimodal content.
+     * Appends image URLs and analysis result to the message.
+     */
+    private fun sendMessageWithMultimodal(
+        text: String,
+        state: IdeaMultimodalState,
+        analysisResult: String?
+    ) {
+        val selectedFiles = topToolbar.getSelectedFiles()
+        val filesText = selectedFiles.joinToString("\n") { it.toDevInsCommand() }
+        
+        // Build full message with images and analysis
+        val messageBuilder = StringBuilder()
+        if (text.isNotBlank()) {
+            messageBuilder.append(text)
+        }
+        
+        // Add file references
+        if (filesText.isNotEmpty()) {
+            messageBuilder.append("\n").append(filesText)
+        }
+        
+        // Add image URLs as references
+        if (state.hasImages) {
+            val imageUrls = state.images.mapNotNull { it.uploadedUrl }
+            if (imageUrls.isNotEmpty()) {
+                messageBuilder.append("\n\n[Attached Images]\n")
+                imageUrls.forEachIndexed { index, url ->
+                    messageBuilder.append("- Image ${index + 1}: $url\n")
+                }
+            }
+        }
+        
+        // Add vision analysis result if available
+        if (analysisResult != null && analysisResult.isNotBlank()) {
+            messageBuilder.append("\n\n[Image Analysis]\n")
+            messageBuilder.append(analysisResult)
+        }
+        
+        val fullText = messageBuilder.toString()
+        onSend(fullText)
+        
+        // Clear input state
+        devInInput?.clearInput()
+        devInInput?.clearImages()
         inputText = ""
         topToolbar.clearFiles()
         bottomToolbar.setSendEnabled(false)
