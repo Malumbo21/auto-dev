@@ -897,6 +897,106 @@ private fun ChatMessageItem(item: TimelineItem) {
                 }
             }
         }
+
+        is TimelineItem.MultimodalAnalysisItem -> {
+            // Multimodal analysis (vision model) display
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(IdeaAutoDevColors.Cyan.c400.copy(alpha = 0.1f))
+                    .padding(8.dp)
+            ) {
+                Column {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "👁️",
+                            style = JewelTheme.defaultTextStyle.copy(fontSize = 14.sp)
+                        )
+                        Text(
+                            text = "Vision Analysis",
+                            style = JewelTheme.defaultTextStyle.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp
+                            )
+                        )
+                        Text(
+                            text = "(${item.visionModel})",
+                            style = JewelTheme.defaultTextStyle.copy(
+                                fontSize = 10.sp,
+                                color = JewelTheme.globalColors.text.info.copy(alpha = 0.6f)
+                            )
+                        )
+                        // Status badge
+                        Text(
+                            text = "[${item.status.displayName}]",
+                            style = JewelTheme.defaultTextStyle.copy(
+                                fontSize = 10.sp,
+                                color = when (item.status) {
+                                    cc.unitmesh.agent.render.MultimodalAnalysisStatus.COMPLETED -> IdeaAutoDevColors.Green.c400
+                                    cc.unitmesh.agent.render.MultimodalAnalysisStatus.FAILED -> IdeaAutoDevColors.Red.c400
+                                    else -> JewelTheme.globalColors.text.info
+                                }
+                            )
+                        )
+                    }
+                    // Show images info
+                    if (item.images.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "${item.images.size} image(s): ${item.images.joinToString(", ") { it.name }}",
+                            style = JewelTheme.defaultTextStyle.copy(
+                                fontSize = 10.sp,
+                                color = JewelTheme.globalColors.text.info.copy(alpha = 0.7f)
+                            )
+                        )
+                    }
+                    // Show result or progress
+                    when {
+                        item.error != null -> {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Error: ${item.error}",
+                                style = JewelTheme.defaultTextStyle.copy(
+                                    fontSize = 11.sp,
+                                    color = IdeaAutoDevColors.Red.c400
+                                )
+                            )
+                        }
+                        item.streamingResult.isNotEmpty() -> {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = item.streamingResult.take(300) + if (item.streamingResult.length > 300) "..." else "",
+                                style = JewelTheme.defaultTextStyle.copy(fontSize = 11.sp)
+                            )
+                        }
+                        item.progress != null -> {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = item.progress!!,
+                                style = JewelTheme.defaultTextStyle.copy(
+                                    fontSize = 11.sp,
+                                    color = JewelTheme.globalColors.text.info.copy(alpha = 0.7f)
+                                )
+                            )
+                        }
+                    }
+                    // Execution time
+                    item.executionTimeMs?.let { time ->
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Completed in ${time}ms",
+                            style = JewelTheme.defaultTextStyle.copy(
+                                fontSize = 10.sp,
+                                color = JewelTheme.globalColors.text.info.copy(alpha = 0.5f)
+                            )
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 

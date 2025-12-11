@@ -95,6 +95,7 @@ kotlin {
 //        nodejs {
             // Configure Node.js target for CLI
 //        }
+        browser()
         useCommonJs()
         binaries.executable()
         compilerOptions {

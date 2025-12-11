@@ -108,6 +108,10 @@ fun IdeaTimelineItemView(
             // Info message bubble
             IdeaInfoBubble(message = item.message)
         }
+        is TimelineItem.MultimodalAnalysisItem -> {
+            // Multimodal analysis (vision model) bubble
+            IdeaMultimodalAnalysisBubble(item)
+        }
     }
 }
 
@@ -308,3 +312,145 @@ fun IdeaInfoBubble(
     }
 }
 
+/**
+ * Multimodal analysis bubble for displaying vision model analysis progress and results.
+ * Shows image info, analysis status, and streaming/final results.
+ */
+@Composable
+fun IdeaMultimodalAnalysisBubble(item: TimelineItem.MultimodalAnalysisItem) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .background(
+                JewelTheme.globalColors.panelBackground.copy(alpha = 0.5f),
+                shape = RoundedCornerShape(8.dp)
+            )
+            .padding(12.dp)
+    ) {
+        Column {
+            // Header with vision model and status
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "👁️ Vision Analysis",
+                        style = JewelTheme.defaultTextStyle.copy(
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 12.sp,
+                            color = JewelTheme.globalColors.text.info
+                        )
+                    )
+                    Text(
+                        text = "(${item.visionModel})",
+                        style = JewelTheme.defaultTextStyle.copy(
+                            fontSize = 10.sp,
+                            color = JewelTheme.globalColors.text.info.copy(alpha = 0.6f)
+                        )
+                    )
+                }
+                // Status badge
+                val statusColor = when (item.status) {
+                    cc.unitmesh.agent.render.MultimodalAnalysisStatus.COMPLETED ->
+                        JewelTheme.globalColors.text.info
+                    cc.unitmesh.agent.render.MultimodalAnalysisStatus.FAILED ->
+                        JewelTheme.globalColors.text.error
+                    else -> JewelTheme.globalColors.text.info.copy(alpha = 0.7f)
+                }
+                Text(
+                    text = item.status.displayName,
+                    style = JewelTheme.defaultTextStyle.copy(
+                        fontSize = 10.sp,
+                        color = statusColor
+                    )
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Image thumbnails info
+            if (item.images.isNotEmpty()) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    item.images.forEach { image ->
+                        Box(
+                            modifier = Modifier
+                                .background(
+                                    JewelTheme.globalColors.panelBackground,
+                                    shape = RoundedCornerShape(4.dp)
+                                )
+                                .padding(8.dp)
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = "🖼️",
+                                    style = JewelTheme.defaultTextStyle.copy(fontSize = 16.sp)
+                                )
+                                Text(
+                                    text = image.name,
+                                    style = JewelTheme.defaultTextStyle.copy(
+                                        fontSize = 9.sp,
+                                        color = JewelTheme.globalColors.text.info.copy(alpha = 0.7f)
+                                    ),
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            // Progress or result
+            when {
+                item.status == cc.unitmesh.agent.render.MultimodalAnalysisStatus.FAILED && item.error != null -> {
+                    Text(
+                        text = "Error: ${item.error}",
+                        style = JewelTheme.defaultTextStyle.copy(
+                            fontSize = 12.sp,
+                            color = JewelTheme.globalColors.text.error
+                        )
+                    )
+                }
+                item.streamingResult.isNotEmpty() -> {
+                    // Show streaming/final result
+                    Text(
+                        text = item.streamingResult,
+                        style = JewelTheme.defaultTextStyle.copy(fontSize = 12.sp)
+                    )
+                }
+                item.progress != null -> {
+                    Text(
+                        text = item.progress!!,
+                        style = JewelTheme.defaultTextStyle.copy(
+                            fontSize = 11.sp,
+                            color = JewelTheme.globalColors.text.info.copy(alpha = 0.7f)
+                        )
+                    )
+                }
+            }
+
+            // Execution time for completed analysis
+            if (item.executionTimeMs != null) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Completed in ${item.executionTimeMs}ms",
+                    style = JewelTheme.defaultTextStyle.copy(
+                        fontSize = 10.sp,
+                        color = JewelTheme.globalColors.text.info.copy(alpha = 0.5f)
+                    )
+                )
+            }
+        }
+    }
+}

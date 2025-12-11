@@ -2,12 +2,11 @@
 
 ## [Unreleased]
 
-### Changes
-- Module architecture refactoring: organized all IDEA plugin modules into composite build
-- Updated plugin dependencies to version 252
-
 ## [2.4.6]
 
 ### Features
-- Initial composite build structure for better module organization
 
+* Initial composite build structure for better module organization
+
+[Unreleased]: https://github.com/unit-mesh/auto-dev/compare/v2.4.6...HEAD
+[2.4.6]: https://github.com/unit-mesh/auto-dev/commits/v2.4.6
