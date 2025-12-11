@@ -1,13 +1,11 @@
 package cc.unitmesh.devins.idea.toolwindow
 
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.remember
-import cc.unitmesh.devins.idea.compose.rememberIdeaCoroutineScope
 import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
+import kotlinx.coroutines.Job
 import org.jetbrains.jewel.bridge.addComposeTab
 
 /**
@@ -29,6 +27,8 @@ class IdeaAgentToolWindowFactory : ToolWindowFactory {
     }
 
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
+        thisLogger().warn("createToolWindowContent called - project: ${project.name}")
+
         // Enable custom popup rendering to use JBPopup instead of default Compose implementation
         // This fixes z-index issues when Compose Popup is used with SwingPanel (e.g., EditorTextField)
         // See: JewelFlags.useCustomPopupRenderer in Jewel foundation
@@ -39,27 +39,36 @@ class IdeaAgentToolWindowFactory : ToolWindowFactory {
     override fun shouldBeAvailable(project: Project): Boolean = true
 
     private fun createAgentPanel(project: Project, toolWindow: ToolWindow) {
+        val contentManager = toolWindow.contentManager
+
+        // Check if Agent content already exists to prevent duplicate creation
+        // This can happen when the tool window is hidden and restored, or when squeezed by other windows
+        val existingContent = contentManager.findContent("Agent")
+        if (existingContent != null) {
+            contentManager.setSelectedContent(existingContent)
+            return
+        }
+
         val toolWindowDisposable = toolWindow.disposable
 
+        // Create ViewModel OUTSIDE of Compose to prevent recreation when Compose tree is rebuilt
+        // Jewel's addComposeTab may rebuild the Compose tree multiple times during initialization
+        val coroutineScope = kotlinx.coroutines.CoroutineScope(
+            kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main
+        )
+        val viewModel = IdeaAgentViewModel(project, coroutineScope)
+        Disposer.register(toolWindowDisposable, viewModel)
+
+        Disposer.register(toolWindowDisposable) {
+            coroutineScope.cancel()
+        }
+
         toolWindow.addComposeTab("Agent") {
-            // Use rememberIdeaCoroutineScope instead of rememberCoroutineScope to avoid
-            // ForgottenCoroutineScopeException when composition is left during LLM streaming.
-            // IntelliJ's CoroutineScopeHolder service provides a scope tied to project lifecycle.
-            val coroutineScope = rememberIdeaCoroutineScope(project)
-            val viewModel = remember { IdeaAgentViewModel(project, coroutineScope) }
-
-            // Register ViewModel with tool window's disposable to ensure proper cleanup
-            // This fixes the memory leak where ViewModel was registered with ROOT_DISPOSABLE
-            DisposableEffect(viewModel) {
-                Disposer.register(toolWindowDisposable, viewModel)
-                onDispose {
-                    // ViewModel will be disposed when toolWindowDisposable is disposed
-                    // No need to manually dispose here as Disposer handles the hierarchy
-                }
-            }
-
             IdeaAgentApp(viewModel, project, coroutineScope)
         }
     }
-}
 
+    private fun kotlinx.coroutines.CoroutineScope.cancel() {
+        (coroutineContext[Job] as? Job)?.cancel()
+    }
+}

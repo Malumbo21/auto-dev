@@ -42,6 +42,45 @@ import javax.swing.JPanel
 private val inputAreaLogger = Logger.getInstance("IdeaDevInInputArea")
 
 /**
+ * Cache SwingDevInInputArea instances by parentDisposable so that they survive
+ * Jewel / Compose root recompositions.
+ */
+private val swingInputAreaCache = mutableMapOf<Disposable, SwingDevInInputArea>()
+
+private fun getOrCreateSwingInputArea(
+    project: Project,
+    parentDisposable: Disposable,
+    scope: CoroutineScope,
+    onSend: (String) -> Unit,
+    onAbort: () -> Unit
+): SwingDevInInputArea {
+    synchronized(swingInputAreaCache) {
+        swingInputAreaCache[parentDisposable]?.let { existing ->
+            return existing
+        }
+
+        val created = SwingDevInInputArea(
+            project = project,
+            parentDisposable = parentDisposable,
+            onSend = onSend,
+            onAbort = onAbort,
+            scope = scope
+        )
+
+        swingInputAreaCache[parentDisposable] = created
+
+        // Remove from cache when parentDisposable is disposed to avoid leaks
+        Disposer.register(parentDisposable) {
+            synchronized(swingInputAreaCache) {
+                swingInputAreaCache.remove(parentDisposable)
+            }
+        }
+
+        return created
+    }
+}
+
+/**
  * Helper function to build and send message with file references.
  * Extracts common logic from onSubmit and onSendClick.
  */
@@ -91,101 +130,90 @@ fun IdeaDevInInputArea(
     onMultimodalAnalysisComplete: ((String?, String?) -> Unit)? = null
 ) {
     val scope = rememberIdeaCoroutineScope(project)
-    var swingInputArea by remember { mutableStateOf<SwingDevInInputArea?>(null) }
+
+    // Get or create SwingDevInInputArea *outside* of Compose's state store.
+    // The instance is cached per parentDisposable so it survives Jewel / Compose
+    // root recreation. remember() here only caches the reference within the
+    // current composition; actual lifecycle is managed by swingInputAreaCache.
+    val swingInputArea = remember(parentDisposable) {
+        getOrCreateSwingInputArea(
+            project = project,
+            parentDisposable = parentDisposable,
+            scope = scope,
+            onSend = onSend,
+            onAbort = onAbort
+        )
+    }
 
     // Update SwingDevInInputArea properties when they change
-    DisposableEffect(isProcessing) {
-        swingInputArea?.setProcessing(isProcessing)
-        onDispose { }
+    LaunchedEffect(isProcessing) {
+        swingInputArea.setProcessing(isProcessing)
     }
 
-    DisposableEffect(totalTokens) {
-        swingInputArea?.setTotalTokens(totalTokens)
-        onDispose { }
+    LaunchedEffect(totalTokens) {
+        swingInputArea.setTotalTokens(totalTokens)
     }
 
-    DisposableEffect(availableConfigs) {
-        swingInputArea?.setAvailableConfigs(availableConfigs)
-        onDispose { }
+    LaunchedEffect(availableConfigs) {
+        swingInputArea.setAvailableConfigs(availableConfigs)
     }
 
-    DisposableEffect(currentConfigName) {
-        swingInputArea?.setCurrentConfigName(currentConfigName)
-        onDispose { }
+    LaunchedEffect(currentConfigName) {
+        swingInputArea.setCurrentConfigName(currentConfigName)
     }
 
-    DisposableEffect(onConfigSelect) {
-        swingInputArea?.setOnConfigSelect(onConfigSelect)
-        onDispose { }
+    LaunchedEffect(onConfigSelect) {
+        swingInputArea.setOnConfigSelect(onConfigSelect)
     }
 
-    DisposableEffect(onConfigureClick) {
-        swingInputArea?.setOnConfigureClick(onConfigureClick)
-        onDispose { }
+    LaunchedEffect(onConfigureClick) {
+        swingInputArea.setOnConfigureClick(onConfigureClick)
     }
 
-    DisposableEffect(onAddNewConfig) {
-        swingInputArea?.setOnAddNewConfig(onAddNewConfig)
-        onDispose { }
+    LaunchedEffect(onAddNewConfig) {
+        swingInputArea.setOnAddNewConfig(onAddNewConfig)
     }
-    
-    DisposableEffect(onRefreshCopilot) {
+
+    LaunchedEffect(onRefreshCopilot) {
         if (onRefreshCopilot != null) {
-            swingInputArea?.setOnRefreshCopilot(onRefreshCopilot)
+            swingInputArea.setOnRefreshCopilot(onRefreshCopilot)
         }
-        onDispose { }
-    }
-    
-    DisposableEffect(isRefreshingCopilot) {
-        swingInputArea?.setRefreshingCopilot(isRefreshingCopilot)
-        onDispose { }
     }
 
-    DisposableEffect(currentPlan) {
-        swingInputArea?.setCurrentPlan(currentPlan)
-        onDispose { }
+    LaunchedEffect(isRefreshingCopilot) {
+        swingInputArea.setRefreshingCopilot(isRefreshingCopilot)
     }
-    
-    DisposableEffect(onMultimodalAnalysisStart) {
-        onMultimodalAnalysisStart?.let { swingInputArea?.setOnMultimodalAnalysisStart(it) }
-        onDispose { }
+
+    LaunchedEffect(currentPlan) {
+        swingInputArea.setCurrentPlan(currentPlan)
     }
-    
-    DisposableEffect(onMultimodalAnalysisChunk) {
-        onMultimodalAnalysisChunk?.let { swingInputArea?.setOnMultimodalAnalysisChunk(it) }
-        onDispose { }
+
+    LaunchedEffect(onMultimodalAnalysisStart) {
+        onMultimodalAnalysisStart?.let { swingInputArea.setOnMultimodalAnalysisStart(it) }
     }
-    
-    DisposableEffect(onMultimodalAnalysisComplete) {
-        onMultimodalAnalysisComplete?.let { swingInputArea?.setOnMultimodalAnalysisComplete(it) }
-        onDispose { }
+
+    LaunchedEffect(onMultimodalAnalysisChunk) {
+        onMultimodalAnalysisChunk?.let { swingInputArea.setOnMultimodalAnalysisChunk(it) }
+    }
+
+    LaunchedEffect(onMultimodalAnalysisComplete) {
+        onMultimodalAnalysisComplete?.let { swingInputArea.setOnMultimodalAnalysisComplete(it) }
+    }
+
+    // Update onSend and onAbort callbacks when they change
+    LaunchedEffect(onSend, onAbort) {
+        swingInputArea.updateCallbacks(onSend, onAbort)
     }
 
     // Embed SwingDevInInputArea using SwingPanel
+    // The factory returns the remembered instance to prevent recreation
     SwingPanel(
         modifier = Modifier.fillMaxSize(),
         factory = {
-            SwingDevInInputArea(
-                project = project,
-                parentDisposable = parentDisposable,
-                onSend = onSend,
-                onAbort = onAbort,
-                scope = scope
-            ).also {
-                swingInputArea = it
-                // Apply initial values
-                it.setProcessing(isProcessing)
-                it.setTotalTokens(totalTokens)
-                it.setAvailableConfigs(availableConfigs)
-                it.setCurrentConfigName(currentConfigName)
-                it.setOnConfigSelect(onConfigSelect)
-                it.setOnConfigureClick(onConfigureClick)
-                it.setOnAddNewConfig(onAddNewConfig)
-                it.setCurrentPlan(currentPlan)
-            }
+            swingInputArea
         },
         update = { panel ->
-            // Panel updates are handled via DisposableEffect above
+            // Panel updates are handled via LaunchedEffect above
         }
     )
 }
@@ -202,8 +230,8 @@ fun IdeaDevInInputArea(
 class SwingDevInInputArea(
     private val project: Project,
     private val parentDisposable: Disposable,
-    private val onSend: (String) -> Unit,
-    private val onAbort: () -> Unit,
+    private var onSend: (String) -> Unit,
+    private var onAbort: () -> Unit,
     private val scope: CoroutineScope,
     /** Enable multimodal image support */
     private val enableMultimodal: Boolean = true,
@@ -223,7 +251,7 @@ class SwingDevInInputArea(
     // Swing toolbars
     private lateinit var topToolbar: SwingTopToolbar
     private lateinit var bottomToolbar: SwingBottomToolbar
-    
+
     // Multimodal support
     private var imageAttachmentPanel: IdeaImageAttachmentPanel? = null
     private val multimodalService: IdeaMultimodalService? = if (enableMultimodal) {
@@ -281,7 +309,7 @@ class SwingDevInInputArea(
                             sendMessage(text)
                         }
                     }
-                    
+
                     override fun onSubmitWithMultimodal(
                         text: String,
                         trigger: IdeaInputTrigger,
@@ -301,20 +329,20 @@ class SwingDevInInputArea(
                         inputText = text
                         updateSendButtonState()
                     }
-                    
+
                     override fun onMultimodalStateChanged(state: IdeaMultimodalState) {
                         bottomToolbar.updateMultimodalState(state)
                         updateSendButtonState()
                     }
-                    
+
                     override fun onMultimodalAnalysisStart(imageCount: Int, prompt: String) {
                         onMultimodalAnalysisStart?.invoke(imageCount, prompt)
                     }
-                    
+
                     override fun onMultimodalAnalysisChunk(chunk: String) {
                         onMultimodalAnalysisChunk?.invoke(chunk)
                     }
-                    
+
                     override fun onMultimodalAnalysisComplete(fullResult: String?, error: String?) {
                         onMultimodalAnalysisComplete?.invoke(fullResult, error)
                     }
@@ -325,7 +353,7 @@ class SwingDevInInputArea(
             devInInput = input
 
             add(input, BorderLayout.CENTER)
-            
+
             // Add image attachment panel below the input (if multimodal enabled)
             if (enableMultimodal && input.getImageUploadManager() != null) {
                 imageAttachmentPanel = IdeaImageAttachmentPanel(
@@ -337,7 +365,7 @@ class SwingDevInInputArea(
                 }
                 add(imageAttachmentPanel, BorderLayout.SOUTH)
             }
-            
+
             minimumSize = Dimension(200, 60)
             preferredSize = Dimension(Int.MAX_VALUE, 100)
         }
@@ -361,7 +389,7 @@ class SwingDevInInputArea(
 
         add(contentPanel, BorderLayout.CENTER)
     }
-    
+
     private fun updateSendButtonState() {
         val hasText = inputText.isNotBlank()
         val multimodalState = devInInput?.multimodalState ?: IdeaMultimodalState()
@@ -379,7 +407,7 @@ class SwingDevInInputArea(
         topToolbar.clearFiles()
         bottomToolbar.setSendEnabled(false)
     }
-    
+
     /**
      * Send message with multimodal content.
      * Appends image URLs and analysis result to the message.
@@ -391,18 +419,18 @@ class SwingDevInInputArea(
     ) {
         val selectedFiles = topToolbar.getSelectedFiles()
         val filesText = selectedFiles.joinToString("\n") { it.toDevInsCommand() }
-        
+
         // Build full message with images and analysis
         val messageBuilder = StringBuilder()
         if (text.isNotBlank()) {
             messageBuilder.append(text)
         }
-        
+
         // Add file references
         if (filesText.isNotEmpty()) {
             messageBuilder.append("\n").append(filesText)
         }
-        
+
         // Add image URLs as references
         if (state.hasImages) {
             val imageUrls = state.images.mapNotNull { it.uploadedUrl }
@@ -413,16 +441,16 @@ class SwingDevInInputArea(
                 }
             }
         }
-        
+
         // Add vision analysis result if available
         if (analysisResult != null && analysisResult.isNotBlank()) {
             messageBuilder.append("\n\n[Image Analysis]\n")
             messageBuilder.append(analysisResult)
         }
-        
+
         val fullText = messageBuilder.toString()
         onSend(fullText)
-        
+
         // Clear input state
         devInInput?.clearInput()
         devInInput?.clearImages()
@@ -496,11 +524,11 @@ class SwingDevInInputArea(
     fun setOnAddNewConfig(callback: () -> Unit) {
         bottomToolbar.setOnAddNewConfig(callback)
     }
-    
+
     fun setOnRefreshCopilot(callback: () -> Unit) {
         bottomToolbar.setOnRefreshCopilot(callback)
     }
-    
+
     fun setRefreshingCopilot(refreshing: Boolean) {
         bottomToolbar.setRefreshingCopilot(refreshing)
     }
@@ -509,17 +537,26 @@ class SwingDevInInputArea(
         currentPlan = plan
         // TODO: Add plan summary bar support
     }
-    
+
     fun setOnMultimodalAnalysisStart(callback: (Int, String) -> Unit) {
         onMultimodalAnalysisStart = callback
     }
-    
+
     fun setOnMultimodalAnalysisChunk(callback: (String) -> Unit) {
         onMultimodalAnalysisChunk = callback
     }
-    
+
     fun setOnMultimodalAnalysisComplete(callback: (String?, String?) -> Unit) {
         onMultimodalAnalysisComplete = callback
+    }
+
+    /**
+     * Update onSend and onAbort callbacks.
+     * Called when Compose recomposes with new callback instances.
+     */
+    fun updateCallbacks(newOnSend: (String) -> Unit, newOnAbort: () -> Unit) {
+        onSend = newOnSend
+        onAbort = newOnAbort
     }
 
     override fun dispose() {
