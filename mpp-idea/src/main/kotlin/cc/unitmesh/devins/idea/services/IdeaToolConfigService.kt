@@ -3,14 +3,19 @@ package cc.unitmesh.devins.idea.services
 import cc.unitmesh.agent.config.ToolConfigFile
 import cc.unitmesh.config.ConfigManager
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.launch
 
 /**
  * Project-level service for managing tool configuration state.
@@ -28,6 +33,9 @@ class IdeaToolConfigService(private val project: Project) : Disposable {
 
     private val logger = Logger.getInstance(IdeaToolConfigService::class.java)
 
+    // Coroutine scope for async operations
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     // Tool configuration state
     private val _toolConfigState = MutableStateFlow(ToolConfigState())
     val toolConfigState: StateFlow<ToolConfigState> = _toolConfigState.asStateFlow()
@@ -37,22 +45,32 @@ class IdeaToolConfigService(private val project: Project) : Disposable {
     val configVersion: StateFlow<Long> = _configVersion.asStateFlow()
 
     init {
-        // Load initial configuration
-        reloadConfig()
+        // Load initial configuration asynchronously to avoid blocking EDT
+        reloadConfigAsync()
+    }
+
+    /**
+     * Reload configuration from disk asynchronously.
+     * This is the preferred method as it doesn't block any thread.
+     */
+    fun reloadConfigAsync() {
+        serviceScope.launch {
+            try {
+                val toolConfig = ConfigManager.loadToolConfig()
+                updateState(toolConfig)
+                logger.debug("Tool configuration reloaded: ${toolConfig.enabledMcpTools.size} enabled tools")
+            } catch (e: Exception) {
+                logger.warn("Failed to reload tool configuration: ${e.message}")
+            }
+        }
     }
 
     /**
      * Reload configuration from disk and update state.
-     * Uses runBlocking since this is called from non-suspend context.
+     * This method loads config in background and doesn't block.
      */
     fun reloadConfig() {
-        try {
-            val toolConfig = runBlocking { ConfigManager.loadToolConfig() }
-            updateState(toolConfig)
-            logger.debug("Tool configuration reloaded: ${toolConfig.enabledMcpTools.size} enabled tools")
-        } catch (e: Exception) {
-            logger.warn("Failed to reload tool configuration: ${e.message}")
-        }
+        reloadConfigAsync()
     }
 
     /**
@@ -77,17 +95,30 @@ class IdeaToolConfigService(private val project: Project) : Disposable {
     }
 
     /**
+     * Save tool configuration and update state asynchronously.
+     * This is the preferred method as it doesn't block any thread.
+     */
+    fun saveAndUpdateConfigAsync(toolConfig: ToolConfigFile, onComplete: (() -> Unit)? = null) {
+        serviceScope.launch {
+            try {
+                ConfigManager.saveToolConfig(toolConfig)
+                updateState(toolConfig)
+                logger.debug("Tool configuration saved and state updated")
+                onComplete?.let {
+                    ApplicationManager.getApplication().invokeLater { it() }
+                }
+            } catch (e: Exception) {
+                logger.error("Failed to save tool configuration: ${e.message}")
+            }
+        }
+    }
+
+    /**
      * Save tool configuration and update state.
-     * Uses runBlocking since this is called from non-suspend context.
+     * Uses async save to avoid blocking the calling thread.
      */
     fun saveAndUpdateConfig(toolConfig: ToolConfigFile) {
-        try {
-            runBlocking { ConfigManager.saveToolConfig(toolConfig) }
-            updateState(toolConfig)
-            logger.debug("Tool configuration saved and state updated")
-        } catch (e: Exception) {
-            logger.error("Failed to save tool configuration: ${e.message}")
-        }
+        saveAndUpdateConfigAsync(toolConfig)
     }
 
     /**
@@ -98,7 +129,7 @@ class IdeaToolConfigService(private val project: Project) : Disposable {
     }
 
     override fun dispose() {
-        // Cleanup if needed
+        serviceScope.cancel()
     }
 
     companion object {

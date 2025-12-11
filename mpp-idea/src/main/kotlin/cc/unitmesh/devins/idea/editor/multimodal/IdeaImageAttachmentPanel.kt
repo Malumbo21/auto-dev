@@ -104,7 +104,17 @@ class IdeaImageAttachmentPanel(
 
         // Update status label
         statusLabel.text = when {
-            state.isAnalyzing -> "Analyzing..."
+            state.isAnalyzing -> {
+                // Show streaming analysis progress if available, otherwise show "Analyzing..."
+                val progress = state.analysisProgress
+                if (progress != null && progress.isNotBlank()) {
+                    // Truncate long responses for status label, show first 50 chars
+                    val displayText = progress.take(50).replace("\n", " ")
+                    if (progress.length > 50) "$displayText..." else displayText
+                } else {
+                    "Analyzing ${state.imageCount} image(s)..."
+                }
+            }
             state.isUploading -> "Uploading... (${state.uploadedCount}/${state.imageCount})"
             state.allImagesUploaded -> "Ready (${state.uploadedCount}/${state.imageCount})"
             state.hasUploadError -> "Upload failed"

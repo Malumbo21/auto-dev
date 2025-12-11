@@ -64,5 +64,24 @@ interface IdeaInputListener : EventListener {
      * Called when multimodal state changes (images added/removed/uploaded).
      */
     fun onMultimodalStateChanged(state: IdeaMultimodalState) {}
+    
+    /**
+     * Called when multimodal analysis starts streaming.
+     * Allows the listener to show the analysis in the timeline/renderer.
+     */
+    fun onMultimodalAnalysisStart(imageCount: Int, prompt: String) {}
+    
+    /**
+     * Called for each chunk during multimodal analysis streaming.
+     * @param chunk The text chunk from the vision model
+     */
+    fun onMultimodalAnalysisChunk(chunk: String) {}
+    
+    /**
+     * Called when multimodal analysis completes.
+     * @param fullResult The complete analysis result
+     * @param error Error message if analysis failed, null otherwise
+     */
+    fun onMultimodalAnalysisComplete(fullResult: String?, error: String?) {}
 }
 

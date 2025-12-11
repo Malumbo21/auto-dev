@@ -278,7 +278,17 @@ fun IdeaAgentApp(
                                     }
                                 }
                             } else null,
-                            isRefreshingCopilot = isRefreshingCopilot
+                            isRefreshingCopilot = isRefreshingCopilot,
+                            // Multimodal analysis callbacks - stream to timeline via renderer
+                            onMultimodalAnalysisStart = { imageCount, prompt ->
+                                viewModel.renderer.startMultimodalAnalysis(imageCount, prompt)
+                            },
+                            onMultimodalAnalysisChunk = { chunk ->
+                                viewModel.renderer.updateMultimodalAnalysisChunk(chunk)
+                            },
+                            onMultimodalAnalysisComplete = { result, error ->
+                                viewModel.renderer.completeMultimodalAnalysis(result, error)
+                            }
                         )
                     }
                 )

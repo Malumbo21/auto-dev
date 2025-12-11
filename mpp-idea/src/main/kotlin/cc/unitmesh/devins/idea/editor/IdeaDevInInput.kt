@@ -357,14 +357,28 @@ class IdeaDevInInput(
             
             imageUploadManager?.setAnalyzing(true, "Analyzing ${imageUrls.size} image(s)...")
             
+            // Notify listeners that analysis is starting
+            ApplicationManager.getApplication().invokeLater {
+                editorListeners.multicaster.onMultimodalAnalysisStart(imageUrls.size, inputText)
+            }
+            
             ApplicationManager.getApplication().executeOnPooledThread {
                 kotlinx.coroutines.runBlocking {
                     try {
                         val analysisResult = onMultimodalAnalysis.invoke(imageUrls, inputText) { chunk ->
+                            // Update both the status panel and notify listeners for renderer
                             imageUploadManager?.updateAnalysisProgress(chunk)
+                            ApplicationManager.getApplication().invokeLater {
+                                editorListeners.multicaster.onMultimodalAnalysisChunk(chunk)
+                            }
                         }
                         
                         imageUploadManager?.setAnalysisResult(analysisResult)
+                        
+                        // Notify listeners that analysis is complete
+                        ApplicationManager.getApplication().invokeLater {
+                            editorListeners.multicaster.onMultimodalAnalysisComplete(analysisResult, null)
+                        }
                         
                         // Submit with multimodal content on EDT
                         ApplicationManager.getApplication().invokeLater {
@@ -380,8 +394,13 @@ class IdeaDevInInput(
                             imageUploadManager?.clearImages()
                         }
                     } catch (e: Exception) {
-                        imageUploadManager?.setAnalysisResult(null, e.message ?: "Analysis failed")
-                        onError?.invoke("Multimodal analysis failed: ${e.message}")
+                        val errorMsg = e.message ?: "Analysis failed"
+                        imageUploadManager?.setAnalysisResult(null, errorMsg)
+                        // Notify listeners of error
+                        ApplicationManager.getApplication().invokeLater {
+                            editorListeners.multicaster.onMultimodalAnalysisComplete(null, errorMsg)
+                        }
+                        onError?.invoke("Multimodal analysis failed: $errorMsg")
                     }
                 }
             }

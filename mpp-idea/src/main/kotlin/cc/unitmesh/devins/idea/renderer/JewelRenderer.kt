@@ -855,6 +855,96 @@ class JewelRenderer : BaseRenderer() {
             )
         }
     }
+
+    // ========== Multimodal Analysis Support ==========
+
+    // Track the current multimodal analysis item ID for updates
+    private var currentMultimodalAnalysisId: String? = null
+    private var multimodalAnalysisStartTime: Long = 0L
+
+    /**
+     * Start a multimodal analysis session.
+     * Adds a MultimodalAnalysisItem to the timeline with ANALYZING status.
+     */
+    fun startMultimodalAnalysis(
+        imageCount: Int,
+        prompt: String,
+        visionModel: String = "glm-4.6v"
+    ) {
+        multimodalAnalysisStartTime = System.currentTimeMillis()
+        
+        // Create image info list (we may not have full details at this point)
+        val images = (1..imageCount).map { index ->
+            cc.unitmesh.agent.render.ImageInfo(
+                id = "image-$index",
+                name = "Image $index",
+                displaySize = ""
+            )
+        }
+        
+        val item = TimelineItem.MultimodalAnalysisItem(
+            images = images,
+            prompt = prompt,
+            visionModel = visionModel,
+            status = cc.unitmesh.agent.render.MultimodalAnalysisStatus.ANALYZING,
+            streamingResult = ""
+        )
+        
+        currentMultimodalAnalysisId = item.id
+        addTimelineItem(item)
+    }
+
+    /**
+     * Update the multimodal analysis with a streaming chunk.
+     * Appends the chunk to the streamingResult.
+     */
+    fun updateMultimodalAnalysisChunk(chunk: String) {
+        val analysisId = currentMultimodalAnalysisId ?: return
+        
+        _timeline.update { items ->
+            items.map { item ->
+                if (item is TimelineItem.MultimodalAnalysisItem && item.id == analysisId) {
+                    item.copy(
+                        status = cc.unitmesh.agent.render.MultimodalAnalysisStatus.STREAMING,
+                        streamingResult = item.streamingResult + chunk
+                    )
+                } else {
+                    item
+                }
+            }
+        }
+    }
+
+    /**
+     * Complete the multimodal analysis.
+     * Updates status to COMPLETED or FAILED.
+     */
+    fun completeMultimodalAnalysis(finalResult: String?, error: String?) {
+        val analysisId = currentMultimodalAnalysisId ?: return
+        val executionTime = System.currentTimeMillis() - multimodalAnalysisStartTime
+        
+        _timeline.update { items ->
+            items.map { item ->
+                if (item is TimelineItem.MultimodalAnalysisItem && item.id == analysisId) {
+                    item.copy(
+                        status = if (error != null) {
+                            cc.unitmesh.agent.render.MultimodalAnalysisStatus.FAILED
+                        } else {
+                            cc.unitmesh.agent.render.MultimodalAnalysisStatus.COMPLETED
+                        },
+                        finalResult = finalResult,
+                        error = error,
+                        executionTimeMs = executionTime
+                    )
+                } else {
+                    item
+                }
+            }
+        }
+        
+        currentMultimodalAnalysisId = null
+        multimodalAnalysisStartTime = 0L
+    }
 }
 
 /**

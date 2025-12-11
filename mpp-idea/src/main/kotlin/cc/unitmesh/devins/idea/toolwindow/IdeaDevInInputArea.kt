@@ -84,7 +84,11 @@ fun IdeaDevInInputArea(
     onAddNewConfig: () -> Unit = {},
     onRefreshCopilot: (() -> Unit)? = null,
     isRefreshingCopilot: Boolean = false,
-    currentPlan: AgentPlan? = null
+    currentPlan: AgentPlan? = null,
+    // Multimodal analysis streaming callbacks for renderer
+    onMultimodalAnalysisStart: ((Int, String) -> Unit)? = null,
+    onMultimodalAnalysisChunk: ((String) -> Unit)? = null,
+    onMultimodalAnalysisComplete: ((String?, String?) -> Unit)? = null
 ) {
     val scope = rememberIdeaCoroutineScope(project)
     var swingInputArea by remember { mutableStateOf<SwingDevInInputArea?>(null) }
@@ -141,6 +145,21 @@ fun IdeaDevInInputArea(
         swingInputArea?.setCurrentPlan(currentPlan)
         onDispose { }
     }
+    
+    DisposableEffect(onMultimodalAnalysisStart) {
+        onMultimodalAnalysisStart?.let { swingInputArea?.setOnMultimodalAnalysisStart(it) }
+        onDispose { }
+    }
+    
+    DisposableEffect(onMultimodalAnalysisChunk) {
+        onMultimodalAnalysisChunk?.let { swingInputArea?.setOnMultimodalAnalysisChunk(it) }
+        onDispose { }
+    }
+    
+    DisposableEffect(onMultimodalAnalysisComplete) {
+        onMultimodalAnalysisComplete?.let { swingInputArea?.setOnMultimodalAnalysisComplete(it) }
+        onDispose { }
+    }
 
     // Embed SwingDevInInputArea using SwingPanel
     SwingPanel(
@@ -187,7 +206,11 @@ class SwingDevInInputArea(
     private val onAbort: () -> Unit,
     private val scope: CoroutineScope,
     /** Enable multimodal image support */
-    private val enableMultimodal: Boolean = true
+    private val enableMultimodal: Boolean = true,
+    /** Callback for multimodal analysis streaming to renderer */
+    private var onMultimodalAnalysisStart: ((Int, String) -> Unit)? = null,
+    private var onMultimodalAnalysisChunk: ((String) -> Unit)? = null,
+    private var onMultimodalAnalysisComplete: ((String?, String?) -> Unit)? = null
 ) : JPanel(BorderLayout()), Disposable {
 
     private val logger = Logger.getInstance(SwingDevInInputArea::class.java)
@@ -282,6 +305,18 @@ class SwingDevInInputArea(
                     override fun onMultimodalStateChanged(state: IdeaMultimodalState) {
                         bottomToolbar.updateMultimodalState(state)
                         updateSendButtonState()
+                    }
+                    
+                    override fun onMultimodalAnalysisStart(imageCount: Int, prompt: String) {
+                        onMultimodalAnalysisStart?.invoke(imageCount, prompt)
+                    }
+                    
+                    override fun onMultimodalAnalysisChunk(chunk: String) {
+                        onMultimodalAnalysisChunk?.invoke(chunk)
+                    }
+                    
+                    override fun onMultimodalAnalysisComplete(fullResult: String?, error: String?) {
+                        onMultimodalAnalysisComplete?.invoke(fullResult, error)
                     }
                 })
             }
@@ -473,6 +508,18 @@ class SwingDevInInputArea(
     fun setCurrentPlan(plan: AgentPlan?) {
         currentPlan = plan
         // TODO: Add plan summary bar support
+    }
+    
+    fun setOnMultimodalAnalysisStart(callback: (Int, String) -> Unit) {
+        onMultimodalAnalysisStart = callback
+    }
+    
+    fun setOnMultimodalAnalysisChunk(callback: (String) -> Unit) {
+        onMultimodalAnalysisChunk = callback
+    }
+    
+    fun setOnMultimodalAnalysisComplete(callback: (String?, String?) -> Unit) {
+        onMultimodalAnalysisComplete = callback
     }
 
     override fun dispose() {
