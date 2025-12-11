@@ -19,6 +19,7 @@ import cc.unitmesh.devins.ui.compose.config.CloudStorageConfigDialog
 import cc.unitmesh.devins.ui.compose.editor.DevInEditorInput
 import cc.unitmesh.devins.ui.compose.editor.multimodal.ImageUploader
 import cc.unitmesh.devins.ui.compose.editor.multimodal.VisionAnalysisService
+import cc.unitmesh.devins.ui.compose.editor.multimodal.VisionModelConfig
 import cc.unitmesh.devins.ui.state.UIStateManager
 import cc.unitmesh.devins.workspace.WorkspaceManager
 import cc.unitmesh.llm.KoogLLMService
@@ -70,6 +71,10 @@ fun AgentChatInterface(
     var imageUploader by remember { mutableStateOf<ImageUploader?>(null) }
     var visionService by remember { mutableStateOf<VisionAnalysisService?>(null) }
 
+    // Vision model state - allows user to select which vision model to use
+    var selectedVisionModel by remember { mutableStateOf("glm-4.6v") }
+    var selectedVisionApiKey by remember { mutableStateOf("") }
+
     // Load cloud storage config on start
     LaunchedEffect(Unit) {
         try {
@@ -78,15 +83,21 @@ fun AgentChatInterface(
             if (cloudStorageConfig?.isConfigured() == true) {
                 imageUploader = ImageUploader(cloudStorageConfig!!)
             }
-            // Get GLM API key for vision service
+            // Get GLM API key for vision service (default)
             val glmConfig = configWrapper.getModelConfigByProvider(LLMProviderType.GLM.name)
             if (glmConfig != null && glmConfig.apiKey.isNotBlank()) {
-                // Use the model name from config, default to glm-4.6v if not specified
-                val visionModelName = "glm-4.6v"
-                visionService = VisionAnalysisService(glmConfig.apiKey, visionModelName)
+                selectedVisionApiKey = glmConfig.apiKey
+                visionService = VisionAnalysisService(glmConfig.apiKey, selectedVisionModel)
             }
         } catch (e: Exception) {
             println("Failed to load cloud storage config: ${e.message}")
+        }
+    }
+
+    // Update vision service when model changes
+    LaunchedEffect(selectedVisionModel, selectedVisionApiKey) {
+        if (selectedVisionApiKey.isNotBlank()) {
+            visionService = VisionAnalysisService(selectedVisionApiKey, selectedVisionModel)
         }
     }
 
@@ -248,7 +259,11 @@ fun AgentChatInterface(
                                     { imageUrls, prompt, onChunk ->
                                         visionService!!.analyzeImages(imageUrls, prompt, onChunk)
                                     }
-                                } else null
+                                } else null,
+                                onVisionModelChange = { config: VisionModelConfig ->
+                                    selectedVisionModel = config.name
+                                    selectedVisionApiKey = config.apiKey
+                                }
                             )
                         }
 
@@ -427,7 +442,11 @@ fun AgentChatInterface(
                     { imageUrls, prompt, onChunk ->
                         visionService!!.analyzeImages(imageUrls, prompt, onChunk)
                     }
-                } else null
+                } else null,
+                onVisionModelChange = { config: VisionModelConfig ->
+                    selectedVisionModel = config.name
+                    selectedVisionApiKey = config.apiKey
+                }
             )
 
             ToolLoadingStatusBar(

@@ -100,7 +100,12 @@ fun DevInEditorInput(
      * @param onChunk Callback for streaming response chunks (for real-time progress)
      * @return Analysis result string
      */
-    onMultimodalAnalysis: (suspend (imageUrls: List<String>, prompt: String, onChunk: (String) -> Unit) -> String?)? = null
+    onMultimodalAnalysis: (suspend (imageUrls: List<String>, prompt: String, onChunk: (String) -> Unit) -> String?)? = null,
+    /**
+     * Called when user selects a different vision model.
+     * @param config The selected vision model configuration
+     */
+    onVisionModelChange: ((cc.unitmesh.devins.ui.compose.editor.multimodal.VisionModelConfig) -> Unit)? = null
 ) {
     var textFieldValue by remember { mutableStateOf(TextFieldValue(initialText)) }
     var highlightedText by remember { mutableStateOf(initialText) }
@@ -699,7 +704,13 @@ fun DevInEditorInput(
                             isUploading = multimodalState.isUploading,
                             uploadedCount = multimodalState.uploadedCount,
                             analysisProgress = multimodalState.analysisProgress,
-                            visionModel = multimodalState.visionModel
+                            visionModel = multimodalState.visionModel,
+                            onVisionModelChange = onVisionModelChange?.let { callback ->
+                                { config ->
+                                    imageUploadManager.setVisionModel(config.name)
+                                    callback(config)
+                                }
+                            }
                         )
                     }
 

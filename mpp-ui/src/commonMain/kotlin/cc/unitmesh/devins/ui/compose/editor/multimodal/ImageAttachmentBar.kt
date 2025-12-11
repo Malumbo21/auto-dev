@@ -23,6 +23,8 @@ import cc.unitmesh.devins.ui.compose.icons.AutoDevComposeIcons
 /**
  * Bar showing attached images with thumbnails and remove buttons.
  * Clicking on an image shows the preview dialog.
+ *
+ * @param onVisionModelChange Callback when user selects a different vision model
  */
 @Composable
 fun ImageAttachmentBar(
@@ -35,6 +37,7 @@ fun ImageAttachmentBar(
     uploadedCount: Int = 0,
     analysisProgress: String? = null,
     visionModel: String,
+    onVisionModelChange: ((VisionModelConfig) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     if (images.isEmpty()) return
@@ -44,27 +47,36 @@ fun ImageAttachmentBar(
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 8.dp)
     ) {
-        // Vision model indicator and upload status
+        // Vision model selector and upload status
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Icon(
-                    imageVector = AutoDevComposeIcons.Vision,
-                    contentDescription = null,
-                    modifier = Modifier.size(14.dp),
-                    tint = MaterialTheme.colorScheme.primary
+            // Vision model selector (replaces static text)
+            if (onVisionModelChange != null) {
+                VisionModelSelector(
+                    currentModel = visionModel,
+                    onModelChange = onVisionModelChange
                 )
-                Text(
-                    text = "Vision: $visionModel",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary
-                )
+            } else {
+                // Fallback to static display if no callback provided
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Icon(
+                        imageVector = AutoDevComposeIcons.Vision,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = "Vision: $visionModel",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
 
             // Upload status
