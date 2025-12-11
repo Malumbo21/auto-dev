@@ -82,7 +82,7 @@ fun AgentChatInterface(
             val glmConfig = configWrapper.getModelConfigByProvider(LLMProviderType.GLM.name)
             if (glmConfig != null && glmConfig.apiKey.isNotBlank()) {
                 // Use the model name from config, default to glm-4.6v if not specified
-                val visionModelName = glmConfig.modelName.ifBlank { "glm-4.6v" }
+                val visionModelName = "glm-4.6v"
                 visionService = VisionAnalysisService(glmConfig.apiKey, visionModelName)
             }
         } catch (e: Exception) {

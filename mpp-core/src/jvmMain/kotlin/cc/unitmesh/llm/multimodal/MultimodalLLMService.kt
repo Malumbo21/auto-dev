@@ -44,7 +44,7 @@ class MultimodalLLMService(
     }
 
     private val baseUrl: String
-        get() = config.baseUrl.ifEmpty { 
+        get() = config.baseUrl.ifEmpty {
             ModelRegistry.getDefaultBaseUrl(LLMProviderType.GLM)
         }
 
@@ -62,7 +62,7 @@ class MultimodalLLMService(
         enableThinking: Boolean = false
     ): Flow<String> = flow {
         val requestBody = buildImageRequest(imageUrl, prompt, enableThinking, stream = true)
-        
+
         client.preparePost("${baseUrl}chat/completions") {
             contentType(ContentType.Application.Json)
             header("Authorization", "Bearer ${config.apiKey}")
@@ -75,11 +75,11 @@ class MultimodalLLMService(
 
             // Process SSE stream
             val channel: ByteReadChannel = response.bodyAsChannel()
-            
+
             while (!channel.isClosedForRead) {
                 val line = channel.readUTF8Line() ?: break
                 val trimmedLine = line.trim()
-                
+
                 if (trimmedLine.startsWith("data: ")) {
                     val data = trimmedLine.removePrefix("data: ").trim()
                     if (data == "[DONE]") {
@@ -88,7 +88,7 @@ class MultimodalLLMService(
                     try {
                         val chunk = json.parseToJsonElement(data).jsonObject
                         val choices = chunk["choices"]?.jsonArray
-                        if (choices != null && choices.isNotEmpty()) {
+                        if (!choices.isNullOrEmpty()) {
                             val delta = choices[0].jsonObject["delta"]?.jsonObject
                             val text = delta?.get("content")?.jsonPrimitive?.contentOrNull
                             if (text != null) {
@@ -112,7 +112,7 @@ class MultimodalLLMService(
         enableThinking: Boolean = false
     ): String = withContext(Dispatchers.IO) {
         val requestBody = buildImageRequest(imageUrl, prompt, enableThinking, stream = false)
-        
+
         val response = client.post("${baseUrl}chat/completions") {
             contentType(ContentType.Application.Json)
             header("Authorization", "Bearer ${config.apiKey}")
@@ -127,8 +127,8 @@ class MultimodalLLMService(
         val responseText = response.bodyAsText()
         val jsonResponse = json.parseToJsonElement(responseText).jsonObject
         val choices = jsonResponse["choices"]?.jsonArray
-        
-        if (choices != null && choices.isNotEmpty()) {
+
+        if (!choices.isNullOrEmpty()) {
             val message = choices[0].jsonObject["message"]?.jsonObject
             message?.get("content")?.jsonPrimitive?.contentOrNull ?: ""
         } else {
@@ -284,14 +284,14 @@ class MultimodalLLMService(
                 apiKey = apiKey,
                 baseUrl = ModelRegistry.getDefaultBaseUrl(LLMProviderType.GLM)
             )
-            
+
             val cosUploader = TencentCosUploader(
                 secretId = cosSecretId,
                 secretKey = cosSecretKey,
                 bucket = cosBucket,
                 region = cosRegion
             )
-            
+
             return MultimodalLLMService(config, cosUploader)
         }
 
@@ -311,7 +311,7 @@ class MultimodalLLMService(
                 apiKey = apiKey,
                 baseUrl = ModelRegistry.getDefaultBaseUrl(LLMProviderType.GLM)
             )
-            
+
             return MultimodalLLMService(config, null)
         }
     }

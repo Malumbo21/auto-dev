@@ -186,35 +186,31 @@ fun DevInEditorInput(
             val originalText = fullText
 
             // Update state to show analysis in progress
-            imageUploadManager.setAnalyzing(true, "Analyzing ${imageUrls.size} image(s) with ${currentState.visionModel}...")
+            imageUploadManager.setAnalyzing(
+                true,
+                "Analyzing ${imageUrls.size} image(s) with ${currentState.visionModel}..."
+            )
 
-            // Show progress in renderer
-            renderer?.renderInfo("Analyzing image(s) with ${currentState.visionModel}...")
+            // Show initial progress in renderer
+            renderer?.renderInfo("🔍 Analyzing image(s) with ${currentState.visionModel}...")
 
             scope.launch {
                 try {
-                    // Track streaming content for real-time progress display
                     val streamingContent = StringBuilder()
-
-                    // Perform multimodal analysis with uploaded URLs and streaming callback
                     val analysisResult = onMultimodalAnalysis!!(imageUrls, originalText) { chunk ->
                         streamingContent.append(chunk)
-                        // Update progress with streaming content (show first 100 chars as preview)
-                        val preview = if (streamingContent.length > 100) {
-                            streamingContent.substring(0, 100) + "..."
-                        } else {
-                            streamingContent.toString()
-                        }
-                        imageUploadManager.updateAnalysisProgress("Analyzing: $preview")
+                        // Also update the progress bar with a preview
+//                        val preview = if (streamingContent.length > 100) {
+//                            streamingContent.substring(0, 100) + "..."
+//                        } else {
+//                            streamingContent.toString()
+//                        }
+                        imageUploadManager.updateAnalysisProgress(streamingContent.toString())
                     }
 
-                    // Update state with result
                     imageUploadManager.setAnalysisResult(analysisResult)
-
-                    // Send with multimodal result
                     callbacks?.onSubmitWithMultimodal(originalText, getFileContexts(), analysisResult)
 
-                    // Clear input and images
                     textFieldValue = TextFieldValue("")
                     selectedFiles = emptyList()
                     imageUploadManager.clearImages()
@@ -488,10 +484,12 @@ fun DevInEditorInput(
                         }
                         true
                     }
+
                     Key.DirectionDown -> {
                         selectedCompletionIndex = (selectedCompletionIndex + 1) % completionItems.size
                         true
                     }
+
                     Key.DirectionUp -> {
                         selectedCompletionIndex =
                             if (selectedCompletionIndex > 0) {
@@ -501,16 +499,19 @@ fun DevInEditorInput(
                             }
                         true
                     }
+
                     Key.Tab -> {
                         if (completionItems.isNotEmpty()) {
                             applyCompletion(completionItems[selectedCompletionIndex])
                         }
                         true
                     }
+
                     Key.Escape -> {
                         showCompletion = false
                         true
                     }
+
                     else -> false
                 }
             }
@@ -541,7 +542,9 @@ fun DevInEditorInput(
         modifier = modifier
             .then(
                 if (isMobile) {
-                    Modifier.clickable(indication = null, interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }) {
+                    Modifier.clickable(
+                        indication = null,
+                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }) {
                         focusManager.clearFocus()
                     }
                 } else {
