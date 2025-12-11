@@ -44,6 +44,7 @@ import cc.unitmesh.devins.ui.compose.editor.highlighting.DevInSyntaxHighlighter
 import cc.unitmesh.devins.ui.compose.editor.multimodal.AttachedImage
 import cc.unitmesh.devins.ui.compose.editor.multimodal.ImageAttachmentBar
 import cc.unitmesh.devins.ui.compose.editor.multimodal.ImagePreviewDialog
+import cc.unitmesh.devins.ui.compose.editor.multimodal.ImageUploadManager
 import cc.unitmesh.devins.ui.compose.editor.multimodal.MultimodalState
 import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.devins.ui.platform.createFileChooser
@@ -124,20 +125,22 @@ fun DevInEditorInput(
 
     // File search provider - use WorkspaceFileSearchProvider as default if not provided
     val effectiveSearchProvider = remember { fileSearchProvider ?: WorkspaceFileSearchProvider() }
-    
-    // Multimodal state - use explicit .value access to ensure proper state updates in closures/coroutines
-    val _multimodalState = remember { mutableStateOf(MultimodalState()) }
-    var previewingImage by remember { mutableStateOf<AttachedImage?>(null) }
-    
-    // Need scope early for buildAndSendMessage
+
+    // Need scope early for ImageUploadManager
     val scope = rememberCoroutineScope()
-    
-    // Helper functions to read/write multimodal state (ensures proper state access in closures)
-    fun getMultimodalState(): MultimodalState = _multimodalState.value
-    fun setMultimodalState(newState: MultimodalState) { _multimodalState.value = newState }
-    
-    // For simple reads in composable scope (reads directly from state holder)
-    // Note: In coroutines/closures, use getMultimodalState() instead
+
+    // Image upload manager - handles all image upload state and operations
+    val imageUploadManager = remember(scope, onImageUpload) {
+        ImageUploadManager(
+            scope = scope,
+            uploadCallback = onImageUpload,
+            onError = { error -> renderer?.renderError(error) }
+        )
+    }
+
+    // Collect multimodal state from the manager
+    val multimodalState by imageUploadManager.state.collectAsState()
+    var previewingImage by remember { mutableStateOf<AttachedImage?>(null) }
 
     // Helper function to convert SelectedFileItem to FileContext
     fun getFileContexts(): List<FileContext> = selectedFiles.map { file ->
@@ -152,20 +155,20 @@ fun DevInEditorInput(
     /**
      * Build and send message with file references (like IDEA's buildAndSendMessage).
      * Appends DevIns commands for selected files to the message.
-     * 
-     * If images are attached and all uploaded, performs multimodal analysis first, 
+     *
+     * If images are attached and all uploaded, performs multimodal analysis first,
      * then sends the combined result.
      */
     fun buildAndSendMessage(text: String) {
-        val currentState = getMultimodalState()
+        val currentState = multimodalState
         if (text.isBlank() && !currentState.hasImages) return
-        
+
         // Don't allow sending if images are still uploading
         if (currentState.isUploading) {
             renderer?.renderError("Please wait for image upload to complete")
             return
         }
-        
+
         // Don't allow sending if any upload failed
         if (currentState.hasUploadError) {
             renderer?.renderError("Some images failed to upload. Please remove or retry them.")
@@ -180,45 +183,32 @@ fun DevInEditorInput(
         if (currentState.allImagesUploaded && onMultimodalAnalysis != null) {
             val imageUrls = currentState.images.mapNotNull { it.uploadedUrl }
             val originalText = fullText
-            
+
             // Update state to show analysis in progress
-            setMultimodalState(currentState.copy(
-                isAnalyzing = true,
-                analysisProgress = "Analyzing ${imageUrls.size} image(s) with ${currentState.visionModel}..."
-            ))
-            
+            imageUploadManager.setAnalyzing(true, "Analyzing ${imageUrls.size} image(s) with ${currentState.visionModel}...")
+
             // Show progress in renderer
             renderer?.renderInfo("Analyzing image(s) with ${currentState.visionModel}...")
-            
+
             scope.launch {
                 try {
                     // Perform multimodal analysis with uploaded URLs
                     val analysisResult = onMultimodalAnalysis!!(imageUrls, originalText)
-                    
+
                     // Update state with result
-                    val afterAnalysis = getMultimodalState()
-                    setMultimodalState(afterAnalysis.copy(
-                        isAnalyzing = false,
-                        analysisProgress = null,
-                        analysisResult = analysisResult
-                    ))
-                    
+                    imageUploadManager.setAnalysisResult(analysisResult)
+
                     // Send with multimodal result
                     callbacks?.onSubmitWithMultimodal(originalText, getFileContexts(), analysisResult)
-                    
+
                     // Clear input and images
                     textFieldValue = TextFieldValue("")
                     selectedFiles = emptyList()
-                    setMultimodalState(MultimodalState())
+                    imageUploadManager.clearImages()
                     showCompletion = false
-                    
+
                 } catch (e: Exception) {
-                    val afterError = getMultimodalState()
-                    setMultimodalState(afterError.copy(
-                        isAnalyzing = false,
-                        analysisProgress = null,
-                        analysisError = e.message ?: "Analysis failed"
-                    ))
+                    imageUploadManager.setAnalysisResult(null, e.message ?: "Analysis failed")
                     renderer?.renderError("Multimodal analysis failed: ${e.message}")
                 }
             }
@@ -230,152 +220,6 @@ fun DevInEditorInput(
             textFieldValue = TextFieldValue("")
             selectedFiles = emptyList()
             showCompletion = false
-        }
-    }
-    
-    /**
-     * Update the upload status of an image
-     */
-    fun updateImageStatus(imageId: String, status: cc.unitmesh.devins.ui.compose.editor.multimodal.ImageUploadStatus) {
-        val current = getMultimodalState()
-        setMultimodalState(current.copy(
-            images = current.images.map { img ->
-                if (img.id == imageId) img.copy(uploadStatus = status) else img
-            }
-        ))
-    }
-    
-    /**
-     * Update the upload progress of an image
-     */
-    fun updateImageProgress(imageId: String, progress: Int) {
-        val current = getMultimodalState()
-        setMultimodalState(current.copy(
-            images = current.images.map { img ->
-                if (img.id == imageId) img.copy(uploadProgress = progress) else img
-            }
-        ))
-    }
-    
-    /**
-     * Remove an image from the multimodal state
-     */
-    fun removeImage(imageId: String) {
-        val current = getMultimodalState()
-        setMultimodalState(current.copy(
-            images = current.images.filter { it.id != imageId }
-        ))
-    }
-    
-    /**
-     * Upload a single image to cloud storage.
-     * Uses getMultimodalState()/setMultimodalState() for proper state access in coroutines.
-     */
-    suspend fun uploadImage(image: AttachedImage) {
-        if (onImageUpload == null || image.path == null) return
-        
-        val imageId = image.id
-        println("🚀 Starting upload for image: $imageId (${image.name})")
-        
-        // Update status to compressing
-        updateImageStatus(imageId, cc.unitmesh.devins.ui.compose.editor.multimodal.ImageUploadStatus.COMPRESSING)
-        
-        try {
-            // Update status to uploading
-            updateImageStatus(imageId, cc.unitmesh.devins.ui.compose.editor.multimodal.ImageUploadStatus.UPLOADING)
-            
-            // Perform upload with progress callback - returns ImageUploadResult
-            val result = onImageUpload!!(image.path!!, imageId) { progress ->
-                updateImageProgress(imageId, progress)
-            }
-            
-            println("📦 Upload result: success=${result.success}, url=${result.url}, originalSize=${result.originalSize}, compressedSize=${result.compressedSize}")
-            
-            if (result.success && result.url != null) {
-                // Update status to completed with URL and sizes
-                println("✅ Updating state for image $imageId to COMPLETED")
-                
-                val current = getMultimodalState()
-                println("   Current state images: ${current.images.map { "${it.id}:${it.uploadStatus}" }}")
-                
-                val updatedImages = current.images.map { img ->
-                    if (img.id == imageId) {
-                        println("   Found matching image, updating...")
-                        img.copy(
-                            uploadStatus = cc.unitmesh.devins.ui.compose.editor.multimodal.ImageUploadStatus.COMPLETED,
-                            uploadedUrl = result.url,
-                            uploadProgress = 100,
-                            originalSize = result.originalSize,
-                            compressedSize = result.compressedSize
-                        )
-                    } else img
-                }
-                
-                val newState = current.copy(images = updatedImages)
-                println("   New state images: ${newState.images.map { "${it.id}:${it.uploadStatus}:${it.uploadedUrl}" }}")
-                
-                setMultimodalState(newState)
-                
-                // Verify the update
-                val verifyState = getMultimodalState()
-                println("   Verified state: ${verifyState.images.map { "${it.id}:${it.uploadStatus}:${it.uploadedUrl}" }}")
-                
-                println("✅ Image uploaded: ${result.url}")
-            } else {
-                throw Exception(result.error ?: "Upload failed")
-            }
-            
-        } catch (e: Exception) {
-            println("❌ Upload exception: ${e.message}")
-            
-            // Update status to failed
-            val current = getMultimodalState()
-            val updatedImages = current.images.map { img ->
-                if (img.id == imageId) {
-                    img.copy(
-                        uploadStatus = cc.unitmesh.devins.ui.compose.editor.multimodal.ImageUploadStatus.FAILED,
-                        uploadError = e.message ?: "Upload failed"
-                    )
-                } else img
-            }
-            setMultimodalState(current.copy(images = updatedImages))
-            
-            println("❌ Image upload failed: ${e.message}")
-            renderer?.renderError("Image upload failed: ${e.message}")
-        }
-    }
-    
-    /**
-     * Add an image and start uploading it immediately
-     */
-    fun addImageAndUpload(image: AttachedImage) {
-        val current = getMultimodalState()
-        if (!current.canAddMoreImages) return
-        
-        // Add image with PENDING status
-        val newImage = image.copy(uploadStatus = cc.unitmesh.devins.ui.compose.editor.multimodal.ImageUploadStatus.PENDING)
-        setMultimodalState(current.copy(
-            images = current.images + newImage
-        ))
-        
-        // Start upload if callback is available
-        if (onImageUpload != null && image.path != null) {
-            scope.launch {
-                uploadImage(newImage)
-            }
-        }
-    }
-    
-    /**
-     * Retry uploading a failed image
-     */
-    fun retryImageUpload(image: AttachedImage) {
-        if (image.path != null) {
-            // Reset status and retry
-            updateImageStatus(image.id, cc.unitmesh.devins.ui.compose.editor.multimodal.ImageUploadStatus.PENDING)
-            scope.launch {
-                uploadImage(image)
-            }
         }
     }
 
@@ -834,25 +678,25 @@ fun DevInEditorInput(
                     }
 
                     // Image attachment bar - shown when images are attached
-                    if (_multimodalState.value.hasImages) {
+                    if (multimodalState.hasImages) {
                         ImageAttachmentBar(
-                            images = _multimodalState.value.images,
-                            onRemoveImage = { image -> removeImage(image.id) },
+                            images = multimodalState.images,
+                            onRemoveImage = { image -> imageUploadManager.removeImage(image.id) },
                             onImageClick = { image -> previewingImage = image },
-                            onRetryUpload = { image -> retryImageUpload(image) },
-                            isAnalyzing = _multimodalState.value.isAnalyzing,
-                            isUploading = _multimodalState.value.isUploading,
-                            uploadedCount = _multimodalState.value.uploadedCount,
-                            analysisProgress = _multimodalState.value.analysisProgress,
-                            visionModel = _multimodalState.value.visionModel
+                            onRetryUpload = { image -> imageUploadManager.retryUpload(image) },
+                            isAnalyzing = multimodalState.isAnalyzing,
+                            isUploading = multimodalState.isUploading,
+                            uploadedCount = multimodalState.uploadedCount,
+                            analysisProgress = multimodalState.analysisProgress,
+                            visionModel = multimodalState.visionModel
                         )
                     }
-                    
+
                     val currentWorkspace by WorkspaceManager.workspaceFlow.collectAsState()
 
                     BottomToolbar(
                         onSendClick = {
-                            if (_multimodalState.value.canSend && (textFieldValue.text.isNotBlank() || _multimodalState.value.allImagesUploaded)) {
+                            if (multimodalState.canSend && (textFieldValue.text.isNotBlank() || multimodalState.allImagesUploaded)) {
                                 buildAndSendMessage(textFieldValue.text)
                                 // Force dismiss keyboard on mobile
                                 if (isMobile) {
@@ -861,8 +705,8 @@ fun DevInEditorInput(
                             }
                         },
                         // Send enabled only when: has text OR all images uploaded, AND not uploading, AND not analyzing
-                        sendEnabled = _multimodalState.value.canSend && (textFieldValue.text.isNotBlank() || _multimodalState.value.allImagesUploaded),
-                        isExecuting = isExecuting || _multimodalState.value.isAnalyzing || _multimodalState.value.isUploading,
+                        sendEnabled = multimodalState.canSend && (textFieldValue.text.isNotBlank() || multimodalState.allImagesUploaded),
+                        isExecuting = isExecuting || multimodalState.isAnalyzing || multimodalState.isUploading,
                         onStopClick = onStopClick,
                         workspacePath = currentWorkspace?.rootPath,
                         onAtClick = {
@@ -915,16 +759,16 @@ fun DevInEditorInput(
                                     )
                                     if (selectedPath != null) {
                                         val image = AttachedImage.fromPath(selectedPath)
-                                        addImageAndUpload(image)
+                                        imageUploadManager.addImageAndUpload(image)
                                     }
                                 }
                             } else {
                                 renderer?.renderError("Image upload is not configured")
                             }
                         },
-                        hasImages = _multimodalState.value.hasImages,
-                        imageCount = _multimodalState.value.imageCount,
-                        visionModel = if (_multimodalState.value.hasImages) _multimodalState.value.visionModel else null
+                        hasImages = multimodalState.hasImages,
+                        imageCount = multimodalState.imageCount,
+                        visionModel = if (multimodalState.hasImages) multimodalState.visionModel else null
                     )
                 }
             }
@@ -940,14 +784,14 @@ fun DevInEditorInput(
                     llmService = llmService
                 )
             }
-            
+
             // Image preview dialog
             if (previewingImage != null) {
                 ImagePreviewDialog(
                     image = previewingImage!!,
                     onDismiss = { previewingImage = null },
                     onRemove = {
-                        removeImage(previewingImage!!.id)
+                        imageUploadManager.removeImage(previewingImage!!.id)
                         previewingImage = null
                     }
                 )
