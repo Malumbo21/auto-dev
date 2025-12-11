@@ -38,11 +38,23 @@ interface EditorCallbacks {
      * @param imageAnalysis 图片分析结果（来自视觉模型）
      */
     fun onSubmitWithMultimodal(text: String, files: List<FileContext>, imageAnalysis: String?) {
-        // 默认将图片分析结果追加到文本后发送
+        // 默认将图片分析结果追加到文本后发送，使用明显的分隔符
         val fullText = if (imageAnalysis.isNullOrBlank()) {
             text
         } else {
-            "$text\n\n[Image Analysis]\n$imageAnalysis"
+            """$text
+
+########################################
+# Image Analysis Result
+########################################
+
+The user uploaded image(s) and the vision model analyzed them with the following result:
+
+$imageAnalysis
+
+########################################
+# End of Image Analysis
+########################################"""
         }
         onSubmit(fullText, files)
     }

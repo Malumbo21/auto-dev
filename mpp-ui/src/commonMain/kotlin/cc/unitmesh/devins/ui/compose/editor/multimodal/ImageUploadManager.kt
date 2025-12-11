@@ -125,6 +125,28 @@ class ImageUploadManager(
     }
 
     /**
+     * Update analysis progress with streaming content
+     */
+    @Synchronized
+    fun updateAnalysisProgress(progress: String) {
+        val current = _state.value
+        _state.value = current.copy(
+            analysisProgress = progress
+        )
+    }
+
+    /**
+     * Set the vision model to use for analysis
+     */
+    @Synchronized
+    fun setVisionModel(model: String) {
+        val current = _state.value
+        _state.value = current.copy(
+            visionModel = model
+        )
+    }
+
+    /**
      * Upload a single image to cloud storage.
      * All state updates use direct assignment with synchronized blocks.
      */

@@ -63,13 +63,13 @@ fun AgentChatInterface(
     val scope = rememberCoroutineScope()
 
     val currentWorkspace by WorkspaceManager.workspaceFlow.collectAsState()
-    
+
     // Cloud storage configuration state
     var cloudStorageConfig by remember { mutableStateOf<CloudStorageConfig?>(null) }
     var showCloudStorageDialog by remember { mutableStateOf(false) }
     var imageUploader by remember { mutableStateOf<ImageUploader?>(null) }
     var visionService by remember { mutableStateOf<VisionAnalysisService?>(null) }
-    
+
     // Load cloud storage config on start
     LaunchedEffect(Unit) {
         try {
@@ -81,13 +81,15 @@ fun AgentChatInterface(
             // Get GLM API key for vision service
             val glmConfig = configWrapper.getModelConfigByProvider(LLMProviderType.GLM.name)
             if (glmConfig != null && glmConfig.apiKey.isNotBlank()) {
-                visionService = VisionAnalysisService(glmConfig.apiKey, "glm-4.6v")
+                // Use the model name from config, default to glm-4.6v if not specified
+                val visionModelName = glmConfig.modelName.ifBlank { "glm-4.6v" }
+                visionService = VisionAnalysisService(glmConfig.apiKey, visionModelName)
             }
         } catch (e: Exception) {
             println("Failed to load cloud storage config: ${e.message}")
         }
     }
-    
+
     val viewModel =
         remember(llmService, currentWorkspace?.rootPath, chatHistoryManager) {
             val workspace = currentWorkspace
@@ -243,8 +245,8 @@ fun AgentChatInterface(
                                     }
                                 },
                                 onMultimodalAnalysis = if (visionService != null) {
-                                    { imageUrls, prompt ->
-                                        visionService!!.analyzeImages(imageUrls, prompt)
+                                    { imageUrls, prompt, onChunk ->
+                                        visionService!!.analyzeImages(imageUrls, prompt, onChunk)
                                     }
                                 } else null
                             )
@@ -422,8 +424,8 @@ fun AgentChatInterface(
                     }
                 },
                 onMultimodalAnalysis = if (visionService != null) {
-                    { imageUrls, prompt ->
-                        visionService!!.analyzeImages(imageUrls, prompt)
+                    { imageUrls, prompt, onChunk ->
+                        visionService!!.analyzeImages(imageUrls, prompt, onChunk)
                     }
                 } else null
             )
@@ -437,7 +439,7 @@ fun AgentChatInterface(
             )
         }
     }
-    
+
     // Cloud Storage Configuration Dialog
     if (showCloudStorageDialog) {
         CloudStorageConfigDialog(

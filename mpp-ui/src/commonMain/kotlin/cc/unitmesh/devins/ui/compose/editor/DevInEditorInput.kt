@@ -97,9 +97,10 @@ fun DevInEditorInput(
      * Called to perform vision analysis on uploaded images.
      * @param imageUrls List of uploaded image URLs
      * @param prompt User's prompt text
+     * @param onChunk Callback for streaming response chunks (for real-time progress)
      * @return Analysis result string
      */
-    onMultimodalAnalysis: (suspend (imageUrls: List<String>, prompt: String) -> String?)? = null
+    onMultimodalAnalysis: (suspend (imageUrls: List<String>, prompt: String, onChunk: (String) -> Unit) -> String?)? = null
 ) {
     var textFieldValue by remember { mutableStateOf(TextFieldValue(initialText)) }
     var highlightedText by remember { mutableStateOf(initialText) }
@@ -192,8 +193,20 @@ fun DevInEditorInput(
 
             scope.launch {
                 try {
-                    // Perform multimodal analysis with uploaded URLs
-                    val analysisResult = onMultimodalAnalysis!!(imageUrls, originalText)
+                    // Track streaming content for real-time progress display
+                    val streamingContent = StringBuilder()
+
+                    // Perform multimodal analysis with uploaded URLs and streaming callback
+                    val analysisResult = onMultimodalAnalysis!!(imageUrls, originalText) { chunk ->
+                        streamingContent.append(chunk)
+                        // Update progress with streaming content (show first 100 chars as preview)
+                        val preview = if (streamingContent.length > 100) {
+                            streamingContent.substring(0, 100) + "..."
+                        } else {
+                            streamingContent.toString()
+                        }
+                        imageUploadManager.updateAnalysisProgress("Analyzing: $preview")
+                    }
 
                     // Update state with result
                     imageUploadManager.setAnalysisResult(analysisResult)

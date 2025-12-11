@@ -34,11 +34,11 @@ fun ImageAttachmentBar(
     isUploading: Boolean = false,
     uploadedCount: Int = 0,
     analysisProgress: String? = null,
-    visionModel: String = "glm-4.6v",
+    visionModel: String,
     modifier: Modifier = Modifier
 ) {
     if (images.isEmpty()) return
-    
+
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -66,7 +66,7 @@ fun ImageAttachmentBar(
                     color = MaterialTheme.colorScheme.primary
                 )
             }
-            
+
             // Upload status
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -96,7 +96,7 @@ fun ImageAttachmentBar(
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
-                
+
                 Text(
                     text = "$uploadedCount/${images.size}",
                     style = MaterialTheme.typography.labelSmall,
@@ -104,9 +104,9 @@ fun ImageAttachmentBar(
                 )
             }
         }
-        
+
         Spacer(modifier = Modifier.height(8.dp))
-        
+
         // Image thumbnails
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -124,7 +124,7 @@ fun ImageAttachmentBar(
                 )
             }
         }
-        
+
         // Analysis progress indicator
         if (isAnalyzing && analysisProgress != null) {
             Spacer(modifier = Modifier.height(8.dp))
@@ -165,7 +165,7 @@ private fun ImageThumbnail(
         image.isUploading -> MaterialTheme.colorScheme.tertiary.copy(alpha = 0.5f)
         else -> MaterialTheme.colorScheme.outlineVariant
     }
-    
+
     Box(
         modifier = modifier
             .size(80.dp)
@@ -230,9 +230,9 @@ private fun ImageThumbnail(
                         )
                     }
                 }
-                
+
                 Spacer(modifier = Modifier.height(2.dp))
-                
+
                 // Show file name (truncated)
                 Text(
                     text = when {
@@ -250,7 +250,7 @@ private fun ImageThumbnail(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                
+
                 // Show size info - use compressedSize if available, otherwise originalSize
                 if (!image.isUploading && !image.isFailed) {
                     val sizeText = when {
@@ -262,7 +262,7 @@ private fun ImageThumbnail(
                         }
                         else -> null
                     }
-                    
+
                     if (sizeText != null) {
                         Text(
                             text = sizeText,
@@ -270,7 +270,7 @@ private fun ImageThumbnail(
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                         )
                     }
-                    
+
                     // Show compression savings if available
                     image.compressionSavings?.let { savings ->
                         Text(
@@ -282,7 +282,7 @@ private fun ImageThumbnail(
                 }
             }
         }
-        
+
         // Retry button for failed uploads
         if (image.isFailed && onRetry != null) {
             IconButton(
@@ -303,7 +303,7 @@ private fun ImageThumbnail(
                 )
             }
         }
-        
+
         // Remove button (always show unless analyzing)
         if (!isAnalyzing) {
             IconButton(
