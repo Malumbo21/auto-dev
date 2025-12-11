@@ -2,7 +2,7 @@ package cc.unitmesh.devins.idea.toolwindow
 
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import cc.unitmesh.devins.idea.compose.rememberIdeaCoroutineScope
 import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
@@ -42,7 +42,10 @@ class IdeaAgentToolWindowFactory : ToolWindowFactory {
         val toolWindowDisposable = toolWindow.disposable
 
         toolWindow.addComposeTab("Agent") {
-            val coroutineScope = rememberCoroutineScope()
+            // Use rememberIdeaCoroutineScope instead of rememberCoroutineScope to avoid
+            // ForgottenCoroutineScopeException when composition is left during LLM streaming.
+            // IntelliJ's CoroutineScopeHolder service provides a scope tied to project lifecycle.
+            val coroutineScope = rememberIdeaCoroutineScope(project)
             val viewModel = remember { IdeaAgentViewModel(project, coroutineScope) }
 
             // Register ViewModel with tool window's disposable to ensure proper cleanup

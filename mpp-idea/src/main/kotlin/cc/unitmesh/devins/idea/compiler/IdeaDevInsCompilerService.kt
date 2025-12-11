@@ -52,19 +52,37 @@ class IdeaDevInsCompilerService(
     override fun getName(): String = "IdeaDevInsCompilerService (devins-lang PSI)"
     
     private suspend fun compileInternal(source: String): DevInsCompiledResult {
-        // 从字符串创建 DevInFile
+        // Create DevInFile from string (internally uses runReadAction)
         val devInFile = DevInFile.fromString(project, source)
         
-        // 获取当前编辑器和光标位置的元素
-        val currentEditor = editor ?: FileEditorManager.getInstance(project).selectedTextEditor
-        val element = currentEditor?.let { getElementAtCaret(it) }
+        // Get current editor and element at caret position
+        // FileEditorManager.selectedTextEditor should be called on EDT or in runReadAction
+        val (currentEditor, element) = runReadAction {
+            val ed = editor ?: FileEditorManager.getInstance(project).selectedTextEditor
+            val elem = ed?.let { getElementAtCaretInternal(it) }
+            Pair(ed, elem)
+        }
         
-        // 创建并执行编译器
+        // Create and execute compiler (internally uses withContext(Dispatchers.IO) and runReadAction)
         val compiler = DevInsCompiler(project, devInFile, currentEditor, element)
         val ideaResult = compiler.compile()
         
-        // 转换为 mpp-core 的 DevInsCompiledResult
+        // Convert to mpp-core's DevInsCompiledResult
         return convertToMppResult(ideaResult)
+    }
+    
+    /**
+     * Internal version of getElementAtCaret that assumes caller is already in ReadAction.
+     */
+    private fun getElementAtCaretInternal(editor: Editor): PsiElement? {
+        val offset = editor.caretModel.currentCaret.offset
+        val psiFile = PsiUtilBase.getPsiFileInEditor(editor, project) ?: return null
+        
+        var element = psiFile.findElementAt(offset) ?: return null
+        if (element is PsiWhiteSpace) {
+            element = element.parent
+        }
+        return element
     }
     
     private fun getElementAtCaret(editor: Editor): PsiElement? {

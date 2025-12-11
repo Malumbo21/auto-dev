@@ -107,7 +107,7 @@ class IdeaImageAttachmentPanel(
             state.isAnalyzing -> {
                 // Show streaming analysis progress if available, otherwise show "Analyzing..."
                 val progress = state.analysisProgress
-                if (progress != null && progress.isNotBlank()) {
+                if (!progress.isNullOrBlank()) {
                     // Truncate long responses for status label, show first 50 chars
                     val displayText = progress.take(50).replace("\n", " ")
                     if (progress.length > 50) "$displayText..." else displayText

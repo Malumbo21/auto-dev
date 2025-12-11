@@ -31,6 +31,7 @@ import com.intellij.testFramework.LightVirtualFile
 import com.intellij.ui.EditorTextField
 import com.intellij.util.EventDispatcher
 import com.intellij.util.ui.JBUI
+import kotlinx.coroutines.launch
 import java.awt.Color
 import java.awt.Toolkit
 import java.awt.datatransfer.DataFlavor
@@ -362,46 +363,49 @@ class IdeaDevInInput(
                 editorListeners.multicaster.onMultimodalAnalysisStart(imageUrls.size, inputText)
             }
             
-            ApplicationManager.getApplication().executeOnPooledThread {
-                kotlinx.coroutines.runBlocking {
-                    try {
-                        val analysisResult = onMultimodalAnalysis.invoke(imageUrls, inputText) { chunk ->
-                            // Update both the status panel and notify listeners for renderer
-                            imageUploadManager?.updateAnalysisProgress(chunk)
-                            ApplicationManager.getApplication().invokeLater {
-                                editorListeners.multicaster.onMultimodalAnalysisChunk(chunk)
-                            }
-                        }
-                        
-                        imageUploadManager?.setAnalysisResult(analysisResult)
-                        
-                        // Notify listeners that analysis is complete
+            // Use coroutine scope instead of runBlocking to avoid thread pool starvation
+            // Create a dedicated scope for this analysis task
+            val analysisScope = kotlinx.coroutines.CoroutineScope(
+                kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO
+            )
+            analysisScope.launch {
+                try {
+                    val analysisResult = onMultimodalAnalysis.invoke(imageUrls, inputText) { chunk ->
+                        // Update both the status panel and notify listeners for renderer
+                        imageUploadManager?.updateAnalysisProgress(chunk)
                         ApplicationManager.getApplication().invokeLater {
-                            editorListeners.multicaster.onMultimodalAnalysisComplete(analysisResult, null)
+                            editorListeners.multicaster.onMultimodalAnalysisChunk(chunk)
                         }
-                        
-                        // Submit with multimodal content on EDT
-                        ApplicationManager.getApplication().invokeLater {
-                            editorListeners.multicaster.onSubmitWithMultimodal(
-                                inputText, 
-                                trigger, 
-                                state,
-                                analysisResult
-                            )
-                            
-                            // Clear input and images
-                            clearInput()
-                            imageUploadManager?.clearImages()
-                        }
-                    } catch (e: Exception) {
-                        val errorMsg = e.message ?: "Analysis failed"
-                        imageUploadManager?.setAnalysisResult(null, errorMsg)
-                        // Notify listeners of error
-                        ApplicationManager.getApplication().invokeLater {
-                            editorListeners.multicaster.onMultimodalAnalysisComplete(null, errorMsg)
-                        }
-                        onError?.invoke("Multimodal analysis failed: $errorMsg")
                     }
+                    
+                    imageUploadManager?.setAnalysisResult(analysisResult)
+                    
+                    // Notify listeners that analysis is complete
+                    ApplicationManager.getApplication().invokeLater {
+                        editorListeners.multicaster.onMultimodalAnalysisComplete(analysisResult, null)
+                    }
+                    
+                    // Submit with multimodal content on EDT
+                    ApplicationManager.getApplication().invokeLater {
+                        editorListeners.multicaster.onSubmitWithMultimodal(
+                            inputText, 
+                            trigger, 
+                            state,
+                            analysisResult
+                        )
+                        
+                        // Clear input and images
+                        clearInput()
+                        imageUploadManager?.clearImages()
+                    }
+                } catch (e: Exception) {
+                    val errorMsg = e.message ?: "Analysis failed"
+                    imageUploadManager?.setAnalysisResult(null, errorMsg)
+                    // Notify listeners of error
+                    ApplicationManager.getApplication().invokeLater {
+                        editorListeners.multicaster.onMultimodalAnalysisComplete(null, errorMsg)
+                    }
+                    onError?.invoke("Multimodal analysis failed: $errorMsg")
                 }
             }
         } else if (state.hasImages && state.allImagesUploaded) {
