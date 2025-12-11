@@ -156,7 +156,7 @@ class CodingAgent(
         // The buildContext() will handle MCP tools initialization if needed
 
         val context = buildContext(input)
-        val systemPrompt = buildSystemPrompt(context)
+        val systemPrompt = buildSystemPrompt(context, input.language)
 
         // Check if we should continue existing conversation
         val continueConversation = executor.hasActiveConversation()
@@ -183,7 +183,7 @@ class CodingAgent(
      */
     override suspend fun executeTask(task: AgentTask): AgentResult {
         val context = buildContext(task)
-        val systemPrompt = buildSystemPrompt(context)
+        val systemPrompt = buildSystemPrompt(context, task.language)
 
         // Check if we should continue existing conversation
         val continueConversation = executor.hasActiveConversation()
@@ -196,16 +196,18 @@ class CodingAgent(
      * This preserves the conversation history and context.
      *
      * @param userMessage The user's follow-up message
+     * @param language Language for the prompt (EN or ZH), defaults to EN
      * @return The agent's result
      */
-    suspend fun continueConversation(userMessage: String): AgentResult {
+    suspend fun continueConversation(userMessage: String, language: String = "EN"): AgentResult {
         val task = AgentTask(
             requirement = userMessage,
-            projectPath = projectPath
+            projectPath = projectPath,
+            language = language
         )
 
         val context = buildContext(task)
-        val systemPrompt = buildSystemPrompt(context)
+        val systemPrompt = buildSystemPrompt(context, task.language)
 
         // Always continue conversation when using this method
         return executor.execute(task, systemPrompt, continueConversation = true)
@@ -222,7 +224,7 @@ class CodingAgent(
         executor.clearConversation()
 
         val context = buildContext(task)
-        val systemPrompt = buildSystemPrompt(context)
+        val systemPrompt = buildSystemPrompt(context, task.language)
 
         return executor.execute(task, systemPrompt, continueConversation = false)
     }

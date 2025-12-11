@@ -16,6 +16,7 @@ import cc.unitmesh.agent.tool.ToolType
 import cc.unitmesh.devins.filesystem.DefaultProjectFileSystem
 import cc.unitmesh.devins.llm.ChatHistoryManager
 import cc.unitmesh.devins.llm.MessageRole
+import cc.unitmesh.devins.ui.i18n.LanguageManager
 import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.indexer.DomainDictGenerator
 import cc.unitmesh.llm.KoogLLMService
@@ -178,7 +179,8 @@ class CodingAgentViewModel(
                     val agentTask =
                         AgentTask(
                             requirement = task,
-                            projectPath = projectPath
+                            projectPath = projectPath,
+                            language = LanguageManager.getLanguage().code.uppercase()
                         )
 
                     val result = codingAgent.executeTask(agentTask)
@@ -290,7 +292,8 @@ class CodingAgentViewModel(
                             val agentTask =
                                 AgentTask(
                                     requirement = command,
-                                    projectPath = projectPath
+                                    projectPath = projectPath,
+                                    language = LanguageManager.getLanguage().code.uppercase()
                                 )
                             codingAgent.executeTask(agentTask)
                             isExecuting = false

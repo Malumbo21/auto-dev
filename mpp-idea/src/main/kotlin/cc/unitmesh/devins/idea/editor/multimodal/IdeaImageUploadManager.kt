@@ -4,6 +4,11 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.util.Disposer
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicReference
 
@@ -53,6 +58,9 @@ class IdeaImageUploadManager(
     
     private val stateRef = AtomicReference(IdeaMultimodalState())
     private val listeners = CopyOnWriteArrayList<IdeaMultimodalStateListener>()
+    
+    // Coroutine scope for background operations - cancelled on dispose
+    private val uploadScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     
     /** Get current state snapshot */
     val state: IdeaMultimodalState get() = stateRef.get()
@@ -123,12 +131,10 @@ class IdeaImageUploadManager(
             }
         }
         
-        // Start upload in background
+        // Start upload in background using coroutine scope
         if (shouldUpload && uploadCallback != null && image.path != null) {
-            ApplicationManager.getApplication().executeOnPooledThread {
-                kotlinx.coroutines.runBlocking {
-                    uploadImage(newImage)
-                }
+            uploadScope.launch {
+                uploadImage(newImage)
             }
         }
     }
@@ -150,12 +156,10 @@ class IdeaImageUploadManager(
             }
         }
         
-        // Start upload in background
+        // Start upload in background using coroutine scope
         if (shouldUpload && uploadBytesCallback != null) {
-            ApplicationManager.getApplication().executeOnPooledThread {
-                kotlinx.coroutines.runBlocking {
-                    uploadImageBytes(newImage, bytes, mimeType, suggestedName)
-                }
+            uploadScope.launch {
+                uploadImageBytes(newImage, bytes, mimeType, suggestedName)
             }
         }
     }
@@ -210,9 +214,9 @@ class IdeaImageUploadManager(
                     })
                 }
                 
-                // Continue with upload
+                // Continue with upload using coroutine scope
                 if (uploadBytesCallback != null) {
-                    kotlinx.coroutines.runBlocking {
+                    uploadScope.launch {
                         uploadImageBytes(attachedImage.copy(id = placeholderId), bytes, "image/png", name)
                     }
                 }
@@ -254,18 +258,14 @@ class IdeaImageUploadManager(
             )
         }
         
-        // Retry upload
+        // Retry upload using coroutine scope
         if (image.path != null && uploadCallback != null) {
-            ApplicationManager.getApplication().executeOnPooledThread {
-                kotlinx.coroutines.runBlocking {
-                    uploadImage(image)
-                }
+            uploadScope.launch {
+                uploadImage(image)
             }
         } else if (image.bytes != null && uploadBytesCallback != null) {
-            ApplicationManager.getApplication().executeOnPooledThread {
-                kotlinx.coroutines.runBlocking {
-                    uploadImageBytes(image, image.bytes, image.mimeType, image.name)
-                }
+            uploadScope.launch {
+                uploadImageBytes(image, image.bytes, image.mimeType, image.name)
             }
         }
     }
@@ -444,6 +444,7 @@ class IdeaImageUploadManager(
     }
     
     override fun dispose() {
+        uploadScope.cancel()
         listeners.clear()
     }
 }

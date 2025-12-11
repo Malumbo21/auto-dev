@@ -352,10 +352,12 @@ class IdeaAgentViewModel(
             try {
                 val agent = initializeCodingAgent()
                 val projectPath = project.basePath ?: System.getProperty("user.home")
+                val language = _configWrapper.value?.getLanguage()?.uppercase() ?: "EN"
 
                 val agentTask = AgentTask(
                     requirement = task,
-                    projectPath = projectPath
+                    projectPath = projectPath,
+                    language = language
                 )
 
                 agent.executeTask(agentTask)
@@ -426,9 +428,11 @@ class IdeaAgentViewModel(
                     try {
                         val agent = initializeCodingAgent()
                         val projectPath = project.basePath ?: System.getProperty("user.home")
+                        val language = _configWrapper.value?.getLanguage()?.uppercase() ?: "EN"
                         val agentTask = AgentTask(
                             requirement = command,
-                            projectPath = projectPath
+                            projectPath = projectPath,
+                            language = language
                         )
                         agent.executeTask(agentTask)
                     } catch (e: Exception) {

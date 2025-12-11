@@ -48,7 +48,8 @@ class AgentService(private val fallbackLLMConfig: ServerLLMConfig) {
         return try {
             val task = AgentTask(
                 requirement = request.task,
-                projectPath = projectPath
+                projectPath = projectPath,
+                language = request.language
             )
 
             val result = agent.executeTask(task)
@@ -128,7 +129,8 @@ class AgentService(private val fallbackLLMConfig: ServerLLMConfig) {
         try {
             val task = AgentTask(
                 requirement = request.task,
-                projectPath = actualProjectPath
+                projectPath = actualProjectPath,
+                language = request.language
             )
 
             coroutineScope {

@@ -48,7 +48,8 @@ data class ReviewTask(
     val projectPath: String,
     val additionalContext: String = "",
     val patch: String? = null,
-    val lintResults: List<cc.unitmesh.agent.linter.LintFileResult>? = null
+    val lintResults: List<cc.unitmesh.agent.linter.LintFileResult>? = null,
+    val language: String = "EN"  // Language for the prompt (EN or ZH)
 )
 
 @Serializable
@@ -325,7 +326,8 @@ class CodeReviewAgent(
             
             val agentTask = AgentTask(
                 requirement = requirement,
-                projectPath = projectPath
+                projectPath = projectPath,
+                language = language
             )
 
             val agentResult = codingAgent.execute(agentTask) { progress ->

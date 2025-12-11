@@ -34,7 +34,8 @@ data class AgentRequest(
     val gitUrl: String? = null,
     val branch: String? = null,
     val username: String? = null,
-    val password: String? = null
+    val password: String? = null,
+    val language: String = "EN"  // Language for the prompt (EN or ZH)
 )
 
 @Serializable

@@ -49,6 +49,11 @@ class JewelRenderer : BaseRenderer() {
     private val _currentStreamingOutput = MutableStateFlow("")
     val currentStreamingOutput: StateFlow<String> = _currentStreamingOutput.asStateFlow()
 
+    // Debouncing mechanism for streaming updates to prevent EDT spam
+    private var lastStreamingUpdateTime = 0L
+    private val streamingUpdateDebounceMs = 50L // Update UI at most every 50ms
+    private var pendingStreamingContent: String? = null
+
     // Processing state
     private val _isProcessing = MutableStateFlow(false)
     val isProcessing: StateFlow<Boolean> = _isProcessing.asStateFlow()
@@ -135,13 +140,25 @@ class JewelRenderer : BaseRenderer() {
         val processedContent = filterDevinBlocks(reasoningBuffer.toString())
         val cleanContent = cleanNewlines(processedContent)
 
-        _currentStreamingOutput.value = cleanContent
+        // Debounce streaming updates to prevent EDT spam during rapid LLM streaming
+        val now = System.currentTimeMillis()
+        pendingStreamingContent = cleanContent
+        
+        if (now - lastStreamingUpdateTime >= streamingUpdateDebounceMs) {
+            lastStreamingUpdateTime = now
+            _currentStreamingOutput.value = cleanContent
+        }
     }
 
     override fun renderLLMResponseEnd() {
         super.renderLLMResponseEnd()
 
-        val content = _currentStreamingOutput.value.trim()
+        // Flush any pending content that was debounced
+        val finalContent = pendingStreamingContent ?: _currentStreamingOutput.value
+        pendingStreamingContent = null
+        lastStreamingUpdateTime = 0L
+        
+        val content = finalContent.trim()
         if (content.isNotEmpty()) {
             addTimelineItem(
                 TimelineItem.MessageItem(

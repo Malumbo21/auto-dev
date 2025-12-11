@@ -39,10 +39,15 @@ data class AgentResult(
 
 /**
  * Represents a task for the coding agent
+ * 
+ * @param requirement The task requirement/description
+ * @param projectPath The path to the project
+ * @param language Language for the prompt (EN or ZH), defaults to EN
  */
 data class AgentTask(
     val requirement: String,
-    val projectPath: String
+    val projectPath: String,
+    val language: String = "EN"
 )
 
 /**

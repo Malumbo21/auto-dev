@@ -75,16 +75,22 @@ data class JsAgentResult(
 
 /**
  * JS-friendly version of AgentTask
+ * 
+ * @param requirement The task requirement/description
+ * @param projectPath The path to the project
+ * @param language Language for the prompt (EN or ZH), defaults to EN
  */
 @JsExport
 data class JsAgentTask(
     val requirement: String,
-    val projectPath: String
+    val projectPath: String,
+    val language: String = "EN"
 ) {
     fun toCommon(): AgentTask {
         return AgentTask(
             requirement = requirement,
-            projectPath = projectPath
+            projectPath = projectPath,
+            language = language
         )
     }
 }
