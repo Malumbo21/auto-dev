@@ -132,9 +132,6 @@ class ImageUploadManager(
         if (uploadCallback == null || image.path == null) return
 
         val imageId = image.id
-        println("🚀 Starting upload for image: $imageId (${image.name})")
-
-        // Update status to compressing
         updateStatus(imageId, ImageUploadStatus.COMPRESSING)
 
         try {
@@ -147,8 +144,6 @@ class ImageUploadManager(
                 updateProgress(imageId, progress)
             }
 
-            println("📦 Upload result: success=${result.success}, url=${result.url}")
-
             if (result.success && result.url != null) {
                 // Update to completed with URL
                 updateToCompleted(imageId, result)
@@ -158,9 +153,7 @@ class ImageUploadManager(
             }
 
         } catch (e: Exception) {
-            println("❌ Upload exception: ${e.message}")
             updateToFailed(imageId, e.message ?: "Upload failed")
-            println("❌ Image upload failed: ${e.message}")
             onError?.invoke("Image upload failed: ${e.message}")
         }
     }

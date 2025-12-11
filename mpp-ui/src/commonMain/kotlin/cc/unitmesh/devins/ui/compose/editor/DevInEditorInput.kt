@@ -441,8 +441,6 @@ fun DevInEditorInput(
         scope.launch {
             try {
                 isEnhancing = true
-                println("[Enhancement] Enhancing current input...")
-
                 val enhanced = (currentEnhancer as PromptEnhancer).enhance(textFieldValue.text.trim(), "zh")
 
                 if (enhanced.isNotEmpty() && enhanced != textFieldValue.text.trim() && enhanced.length > textFieldValue.text.trim().length) {
@@ -451,9 +449,6 @@ fun DevInEditorInput(
                             text = enhanced,
                             selection = androidx.compose.ui.text.TextRange(enhanced.length)
                         )
-                    println("✨ Enhanced: \"${textFieldValue.text.trim()}\" -> \"$enhanced\"")
-                } else {
-                    println("ℹ️ No enhancement needed or failed")
                 }
             } catch (e: Exception) {
                 println("❌ Enhancement failed: ${e.message}")
@@ -735,7 +730,6 @@ fun DevInEditorInput(
                                     completionItems = manager.getFilteredCompletions(context)
                                     selectedCompletionIndex = 0
                                     showCompletion = completionItems.isNotEmpty()
-                                    println("[Completion] @ trigger: items=${completionItems.size}")
                                 }
                             }
                         },
