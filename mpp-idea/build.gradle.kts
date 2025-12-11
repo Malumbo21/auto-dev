@@ -235,8 +235,8 @@ project(":") {
     intellijPlatform {
         projectName = basePluginArchiveName
         pluginConfiguration {
-            id = "cc.unitmesh.devti"
-            name = "AutoDev"
+            id = "cc.unitmesh.devins.idea"
+            name = "AutoDev Xuiper"
             version = prop("pluginVersion")
 
             ideaVersion {

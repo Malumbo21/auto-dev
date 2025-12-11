@@ -1,5 +1,5 @@
 <idea-plugin package="cc.unitmesh" xmlns:xi="http://www.w3.org/2001/XInclude" allow-bundled-update="true">
-    <id>cc.unitmesh.devti</id>
+    <id>cc.unitmesh.devins.idea</id>
     <name>AutoDev</name>
     <vendor>Phodal Huang</vendor>
 
