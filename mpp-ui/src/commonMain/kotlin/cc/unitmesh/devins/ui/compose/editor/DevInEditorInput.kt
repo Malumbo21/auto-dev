@@ -45,12 +45,12 @@ import cc.unitmesh.devins.ui.compose.editor.multimodal.AttachedImage
 import cc.unitmesh.devins.ui.compose.editor.multimodal.ImageAttachmentBar
 import cc.unitmesh.devins.ui.compose.editor.multimodal.ImagePreviewDialog
 import cc.unitmesh.devins.ui.compose.editor.multimodal.ImageUploadManager
-import cc.unitmesh.devins.ui.compose.editor.multimodal.MultimodalState
 import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.devins.ui.platform.createFileChooser
 import cc.unitmesh.devins.workspace.WorkspaceManager
 import cc.unitmesh.llm.KoogLLMService
 import cc.unitmesh.llm.ModelConfig
+import cc.unitmesh.llm.NamedModelConfig
 import cc.unitmesh.llm.PromptEnhancer
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -105,7 +105,7 @@ fun DevInEditorInput(
      * Called when user selects a different vision model.
      * @param config The selected vision model configuration
      */
-    onVisionModelChange: ((cc.unitmesh.devins.ui.compose.editor.multimodal.VisionModelConfig) -> Unit)? = null
+    onVisionModelChange: ((NamedModelConfig) -> Unit)? = null
 ) {
     var textFieldValue by remember { mutableStateOf(TextFieldValue(initialText)) }
     var highlightedText by remember { mutableStateOf(initialText) }

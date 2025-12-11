@@ -15,10 +15,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import cc.unitmesh.devins.ui.compose.icons.AutoDevComposeIcons
+import cc.unitmesh.llm.NamedModelConfig
 
 /**
  * Bar showing attached images with thumbnails and remove buttons.
@@ -37,7 +37,7 @@ fun ImageAttachmentBar(
     uploadedCount: Int = 0,
     analysisProgress: String? = null,
     visionModel: String,
-    onVisionModelChange: ((VisionModelConfig) -> Unit)? = null,
+    onVisionModelChange: ((NamedModelConfig) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     if (images.isEmpty()) return

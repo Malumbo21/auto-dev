@@ -205,7 +205,7 @@ class AutoDevConfigWrapper(val configFile: ConfigFile) {
     fun getCloudStorage(): CloudStorageConfig {
         return configFile.cloudStorage ?: CloudStorageConfig()
     }
-    
+
     fun isCloudStorageConfigured(): Boolean {
         return configFile.cloudStorage?.isConfigured() == true
     }

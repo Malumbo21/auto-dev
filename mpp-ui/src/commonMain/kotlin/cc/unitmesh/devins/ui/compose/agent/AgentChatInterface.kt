@@ -19,12 +19,11 @@ import cc.unitmesh.devins.ui.compose.config.CloudStorageConfigDialog
 import cc.unitmesh.devins.ui.compose.editor.DevInEditorInput
 import cc.unitmesh.devins.ui.compose.editor.multimodal.ImageUploader
 import cc.unitmesh.devins.ui.compose.editor.multimodal.VisionAnalysisService
-import cc.unitmesh.devins.ui.compose.editor.multimodal.VisionModelConfig
 import cc.unitmesh.devins.ui.state.UIStateManager
 import cc.unitmesh.devins.workspace.WorkspaceManager
 import cc.unitmesh.llm.KoogLLMService
 import cc.unitmesh.llm.LLMProviderType
-import kotlinx.coroutines.launch
+import cc.unitmesh.llm.NamedModelConfig
 
 @Composable
 fun AgentChatInterface(
@@ -260,7 +259,7 @@ fun AgentChatInterface(
                                         visionService!!.analyzeImages(imageUrls, prompt, onChunk)
                                     }
                                 } else null,
-                                onVisionModelChange = { config: VisionModelConfig ->
+                                onVisionModelChange = { config: NamedModelConfig ->
                                     selectedVisionModel = config.name
                                     selectedVisionApiKey = config.apiKey
                                 }
@@ -443,7 +442,7 @@ fun AgentChatInterface(
                         visionService!!.analyzeImages(imageUrls, prompt, onChunk)
                     }
                 } else null,
-                onVisionModelChange = { config: VisionModelConfig ->
+                onVisionModelChange = { config: NamedModelConfig ->
                     selectedVisionModel = config.name
                     selectedVisionApiKey = config.apiKey
                 }

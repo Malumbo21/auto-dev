@@ -10,54 +10,6 @@ import androidx.compose.ui.unit.dp
 import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.devins.ui.compose.icons.AutoDevComposeIcons
 import cc.unitmesh.llm.NamedModelConfig
-import kotlinx.coroutines.launch
-
-/**
- * Vision model configuration for multimodal analysis.
- * Contains the model name and the API key from the config.
- */
-data class VisionModelConfig(
-    val name: String,
-    val displayName: String,
-    val apiKey: String,
-    val provider: String
-) {
-    companion object {
-        /**
-         * Known vision-capable models.
-         * These models support image understanding.
-         */
-        val VISION_MODEL_PATTERNS = listOf(
-            "glm-4.6v", "glm-4.5v", "glm-4.1v-thinking", "glm-4v",
-            "gpt-4-vision", "gpt-4o", "gpt-4o-mini",
-            "claude-3", "claude-3.5",
-            "gemini-pro-vision", "gemini-1.5", "gemini-2",
-            "qwen-vl", "qwen2-vl"
-        )
-
-        /**
-         * Check if a model name indicates vision capability.
-         */
-        fun isVisionModel(modelName: String): Boolean {
-            val lowerName = modelName.lowercase()
-            return VISION_MODEL_PATTERNS.any { pattern ->
-                lowerName.contains(pattern.lowercase())
-            } || lowerName.contains("vision") || lowerName.contains("-vl")
-        }
-
-        /**
-         * Create VisionModelConfig from NamedModelConfig.
-         */
-        fun fromNamedConfig(config: NamedModelConfig): VisionModelConfig {
-            return VisionModelConfig(
-                name = config.model,
-                displayName = "${config.provider}/${config.model}",
-                apiKey = config.apiKey,
-                provider = config.provider
-            )
-        }
-    }
-}
 
 /**
  * Compact vision model selector for the ImageAttachmentBar.
@@ -66,40 +18,16 @@ data class VisionModelConfig(
 @Composable
 fun VisionModelSelector(
     currentModel: String,
-    onModelChange: (VisionModelConfig) -> Unit,
+    onModelChange: (NamedModelConfig) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var expanded by remember { mutableStateOf(false) }
-    var availableModels by remember { mutableStateOf<List<VisionModelConfig>>(emptyList()) }
-    val scope = rememberCoroutineScope()
+    var availableModels by remember { mutableStateOf<List<NamedModelConfig>>(emptyList()) }
 
-    // Load vision-capable models from config
+    // Load vision-capable models from ConfigManager
     LaunchedEffect(Unit) {
         try {
-            val wrapper = ConfigManager.load()
-            val allConfigs = wrapper.getAllConfigs()
-            
-            // Filter to vision-capable models
-            availableModels = allConfigs
-                .filter { VisionModelConfig.isVisionModel(it.model) && it.apiKey.isNotBlank() }
-                .map { VisionModelConfig.fromNamedConfig(it) }
-            
-            // If no vision models found, add default GLM config if available
-            if (availableModels.isEmpty()) {
-                val glmConfig = allConfigs.find { 
-                    it.provider.equals("glm", ignoreCase = true) && it.apiKey.isNotBlank() 
-                }
-                if (glmConfig != null) {
-                    availableModels = listOf(
-                        VisionModelConfig(
-                            name = "glm-4.6v",
-                            displayName = "GLM/glm-4.6v",
-                            apiKey = glmConfig.apiKey,
-                            provider = "glm"
-                        )
-                    )
-                }
-            }
+            availableModels = ConfigManager.load().getAllConfigs()
         } catch (e: Exception) {
             println("Failed to load vision models: ${e.message}")
         }
@@ -142,7 +70,7 @@ fun VisionModelSelector(
                 DropdownMenuItem(
                     text = {
                         Text(
-                            text = model.displayName,
+                            text = model.name,
                             style = MaterialTheme.typography.bodyMedium
                         )
                     },
