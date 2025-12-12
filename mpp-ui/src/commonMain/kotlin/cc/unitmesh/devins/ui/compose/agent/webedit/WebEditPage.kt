@@ -10,13 +10,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import cc.unitmesh.agent.AgentType
 import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.viewer.web.webedit.*
 import kotlinx.coroutines.launch
 
 /**
  * WebEdit Page - Browse, select DOM elements, and interact with web pages
- * 
+ *
  * Layout:
  * - Top: URL bar with navigation controls
  * - Center: WebView with selection overlay
@@ -31,21 +31,23 @@ fun WebEditPage(
     onNotification: (String, String) -> Unit = { _, _ -> }
 ) {
     val scope = rememberCoroutineScope()
-    
-    // URL and navigation state
-    var currentUrl by remember { mutableStateOf("https://") }
+
+    // Create the WebEdit bridge
+    val bridge = remember { createWebEditBridge() }
+
+    // Collect state from bridge
+    val currentUrl by bridge.currentUrl.collectAsState()
+    val pageTitle by bridge.pageTitle.collectAsState()
+    val isLoading by bridge.isLoading.collectAsState()
+    val isSelectionMode by bridge.isSelectionMode.collectAsState()
+    val selectedElement by bridge.selectedElement.collectAsState()
+    val domTree by bridge.domTree.collectAsState()
+
+    // Local UI state
     var inputUrl by remember { mutableStateOf("") }
-    var isLoading by remember { mutableStateOf(false) }
-    
-    // Selection mode state
-    var isSelectionMode by remember { mutableStateOf(false) }
-    
-    // DOM sidebar state
     var showDOMSidebar by remember { mutableStateOf(true) }
-    
-    // Chat input state
     var chatInput by remember { mutableStateOf("") }
-    
+
     Column(modifier = modifier.fillMaxSize()) {
         // Top bar with URL input and controls
         WebEditToolbar(
@@ -59,16 +61,21 @@ fun WebEditPage(
                 val normalizedUrl = if (!url.startsWith("http://") && !url.startsWith("https://")) {
                     "https://$url"
                 } else url
-                currentUrl = normalizedUrl
                 inputUrl = normalizedUrl
-                isLoading = true
+                scope.launch {
+                    bridge.navigateTo(normalizedUrl)
+                }
             },
             onBack = onBack,
-            onReload = { isLoading = true },
-            onToggleSelectionMode = { isSelectionMode = !isSelectionMode },
+            onReload = {
+                scope.launch { bridge.reload() }
+            },
+            onToggleSelectionMode = {
+                scope.launch { bridge.setSelectionMode(!isSelectionMode) }
+            },
             onToggleDOMSidebar = { showDOMSidebar = !showDOMSidebar }
         )
-        
+
         // Main content area
         Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
             // WebView area
@@ -78,22 +85,30 @@ fun WebEditPage(
                     .fillMaxHeight()
                     .background(MaterialTheme.colorScheme.surface)
             ) {
-                // Placeholder for WebView - will be platform-specific
-                WebEditViewPlaceholder(
-                    url = currentUrl,
-                    isSelectionMode = isSelectionMode,
-                    onPageLoaded = { isLoading = false },
-                    onElementSelected = { /* Handle element selection */ },
-                    modifier = Modifier.fillMaxSize()
+                // Actual WebView component
+                WebEditView(
+                    bridge = bridge,
+                    modifier = Modifier.fillMaxSize(),
+                    onPageLoaded = { url, title ->
+                        inputUrl = url
+                        println("[WebEditPage] Page loaded: $title ($url)")
+                    },
+                    onElementSelected = { element ->
+                        println("[WebEditPage] Element selected: ${element.getDisplayName()}")
+                        onNotification("Element Selected", element.getDisplayName())
+                    },
+                    onDOMTreeUpdated = { root ->
+                        println("[WebEditPage] DOM tree updated with ${root.children.size} children")
+                    }
                 )
-                
+
                 // Loading indicator
                 if (isLoading) {
                     LinearProgressIndicator(
                         modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter)
                     )
                 }
-                
+
                 // Selection mode indicator
                 if (isSelectionMode) {
                     Surface(
@@ -111,23 +126,57 @@ fun WebEditPage(
                         )
                     }
                 }
+
+                // Selected element info
+                selectedElement?.let { element ->
+                    Surface(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(8.dp),
+                        shape = RoundedCornerShape(4.dp),
+                        color = MaterialTheme.colorScheme.secondaryContainer
+                    ) {
+                        Text(
+                            text = "Selected: ${element.getDisplayName()}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                }
             }
-            
+
             // DOM Tree Sidebar
             if (showDOMSidebar) {
                 DOMTreeSidebar(
+                    domTree = domTree,
+                    selectedElement = selectedElement,
+                    onElementClick = { selector ->
+                        scope.launch {
+                            bridge.highlightElement(selector)
+                            bridge.scrollToElement(selector)
+                        }
+                    },
+                    onElementHover = { selector ->
+                        if (selector != null) {
+                            scope.launch { bridge.highlightElement(selector) }
+                        } else {
+                            scope.launch { bridge.clearHighlights() }
+                        }
+                    },
                     modifier = Modifier.width(280.dp).fillMaxHeight()
                 )
             }
         }
-        
+
         // Bottom chat/Q&A input area
         WebEditChatInput(
             input = chatInput,
             onInputChange = { chatInput = it },
             onSend = { message ->
                 scope.launch {
-                    // Handle chat message with LLM
+                    // TODO: Handle chat message with LLM
+                    // Could use selectedElement context for more targeted Q&A
                     chatInput = ""
                 }
             },

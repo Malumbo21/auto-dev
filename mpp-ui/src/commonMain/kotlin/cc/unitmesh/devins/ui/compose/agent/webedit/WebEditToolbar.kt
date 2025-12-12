@@ -1,7 +1,10 @@
 package cc.unitmesh.devins.ui.compose.agent.webedit
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -12,8 +15,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 /**
  * WebEdit Toolbar with URL input and navigation controls
@@ -55,7 +61,7 @@ fun WebEditToolbar(
                     modifier = Modifier.size(18.dp)
                 )
             }
-            
+
             // Navigation buttons
             IconButton(
                 onClick = { /* Go back in browser history */ },
@@ -67,7 +73,7 @@ fun WebEditToolbar(
                     modifier = Modifier.size(18.dp)
                 )
             }
-            
+
             IconButton(
                 onClick = { /* Go forward in browser history */ },
                 modifier = Modifier.size(32.dp)
@@ -78,7 +84,7 @@ fun WebEditToolbar(
                     modifier = Modifier.size(18.dp)
                 )
             }
-            
+
             IconButton(
                 onClick = onReload,
                 modifier = Modifier.size(32.dp)
@@ -89,24 +95,49 @@ fun WebEditToolbar(
                     modifier = Modifier.size(18.dp)
                 )
             }
-            
-            // URL input field
-            OutlinedTextField(
+
+            // URL input field - use BasicTextField for compact height
+            BasicTextField(
                 value = inputUrl,
                 onValueChange = onUrlChange,
-                modifier = Modifier.weight(1f).height(40.dp),
-                placeholder = { Text("Enter URL", style = MaterialTheme.typography.bodySmall) },
+                modifier = Modifier
+                    .weight(1f)
+                    .height(28.dp)
+                    .background(
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        RoundedCornerShape(6.dp)
+                    )
+                    .border(
+                        1.dp,
+                        MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                        RoundedCornerShape(6.dp)
+                    )
+                    .padding(horizontal = 10.dp),
+                textStyle = TextStyle(
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurface
+                ),
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                 singleLine = true,
-                textStyle = MaterialTheme.typography.bodySmall,
-                shape = RoundedCornerShape(8.dp),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
                 keyboardActions = KeyboardActions(onGo = { onNavigate(inputUrl) }),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
-                )
+                decorationBox = { innerTextField ->
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        if (inputUrl.isEmpty()) {
+                            Text(
+                                "Enter URL (e.g., https://www.baidu.com)",
+                                style = TextStyle(fontSize = 13.sp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                            )
+                        }
+                        innerTextField()
+                    }
+                }
             )
-            
+
             // Selection mode toggle
             IconButton(
                 onClick = onToggleSelectionMode,
@@ -125,7 +156,7 @@ fun WebEditToolbar(
                     modifier = Modifier.size(18.dp)
                 )
             }
-            
+
             // DOM sidebar toggle
             IconButton(
                 onClick = onToggleDOMSidebar,
