@@ -34,7 +34,8 @@ fun DesktopTitleBarTabs(
     LaunchedEffect(currentAgentType) {
         if (currentAgentType == AgentType.CODE_REVIEW ||
             currentAgentType == AgentType.KNOWLEDGE ||
-            currentAgentType == AgentType.WEB_EDIT) {
+            currentAgentType == AgentType.WEB_EDIT
+        ) {
             UIStateManager.setSessionSidebarVisible(false)
         } else {
             UIStateManager.setSessionSidebarVisible(true)
@@ -137,7 +138,7 @@ fun DesktopTitleBarTabs(
                     color = MaterialTheme.colorScheme.outlineVariant
                 ) {}
 
-                (AgentType.entries - AgentType.LOCAL_CHAT)
+                (AgentType.entries - AgentType.LOCAL_CHAT - AgentType.WEB_EDIT)
                     .forEach { type ->
                         AgentTypeMenuItem(
                             type = type,
@@ -165,6 +166,12 @@ fun DesktopTitleBarTabs(
                         )
                     }
                 }
+
+                AgentTypeMenuItem(
+                    type = AgentType.WEB_EDIT,
+                    isSelected = false,
+                    onClick = { onAgentTypeChange(AgentType.WEB_EDIT) }
+                )
 
                 TextButton(
                     onClick = { UIStateManager.toggleTreeView() },
