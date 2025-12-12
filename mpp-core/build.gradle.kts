@@ -214,7 +214,8 @@ kotlin {
                 implementation("com.github.jsqlparser:jsqlparser:4.9")
 
                 // MyNLP for Chinese NLP tokenization
-                implementation("com.mayabot.mynlp:mynlp-all:4.0.0")
+                implementation("com.mayabot.mynlp:mynlp:4.0.0")
+                implementation("com.mayabot.mynlp.resource:mynlp-resource-coredict:1.0.0")
             }
         }
 

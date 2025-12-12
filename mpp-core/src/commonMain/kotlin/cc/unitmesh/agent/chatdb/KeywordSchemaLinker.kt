@@ -72,24 +72,16 @@ class KeywordSchemaLinker : SchemaLinker() {
         val tableComment = table.comment?.lowercase() ?: ""
 
         for (keyword in keywords) {
-            // Exact match in table name
             if (tableName == keyword) {
                 score += 1.0
-            }
-            // Partial match in table name
-            else if (tableName.contains(keyword) || keyword.contains(tableName)) {
+            } else if (tableName.contains(keyword) || keyword.contains(tableName)) {
                 score += 0.7
-            }
-            // Match in table comment
-            else if (tableComment.contains(keyword)) {
+            } else if (tableComment.contains(keyword)) {
                 score += 0.5
-            }
-            // Fuzzy match (Levenshtein distance)
-            else if (fuzzyMatch(tableName, keyword)) {
+            } else if (fuzzyMatch(tableName, keyword)) {
                 score += 0.3
             }
 
-            // Check column names
             for (column in table.columns) {
                 val colName = column.name.lowercase()
                 if (colName == keyword || colName.contains(keyword)) {
