@@ -148,25 +148,10 @@ fun DesktopTitleBarTabs(
                     }
             }
 
-            // Right: Settings + Explorer (Text Buttons)
             Row(
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                if (currentAgentType == AgentType.REMOTE) {
-                    TextButton(
-                        onClick = onConfigureRemote,
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                        modifier = Modifier.height(28.dp)
-                    ) {
-                        Text(
-                            text = "Remote",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.secondary
-                        )
-                    }
-                }
-
                 AgentTypeMenuItem(
                     type = AgentType.WEB_EDIT,
                     isSelected = false,
