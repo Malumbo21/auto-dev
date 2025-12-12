@@ -131,6 +131,8 @@ kotlin {
                 implementation(project(":mpp-core"))
                 implementation(project(":mpp-codegraph"))
                 implementation(project(":mpp-viewer"))
+                implementation(project(":mpp-viewer-web"))
+
                 implementation(compose.runtime)
                 implementation(compose.foundation)
                 implementation(compose.material3)
@@ -178,9 +180,11 @@ kotlin {
         val jvmMain by getting {
             dependencies {
                 implementation(project(":mpp-viewer"))
-                implementation(project(":mpp-viewer-web"))
                 implementation(project(":xuiper-ui"))
                 implementation(compose.desktop.currentOs)
+
+                // compose.webview for desktop WebView support
+                implementation(libs.compose.webview)
 
                 // ComposeCharts - Cross-platform chart library (JVM)
                 implementation(libs.compose.charts)
@@ -427,6 +431,7 @@ compose.desktop {
         // macOS-specific JVM args for JCEF
         if (System.getProperty("os.name").contains("Mac", ignoreCase = true)) {
             jvmArgs += listOf(
+                "--add-opens", "java.desktop/sun.awt=ALL-UNNAMED",
                 "--add-opens", "java.desktop/sun.lwawt=ALL-UNNAMED",
                 "--add-opens", "java.desktop/sun.lwawt.macosx=ALL-UNNAMED"
             )
@@ -436,7 +441,7 @@ compose.desktop {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "AutoDev Desktop"
             packageVersion = "1.0.5"
-            description = "AutoDev Desktop Application with DevIns Support"
+            description = "AutoDev Desktop Application with Xuiper Agents Support"
             copyright = "© 2024 AutoDev Team. All rights reserved."
             vendor = "AutoDev Team"
 
@@ -874,7 +879,8 @@ afterEvaluate {
         jvmArgs("--add-opens", "java.desktop/sun.awt=ALL-UNNAMED")
         jvmArgs("--add-opens", "java.desktop/java.awt.peer=ALL-UNNAMED")
 
-        if (System.getProperty("os.name").contains("Mac", ignoreCase = true)) {
+        if (System.getProperty("os.name").contains("Mac")) {
+            jvmArgs("--add-opens", "java.desktop/sun.awt=ALL-UNNAMED")
             jvmArgs("--add-opens", "java.desktop/sun.lwawt=ALL-UNNAMED")
             jvmArgs("--add-opens", "java.desktop/sun.lwawt.macosx=ALL-UNNAMED")
         }

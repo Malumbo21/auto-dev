@@ -1,17 +1,18 @@
 package cc.unitmesh.devins.ui.compose
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import cc.unitmesh.agent.AgentType
-import cc.unitmesh.devins.ui.kcef.KcefManager
-import cc.unitmesh.devins.ui.kcef.KcefProgressBar
+import cc.unitmesh.viewer.web.KcefManager
+import cc.unitmesh.viewer.web.KcefProgressBar
 import kotlinx.coroutines.launch
 
 /**
  * Desktop-specific AutoDevApp wrapper that includes KCEF initialization and progress bar
- * 
+ *
  * This component:
  * - Initializes KCEF in the background on first launch
  * - Shows download progress at the bottom of the window
@@ -33,36 +34,26 @@ fun DesktopAutoDevApp(
     onNotification: (String, String) -> Unit = { _, _ -> }
 ) {
     val scope = rememberCoroutineScope()
-    
+
     // KCEF initialization state
     val kcefInitState by KcefManager.initState.collectAsState()
     val kcefDownloadProgress by KcefManager.downloadProgress.collectAsState()
-    
+
     // Initialize KCEF on first launch (background operation)
     LaunchedEffect(Unit) {
         scope.launch {
             try {
-                println("🔍 Checking KCEF installation status...")
                 val installed = KcefManager.isInstalled()
-                println("📊 KCEF installed: $installed")
-                
-                if (!installed) {
-                    println("📦 KCEF not installed, starting download and initialization...")
-                    println("⏰ This may take a few minutes on first run (80-150MB download)")
+                if (installed) {
                     KcefManager.initialize(
                         onError = { error ->
-                            println("❌ KCEF initialization failed: ${error.message}")
                             error.printStackTrace()
                             onNotification("WebView 初始化失败", error.message ?: "未知错误")
                         },
                         onRestartRequired = {
-                            println("🔄 KCEF requires restart")
                             onNotification("需要重启", "WebView 组件需要重启应用才能生效")
                         }
                     )
-                    println("✅ KCEF initialization request completed")
-                } else {
-                    println("✅ KCEF already installed, skipping download")
                 }
             } catch (e: Exception) {
                 println("⚠️ KCEF initialization error: ${e.message}")
@@ -70,7 +61,7 @@ fun DesktopAutoDevApp(
             }
         }
     }
-    
+
     Box(modifier = Modifier.fillMaxSize()) {
         // Main AutoDevApp content
         AutoDevApp(
@@ -87,7 +78,7 @@ fun DesktopAutoDevApp(
             onHasHistoryChanged = onHasHistoryChanged,
             onNotification = onNotification
         )
-        
+
         // KCEF progress bar at the bottom (overlays the main content)
         KcefProgressBar(
             initState = kcefInitState,

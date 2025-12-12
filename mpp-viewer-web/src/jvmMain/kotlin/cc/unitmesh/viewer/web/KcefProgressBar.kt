@@ -1,7 +1,6 @@
-package cc.unitmesh.devins.ui.kcef
+package cc.unitmesh.viewer.web
 
 import androidx.compose.animation.*
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -14,12 +13,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
-/**
- * KCEF Download Progress Bar
- *
- * Shows download progress at the bottom of the window when KCEF is being downloaded.
- * User can dismiss the notification but download continues in background.
- */
 @Composable
 fun KcefProgressBar(
     initState: KcefInitState,
@@ -126,7 +119,6 @@ fun KcefProgressBar(
                 // Dismiss button - smaller
                 IconButton(
                     onClick = {
-                        dismissed = true
                         onDismiss()
                     },
                     modifier = Modifier.size(24.dp)

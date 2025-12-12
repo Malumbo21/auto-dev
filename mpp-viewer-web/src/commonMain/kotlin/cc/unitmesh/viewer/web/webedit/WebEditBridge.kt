@@ -1,0 +1,133 @@
+package cc.unitmesh.viewer.web.webedit
+
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+
+/**
+ * Abstract bridge for communication between Kotlin and WebView
+ * 
+ * This interface defines the contract for bidirectional communication
+ * between the Kotlin/Compose layer and the embedded WebView for web editing.
+ */
+interface WebEditBridge {
+    /**
+     * Current URL being viewed
+     */
+    val currentUrl: StateFlow<String>
+    
+    /**
+     * Page title
+     */
+    val pageTitle: StateFlow<String>
+    
+    /**
+     * Whether the page is loading
+     */
+    val isLoading: StateFlow<Boolean>
+    
+    /**
+     * Load progress (0-100)
+     */
+    val loadProgress: StateFlow<Int>
+    
+    /**
+     * Current DOM tree
+     */
+    val domTree: StateFlow<DOMElement?>
+    
+    /**
+     * Currently selected element
+     */
+    val selectedElement: StateFlow<DOMElement?>
+    
+    /**
+     * Whether selection mode is enabled
+     */
+    val isSelectionMode: StateFlow<Boolean>
+    
+    /**
+     * Whether the bridge is ready
+     */
+    val isReady: StateFlow<Boolean>
+    
+    /**
+     * Navigate to a URL
+     */
+    suspend fun navigateTo(url: String)
+    
+    /**
+     * Reload the current page
+     */
+    suspend fun reload()
+    
+    /**
+     * Go back in history
+     */
+    suspend fun goBack()
+    
+    /**
+     * Go forward in history
+     */
+    suspend fun goForward()
+    
+    /**
+     * Enable or disable selection mode
+     */
+    suspend fun setSelectionMode(enabled: Boolean)
+    
+    /**
+     * Highlight a specific element
+     */
+    suspend fun highlightElement(selector: String)
+    
+    /**
+     * Clear all highlights
+     */
+    suspend fun clearHighlights()
+    
+    /**
+     * Scroll to an element
+     */
+    suspend fun scrollToElement(selector: String)
+    
+    /**
+     * Refresh the DOM tree
+     */
+    suspend fun refreshDOMTree()
+    
+    /**
+     * Get the HTML content of the selected element
+     */
+    suspend fun getSelectedElementHtml(): String?
+    
+    /**
+     * Mark bridge as ready
+     */
+    fun markReady()
+    
+    /**
+     * Handle message from WebView
+     */
+    fun handleMessage(message: WebEditMessage)
+}
+
+/**
+ * State holder for WebEdit
+ */
+data class WebEditState(
+    val currentUrl: String = "",
+    val pageTitle: String = "",
+    val isLoading: Boolean = false,
+    val loadProgress: Int = 0,
+    val domTree: DOMElement? = null,
+    val selectedElement: DOMElement? = null,
+    val isSelectionMode: Boolean = false,
+    val isReady: Boolean = false
+)
+
+/**
+ * Factory function for creating WebEditBridge instances
+ */
+expect fun createWebEditBridge(): WebEditBridge
+
