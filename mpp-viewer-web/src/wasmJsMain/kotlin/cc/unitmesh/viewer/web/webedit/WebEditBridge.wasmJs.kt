@@ -64,7 +64,12 @@ class WasmWebEditBridge : WebEditBridge {
     }
 
     override suspend fun highlightElement(selector: String) {
-        val escapedSelector = selector.replace("'", "\\'")
+        val escapedSelector = selector
+            .replace("\\", "\\\\")
+            .replace("'", "\\'")
+            .replace("\"", "\\\"")
+            .replace("\n", "\\n")
+            .replace("\r", "\\r")
         val script = "window.webEditBridge?.highlightElement('$escapedSelector');"
         executeJavaScript?.invoke(script)
     }
@@ -75,7 +80,12 @@ class WasmWebEditBridge : WebEditBridge {
     }
 
     override suspend fun scrollToElement(selector: String) {
-        val escapedSelector = selector.replace("'", "\\'")
+        val escapedSelector = selector
+            .replace("\\", "\\\\")
+            .replace("'", "\\'")
+            .replace("\"", "\\\"")
+            .replace("\n", "\\n")
+            .replace("\r", "\\r")
         val script = "window.webEditBridge?.scrollToElement('$escapedSelector');"
         executeJavaScript?.invoke(script)
     }
@@ -85,6 +95,11 @@ class WasmWebEditBridge : WebEditBridge {
         executeJavaScript?.invoke(script)
     }
 
+    /**
+     * Get HTML content of selected element.
+     * TODO: Implement for WASM platform using JavaScript interop when available.
+     * Currently returns null as WASM-JS bridge mechanism is not yet implemented.
+     */
     override suspend fun getSelectedElementHtml(): String? {
         return null
     }

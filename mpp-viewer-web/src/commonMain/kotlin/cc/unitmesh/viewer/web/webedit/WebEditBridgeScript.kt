@@ -13,6 +13,16 @@ fun getWebEditBridgeScript(): String = """
     // Prevent multiple injections
     if (window.webEditBridge) return;
     
+    // Define color constants as CSS variables for theming
+    const style = document.createElement('style');
+    style.textContent = `
+        :root {
+            --webedit-hover-color: #2196F3;
+            --webedit-selected-color: #4CAF50;
+        }
+    `;
+    document.head.appendChild(style);
+    
     // WebEdit Bridge object
     window.webEditBridge = {
         selectionMode: false,
@@ -23,19 +33,20 @@ fun getWebEditBridgeScript(): String = """
         setSelectionMode: function(enabled) {
             this.selectionMode = enabled;
             if (!enabled) {
-                this.clearHighlights();
+                this.clearHoverHighlight();
+                this.clearSelection();
             }
             console.log('[WebEditBridge] Selection mode:', enabled);
         },
         
         // Highlight a specific element by selector
         highlightElement: function(selector) {
-            this.clearHighlights();
+            this.clearHoverHighlight();
             try {
                 const el = document.querySelector(selector);
                 if (el) {
                     this.highlightedElement = el;
-                    el.style.outline = '2px solid #2196F3';
+                    el.style.outline = '2px solid var(--webedit-hover-color)';
                     el.style.outlineOffset = '2px';
                 }
             } catch(e) {
@@ -43,17 +54,28 @@ fun getWebEditBridgeScript(): String = """
             }
         },
         
-        // Clear all highlights
-        clearHighlights: function() {
+        // Clear hover highlight only (keep selection)
+        clearHoverHighlight: function() {
             if (this.highlightedElement) {
                 this.highlightedElement.style.outline = '';
                 this.highlightedElement.style.outlineOffset = '';
                 this.highlightedElement = null;
             }
+        },
+        
+        // Clear selection highlight
+        clearSelection: function() {
             if (this.selectedElement) {
                 this.selectedElement.style.outline = '';
                 this.selectedElement.style.outlineOffset = '';
+                this.selectedElement = null;
             }
+        },
+        
+        // Clear all highlights (for backward compatibility)
+        clearHighlights: function() {
+            this.clearHoverHighlight();
+            this.clearSelection();
         },
         
         // Scroll to element
@@ -99,7 +121,7 @@ fun getWebEditBridgeScript(): String = """
                 if (depth > 5) return null;
                 const rect = el.getBoundingClientRect();
                 const node = {
-                    id: Math.random().toString(36).substr(2, 9),
+                    id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2, 11)),
                     tagName: el.tagName.toLowerCase(),
                     selector: window.webEditBridge.getSelector(el),
                     textContent: (el.textContent || '').trim().substring(0, 50),
@@ -116,7 +138,7 @@ fun getWebEditBridgeScript(): String = """
                 return node;
             }
             const tree = buildTree(document.body, 0);
-            this.sendToKotlin('DOMTreeUpdated', JSON.stringify({ root: tree }));
+            this.sendToKotlin('DOMTreeUpdated', { root: tree });
         },
         
         // Send message to Kotlin
@@ -131,10 +153,9 @@ fun getWebEditBridgeScript(): String = """
     // Mouse event handlers for selection mode
     document.addEventListener('mouseover', function(e) {
         if (!window.webEditBridge.selectionMode) return;
-        e.stopPropagation();
-        window.webEditBridge.clearHighlights();
+        window.webEditBridge.clearHoverHighlight();
         window.webEditBridge.highlightedElement = e.target;
-        e.target.style.outline = '2px solid #2196F3';
+        e.target.style.outline = '2px solid var(--webedit-hover-color)';
         e.target.style.outlineOffset = '2px';
     }, true);
     
@@ -144,26 +165,26 @@ fun getWebEditBridgeScript(): String = """
         e.stopPropagation();
         const el = e.target;
         window.webEditBridge.selectedElement = el;
-        el.style.outline = '3px solid #4CAF50';
+        el.style.outline = '3px solid var(--webedit-selected-color)';
         el.style.outlineOffset = '2px';
         const rect = el.getBoundingClientRect();
-        window.webEditBridge.sendToKotlin('ElementSelected', JSON.stringify({
+        window.webEditBridge.sendToKotlin('ElementSelected', {
             element: {
-                id: Math.random().toString(36).substr(2, 9),
+                id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2, 11)),
                 tagName: el.tagName.toLowerCase(),
                 selector: window.webEditBridge.getSelector(el),
                 textContent: (el.textContent || '').trim().substring(0, 100),
                 attributes: { id: el.id || '', class: el.className || '' },
                 boundingBox: { x: rect.x, y: rect.y, width: rect.width, height: rect.height }
             }
-        }));
+        });
     }, true);
     
     // Notify page loaded
-    window.webEditBridge.sendToKotlin('PageLoaded', JSON.stringify({
+    window.webEditBridge.sendToKotlin('PageLoaded', {
         url: window.location.href,
         title: document.title
-    }));
+    });
     
     console.log('[WebEditBridge] Initialized');
 })();

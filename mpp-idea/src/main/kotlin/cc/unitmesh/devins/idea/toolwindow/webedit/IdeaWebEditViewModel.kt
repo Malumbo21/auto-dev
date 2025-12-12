@@ -16,6 +16,7 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.serialization.json.*
 import org.cef.browser.CefBrowser
 import org.cef.browser.CefFrame
@@ -83,11 +84,10 @@ class IdeaWebEditViewModel(
                     override fun onLoadEnd(browser: CefBrowser?, frame: CefFrame?, httpStatusCode: Int) {
                         if (frame?.isMain == true) {
                             val url = browser?.url ?: ""
-                            val title = frame.name ?: ""
+                            // Title will be updated via JS bridge callback, not from frame.name
                             updateState {
                                 it.copy(
                                     currentUrl = url,
-                                    pageTitle = title,
                                     isLoading = false,
                                     loadProgress = 100
                                 )
@@ -191,7 +191,9 @@ class IdeaWebEditViewModel(
      * Highlight an element by selector
      */
     fun highlightElement(selector: String) {
-        val escapedSelector = selector.replace("'", "\\'")
+        val escapedSelector = selector
+            .replace("\\", "\\\\")
+            .replace("'", "\\'")
         executeJavaScript("window.webEditBridge?.highlightElement('$escapedSelector');")
     }
 
@@ -206,7 +208,9 @@ class IdeaWebEditViewModel(
      * Scroll to an element
      */
     fun scrollToElement(selector: String) {
-        val escapedSelector = selector.replace("'", "\\'")
+        val escapedSelector = selector
+            .replace("\\", "\\\\")
+            .replace("'", "\\'")
         executeJavaScript("window.webEditBridge?.scrollToElement('$escapedSelector');")
     }
 
@@ -319,13 +323,13 @@ class IdeaWebEditViewModel(
         try {
             val json = Json.parseToJsonElement(message).jsonObject
             val type = json["type"]?.jsonPrimitive?.content ?: return
-            val data = json["data"]?.jsonPrimitive?.content ?: "{}"
+            // data is now an object, not a string
+            val data = json["data"]?.jsonObject ?: return
 
             when (type) {
                 "PageLoaded" -> {
-                    val pageData = Json.parseToJsonElement(data).jsonObject
-                    val url = pageData["url"]?.jsonPrimitive?.content ?: ""
-                    val title = pageData["title"]?.jsonPrimitive?.content ?: ""
+                    val url = data["url"]?.jsonPrimitive?.content ?: ""
+                    val title = data["title"]?.jsonPrimitive?.content ?: ""
                     updateState {
                         it.copy(
                             currentUrl = url,
@@ -336,8 +340,7 @@ class IdeaWebEditViewModel(
                 }
 
                 "ElementSelected" -> {
-                    val elementData = Json.parseToJsonElement(data).jsonObject
-                    val elementJson = elementData["element"]?.jsonObject
+                    val elementJson = data["element"]?.jsonObject
                     if (elementJson != null) {
                         val element = parseElement(elementJson)
                         updateState { it.copy(selectedElement = element) }
@@ -345,8 +348,7 @@ class IdeaWebEditViewModel(
                 }
 
                 "DOMTreeUpdated" -> {
-                    val treeData = Json.parseToJsonElement(data).jsonObject
-                    val rootJson = treeData["root"]?.jsonObject
+                    val rootJson = data["root"]?.jsonObject
                     if (rootJson != null) {
                         val root = parseElement(rootJson)
                         updateState { it.copy(domTree = root) }
@@ -354,8 +356,7 @@ class IdeaWebEditViewModel(
                 }
 
                 "Error" -> {
-                    val errorData = Json.parseToJsonElement(data).jsonObject
-                    val errorMessage = errorData["message"]?.jsonPrimitive?.content ?: "Unknown error"
+                    val errorMessage = data["message"]?.jsonPrimitive?.content ?: "Unknown error"
                     updateState { it.copy(error = errorMessage) }
                 }
             }
@@ -398,7 +399,7 @@ class IdeaWebEditViewModel(
     }
 
     private fun updateState(update: (IdeaWebEditState) -> IdeaWebEditState) {
-        _state.value = update(_state.value)
+        _state.update(update)
     }
 
     override fun dispose() {
