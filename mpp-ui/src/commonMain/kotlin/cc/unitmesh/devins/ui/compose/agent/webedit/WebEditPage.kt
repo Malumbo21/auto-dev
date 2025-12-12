@@ -56,9 +56,19 @@ fun WebEditPage(
             showDOMSidebar = showDOMSidebar,
             onUrlChange = { inputUrl = it },
             onNavigate = { url ->
-                val normalizedUrl = if (!url.startsWith("https://") && !url.startsWith("https://")) {
-                    "https://$url"
-                } else url
+                val trimmed = url.trim()
+                if (trimmed.isEmpty()) return@WebEditToolbar
+
+                // Validate URL format
+                val normalizedUrl = when {
+                    trimmed.startsWith("http://") || trimmed.startsWith("https://") -> trimmed
+                    trimmed.matches(Regex("^[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}(/.*)?$")) -> "https://$trimmed"
+                    else -> {
+                        onNotification("Invalid URL", "Please enter a valid URL")
+                        return@WebEditToolbar
+                    }
+                }
+
                 inputUrl = normalizedUrl
                 scope.launch {
                     bridge.navigateTo(normalizedUrl)

@@ -34,7 +34,8 @@ fun DesktopTitleBarTabs(
     LaunchedEffect(currentAgentType) {
         if (currentAgentType == AgentType.CODE_REVIEW ||
             currentAgentType == AgentType.KNOWLEDGE ||
-            currentAgentType == AgentType.WEB_EDIT) {
+            currentAgentType == AgentType.WEB_EDIT
+        ) {
             UIStateManager.setSessionSidebarVisible(false)
         } else {
             UIStateManager.setSessionSidebarVisible(true)
@@ -137,7 +138,7 @@ fun DesktopTitleBarTabs(
                     color = MaterialTheme.colorScheme.outlineVariant
                 ) {}
 
-                (AgentType.entries - AgentType.LOCAL_CHAT)
+                (AgentType.entries - AgentType.LOCAL_CHAT - AgentType.WEB_EDIT)
                     .forEach { type ->
                         AgentTypeMenuItem(
                             type = type,
@@ -147,24 +148,15 @@ fun DesktopTitleBarTabs(
                     }
             }
 
-            // Right: Settings + Explorer (Text Buttons)
             Row(
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                if (currentAgentType == AgentType.REMOTE) {
-                    TextButton(
-                        onClick = onConfigureRemote,
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                        modifier = Modifier.height(28.dp)
-                    ) {
-                        Text(
-                            text = "Remote",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.secondary
-                        )
-                    }
-                }
+                AgentTypeMenuItem(
+                    type = AgentType.WEB_EDIT,
+                    isSelected = false,
+                    onClick = { onAgentTypeChange(AgentType.WEB_EDIT) }
+                )
 
                 TextButton(
                     onClick = { UIStateManager.toggleTreeView() },

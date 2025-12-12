@@ -67,7 +67,12 @@ class JvmWebEditBridge : WebEditBridge {
     }
 
     override suspend fun highlightElement(selector: String) {
-        val escapedSelector = selector.replace("'", "\\'")
+        val escapedSelector = selector
+            .replace("\\", "\\\\")
+            .replace("'", "\\'")
+            .replace("\"", "\\\"")
+            .replace("\n", "\\n")
+            .replace("\r", "\\r")
         val script = "window.webEditBridge?.highlightElement('$escapedSelector');"
         executeJavaScript?.invoke(script)
     }
@@ -78,7 +83,12 @@ class JvmWebEditBridge : WebEditBridge {
     }
 
     override suspend fun scrollToElement(selector: String) {
-        val escapedSelector = selector.replace("'", "\\'")
+        val escapedSelector = selector
+            .replace("\\", "\\\\")
+            .replace("'", "\\'")
+            .replace("\"", "\\\"")
+            .replace("\n", "\\n")
+            .replace("\r", "\\r")
         val script = "window.webEditBridge?.scrollToElement('$escapedSelector');"
         executeJavaScript?.invoke(script)
     }
@@ -88,12 +98,14 @@ class JvmWebEditBridge : WebEditBridge {
         executeJavaScript?.invoke(script)
     }
 
+    /**
+     * Get HTML content of selected element.
+     * TODO: This is currently a stub. Implement using JavaScript callback mechanism
+     * to properly retrieve outerHTML from the WebView.
+     */
     override suspend fun getSelectedElementHtml(): String? {
-        return _selectedElement.value?.let {
-            val script = "document.querySelector('${it.selector}')?.outerHTML || '';"
-            // This is a simplified version - in practice you'd use a callback
-            null
-        }
+        // Stub implementation - actual retrieval requires callback mechanism
+        return null
     }
 
     override fun markReady() {

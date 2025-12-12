@@ -39,6 +39,7 @@ kotlin {
         commonMain {
             dependencies {
                 implementation(project(":mpp-viewer"))
+                implementation(project(":mpp-core"))
                 implementation(compose.runtime)
                 implementation(compose.foundation)
                 implementation(compose.material3)
@@ -79,7 +80,7 @@ kotlin {
 // Desktop configuration for KCEF (Chromium Embedded Framework)
 compose.desktop {
     application {
-        mainClass = "cc.unitmesh.viewer.web.MermaidPreviewKt"
+        mainClass = "cc.unitmesh.viewer.web.WebViewDebugApp  _jvmKt"
     }
 }
 

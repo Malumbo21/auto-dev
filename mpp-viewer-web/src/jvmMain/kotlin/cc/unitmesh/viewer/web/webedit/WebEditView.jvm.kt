@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.LinearProgressIndicator
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import com.multiplatform.webview.jsbridge.IJsMessageHandler
 import com.multiplatform.webview.jsbridge.JsMessage
 import com.multiplatform.webview.jsbridge.rememberWebViewJsBridge
@@ -27,11 +26,10 @@ actual fun WebEditView(
 ) {
     val currentUrl by bridge.currentUrl.collectAsState()
 
-    val webViewState = rememberWebViewState(url = "https://ide.unitmesh.cc")
+    val webViewState = rememberWebViewState(url = currentUrl.ifEmpty { "about:blank" })
     LaunchedEffect(Unit) {
         webViewState.webSettings.apply {
             logSeverity = KLogSeverity.Info
-            backgroundColor = Color.Red
             allowUniversalAccessFromFileURLs = true
             customUserAgentString =
                 "Mozilla/5.0 (Macintosh; Intel Mac OS X 11_1) AppleWebKit/625.20 (KHTML, like Gecko) Version/14.3.43 Safari/625.20"
@@ -98,19 +96,18 @@ actual fun WebEditView(
                 try {
                     val json = Json.parseToJsonElement(message.params).jsonObject
                     val type = json["type"]?.jsonPrimitive?.content ?: return
-                    val data = json["data"]?.jsonPrimitive?.content ?: "{}"
+                    // data is now an object, not a string
+                    val data = json["data"]?.jsonObject ?: return
 
                     when (type) {
                         "PageLoaded" -> {
-                            val pageData = Json.parseToJsonElement(data).jsonObject
-                            val url = pageData["url"]?.jsonPrimitive?.content ?: ""
-                            val title = pageData["title"]?.jsonPrimitive?.content ?: ""
+                            val url = data["url"]?.jsonPrimitive?.content ?: ""
+                            val title = data["title"]?.jsonPrimitive?.content ?: ""
                             bridge.handleMessage(WebEditMessage.PageLoaded(url, title))
                             onPageLoaded(url, title)
                         }
                         "ElementSelected" -> {
-                            val elementData = Json.parseToJsonElement(data).jsonObject
-                            val elementJson = elementData["element"]?.jsonObject
+                            val elementJson = data["element"]?.jsonObject
                             if (elementJson != null) {
                                 val element = parseElement(elementJson.toString())
                                 if (element != null) {
@@ -120,8 +117,7 @@ actual fun WebEditView(
                             }
                         }
                         "DOMTreeUpdated" -> {
-                            val treeData = Json.parseToJsonElement(data).jsonObject
-                            val rootJson = treeData["root"]?.jsonObject
+                            val rootJson = data["root"]?.jsonObject
                             if (rootJson != null) {
                                 val root = parseElement(rootJson.toString())
                                 if (root != null) {
@@ -131,8 +127,7 @@ actual fun WebEditView(
                             }
                         }
                         "Error" -> {
-                            val errorData = Json.parseToJsonElement(data).jsonObject
-                            val errorMessage = errorData["message"]?.jsonPrimitive?.content ?: "Unknown error"
+                            val errorMessage = data["message"]?.jsonPrimitive?.content ?: "Unknown error"
                             bridge.handleMessage(WebEditMessage.Error(errorMessage))
                         }
                     }
