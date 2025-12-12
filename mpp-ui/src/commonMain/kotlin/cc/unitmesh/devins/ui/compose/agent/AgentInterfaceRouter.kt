@@ -5,6 +5,7 @@ import androidx.compose.ui.Modifier
 import cc.unitmesh.agent.AgentType
 import cc.unitmesh.devins.ui.compose.agent.chatdb.ChatDBPage
 import cc.unitmesh.devins.ui.compose.agent.codereview.CodeReviewPage
+import cc.unitmesh.devins.ui.compose.agent.webedit.WebEditPage
 import cc.unitmesh.devins.ui.remote.RemoteAgentPage
 import cc.unitmesh.devins.workspace.Workspace
 import cc.unitmesh.llm.KoogLLMService
@@ -126,6 +127,17 @@ fun AgentInterfaceRouter(
                 onProjectChange = onProjectChange,
                 onGitUrlChange = onGitUrlChange,
                 modifier = modifier
+            )
+        }
+
+        AgentType.WEB_EDIT -> {
+            WebEditPage(
+                llmService = llmService,
+                modifier = modifier,
+                onBack = {
+                    onAgentTypeChange(AgentType.CODING)
+                },
+                onNotification = onNotification
             )
         }
 

@@ -291,6 +291,11 @@ fun CodingAgentPage(
                             // REMOTE type should not reach here - it's handled by AgentInterfaceRouter
                             // This is a fallback to prevent compilation errors
                         }
+
+                        AgentType.WEB_EDIT -> {
+                            // WEB_EDIT has its own full-page interface
+                            // It should not reach here - handled by AgentInterfaceRouter
+                        }
                     }
 
                     ToolLoadingStatusBar(

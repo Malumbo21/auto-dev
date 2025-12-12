@@ -287,6 +287,7 @@ private fun AgentTypeTab(
                     AgentType.CODING -> AutoDevComposeIcons.Code
                     AgentType.LOCAL_CHAT -> AutoDevComposeIcons.Chat
                     AgentType.CHAT_DB -> AutoDevComposeIcons.Database
+                    AgentType.WEB_EDIT -> AutoDevComposeIcons.Language
                 },
                 contentDescription = null,
                 tint = contentColor,
