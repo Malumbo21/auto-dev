@@ -25,7 +25,7 @@ import kotlinx.coroutines.launch
  * to connect to a remote mpp-server instead of running locally.
  */
 @Composable
-fun RemoteAgentChatInterface(
+fun RemoteAgentPage(
     serverUrl: String,
     useServerConfig: Boolean = false,
     isTreeViewVisible: Boolean = false,

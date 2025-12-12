@@ -1,12 +1,11 @@
 package cc.unitmesh.devins.ui.compose.agent
 
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import cc.unitmesh.agent.AgentType
 import cc.unitmesh.devins.ui.compose.agent.chatdb.ChatDBPage
 import cc.unitmesh.devins.ui.compose.agent.codereview.CodeReviewPage
-import cc.unitmesh.devins.ui.remote.RemoteAgentChatInterface
+import cc.unitmesh.devins.ui.remote.RemoteAgentPage
 import cc.unitmesh.devins.workspace.Workspace
 import cc.unitmesh.llm.KoogLLMService
 
@@ -93,7 +92,7 @@ fun AgentInterfaceRouter(
         }
 
         AgentType.REMOTE -> {
-            RemoteAgentChatInterface(
+            RemoteAgentPage(
                 serverUrl = serverUrl,
                 useServerConfig = useServerConfig,
                 isTreeViewVisible = isTreeViewVisible,
@@ -132,7 +131,7 @@ fun AgentInterfaceRouter(
 
         AgentType.LOCAL_CHAT,
         AgentType.CODING -> {
-            AgentChatInterface(
+            CodingAgentPage(
                 llmService = llmService,
                 isTreeViewVisible = isTreeViewVisible,
                 onConfigWarning = onConfigWarning,

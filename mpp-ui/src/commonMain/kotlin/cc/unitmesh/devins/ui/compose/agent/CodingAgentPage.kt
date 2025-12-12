@@ -26,7 +26,7 @@ import cc.unitmesh.llm.LLMProviderType
 import cc.unitmesh.llm.NamedModelConfig
 
 @Composable
-fun AgentChatInterface(
+fun CodingAgentPage(
     llmService: KoogLLMService?,
     isTreeViewVisible: Boolean = false, // 保留供外部读取，但内部使用全局状态
     onConfigWarning: () -> Unit,
