@@ -40,7 +40,12 @@ enum class AgentType {
     /**
      * Remote agent mode - connects to remote mpp-server for distributed execution
      */
-    REMOTE;
+    REMOTE,
+
+    /**
+     * Web edit mode - browse, select DOM elements, and interact with web pages
+     */
+    WEB_EDIT;
 
     fun getDisplayName(): String = when (this) {
         LOCAL_CHAT -> "Chat"
@@ -49,6 +54,7 @@ enum class AgentType {
         KNOWLEDGE -> "Knowledge"
         CHAT_DB -> "ChatDB"
         REMOTE -> "Remote"
+        WEB_EDIT -> "WebEdit"
     }
 
     companion object {
@@ -60,6 +66,7 @@ enum class AgentType {
                 "codereview" -> CODE_REVIEW
                 "documentreader", "documents" -> KNOWLEDGE
                 "chatdb", "database" -> CHAT_DB
+                "webedit", "web" -> WEB_EDIT
                 else -> LOCAL_CHAT
             }
         }

@@ -20,6 +20,8 @@ import cc.unitmesh.devins.idea.toolwindow.knowledge.IdeaKnowledgeViewModel
 import cc.unitmesh.devins.idea.toolwindow.remote.IdeaRemoteAgentContent
 import cc.unitmesh.devins.idea.toolwindow.remote.IdeaRemoteAgentViewModel
 import cc.unitmesh.devins.idea.toolwindow.remote.getEffectiveProjectId
+import cc.unitmesh.devins.idea.toolwindow.webedit.IdeaWebEditContent
+import cc.unitmesh.devins.idea.toolwindow.webedit.IdeaWebEditViewModel
 import cc.unitmesh.devins.idea.components.status.IdeaToolLoadingStatusBar
 import cc.unitmesh.devins.idea.components.timeline.IdeaEmptyStateMessage
 import cc.unitmesh.devins.idea.components.timeline.IdeaTimelineContent
@@ -128,6 +130,9 @@ fun IdeaAgentApp(
     // Remote Agent ViewModel (created lazily when needed)
     var remoteAgentViewModel by remember { mutableStateOf<IdeaRemoteAgentViewModel?>(null) }
 
+    // WebEdit ViewModel (created lazily when needed)
+    var webEditViewModel by remember { mutableStateOf<IdeaWebEditViewModel?>(null) }
+
     // Remote agent state for input handling
     var remoteProjectId by remember { mutableStateOf("") }
     var remoteGitUrl by remember { mutableStateOf("") }
@@ -159,6 +164,9 @@ fun IdeaAgentApp(
                 serverUrl = "http://localhost:8080"
             )
         }
+        if (currentAgentType == AgentType.WEB_EDIT && webEditViewModel == null) {
+            webEditViewModel = IdeaWebEditViewModel(project, coroutineScope)
+        }
     }
 
     // Dispose ViewModels when leaving their tabs
@@ -175,6 +183,10 @@ fun IdeaAgentApp(
             if (currentAgentType != AgentType.REMOTE) {
                 remoteAgentViewModel?.dispose()
                 remoteAgentViewModel = null
+            }
+            if (currentAgentType != AgentType.WEB_EDIT) {
+                webEditViewModel?.dispose()
+                webEditViewModel = null
             }
         }
     }
@@ -362,9 +374,15 @@ fun IdeaAgentApp(
                     } ?: IdeaEmptyStateMessage("Loading Knowledge Agent...")
                 }
             }
+            AgentType.WEB_EDIT -> {
+                // WebEdit mode - Browse web pages and select DOM elements
+                Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                    webEditViewModel?.let { vm ->
+                        IdeaWebEditContent(viewModel = vm)
+                    } ?: IdeaEmptyStateMessage("Loading WebEdit Agent...")
+                }
+            }
             AgentType.CHAT_DB -> {
-                // ChatDB mode - Text2SQL agent for database queries
-                // TODO: Implement ChatDB UI when ready
                 Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
                     IdeaEmptyStateMessage("ChatDB Agent coming soon...")
                 }
