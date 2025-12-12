@@ -1,40 +1,312 @@
 [versions]
-dokka = "1.9.10"
+# Kotlin & Compose
 kotlin = "2.2.0"
+compose = "1.9.2"
+
+# Gradle Plugins
+dokka = "1.9.10"
 changelog = "2.2.1"
 gradleIntelliJPlugin = "2.1.0"
+intellijPlatform = "2.10.2"
+grammarkit = "2022.3.2.2"
 qodana = "0.1.13"
 kover = "0.7.5"
-compose = "1.9.2"
 ktlint = "13.1.0"
-ktor = "3.3.0"
+android = "8.10.0"
+sqldelight = "2.1.0"
+i18n4k = "0.11.1"
 
-chapi = "2.1.2"
+# Kotlinx
+kotlinxSerialization = "1.9.0"
+kotlinxCoroutines = "1.10.2"
+kotlinxDatetime = "0.7.1-0.6.x-compat"
+kotlinxIo = "0.8.0"
+
+# Ktor
+ktor = "3.2.2"
+
+# Logging
+logback = "1.5.19"
+kotlinLogging = "7.0.13"
+
+# AI/LLM
+koog = "0.5.2"
 jtokkit = "1.1.0"
+mcpKotlinSdk = "0.7.2"
+
+# Database
+exposed = "0.47.0"
+hikari = "6.0.0"
+mysql = "9.0.0"
+h2 = "2.2.224"
+sqlite = "3.44.1.0"
+xodus = "2.0.1"
+
+# Parsing
+kaml = "0.61.0"
+jsqlparser = "4.9"
+markdown = "0.7.3"
+tika = "3.2.3"
+pdfbox = "3.0.3"
+jsoup = "1.21.2"
+
+# TreeSitter
+treesitter = "0.25.3"
+treesitterJava = "0.23.4"
+treesitterKotlin = "0.3.8.1"
+treesitterCsharp = "0.23.1"
+treesitterJavascript = "0.23.1"
+treesitterPython = "0.23.4"
+treesitterRust = "0.23.1"
+treesitterGo = "0.23.3"
+
+# UI Libraries
+composeCharts = "0.2.0"
+composeWebview = "2.0.3"
+markdownRenderer = "0.38.1"
+richeditor = "1.0.0-rc13"
+bonsai = "1.2.0"
+rsyntaxtextarea = "3.6.0"
+highlights = "1.0.0"
+
+# Lets-Plot
+letsPlotKotlin = "4.12.0"
+letsPlot = "4.8.1"
+letsPlotCompose = "3.0.1"
+
+# Network/HTTP
+okhttp = "4.12.0"
+retrofit = "2.11.0"
+
+# Reactive
+rxjava = "3.1.10"
+
+# Terminal
+pty4j = "0.13.10"
+jediterm = "3.57"
+
+# Android
+androidxActivity = "1.11.0"
+androidxAppcompat = "1.6.1"
+androidxCore = "1.17.0"
+androidxDocumentfile = "1.0.1"
+desugar = "2.1.4"
+
+# Testing
+junit = "4.13.2"
+junitVintage = "5.9.3"
+assertj = "3.24.2"
+opentest4j = "1.3.0"
+mockwebserver = "4.12.0"
+
+# Misc
+reflections = "0.10.2"
+filekit = "0.12.0"
+plantuml = "1.2025.10"
+mynlp = "4.0.0"
+a2aSdk = "0.3.0.Beta1"
 
 [libraries]
-jtokkit = { module = "com.knuddels:jtokkit", version.ref = "jtokkit" }
+# Kotlinx
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinxCoroutines" }
+kotlinx-coroutines-swing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing", version.ref = "kotlinxCoroutines" }
+kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinxCoroutines" }
+kotlinx-coroutines-debug = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-debug", version.ref = "kotlinxCoroutines" }
+kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinxDatetime" }
+kotlinx-io-core = { module = "org.jetbrains.kotlinx:kotlinx-io-core", version.ref = "kotlinxIo" }
 
+# Ktor Server (keep original names for backward compatibility)
 ktor-serverCore = { module = "io.ktor:ktor-server-core-jvm", version.ref = "ktor" }
 ktor-serverNetty = { module = "io.ktor:ktor-server-netty-jvm", version.ref = "ktor" }
 ktor-serverContentNegotiation = { module = "io.ktor:ktor-server-content-negotiation-jvm", version.ref = "ktor" }
-ktor-serializationJson = { module = "io.ktor:ktor-serialization-kotlinx-json-jvm", version.ref = "ktor" }
 ktor-serverCors = { module = "io.ktor:ktor-server-cors-jvm", version.ref = "ktor" }
 ktor-serverSse = { module = "io.ktor:ktor-server-sse-jvm", version.ref = "ktor" }
 ktor-serverTestHost = { module = "io.ktor:ktor-server-test-host-jvm", version.ref = "ktor" }
+ktor-serializationJson = { module = "io.ktor:ktor-serialization-kotlinx-json-jvm", version.ref = "ktor" }
+
+# Ktor Client
+ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
+ktor-client-cio = { module = "io.ktor:ktor-client-cio", version.ref = "ktor" }
+ktor-client-js = { module = "io.ktor:ktor-client-js", version.ref = "ktor" }
+ktor-client-darwin = { module = "io.ktor:ktor-client-darwin", version.ref = "ktor" }
+ktor-client-contentNegotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
+ktor-client-logging = { module = "io.ktor:ktor-client-logging", version.ref = "ktor" }
+ktor-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }
+
+# Logging
+logback = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
+kotlin-logging = { module = "io.github.oshai:kotlin-logging", version.ref = "kotlinLogging" }
+kotlin-logging-jvm = { module = "io.github.oshai:kotlin-logging-jvm", version.ref = "kotlinLogging" }
+
+# AI/LLM
+jtokkit = { module = "com.knuddels:jtokkit", version.ref = "jtokkit" }
+koog-agents = { module = "ai.koog:koog-agents", version.ref = "koog" }
+koog-agents-mcp = { module = "ai.koog:agents-mcp", version.ref = "koog" }
+koog-prompt-executor = { module = "ai.koog:prompt-executor-llms-all", version.ref = "koog" }
+mcp-kotlin-sdk = { module = "io.modelcontextprotocol:kotlin-sdk", version.ref = "mcpKotlinSdk" }
+
+# Database
+exposed-core = { module = "org.jetbrains.exposed:exposed-core", version.ref = "exposed" }
+exposed-dao = { module = "org.jetbrains.exposed:exposed-dao", version.ref = "exposed" }
+exposed-jdbc = { module = "org.jetbrains.exposed:exposed-jdbc", version.ref = "exposed" }
+hikari = { module = "com.zaxxer:HikariCP", version.ref = "hikari" }
+mysql-connector = { module = "com.mysql:mysql-connector-j", version.ref = "mysql" }
+h2 = { module = "com.h2database:h2", version.ref = "h2" }
+sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqlite" }
+xodus-openAPI = { module = "org.jetbrains.xodus:xodus-openAPI", version.ref = "xodus" }
+xodus-environment = { module = "org.jetbrains.xodus:xodus-environment", version.ref = "xodus" }
+xodus-entityStore = { module = "org.jetbrains.xodus:xodus-entity-store", version.ref = "xodus" }
+xodus-vfs = { module = "org.jetbrains.xodus:xodus-vfs", version.ref = "xodus" }
+
+# SQLDelight
+sqldelight-sqlite = { module = "app.cash.sqldelight:sqlite-driver", version.ref = "sqldelight" }
+sqldelight-android = { module = "app.cash.sqldelight:android-driver", version.ref = "sqldelight" }
+sqldelight-native = { module = "app.cash.sqldelight:native-driver", version.ref = "sqldelight" }
+sqldelight-webWorker = { module = "app.cash.sqldelight:web-worker-driver", version.ref = "sqldelight" }
+sqldelight-webWorker-wasmJs = { module = "app.cash.sqldelight:web-worker-driver-wasm-js", version.ref = "sqldelight" }
+
+# Parsing
+kaml = { module = "com.charleskorn.kaml:kaml", version.ref = "kaml" }
+jsqlparser = { module = "com.github.jsqlparser:jsqlparser", version.ref = "jsqlparser" }
+markdown = { module = "org.jetbrains:markdown", version.ref = "markdown" }
+tika-core = { module = "org.apache.tika:tika-core", version.ref = "tika" }
+tika-parsers = { module = "org.apache.tika:tika-parsers-standard-package", version.ref = "tika" }
+pdfbox = { module = "org.apache.pdfbox:pdfbox", version.ref = "pdfbox" }
+jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
+
+# TreeSitter
+treesitter = { module = "io.github.bonede:tree-sitter", version.ref = "treesitter" }
+treesitter-java = { module = "io.github.bonede:tree-sitter-java", version.ref = "treesitterJava" }
+treesitter-kotlin = { module = "io.github.bonede:tree-sitter-kotlin", version.ref = "treesitterKotlin" }
+treesitter-csharp = { module = "io.github.bonede:tree-sitter-c-sharp", version.ref = "treesitterCsharp" }
+treesitter-javascript = { module = "io.github.bonede:tree-sitter-javascript", version.ref = "treesitterJavascript" }
+treesitter-python = { module = "io.github.bonede:tree-sitter-python", version.ref = "treesitterPython" }
+treesitter-rust = { module = "io.github.bonede:tree-sitter-rust", version.ref = "treesitterRust" }
+treesitter-go = { module = "io.github.bonede:tree-sitter-go", version.ref = "treesitterGo" }
+
+# UI Libraries
+compose-charts = { module = "io.github.ehsannarmani:compose-charts", version.ref = "composeCharts" }
+compose-webview = { module = "io.github.kevinnzou:compose-webview-multiplatform", version.ref = "composeWebview" }
+markdown-renderer = { module = "com.mikepenz:multiplatform-markdown-renderer", version.ref = "markdownRenderer" }
+markdown-renderer-jvm = { module = "com.mikepenz:multiplatform-markdown-renderer-jvm", version.ref = "markdownRenderer" }
+markdown-renderer-m3 = { module = "com.mikepenz:multiplatform-markdown-renderer-m3", version.ref = "markdownRenderer" }
+markdown-renderer-code = { module = "com.mikepenz:multiplatform-markdown-renderer-code", version.ref = "markdownRenderer" }
+richeditor = { module = "com.mohamedrejeb.richeditor:richeditor-compose", version.ref = "richeditor" }
+bonsai-core = { module = "cafe.adriel.bonsai:bonsai-core", version.ref = "bonsai" }
+bonsai-fileSystem = { module = "cafe.adriel.bonsai:bonsai-file-system", version.ref = "bonsai" }
+rsyntaxtextarea = { module = "com.fifesoft:rsyntaxtextarea", version.ref = "rsyntaxtextarea" }
+highlights = { module = "dev.snipme:highlights", version.ref = "highlights" }
+
+# Lets-Plot
+letsplot-kotlin = { module = "org.jetbrains.lets-plot:lets-plot-kotlin-kernel", version.ref = "letsPlotKotlin" }
+letsplot-common = { module = "org.jetbrains.lets-plot:lets-plot-common", version.ref = "letsPlot" }
+letsplot-canvas = { module = "org.jetbrains.lets-plot:canvas", version.ref = "letsPlot" }
+letsplot-raster = { module = "org.jetbrains.lets-plot:plot-raster", version.ref = "letsPlot" }
+letsplot-imageExport = { module = "org.jetbrains.lets-plot:lets-plot-image-export", version.ref = "letsPlot" }
+letsplot-compose = { module = "org.jetbrains.lets-plot:lets-plot-compose", version.ref = "letsPlotCompose" }
+
+# Network/HTTP
+okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
+okhttp-sse = { module = "com.squareup.okhttp3:okhttp-sse", version.ref = "okhttp" }
+okhttp-mockwebserver = { module = "com.squareup.okhttp3:mockwebserver", version.ref = "mockwebserver" }
+retrofit-jackson = { module = "com.squareup.retrofit2:converter-jackson", version.ref = "retrofit" }
+
+# Reactive
+rxjava = { module = "io.reactivex.rxjava3:rxjava", version.ref = "rxjava" }
+
+# Terminal
+pty4j = { module = "org.jetbrains.pty4j:pty4j", version.ref = "pty4j" }
+jediterm-core = { module = "org.jetbrains.jediterm:jediterm-core", version.ref = "jediterm" }
+jediterm-ui = { module = "org.jetbrains.jediterm:jediterm-ui", version.ref = "jediterm" }
+
+# Android
+androidx-activity = { module = "androidx.activity:activity-compose", version.ref = "androidxActivity" }
+androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "androidxAppcompat" }
+androidx-core = { module = "androidx.core:core-ktx", version.ref = "androidxCore" }
+androidx-documentfile = { module = "androidx.documentfile:documentfile", version.ref = "androidxDocumentfile" }
+desugar = { module = "com.android.tools:desugar_jdk_libs", version.ref = "desugar" }
+
+# i18n
+i18n4k-core = { module = "de.comahe.i18n4k:i18n4k-core", version.ref = "i18n4k" }
+i18n4k-core-jvm = { module = "de.comahe.i18n4k:i18n4k-core-jvm", version.ref = "i18n4k" }
+i18n4k-core-android = { module = "de.comahe.i18n4k:i18n4k-core-android", version.ref = "i18n4k" }
+i18n4k-core-js = { module = "de.comahe.i18n4k:i18n4k-core-js", version.ref = "i18n4k" }
+i18n4k-core-wasmJs = { module = "de.comahe.i18n4k:i18n4k-core-wasm-js", version.ref = "i18n4k" }
+
+# Testing
+junit = { module = "junit:junit", version.ref = "junit" }
+junit-vintage = { module = "org.junit.vintage:junit-vintage-engine", version.ref = "junitVintage" }
+assertj = { module = "org.assertj:assertj-core", version.ref = "assertj" }
+opentest4j = { module = "org.opentest4j:opentest4j", version.ref = "opentest4j" }
+
+# Misc
+reflections = { module = "org.reflections:reflections", version.ref = "reflections" }
+filekit-core = { module = "io.github.vinceglb:filekit-core", version.ref = "filekit" }
+filekit-dialogs = { module = "io.github.vinceglb:filekit-dialogs", version.ref = "filekit" }
+plantuml = { module = "net.sourceforge.plantuml:plantuml-epl", version.ref = "plantuml" }
+mynlp = { module = "com.mayabot.mynlp:mynlp", version.ref = "mynlp" }
+mynlp-all = { module = "com.mayabot.mynlp:mynlp-all", version = "mynlp" }
+a2a-sdk = { module = "io.github.a2asdk:a2a-java-sdk-client", version.ref = "a2aSdk" }
 
 [plugins]
-changelog = { id = "org.jetbrains.changelog", version.ref = "changelog" }
-compose = { id = "org.jetbrains.compose", version.ref = "compose" }
-composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
-dokka = { id = "org.jetbrains.dokka", version.ref = "dokka" }
-gradleIntelliJPlugin = { id = "org.jetbrains.intellij.platform", version.ref = "gradleIntelliJPlugin" }
+# Kotlin
 kotlin = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
-kover = { id = "org.jetbrains.kotlinx.kover", version.ref = "kover" }
-qodana = { id = "org.jetbrains.qodana", version.ref = "qodana" }
 serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+
+# Compose
+compose = { id = "org.jetbrains.compose", version.ref = "compose" }
+
+# JetBrains
+dokka = { id = "org.jetbrains.dokka", version.ref = "dokka" }
+changelog = { id = "org.jetbrains.changelog", version.ref = "changelog" }
+gradleIntelliJPlugin = { id = "org.jetbrains.intellij.platform", version.ref = "gradleIntelliJPlugin" }
+intellijPlatform = { id = "org.jetbrains.intellij.platform", version.ref = "intellijPlatform" }
+grammarkit = { id = "org.jetbrains.grammarkit", version.ref = "grammarkit" }
+qodana = { id = "org.jetbrains.qodana", version.ref = "qodana" }
+kover = { id = "org.jetbrains.kotlinx.kover", version.ref = "kover" }
+
+# Other
 ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint" }
 ktor = { id = "io.ktor.plugin", version.ref = "ktor" }
+android-library = { id = "com.android.library", version.ref = "android" }
+android-application = { id = "com.android.application", version.ref = "android" }
+sqldelight = { id = "app.cash.sqldelight", version.ref = "sqldelight" }
+i18n4k = { id = "de.comahe.i18n4k", version.ref = "i18n4k" }
 
 [bundles]
+# Ktor Server (use actual library names with camelCase)
+ktor-server = ["ktor-serverCore", "ktor-serverNetty", "ktor-serverContentNegotiation", "ktor-serializationJson", "ktor-serverCors", "ktor-serverSse"]
+
+# Ktor Client
+ktor-client-jvm = ["ktor-client-core", "ktor-client-cio", "ktor-client-contentNegotiation", "ktor-serialization-kotlinx-json"]
+
+# Database (Exposed)
+exposed = ["exposed-core", "exposed-dao", "exposed-jdbc"]
+
+# Xodus
+xodus = ["xodus-openAPI", "xodus-environment", "xodus-entityStore", "xodus-vfs"]
+
+# TreeSitter JVM
+treesitter-jvm = ["treesitter", "treesitter-java", "treesitter-kotlin", "treesitter-csharp", "treesitter-javascript", "treesitter-python", "treesitter-rust", "treesitter-go"]
+
+# Lets-Plot
+letsplot = ["letsplot-kotlin", "letsplot-common", "letsplot-canvas", "letsplot-raster", "letsplot-imageExport", "letsplot-compose"]
+
+# Markdown Renderer
+markdown-renderer-full = ["markdown-renderer", "markdown-renderer-jvm", "markdown-renderer-m3", "markdown-renderer-code"]
+
+# Bonsai
+bonsai = ["bonsai-core", "bonsai-fileSystem"]
+
+# Terminal
+terminal = ["pty4j", "jediterm-core", "jediterm-ui"]
+
+# Koog AI
+koog = ["koog-agents", "koog-agents-mcp", "koog-prompt-executor"]
+
+# Testing
+testing = ["junit", "assertj", "opentest4j"]

@@ -40,7 +40,7 @@ android {
 }
 
 dependencies {
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    coreLibraryDesugaring(libs.desugar)
 }
 
 kotlin {
@@ -123,44 +123,44 @@ kotlin {
                 // MPP Linter dependency
                 implementation(project(":mpp-codegraph"))
 
-                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
-                implementation("com.charleskorn.kaml:kaml:0.61.0")
+                implementation(libs.kotlinx.serialization.json)
+                implementation(libs.kotlinx.coroutines.core)
+                implementation(libs.kaml)
                 // kotlinx-io for cross-platform file system operations
-                implementation("org.jetbrains.kotlinx:kotlinx-io-core:0.8.0")
+                implementation(libs.kotlinx.io.core)
 
                 // JetBrains Markdown parser for document parsing
-                implementation("org.jetbrains:markdown:0.7.3")
+                implementation(libs.markdown)
 
                 // Ktor HTTP Client for web fetching (core only in common)
-                implementation("io.ktor:ktor-client-core:3.2.2")
+                implementation(libs.ktor.client.core)
 
                 // Kotlin Logging for multiplatform logging
-                implementation("io.github.oshai:kotlin-logging:7.0.13")
+                implementation(libs.kotlin.logging)
 
-                implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.7.1-0.6.x-compat")
+                implementation(libs.kotlinx.datetime)
                 // Koog AI Framework - JVM only for now
-                implementation("ai.koog:koog-agents:0.5.2")
-                implementation("ai.koog:agents-mcp:0.5.2")
+                implementation(libs.koog.agents)
+                implementation(libs.koog.agents.mcp)
                 // Koog needs these executors
-                implementation("ai.koog:prompt-executor-llms-all:0.5.2")
+                implementation(libs.koog.prompt.executor)
             }
         }
 
         commonTest {
             dependencies {
                 implementation(kotlin("test"))
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
+                implementation(libs.kotlinx.coroutines.test)
             }
         }
 
         androidMain {
             dependencies {
                 // AndroidX DocumentFile for SAF support
-                implementation("androidx.documentfile:documentfile:1.0.1")
+                implementation(libs.androidx.documentfile)
 
                 // Ktor CIO engine for Android
-                implementation("io.ktor:ktor-client-cio:3.2.2")
+                implementation(libs.ktor.client.cio)
             }
         }
 
@@ -173,49 +173,49 @@ kotlin {
 
             dependencies {
                 // Ktor CIO engine for JVM
-                implementation("io.ktor:ktor-client-cio:3.2.2")
+                implementation(libs.ktor.client.cio)
                 // Ktor content negotiation - required by ai.koog:prompt-executor-llms-all
-                implementation("io.ktor:ktor-client-content-negotiation:3.2.2")
-                implementation("io.ktor:ktor-serialization-kotlinx-json:3.2.2")
+                implementation(libs.ktor.client.contentNegotiation)
+                implementation(libs.ktor.serialization.kotlinx.json)
 
                 // CodeGraph for source code parsing
                 implementation(project(":mpp-codegraph"))
 
                 // Logback for JVM logging backend with file storage
-                implementation("ch.qos.logback:logback-classic:1.5.19")
+                implementation(libs.logback)
 
                 // JediTerm for terminal emulation (uses pty4j under the hood)
-                implementation("org.jetbrains.pty4j:pty4j:0.13.10")
+                implementation(libs.pty4j)
 
                 // Apache Tika for document parsing (PDF, DOC, DOCX, PPT, etc.)
-                implementation("org.apache.tika:tika-core:3.2.3")
-                implementation("org.apache.tika:tika-parsers-standard-package:3.2.3")
+                implementation(libs.tika.core)
+                implementation(libs.tika.parsers)
                 
                 // Jsoup for HTML document parsing
-                implementation("org.jsoup:jsoup:1.21.2")
+                implementation(libs.jsoup)
 
                 // PDFBox for PDF document parsing
-                implementation("org.apache.pdfbox:pdfbox:3.0.3") {
+                implementation(libs.pdfbox.get().toString()) {
                     exclude(group = "commons-logging", module = "commons-logging")
                 }
 
                 // JetBrains Exposed - SQL framework for database access
-                implementation("org.jetbrains.exposed:exposed-core:0.47.0")
-                implementation("org.jetbrains.exposed:exposed-dao:0.47.0")
-                implementation("org.jetbrains.exposed:exposed-jdbc:0.47.0")
+                implementation(libs.exposed.core)
+                implementation(libs.exposed.dao)
+                implementation(libs.exposed.jdbc)
                 
                 // MySQL/MariaDB JDBC Driver
-                implementation("com.mysql:mysql-connector-j:9.0.0")
+                implementation(libs.mysql.connector)
                 
                 // Connection pooling
-                implementation("com.zaxxer:HikariCP:6.0.0")
+                implementation(libs.hikari)
                 
                 // JSQLParser for SQL validation and parsing
-                implementation("com.github.jsqlparser:jsqlparser:4.9")
+                implementation(libs.jsqlparser)
 
                 // MyNLP for Chinese NLP tokenization
-                implementation("com.mayabot.mynlp:mynlp:4.0.0")
-                implementation("com.mayabot.mynlp.resource:mynlp-resource-coredict:1.0.0")
+                implementation(libs.mynlp)
+                implementation(libs.mynlp.all)
             }
         }
 
@@ -223,14 +223,14 @@ kotlin {
             dependencies {
                 implementation(kotlin("test-junit"))
                 // H2 database for testing
-                implementation("com.h2database:h2:2.2.224")
+                implementation(libs.h2)
             }
         }
 
         jsMain {
             dependencies {
                 // Ktor JS engine for JavaScript
-                implementation("io.ktor:ktor-client-js:3.2.2")
+                implementation(libs.ktor.client.js)
                 
                 // CodeGraph for source code parsing
                 implementation(project(":mpp-codegraph"))
@@ -250,10 +250,10 @@ kotlin {
         iosMain {
             dependencies {
                 // Ktor Darwin engine for iOS
-                implementation("io.ktor:ktor-client-darwin:3.2.2")
+                implementation(libs.ktor.client.darwin)
 
                 // Export coroutines for Swift interop (required by framework export)
-                api("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
+                api(libs.kotlinx.coroutines.core)
             }
         }
 

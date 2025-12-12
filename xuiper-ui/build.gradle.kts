@@ -43,22 +43,22 @@ dependencies {
     implementation(project(":mpp-core"))
 
     // Serialization for test case format
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0")
+    implementation(libs.kotlinx.serialization.json)
 
     // Coroutines
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
+    implementation(libs.kotlinx.coroutines.core)
 
     // Logging
-    implementation("io.github.oshai:kotlin-logging-jvm:7.0.0")
-    implementation("ch.qos.logback:logback-classic:1.5.6")
+    implementation(libs.kotlin.logging.jvm)
+    implementation(libs.logback)
 
     // Testing
     testImplementation(kotlin("test"))
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.0")
+    testImplementation(libs.kotlinx.coroutines.test)
 
     // Integration test dependencies
     integrationTestImplementation(kotlin("test"))
-    integrationTestImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.0")
+    integrationTestImplementation(libs.kotlinx.coroutines.test)
 }
 
 kotlin {

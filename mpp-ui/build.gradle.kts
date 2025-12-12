@@ -141,37 +141,37 @@ kotlin {
                 implementation(compose.animation)
 
                 // Rich text editor for Compose
-                implementation("com.mohamedrejeb.richeditor:richeditor-compose:1.0.0-rc13")
+                implementation(libs.richeditor)
 
                 // Coroutines
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
+                implementation(libs.kotlinx.coroutines.core)
 
                 // DateTime for KMP
-                implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.7.1-0.6.x-compat")
+                implementation(libs.kotlinx.datetime)
 
-                implementation("com.charleskorn.kaml:kaml:0.61.0")
+                implementation(libs.kaml)
 
-                // JSON 处理
-                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
+                // JSON serialization
+                implementation(libs.kotlinx.serialization.json)
 
                 // FileKit - Cross-platform file picker
-                implementation("io.github.vinceglb:filekit-core:0.12.0")
-                implementation("io.github.vinceglb:filekit-dialogs:0.12.0")
+                implementation(libs.filekit.core)
+                implementation(libs.filekit.dialogs)
 
 //                implementation("javax.naming:jndi:1.2.1")
 
                 // Ktor HTTP Client (for remote agent)
-                implementation("io.ktor:ktor-client-core:3.2.2")
+                implementation(libs.ktor.client.core)
 
                 // i18n4k - Internationalization
-                implementation("de.comahe.i18n4k:i18n4k-core:0.11.1")
+                implementation(libs.i18n4k.core)
             }
         }
 
         val commonTest by getting {
             dependencies {
                 implementation(kotlin("test"))
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
+                implementation(libs.kotlinx.coroutines.test)
             }
         }
 
@@ -183,60 +183,60 @@ kotlin {
                 implementation(compose.desktop.currentOs)
 
                 // ComposeCharts - Cross-platform chart library (JVM)
-                implementation("io.github.ehsannarmani:compose-charts:0.2.0")
+                implementation(libs.compose.charts)
 
                 // Lets-Plot Compose (Desktop only - macOS, Windows, Linux)
                 // https://github.com/JetBrains/lets-plot-compose
-                implementation("org.jetbrains.lets-plot:lets-plot-kotlin-kernel:4.12.0")
-                implementation("org.jetbrains.lets-plot:lets-plot-common:4.8.1")
-                implementation("org.jetbrains.lets-plot:canvas:4.8.1")
-                implementation("org.jetbrains.lets-plot:plot-raster:4.8.1")
-                implementation("org.jetbrains.lets-plot:lets-plot-image-export:4.8.1")
-                implementation("org.jetbrains.lets-plot:lets-plot-compose:3.0.1")
+                implementation(libs.letsplot.kotlin)
+                implementation(libs.letsplot.common)
+                implementation(libs.letsplot.canvas)
+                implementation(libs.letsplot.raster)
+                implementation(libs.letsplot.imageExport)
+                implementation(libs.letsplot.compose)
 
                 // WebView support (KCEF) - needed for MermaidRenderer initialization
-                implementation("io.github.kevinnzou:compose-webview-multiplatform:2.0.3")
+                implementation(libs.compose.webview)
 
                 // Rich text editor for Compose Desktop
-                implementation("com.mohamedrejeb.richeditor:richeditor-compose:1.0.0-rc13")
+                implementation(libs.richeditor)
 
                 // Bonsai Tree View (JVM only)
-                implementation("cafe.adriel.bonsai:bonsai-core:1.2.0")
-                implementation("cafe.adriel.bonsai:bonsai-file-system:1.2.0")
+                implementation(libs.bonsai.core)
+                implementation(libs.bonsai.fileSystem)
 
                 // SQLDelight - JVM SQLite driver
-                implementation("app.cash.sqldelight:sqlite-driver:2.1.0")
+                implementation(libs.sqldelight.sqlite)
 
                 // CodeHighlight
-                implementation("dev.snipme:highlights:1.0.0")
+                implementation(libs.highlights)
                 // Multiplatform Markdown Renderer for JVM
-                implementation("com.mikepenz:multiplatform-markdown-renderer-code:0.38.1")
-                implementation("com.mikepenz:multiplatform-markdown-renderer-jvm:0.38.1")
-                implementation("com.mikepenz:multiplatform-markdown-renderer-m3:0.38.1")
+                implementation(libs.markdown.renderer.code)
+                implementation(libs.markdown.renderer.jvm)
+                implementation(libs.markdown.renderer.m3)
 
                 // plantuml
-                implementation("net.sourceforge.plantuml:plantuml-epl:1.2025.10")
+                implementation(libs.plantuml)
 
                 // Logback for JVM logging backend with file storage
-                implementation("ch.qos.logback:logback-classic:1.5.19") {
+                implementation(libs.logback.get().toString()) {
                     exclude(group = "javax.naming", module = "javax.naming-api")
                 }
 
                 // RSyntaxTextArea for syntax highlighting in JVM
-                implementation("com.fifesoft:rsyntaxtextarea:3.6.0")
+                implementation(libs.rsyntaxtextarea)
 
-                implementation("org.jetbrains.pty4j:pty4j:0.13.10")
-                implementation("org.jetbrains.jediterm:jediterm-core:3.57")
-                implementation("org.jetbrains.jediterm:jediterm-ui:3.57")
+                implementation(libs.pty4j)
+                implementation(libs.jediterm.core)
+                implementation(libs.jediterm.ui)
 
                 // Coroutines Swing for Dispatchers.Main on JVM Desktop
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.8.0")
+                implementation(libs.kotlinx.coroutines.swing)
 
                 // Ktor HTTP Client CIO engine for JVM
-                implementation("io.ktor:ktor-client-cio:3.2.2")
+                implementation(libs.ktor.client.cio)
 
                 // i18n4k - JVM
-                implementation("de.comahe.i18n4k:i18n4k-core-jvm:0.11.1")
+                implementation(libs.i18n4k.core.jvm)
             }
         }
 
@@ -248,40 +248,40 @@ kotlin {
 
         val androidMain by getting {
             dependencies {
-                implementation("androidx.activity:activity-compose:1.11.0")
-                implementation("androidx.appcompat:appcompat:1.6.1")
-                implementation("androidx.core:core-ktx:1.17.0")
+                implementation(libs.androidx.activity)
+                implementation(libs.androidx.appcompat)
+                implementation(libs.androidx.core)
 
                 // ComposeCharts - Cross-platform chart library (Android)
-                implementation("io.github.ehsannarmani:compose-charts:0.2.0")
+                implementation(libs.compose.charts)
 
                 // Lets-Plot Compose (Android)
                 // https://github.com/JetBrains/lets-plot-compose
-                implementation("org.jetbrains.lets-plot:lets-plot-kotlin-kernel:4.12.0")
-                implementation("org.jetbrains.lets-plot:lets-plot-common:4.8.1")
-                implementation("org.jetbrains.lets-plot:canvas:4.8.1")
-                implementation("org.jetbrains.lets-plot:plot-raster:4.8.1")
-                implementation("org.jetbrains.lets-plot:lets-plot-compose:3.0.1")
+                implementation(libs.letsplot.kotlin)
+                implementation(libs.letsplot.common)
+                implementation(libs.letsplot.canvas)
+                implementation(libs.letsplot.raster)
+                implementation(libs.letsplot.compose)
 
                 // Bonsai Tree View (Android)
-                implementation("cafe.adriel.bonsai:bonsai-core:1.2.0")
-                implementation("cafe.adriel.bonsai:bonsai-file-system:1.2.0")
+                implementation(libs.bonsai.core)
+                implementation(libs.bonsai.fileSystem)
 
                 // SQLDelight - Android SQLite driver
-                implementation("app.cash.sqldelight:android-driver:2.1.0")
+                implementation(libs.sqldelight.android)
 
                 // Multiplatform Markdown Renderer for Android
-                implementation("com.mikepenz:multiplatform-markdown-renderer:0.38.1")
-                implementation("com.mikepenz:multiplatform-markdown-renderer-m3:0.38.1")
+                implementation(libs.markdown.renderer)
+                implementation(libs.markdown.renderer.m3)
 
                 // Coroutines Android for Dispatchers.Main on Android
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0")
+                implementation(libs.kotlinx.coroutines.android)
 
                 // Ktor HTTP Client CIO engine for Android
-                implementation("io.ktor:ktor-client-cio:3.2.2")
+                implementation(libs.ktor.client.cio)
 
                 // i18n4k - Android
-                implementation("de.comahe.i18n4k:i18n4k-core-android:0.11.1")
+                implementation(libs.i18n4k.core.android)
             }
         }
 
@@ -298,17 +298,17 @@ kotlin {
                 api(compose.ui)
 
                 // ComposeCharts - Cross-platform chart library (iOS)
-                implementation("io.github.ehsannarmani:compose-charts:0.2.0")
+                implementation(libs.compose.charts)
 
                 // SQLDelight - iOS SQLite driver
-                implementation("app.cash.sqldelight:native-driver:2.1.0")
+                implementation(libs.sqldelight.native)
 
                 // Ktor HTTP Client Darwin engine for iOS
-                implementation("io.ktor:ktor-client-darwin:3.2.2")
+                implementation(libs.ktor.client.darwin)
 
                 // Multiplatform Markdown Renderer for iOS
-                implementation("com.mikepenz:multiplatform-markdown-renderer:0.38.1")
-                implementation("com.mikepenz:multiplatform-markdown-renderer-m3:0.38.1")
+                implementation(libs.markdown.renderer)
+                implementation(libs.markdown.renderer.m3)
             }
         }
 
@@ -318,13 +318,13 @@ kotlin {
                 implementation(compose.html.core)
 
                 // SQLDelight - JS driver
-                implementation("app.cash.sqldelight:web-worker-driver:2.1.0")
+                implementation(libs.sqldelight.webWorker)
 
                 // Ktor HTTP Client JS engine
-                implementation("io.ktor:ktor-client-js:3.2.2")
+                implementation(libs.ktor.client.js)
 
                 // i18n4k - JS
-                implementation("de.comahe.i18n4k:i18n4k-core-js:0.11.1")
+                implementation(libs.i18n4k.core.js)
             }
         }
 
@@ -344,24 +344,24 @@ kotlin {
                 implementation(npm("wasm-git", "0.0.13"))
 
                 // ComposeCharts - Cross-platform chart library (WasmJS)
-                implementation("io.github.ehsannarmani:compose-charts:0.2.0")
+                implementation(libs.compose.charts)
 
                 // SQLDelight - Web Worker driver (same as JS)
                 implementation(npm("sql.js", "1.8.0"))
                 implementation(npm("@cashapp/sqldelight-sqljs-worker", "2.1.0"))
-                implementation("app.cash.sqldelight:web-worker-driver:2.1.0")
-                implementation("app.cash.sqldelight:web-worker-driver-wasm-js:2.1.0")
+                implementation(libs.sqldelight.webWorker)
+                implementation(libs.sqldelight.webWorker.wasmJs)
 
                 // Ktor HTTP Client JS engine (works for WASM too)
-                implementation("io.ktor:ktor-client-js:3.2.2")
+                implementation(libs.ktor.client.js)
 
                 // i18n4k - WASM
-                implementation("de.comahe.i18n4k:i18n4k-core-wasm-js:0.11.1")
+                implementation(libs.i18n4k.core.wasmJs)
 
                 // Multiplatform Markdown Renderer for WASM
-                implementation("com.mikepenz:multiplatform-markdown-renderer:0.38.1")
-                implementation("com.mikepenz:multiplatform-markdown-renderer-m3:0.38.1")
-                implementation("com.mikepenz:multiplatform-markdown-renderer-code:0.38.1")
+                implementation(libs.markdown.renderer)
+                implementation(libs.markdown.renderer.m3)
+                implementation(libs.markdown.renderer.code)
             }
         }
     }
@@ -408,7 +408,7 @@ android {
 }
 
 dependencies {
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    coreLibraryDesugaring(libs.desugar)
 }
 
 compose.desktop {

@@ -25,8 +25,8 @@ dependencies {
     implementation(projects.mppCore)
 
     // Add kotlin-logging explicitly for JVM
-    implementation("io.github.oshai:kotlin-logging-jvm:7.0.13")
-    implementation("ch.qos.logback:logback-classic:1.5.16")
+    implementation(libs.kotlin.logging.jvm)
+    implementation(libs.logback)
 
     // Ktor Server
     implementation(libs.ktor.serverCore)
@@ -37,7 +37,7 @@ dependencies {
     implementation(libs.ktor.serverSse)
 
     // SQLite for workflow persistence
-    implementation("org.xerial:sqlite-jdbc:3.44.1.0")
+    implementation(libs.sqlite.jdbc)
 
     // Testing
     testImplementation(libs.ktor.serverTestHost)

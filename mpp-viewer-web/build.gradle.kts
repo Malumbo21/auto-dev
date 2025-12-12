@@ -46,13 +46,13 @@ kotlin {
                 implementation(compose.materialIconsExtended)
 
                 // JSON serialization
-                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
+                implementation(libs.kotlinx.serialization.json)
 
                 // Coroutines
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
+                implementation(libs.kotlinx.coroutines.core)
 
                 // compose-webview-multiplatform
-                implementation("io.github.kevinnzou:compose-webview-multiplatform:2.0.3")
+                implementation(libs.compose.webview)
             }
         }
 
