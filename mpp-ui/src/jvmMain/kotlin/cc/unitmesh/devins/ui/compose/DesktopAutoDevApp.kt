@@ -5,13 +5,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import cc.unitmesh.agent.AgentType
-import cc.unitmesh.devins.ui.kcef.KcefManager
-import cc.unitmesh.devins.ui.kcef.KcefProgressBar
+import cc.unitmesh.viewer.web.KcefManager
+import cc.unitmesh.viewer.web.KcefProgressBar
 import kotlinx.coroutines.launch
 
 /**
  * Desktop-specific AutoDevApp wrapper that includes KCEF initialization and progress bar
- * 
+ *
  * This component:
  * - Initializes KCEF in the background on first launch
  * - Shows download progress at the bottom of the window
@@ -33,11 +33,11 @@ fun DesktopAutoDevApp(
     onNotification: (String, String) -> Unit = { _, _ -> }
 ) {
     val scope = rememberCoroutineScope()
-    
+
     // KCEF initialization state
     val kcefInitState by KcefManager.initState.collectAsState()
     val kcefDownloadProgress by KcefManager.downloadProgress.collectAsState()
-    
+
     // Initialize KCEF on first launch (background operation)
     LaunchedEffect(Unit) {
         scope.launch {
@@ -45,7 +45,7 @@ fun DesktopAutoDevApp(
                 println("🔍 Checking KCEF installation status...")
                 val installed = KcefManager.isInstalled()
                 println("📊 KCEF installed: $installed")
-                
+
                 if (!installed) {
                     println("📦 KCEF not installed, starting download and initialization...")
                     println("⏰ This may take a few minutes on first run (80-150MB download)")
@@ -70,7 +70,7 @@ fun DesktopAutoDevApp(
             }
         }
     }
-    
+
     Box(modifier = Modifier.fillMaxSize()) {
         // Main AutoDevApp content
         AutoDevApp(
@@ -87,7 +87,7 @@ fun DesktopAutoDevApp(
             onHasHistoryChanged = onHasHistoryChanged,
             onNotification = onNotification
         )
-        
+
         // KCEF progress bar at the bottom (overlays the main content)
         KcefProgressBar(
             initState = kcefInitState,

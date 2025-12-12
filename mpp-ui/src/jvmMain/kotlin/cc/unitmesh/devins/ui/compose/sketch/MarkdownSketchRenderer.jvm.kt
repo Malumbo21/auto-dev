@@ -13,8 +13,8 @@ import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
-import cc.unitmesh.devins.ui.kcef.KcefInitState
-import cc.unitmesh.devins.ui.kcef.KcefManager
+import cc.unitmesh.viewer.web.KcefInitState
+import cc.unitmesh.viewer.web.KcefManager
 import cc.unitmesh.viewer.web.MermaidRenderer
 import com.mikepenz.markdown.compose.LocalMarkdownTypography
 import com.mikepenz.markdown.compose.MarkdownElement
@@ -48,7 +48,7 @@ actual object MarkdownSketchRenderer {
         val highlightsBuilder = remember(isDarkTheme) {
             Highlights.Builder().theme(SyntaxThemes.atom(darkMode = isDarkTheme))
         }
-        
+
         // Check KCEF state for Mermaid rendering
         val kcefInitState by KcefManager.initState.collectAsState()
         val isKcefAvailable = remember(kcefInitState) {

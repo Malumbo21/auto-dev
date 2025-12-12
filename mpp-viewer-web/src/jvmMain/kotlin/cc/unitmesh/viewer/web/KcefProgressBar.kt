@@ -1,7 +1,6 @@
-package cc.unitmesh.devins.ui.kcef
+package cc.unitmesh.viewer.web
 
 import androidx.compose.animation.*
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close

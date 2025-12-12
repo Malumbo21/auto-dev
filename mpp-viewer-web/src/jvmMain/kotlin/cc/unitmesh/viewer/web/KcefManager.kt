@@ -1,4 +1,4 @@
-package cc.unitmesh.devins.ui.kcef
+package cc.unitmesh.viewer.web
 
 import cc.unitmesh.config.ConfigManager
 import dev.datlag.kcef.KCEF

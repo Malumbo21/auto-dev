@@ -39,6 +39,7 @@ kotlin {
         commonMain {
             dependencies {
                 implementation(project(":mpp-viewer"))
+                implementation(project(":mpp-core"))
                 implementation(compose.runtime)
                 implementation(compose.foundation)
                 implementation(compose.material3)
