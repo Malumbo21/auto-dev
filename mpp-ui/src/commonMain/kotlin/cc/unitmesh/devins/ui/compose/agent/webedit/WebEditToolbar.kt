@@ -128,7 +128,7 @@ fun WebEditToolbar(
                     ) {
                         if (inputUrl.isEmpty()) {
                             Text(
-                                "Enter URL (e.g., https://www.baidu.com)",
+                                "Enter URL (e.g., https://www.xuiper.com)",
                                 style = TextStyle(fontSize = 13.sp),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                             )

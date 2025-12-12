@@ -45,53 +45,49 @@ object KcefManager {
 
         _initState.value = KcefInitState.Initializing
 
-        withContext(Dispatchers.IO) {
-            try {
-                val installDir = File(ConfigManager.getKcefInstallDir())
+        try {
+            val installDir = File(ConfigManager.getKcefInstallDir())
 
-                // Create install directory if it doesn't exist
-                if (!installDir.exists()) {
-                    installDir.mkdirs()
-                    println("✅ Created KCEF install directory")
+            // Create install directory if it doesn't exist
+            if (!installDir.exists()) {
+                installDir.mkdirs()
+                println("✅ Created KCEF install directory")
+            }
+
+            // Initialize KCEF with actual API
+            KCEF.init(builder = {
+                // Install to ~/.autodev/kcef-bundle
+                installDir(installDir)
+
+                // Progress tracking
+                progress {
+                    onDownloading {
+                        val progress = max(it, 0f)
+                        _downloadProgress.value = progress
+                    }
+                    onInitialized {
+                        _downloadProgress.value = 100f
+                        _initState.value = KcefInitState.Initialized
+                    }
                 }
 
-                // Initialize KCEF with actual API
-                KCEF.init(builder = {
-                    // Install to ~/.autodev/kcef-bundle
-                    installDir(installDir)
+                // Settings
+                settings {
+                    cachePath = File(installDir, "cache").absolutePath
+                }
+            }, onError = { error ->
+                val exception = error ?: Exception("Unknown KCEF error")
+                _initState.value = KcefInitState.Error(exception)
+                onError?.invoke(exception)
+            }, onRestartRequired = {
+                _initState.value = KcefInitState.RestartRequired
+                onRestartRequired?.invoke()
+            })
 
-                    // Progress tracking
-                    progress {
-                        onDownloading {
-                            val progress = max(it, 0f)
-                            _downloadProgress.value = progress
-                        }
-                        onInitialized {
-                            _downloadProgress.value = 100f
-                            _initState.value = KcefInitState.Initialized
-                            // Invalidate cache since KCEF is now installed
-                            invalidateInstallCache()
-                        }
-                    }
-
-                    // Settings
-                    settings {
-                        cachePath = File(installDir, "cache").absolutePath
-                    }
-                }, onError = { error ->
-                    val exception = error ?: Exception("Unknown KCEF error")
-                    _initState.value = KcefInitState.Error(exception)
-                    onError?.invoke(exception)
-                }, onRestartRequired = {
-                    _initState.value = KcefInitState.RestartRequired
-                    onRestartRequired?.invoke()
-                })
-
-            } catch (e: Exception) {
-                _initState.value = KcefInitState.Error(e)
-                e.printStackTrace()
-                onError?.invoke(e)
-            }
+        } catch (e: Exception) {
+            _initState.value = KcefInitState.Error(e)
+            e.printStackTrace()
+            onError?.invoke(e)
         }
     }
 
@@ -132,7 +128,11 @@ object KcefManager {
         println("   - File count: $fileCount")
 
         if (files != null && files.isNotEmpty()) {
-            println("   - Files: ${files.take(5).map { it.name }.joinToString(", ")}${if (fileCount > 5) "..." else ""}")
+            println(
+                "   - Files: ${
+                    files.take(5).map { it.name }.joinToString(", ")
+                }${if (fileCount > 5) "..." else ""}"
+            )
         }
 
         // Check if KCEF binary exists (look for typical KCEF files)

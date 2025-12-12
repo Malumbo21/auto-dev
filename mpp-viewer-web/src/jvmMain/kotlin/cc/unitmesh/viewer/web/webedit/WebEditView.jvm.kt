@@ -4,9 +4,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.LinearProgressIndicator
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import cc.unitmesh.viewer.web.KcefInitState
-import cc.unitmesh.viewer.web.KcefManager
 import com.multiplatform.webview.jsbridge.IJsMessageHandler
 import com.multiplatform.webview.jsbridge.JsMessage
 import com.multiplatform.webview.jsbridge.rememberWebViewJsBridge
@@ -28,13 +25,6 @@ actual fun WebEditView(
     onDOMTreeUpdated: (DOMElement) -> Unit
 ) {
     val currentUrl by bridge.currentUrl.collectAsState()
-    var chatInput by remember { mutableStateOf("") }
-
-    // Check KCEF state for Mermaid rendering
-    val kcefInitState by KcefManager.initState.collectAsState()
-    val isKcefAvailable = remember(kcefInitState) {
-        kcefInitState is KcefInitState.Initialized || KcefManager.isInstalled()
-    }
 
     val webViewState = rememberWebViewState(url = currentUrl.ifEmpty { "about:blank" })
     LaunchedEffect(Unit) {
