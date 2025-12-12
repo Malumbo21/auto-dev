@@ -131,6 +131,8 @@ kotlin {
                 implementation(project(":mpp-core"))
                 implementation(project(":mpp-codegraph"))
                 implementation(project(":mpp-viewer"))
+                implementation(project(":mpp-viewer-web"))
+
                 implementation(compose.runtime)
                 implementation(compose.foundation)
                 implementation(compose.material3)
@@ -162,6 +164,8 @@ kotlin {
 
                 // Ktor HTTP Client (for remote agent)
                 implementation(libs.ktor.client.core)
+
+                implementation(libs.compose.webview)
 
                 // i18n4k - Internationalization
                 implementation(libs.i18n4k.core)

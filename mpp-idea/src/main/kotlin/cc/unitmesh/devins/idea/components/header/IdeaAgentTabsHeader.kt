@@ -89,7 +89,7 @@ private fun SegmentedAgentTabs(
     // Note: LOCAL_CHAT is intentionally excluded from the tabs as it represents
     // a different interaction mode (direct local chat without agent routing).
     // It's handled separately in IdeaAgentApp but not exposed as a user-selectable tab.
-    val agentTypes = listOf(AgentType.CODING, AgentType.CODE_REVIEW, AgentType.KNOWLEDGE, AgentType.REMOTE)
+    val agentTypes = listOf(AgentType.CODING, AgentType.CODE_REVIEW, AgentType.KNOWLEDGE, AgentType.REMOTE, AgentType.WEB_EDIT)
 
     Row(
         modifier = modifier
@@ -259,6 +259,7 @@ private fun getAgentTypeColor(type: AgentType): Color = when (type) {
     AgentType.CHAT_DB -> IdeaAutoDevColors.Cyan.c400
     AgentType.REMOTE -> IdeaAutoDevColors.Amber.c400
     AgentType.LOCAL_CHAT -> JewelTheme.globalColors.text.normal
+    AgentType.WEB_EDIT -> IdeaAutoDevColors.Blue.c400
 }
 
 /**
@@ -271,5 +272,6 @@ private fun getAgentTypeIcon(type: AgentType): ImageVector = when (type) {
     AgentType.CHAT_DB -> IdeaComposeIcons.Database
     AgentType.REMOTE -> IdeaComposeIcons.Cloud
     AgentType.LOCAL_CHAT -> IdeaComposeIcons.Chat
+    AgentType.WEB_EDIT -> IdeaComposeIcons.Web
 }
 

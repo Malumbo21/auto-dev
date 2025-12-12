@@ -3,8 +3,6 @@ package cc.unitmesh.devins.ui.compose.agent.webedit
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -58,7 +56,7 @@ fun WebEditPage(
             showDOMSidebar = showDOMSidebar,
             onUrlChange = { inputUrl = it },
             onNavigate = { url ->
-                val normalizedUrl = if (!url.startsWith("http://") && !url.startsWith("https://")) {
+                val normalizedUrl = if (!url.startsWith("https://") && !url.startsWith("https://")) {
                     "https://$url"
                 } else url
                 inputUrl = normalizedUrl
@@ -76,16 +74,13 @@ fun WebEditPage(
             onToggleDOMSidebar = { showDOMSidebar = !showDOMSidebar }
         )
 
-        // Main content area
         Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
-            // WebView area
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
                     .background(MaterialTheme.colorScheme.surface)
             ) {
-                // Actual WebView component
                 WebEditView(
                     bridge = bridge,
                     modifier = Modifier.fillMaxSize(),
@@ -102,14 +97,12 @@ fun WebEditPage(
                     }
                 )
 
-                // Loading indicator
                 if (isLoading) {
                     LinearProgressIndicator(
                         modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter)
                     )
                 }
 
-                // Selection mode indicator
                 if (isSelectionMode) {
                     Surface(
                         modifier = Modifier
@@ -127,7 +120,6 @@ fun WebEditPage(
                     }
                 }
 
-                // Selected element info
                 selectedElement?.let { element ->
                     Surface(
                         modifier = Modifier
@@ -146,7 +138,6 @@ fun WebEditPage(
                 }
             }
 
-            // DOM Tree Sidebar
             if (showDOMSidebar) {
                 DOMTreeSidebar(
                     domTree = domTree,
@@ -169,7 +160,6 @@ fun WebEditPage(
             }
         }
 
-        // Bottom chat/Q&A input area
         WebEditChatInput(
             input = chatInput,
             onInputChange = { chatInput = it },

@@ -1,10 +1,14 @@
 package cc.unitmesh.viewer.web.webedit
 
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material.LinearProgressIndicator
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import com.multiplatform.webview.jsbridge.IJsMessageHandler
 import com.multiplatform.webview.jsbridge.JsMessage
 import com.multiplatform.webview.jsbridge.rememberWebViewJsBridge
+import com.multiplatform.webview.util.KLogSeverity
 import com.multiplatform.webview.web.*
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
@@ -23,8 +27,25 @@ actual fun WebEditView(
 ) {
     val currentUrl by bridge.currentUrl.collectAsState()
 
-    // Initialize WebView state with default URL
     val webViewState = rememberWebViewState(url = "https://ide.unitmesh.cc")
+    LaunchedEffect(Unit) {
+        webViewState.webSettings.apply {
+            logSeverity = KLogSeverity.Info
+            backgroundColor = Color.Red
+            allowUniversalAccessFromFileURLs = true
+            customUserAgentString =
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 11_1) AppleWebKit/625.20 (KHTML, like Gecko) Version/14.3.43 Safari/625.20"
+        }
+    }
+
+    val loadingState = webViewState.loadingState
+    if (loadingState is LoadingState.Loading) {
+        LinearProgressIndicator(
+            progress = loadingState.progress,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+
     val webViewNavigator = rememberWebViewNavigator()
     val jsBridge = rememberWebViewJsBridge()
 
@@ -38,7 +59,6 @@ actual fun WebEditView(
                 webViewNavigator.evaluateJavaScript(script)
             }
             bridge.navigateCallback = { url ->
-                println("[WebEditView] Navigate callback: $url")
                 webViewNavigator.loadUrl(url)
             }
             bridge.reloadCallback = {
