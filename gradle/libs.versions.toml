@@ -247,7 +247,7 @@ filekit-core = { module = "io.github.vinceglb:filekit-core", version.ref = "file
 filekit-dialogs = { module = "io.github.vinceglb:filekit-dialogs", version.ref = "filekit" }
 plantuml = { module = "net.sourceforge.plantuml:plantuml-epl", version.ref = "plantuml" }
 mynlp = { module = "com.mayabot.mynlp:mynlp", version.ref = "mynlp" }
-mynlp-all = { module = "com.mayabot.mynlp:mynlp-all", version = "mynlp" }
+mynlp-all = { module = "com.mayabot.mynlp:mynlp-all", version.ref = "mynlp" }
 a2a-sdk = { module = "io.github.a2asdk:a2a-java-sdk-client", version.ref = "a2aSdk" }
 
 [plugins]
