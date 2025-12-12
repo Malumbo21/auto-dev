@@ -80,7 +80,7 @@ kotlin {
 // Desktop configuration for KCEF (Chromium Embedded Framework)
 compose.desktop {
     application {
-        mainClass = "cc.unitmesh.viewer.web.MermaidPreviewKt"
+        mainClass = "cc.unitmesh.viewer.web.WebViewDebugApp  _jvmKt"
     }
 }
 
