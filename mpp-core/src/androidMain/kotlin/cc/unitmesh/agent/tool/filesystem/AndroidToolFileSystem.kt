@@ -18,11 +18,11 @@ class AndroidToolFileSystem(
     private val context: Context,
     private val projectPath: String? = null
 ) : ToolFileSystem {
-    
+
     private val contentResolver: ContentResolver = context.contentResolver
-    
+
     override fun getProjectPath(): String? = projectPath
-    
+
     override suspend fun readFile(path: String): String? {
         return try {
             if (isContentUri(path)) {
@@ -34,7 +34,7 @@ class AndroidToolFileSystem(
             throw ToolException("Failed to read file: $path - ${e.message}", ToolErrorType.FILE_NOT_FOUND, e)
         }
     }
-    
+
     override suspend fun writeFile(path: String, content: String, createDirectories: Boolean) {
         try {
             if (isContentUri(path)) {
@@ -46,7 +46,7 @@ class AndroidToolFileSystem(
             throw ToolException("Failed to write file: $path - ${e.message}", ToolErrorType.FILE_ACCESS_DENIED, e)
         }
     }
-    
+
     override fun exists(path: String): Boolean {
         return try {
             if (isContentUri(path)) {
@@ -58,7 +58,7 @@ class AndroidToolFileSystem(
             false
         }
     }
-    
+
     override fun listFiles(path: String, pattern: String?): List<String> {
         return try {
             if (isContentUri(path)) {
@@ -70,7 +70,7 @@ class AndroidToolFileSystem(
             emptyList()
         }
     }
-    
+
     override fun resolvePath(relativePath: String): String {
         if (isContentUri(relativePath) || File(relativePath).isAbsolute) {
             return relativePath
@@ -81,7 +81,7 @@ class AndroidToolFileSystem(
             File(relativePath).absolutePath
         }
     }
-    
+
     override fun getFileInfo(path: String): FileInfo? {
         return try {
             if (isContentUri(path)) {
@@ -93,7 +93,7 @@ class AndroidToolFileSystem(
             null
         }
     }
-    
+
     override fun createDirectory(path: String, createParents: Boolean) {
         try {
             if (isContentUri(path)) {
@@ -110,7 +110,7 @@ class AndroidToolFileSystem(
             throw ToolException("Failed to create directory: $path - ${e.message}", ToolErrorType.FILE_ACCESS_DENIED, e)
         }
     }
-    
+
     override fun delete(path: String, recursive: Boolean) {
         try {
             if (isContentUri(path)) {
@@ -127,33 +127,33 @@ class AndroidToolFileSystem(
             throw ToolException("Failed to delete: $path - ${e.message}", ToolErrorType.FILE_ACCESS_DENIED, e)
         }
     }
-    
+
     // Content URI helpers
-    
+
     private fun isContentUri(path: String): Boolean {
         return path.startsWith("content://")
     }
-    
+
     private fun readFileFromContentUri(uriString: String): String? {
         val uri = Uri.parse(uriString)
         return contentResolver.openInputStream(uri)?.use { inputStream ->
             inputStream.bufferedReader().use { it.readText() }
         }
     }
-    
+
     private fun writeFileToContentUri(uriString: String, content: String, createDirectories: Boolean) {
         val uri = Uri.parse(uriString)
-        
+
         // Check if the file exists
         val exists = existsContentUri(uriString)
-        
+
         if (!exists) {
             // Need to create the file
             val parentUri = getParentUri(uri)
             if (parentUri != null) {
                 val fileName = getFileNameFromUri(uri)
                 val mimeType = getMimeType(fileName)
-                
+
                 // Create the file in the parent directory
                 val newFileUri = DocumentsContract.createDocument(
                     contentResolver,
@@ -161,7 +161,7 @@ class AndroidToolFileSystem(
                     mimeType,
                     fileName
                 )
-                
+
                 if (newFileUri != null) {
                     // Write content to the newly created file
                     contentResolver.openOutputStream(newFileUri)?.use { outputStream ->
@@ -181,13 +181,13 @@ class AndroidToolFileSystem(
                 )
             }
         }
-        
+
         // File exists, write to it
         contentResolver.openOutputStream(uri, "wt")?.use { outputStream ->
             outputStream.bufferedWriter().use { it.write(content) }
         } ?: throw FileNotFoundException("Cannot open output stream for: $uriString")
     }
-    
+
     private fun existsContentUri(uriString: String): Boolean {
         return try {
             val uri = Uri.parse(uriString)
@@ -197,17 +197,17 @@ class AndroidToolFileSystem(
             false
         }
     }
-    
+
     private fun listFilesFromContentUri(uriString: String, pattern: String?): List<String> {
         val uri = Uri.parse(uriString)
         val documentFile = DocumentFile.fromTreeUri(context, uri) ?: return emptyList()
-        
+
         if (!documentFile.isDirectory) {
             return emptyList()
         }
-        
+
         val files = documentFile.listFiles().filter { it.isFile }
-        
+
         return if (pattern != null) {
             val regex = pattern.replace("*", ".*").replace("?", ".").toRegex()
             files.filter { file ->
@@ -217,11 +217,11 @@ class AndroidToolFileSystem(
             files.map { it.uri.toString() }
         }
     }
-    
+
     private fun getFileInfoFromContentUri(uriString: String): FileInfo? {
         val uri = Uri.parse(uriString)
         val documentFile = DocumentFile.fromSingleUri(context, uri) ?: return null
-        
+
         return FileInfo(
             path = uriString,
             isDirectory = documentFile.isDirectory,
@@ -231,7 +231,7 @@ class AndroidToolFileSystem(
             isWritable = documentFile.canWrite()
         )
     }
-    
+
     private fun createDirectoryInContentUri(uriString: String) {
         val uri = Uri.parse(uriString)
         val parentUri = getParentUri(uri)
@@ -245,17 +245,17 @@ class AndroidToolFileSystem(
             )
         }
     }
-    
+
     private fun deleteContentUri(uriString: String) {
         val uri = Uri.parse(uriString)
         DocumentsContract.deleteDocument(contentResolver, uri)
     }
-    
+
     private fun getParentUri(uri: Uri): Uri? {
         return try {
             val documentId = DocumentsContract.getDocumentId(uri)
             val authority = uri.authority ?: return null
-            
+
             // For tree URIs, extract parent from document ID
             val pathSegments = documentId.split("/")
             if (pathSegments.size > 1) {
@@ -269,7 +269,7 @@ class AndroidToolFileSystem(
             null
         }
     }
-    
+
     private fun getFileNameFromUri(uri: Uri): String {
         return try {
             val documentId = DocumentsContract.getDocumentId(uri)
@@ -279,7 +279,7 @@ class AndroidToolFileSystem(
             "unknown"
         }
     }
-    
+
     private fun getMimeType(fileName: String): String {
         return when {
             fileName.endsWith(".txt") -> "text/plain"
@@ -292,9 +292,9 @@ class AndroidToolFileSystem(
             else -> "application/octet-stream"
         }
     }
-    
+
     // Regular file path helpers
-    
+
     private fun readFileFromPath(path: String): String? {
         val file = File(resolvePath(path))
         return if (file.exists() && file.isFile) {
@@ -303,25 +303,25 @@ class AndroidToolFileSystem(
             null
         }
     }
-    
+
     private fun writeFileToPath(path: String, content: String, createDirectories: Boolean) {
         val file = File(resolvePath(path))
-        
+
         if (createDirectories) {
             file.parentFile?.mkdirs()
         }
-        
+
         file.writeText(content)
     }
-    
+
     private fun listFilesFromPath(path: String, pattern: String?): List<String> {
         val dir = File(resolvePath(path))
         if (!dir.exists() || !dir.isDirectory) {
             return emptyList()
         }
-        
+
         val files = dir.listFiles()?.filter { it.isFile } ?: return emptyList()
-        
+
         return if (pattern != null) {
             val regex = pattern.replace("*", ".*").replace("?", ".").toRegex()
             files.filter { regex.matches(it.name) }.map { it.absolutePath }
@@ -329,13 +329,13 @@ class AndroidToolFileSystem(
             files.map { it.absolutePath }
         }
     }
-    
+
     private fun getFileInfoFromPath(path: String): FileInfo? {
         val file = File(resolvePath(path))
         if (!file.exists()) {
             return null
         }
-        
+
         return FileInfo(
             path = file.absolutePath,
             isDirectory = file.isDirectory,
@@ -345,11 +345,11 @@ class AndroidToolFileSystem(
             isWritable = file.canWrite()
         )
     }
-    
+
     override fun listFilesRecursive(path: String, maxDepth: Int): List<String> {
         val files = mutableListOf<String>()
         val resolvedPath = resolvePath(path)
-        
+
         if (isContentUri(resolvedPath)) {
             // For content URIs, recursion is limited
             collectFilesFromContentUri(resolvedPath, files, 0, maxDepth)
@@ -359,10 +359,10 @@ class AndroidToolFileSystem(
                 collectFilesRecursive(file, files, 0, maxDepth)
             }
         }
-        
+
         return files.sorted()
     }
-    
+
     private fun collectFilesRecursive(
         file: File,
         files: MutableList<String>,
@@ -370,7 +370,7 @@ class AndroidToolFileSystem(
         maxDepth: Int
     ) {
         if (maxDepth >= 0 && currentDepth > maxDepth) return
-        
+
         try {
             if (file.isDirectory) {
                 file.listFiles()?.forEach { child ->
@@ -383,7 +383,7 @@ class AndroidToolFileSystem(
             // Skip inaccessible paths
         }
     }
-    
+
     private fun collectFilesFromContentUri(
         uri: String,
         files: MutableList<String>,
@@ -391,11 +391,11 @@ class AndroidToolFileSystem(
         maxDepth: Int
     ) {
         if (maxDepth >= 0 && currentDepth > maxDepth) return
-        
+
         try {
             val parsedUri = Uri.parse(uri)
             val documentFile = DocumentFile.fromTreeUri(context, parsedUri)
-            
+
             documentFile?.listFiles()?.forEach { file ->
                 if (file.isDirectory) {
                     file.uri?.let {

@@ -12,6 +12,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -32,12 +33,12 @@ fun ElementTagChip(
     onRemove: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var showTooltip by remember { mutableStateOf(false) }
+    var showDetails by remember { mutableStateOf(false) }
 
     Surface(
         modifier = modifier
             .combinedClickable(
-                onClick = { showTooltip = !showTooltip },
+                onClick = { },
                 onDoubleClick = { onRemove() }
             ),
         shape = RoundedCornerShape(16.dp),
@@ -66,6 +67,19 @@ fun ElementTagChip(
                 overflow = TextOverflow.Ellipsis
             )
 
+            // View details button
+            IconButton(
+                onClick = { showDetails = true },
+                modifier = Modifier.size(16.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Info,
+                    contentDescription = "View element details",
+                    modifier = Modifier.size(12.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+
             // Close button
             IconButton(
                 onClick = onRemove,
@@ -81,9 +95,9 @@ fun ElementTagChip(
         }
     }
 
-    // Tooltip with detailed info
-    if (showTooltip) {
-        ElementTagTooltip(tag = tag, onDismiss = { showTooltip = false })
+    // Details dialog with full HTML
+    if (showDetails) {
+        ElementDetailsDialog(tag = tag, onDismiss = { showDetails = false })
     }
 }
 
@@ -113,10 +127,10 @@ private fun getTagIcon(tagName: String): String {
 }
 
 /**
- * Tooltip showing detailed element information
+ * Dialog showing detailed element information with full HTML code
  */
 @Composable
-fun ElementTagTooltip(
+fun ElementDetailsDialog(
     tag: ElementTag,
     onDismiss: () -> Unit
 ) {
@@ -130,34 +144,110 @@ fun ElementTagTooltip(
         },
         text = {
             Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 500.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                DetailRow("Tag", "<${tag.tagName}>")
-                DetailRow("Selector", tag.selector)
+                // HTML Code Section
+                Text(
+                    text = "HTML Code:",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant
+                ) {
+                    val htmlCode = buildHtmlCode(tag)
+                    Text(
+                        text = htmlCode,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontFamily = FontFamily.Monospace
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(12.dp)
+                    )
+                }
 
+                Divider()
+
+                // Basic Info
+                DetailRow("Tag Name", "<${tag.tagName}>")
+                DetailRow("CSS Selector", tag.selector)
+
+                // Attributes Section
                 if (tag.attributes.isNotEmpty()) {
                     Text(
                         text = "Attributes:",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary
                     )
-                    tag.attributes.forEach { (key, value) ->
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            tag.attributes.forEach { (key, value) ->
+                                Text(
+                                    text = "$key = \"$value\"",
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        fontFamily = FontFamily.Monospace
+                                    ),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Text Content
+                tag.textContent?.let {
+                    Text(
+                        text = "Text Content:",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant
+                    ) {
                         Text(
-                            text = "  $key: $value",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontFamily = FontFamily.Monospace
-                            ),
-                            color = MaterialTheme.colorScheme.onSurface
+                            text = "\"$it\"",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(12.dp)
                         )
                     }
                 }
 
-                tag.textContent?.let {
-                    DetailRow("Text", "\"$it\"")
-                }
-
+                // Source Hint
                 tag.sourceHint?.let {
-                    DetailRow("Source Hint", it)
+                    Text(
+                        text = "Source Location Hint:",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.tertiaryContainer
+                    ) {
+                        Text(
+                            text = it,
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontFamily = FontFamily.Monospace
+                            ),
+                            color = MaterialTheme.colorScheme.onTertiaryContainer,
+                            modifier = Modifier.padding(12.dp)
+                        )
+                    }
                 }
             }
         },
@@ -166,6 +256,44 @@ fun ElementTagTooltip(
                 Text("Close")
             }
         }
+    )
+}
+
+/**
+ * Build HTML code representation of the element
+ */
+private fun buildHtmlCode(tag: ElementTag): String {
+    val attrs = tag.attributes.entries.joinToString(" ") { (key, value) ->
+        "$key=\"$value\""
+    }
+
+    val openingTag = if (attrs.isNotEmpty()) {
+        "<${tag.tagName} $attrs>"
+    } else {
+        "<${tag.tagName}>"
+    }
+
+    val content = tag.textContent ?: "..."
+    val closingTag = "</${tag.tagName}>"
+
+    return if (isSelfClosingTag(tag.tagName)) {
+        if (attrs.isNotEmpty()) {
+            "<${tag.tagName} $attrs />"
+        } else {
+            "<${tag.tagName} />"
+        }
+    } else {
+        "$openingTag\n  $content\n$closingTag"
+    }
+}
+
+/**
+ * Check if the tag is self-closing
+ */
+private fun isSelfClosingTag(tagName: String): Boolean {
+    return tagName.lowercase() in setOf(
+        "area", "base", "br", "col", "embed", "hr", "img",
+        "input", "link", "meta", "param", "source", "track", "wbr"
     )
 }
 

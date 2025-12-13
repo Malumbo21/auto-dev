@@ -403,8 +403,19 @@ fun WebEditPage(
             onInputChange = { chatInput = it },
             onSend = { message ->
                 scope.launch {
+                    // Build user message with element context
+                    val userMessage = buildString {
+                        append(message)
+                        if (elementTags.isNotEmpty()) {
+                            append("\n\n**选中的元素：**\n")
+                            elementTags.tags.forEach { tag ->
+                                append("- ${tag.displayName}\n")
+                            }
+                        }
+                    }
+                    
                     // Add user message to history
-                    chatHistory = chatHistory + ChatMessage(role = "user", content = message)
+                    chatHistory = chatHistory + ChatMessage(role = "user", content = userMessage)
                     showChatHistory = true
                     
                     handleChatMessage(
@@ -440,8 +451,24 @@ fun WebEditPage(
             },
             onSendWithContext = { message, tags ->
                 scope.launch {
+                    // Build user message with element context
+                    val userMessage = buildString {
+                        append(message)
+                        if (tags.isNotEmpty()) {
+                            append("\n\n**选中的元素：**\n")
+                            tags.tags.forEach { tag ->
+                                append("- ${tag.displayName}")
+                                val elementId = tag.attributes["id"]
+                                val className = tag.attributes["class"]
+                                if (elementId != null) append(" #$elementId")
+                                if (className != null) append(" .$className")
+                                append("\n")
+                            }
+                        }
+                    }
+                    
                     // Add user message to history
-                    chatHistory = chatHistory + ChatMessage(role = "user", content = message)
+                    chatHistory = chatHistory + ChatMessage(role = "user", content = userMessage)
                     showChatHistory = true
                     
                     // Prefer CodingAgent for source code mapping if available

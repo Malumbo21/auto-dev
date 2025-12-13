@@ -108,7 +108,7 @@ object WebElementSourceMapperSchema : DeclarativeToolSchema(
         Maps web DOM elements to their corresponding source code locations.
         Given information about a DOM element (tag, selector, attributes, text),
         this tool searches the project for files that likely define or render that element.
-        
+
         Useful for:
         - Finding React/Vue/Angular component source from DOM inspection
         - Locating template files that render specific elements
@@ -196,7 +196,7 @@ class WebElementSourceMapperInvocation(
             }
         } ?: emptyMap()
     }
-    
+
     // Parse source hints from comma-separated string
     private val sourceHints: List<String> by lazy {
         params.sourceHints?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() } ?: emptyList()
