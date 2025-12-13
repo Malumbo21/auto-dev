@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shadow DOM Test Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 { color: #333; }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            padding: 8px 16px;
+            margin: 5px;
+            cursor: pointer;
+            background: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+        button:hover {
+            background: #1976D2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Shadow DOM Inspect Test Page</h1>
+        
+        <div class="test-section">
+            <h2>Section 1: Regular DOM Elements</h2>
+            <p id="regular-text">This is a regular paragraph element.</p>
+            <button id="regular-button">Regular Button</button>
+        </div>
+        
+        <div class="test-section">
+            <h2>Section 2: Simple Shadow DOM Component</h2>
+            <div id="simple-shadow-host"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>Section 3: Nested Shadow DOM</h2>
+            <div id="nested-shadow-host"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>Section 4: Dynamic DOM Changes</h2>
+            <div id="dynamic-container">
+                <p>Initial content</p>
+            </div>
+            <button id="add-element">Add Element</button>
+            <button id="remove-element">Remove Element</button>
+            <button id="modify-element">Modify Element</button>
+        </div>
+        
+        <div class="test-section">
+            <h2>Section 5: Web Component</h2>
+            <custom-card title="Test Card" description="This is a custom web component with shadow DOM"></custom-card>
+        </div>
+    </div>
+
+    <script>
+        // Simple Shadow DOM Component
+        const simpleShadowHost = document.getElementById('simple-shadow-host');
+        const simpleShadow = simpleShadowHost.attachShadow({ mode: 'open' });
+        simpleShadow.innerHTML = `
+            <style>
+                .shadow-content {
+                    padding: 10px;
+                    background: #e3f2fd;
+                    border-radius: 4px;
+                }
+                button {
+                    background: #4CAF50;
+                }
+            </style>
+            <div class="shadow-content">
+                <p>This content is inside a Shadow DOM</p>
+                <button>Shadow Button</button>
+            </div>
+        `;
+
+        // Nested Shadow DOM Component
+        const nestedShadowHost = document.getElementById('nested-shadow-host');
+        const nestedShadow = nestedShadowHost.attachShadow({ mode: 'open' });
+        nestedShadow.innerHTML = `
+            <style>
+                .outer-shadow { padding: 10px; background: #fff3e0; border-radius: 4px; }
+            </style>
+            <div class="outer-shadow">
+                <p>Outer Shadow DOM</p>
+                <div id="inner-shadow-host"></div>
+            </div>
+        `;
+        
+        const innerShadowHost = nestedShadow.querySelector('#inner-shadow-host');
+        const innerShadow = innerShadowHost.attachShadow({ mode: 'open' });
+        innerShadow.innerHTML = `
+            <style>
+                .inner-shadow { padding: 10px; background: #f3e5f5; border-radius: 4px; }
+            </style>
+            <div class="inner-shadow">
+                <p>Inner Shadow DOM (Nested)</p>
+                <button>Nested Shadow Button</button>
+            </div>
+        `;
+
+        // Dynamic DOM manipulation
+        let elementCounter = 0;
+        document.getElementById('add-element').addEventListener('click', () => {
+            const container = document.getElementById('dynamic-container');
+            const newElement = document.createElement('p');
+            newElement.textContent = `Dynamic element ${++elementCounter}`;
+            newElement.id = `dynamic-${elementCounter}`;
+            container.appendChild(newElement);
+        });
+
+        document.getElementById('remove-element').addEventListener('click', () => {
+            const container = document.getElementById('dynamic-container');
+            if (container.children.length > 1) {
+                container.removeChild(container.lastChild);
+            }
+        });
+
+        document.getElementById('modify-element').addEventListener('click', () => {
+            const container = document.getElementById('dynamic-container');
+            if (container.children.length > 0) {
+                const lastChild = container.lastChild;
+                lastChild.textContent = `Modified at ${new Date().toLocaleTimeString()}`;
+                lastChild.style.color = '#' + Math.floor(Math.random()*16777215).toString(16);
+            }
+        });
+
+        // Custom Web Component
+        class CustomCard extends HTMLElement {
+            constructor() {
+                super();
+                const shadow = this.attachShadow({ mode: 'open' });
+
+                const title = this.getAttribute('title') || 'Card Title';
+                const description = this.getAttribute('description') || 'Card description';
+
+                shadow.innerHTML = `
+                    <style>
+                        .card {
+                            border: 1px solid #ddd;
+                            border-radius: 8px;
+                            padding: 16px;
+                            background: white;
+                            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                        }
+                        .card-title {
+                            font-size: 18px;
+                            font-weight: bold;
+                            margin: 0 0 8px 0;
+                            color: #2196F3;
+                        }
+                        .card-description {
+                            margin: 0;
+                            color: #666;
+                        }
+                        .card-actions {
+                            margin-top: 12px;
+                        }
+                        button {
+                            background: #FF9800;
+                            padding: 6px 12px;
+                            border: none;
+                            border-radius: 4px;
+                            color: white;
+                            cursor: pointer;
+                        }
+                    </style>
+                    <div class="card">
+                        <h3 class="card-title">${title}</h3>
+                        <p class="card-description">${description}</p>
+                        <div class="card-actions">
+                            <button>Action 1</button>
+                            <button>Action 2</button>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        customElements.define('custom-card', CustomCard);
+
+        console.log('Shadow DOM test page loaded');
+    </script>
+</body>
+</html>
+

@@ -66,6 +66,18 @@ class JvmWebEditBridge : WebEditBridge {
         executeJavaScript?.invoke(script)
     }
 
+    override suspend fun enableInspectMode() {
+        _isSelectionMode.value = true
+        val script = "window.webEditBridge?.enableInspectMode();"
+        executeJavaScript?.invoke(script)
+    }
+
+    override suspend fun disableInspectMode() {
+        _isSelectionMode.value = false
+        val script = "window.webEditBridge?.disableInspectMode();"
+        executeJavaScript?.invoke(script)
+    }
+
     override suspend fun highlightElement(selector: String) {
         val escapedSelector = selector
             .replace("\\", "\\\\")
@@ -96,6 +108,13 @@ class JvmWebEditBridge : WebEditBridge {
     override suspend fun refreshDOMTree() {
         val script = "window.webEditBridge?.getDOMTree();"
         executeJavaScript?.invoke(script)
+    }
+
+    override suspend fun getElementAtPoint(x: Int, y: Int): DOMElement? {
+        // TODO: Implement using JavaScript callback mechanism similar to getSelectedElementHtml
+        // This requires invoking JS to call window.webEditBridge.getElementAtPoint(x, y)
+        // and receiving the result via a callback or promise-based bridge.
+        throw NotImplementedError("getElementAtPoint requires callback mechanism - not yet implemented")
     }
 
     /**
