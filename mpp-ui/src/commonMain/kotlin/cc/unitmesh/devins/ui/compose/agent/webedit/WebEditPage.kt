@@ -516,6 +516,14 @@ fun WebEditPage(
                     // Clear tags after sending with context
                     elementTags = elementTags.clear()
                 }
+            },
+            onViewElementDetails = { tag ->
+                // Add element details to chat history
+                chatHistory = chatHistory + ChatMessage(
+                    role = "assistant",
+                    content = tag.toDetailedMarkdown()
+                )
+                showChatHistory = true
             }
         )
     }

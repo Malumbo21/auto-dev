@@ -62,7 +62,7 @@ export interface ExtensionMessage {
 
 // Message types to extension
 export interface WebviewMessage {
-  type: 'sendMessage' | 'clearHistory' | 'action' | 'openConfig' | 'stopExecution' | 'selectConfig' | 'searchFiles' | 'getRecentFiles' | 'readFileContent' | 'requestConfig' | 'getActiveFile' | 'getCompletions' | 'applyCompletion' | 'getOmnibarItems' | 'omnibarAction' | 'omnibarInsertText';
+  type: 'sendMessage' | 'clearHistory' | 'action' | 'openConfig' | 'stopExecution' | 'selectConfig' | 'searchFiles' | 'getRecentFiles' | 'readFileContent' | 'requestConfig' | 'getActiveFile' | 'getCompletions' | 'applyCompletion' | 'getOmnibarItems' | 'omnibarAction' | 'omnibarInsertText' | 'saveModelConfig';
   content?: string;
   action?: string;
   data?: Record<string, unknown>;

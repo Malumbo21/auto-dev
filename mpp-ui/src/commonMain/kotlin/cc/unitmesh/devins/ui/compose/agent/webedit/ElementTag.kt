@@ -88,6 +88,90 @@ data class ElementTag(
     }
 
     /**
+     * Generate detailed HTML info in Markdown format for chat display
+     */
+    fun toDetailedMarkdown(): String {
+        val sb = StringBuilder()
+        sb.appendLine("### 📋 Element Details")
+        sb.appendLine()
+        
+        // HTML Code section
+        sb.appendLine("**HTML Code:**")
+        sb.appendLine("```html")
+        sb.appendLine(buildHtmlCode())
+        sb.appendLine("```")
+        sb.appendLine()
+        
+        // Basic info
+        sb.appendLine("**Tag Name:** `<$tagName>`")
+        sb.appendLine()
+        sb.appendLine("**CSS Selector:** `$selector`")
+        sb.appendLine()
+        
+        // Attributes
+        if (attributes.isNotEmpty()) {
+            sb.appendLine("**Attributes:**")
+            attributes.forEach { (key, value) ->
+                sb.appendLine("- `$key` = `\"$value\"`")
+            }
+            sb.appendLine()
+        }
+        
+        // Text content
+        textContent?.let {
+            sb.appendLine("**Text Content:** \"$it\"")
+            sb.appendLine()
+        }
+        
+        // Source hint
+        sourceHint?.let {
+            sb.appendLine("**💡 Source Location Hint:**")
+            sb.appendLine("> $it")
+            sb.appendLine()
+        }
+        
+        return sb.toString()
+    }
+    
+    /**
+     * Build HTML code representation
+     */
+    private fun buildHtmlCode(): String {
+        val attrs = attributes.entries.joinToString(" ") { (key, value) ->
+            "$key=\"$value\""
+        }
+        
+        val openingTag = if (attrs.isNotEmpty()) {
+            "<$tagName $attrs>"
+        } else {
+            "<$tagName>"
+        }
+        
+        val content = textContent ?: "..."
+        val closingTag = "</$tagName>"
+        
+        return if (isSelfClosingTag(tagName)) {
+            if (attrs.isNotEmpty()) {
+                "<$tagName $attrs />"
+            } else {
+                "<$tagName />"
+            }
+        } else {
+            "$openingTag\n  $content\n$closingTag"
+        }
+    }
+    
+    /**
+     * Check if tag is self-closing
+     */
+    private fun isSelfClosingTag(tagName: String): Boolean {
+        return tagName.lowercase() in setOf(
+            "area", "base", "br", "col", "embed", "hr", "img",
+            "input", "link", "meta", "param", "source", "track", "wbr"
+        )
+    }
+
+    /**
      * Generate detailed context for LLM analysis
      */
     fun toLLMContext(): String {

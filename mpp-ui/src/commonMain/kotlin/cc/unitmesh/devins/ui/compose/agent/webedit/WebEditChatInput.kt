@@ -31,10 +31,9 @@ import androidx.compose.ui.unit.dp
 fun ElementTagChip(
     tag: ElementTag,
     onRemove: () -> Unit,
+    onViewDetails: (ElementTag) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    var showDetails by remember { mutableStateOf(false) }
-
     Surface(
         modifier = modifier
             .combinedClickable(
@@ -67,9 +66,9 @@ fun ElementTagChip(
                 overflow = TextOverflow.Ellipsis
             )
 
-            // View details button
+            // View details button - adds to chat history
             IconButton(
-                onClick = { showDetails = true },
+                onClick = { onViewDetails(tag) },
                 modifier = Modifier.size(16.dp)
             ) {
                 Icon(
@@ -93,11 +92,6 @@ fun ElementTagChip(
                 )
             }
         }
-    }
-
-    // Details dialog with full HTML
-    if (showDetails) {
-        ElementDetailsDialog(tag = tag, onDismiss = { showDetails = false })
     }
 }
 
@@ -328,6 +322,7 @@ fun ElementTagRow(
     tags: ElementTagCollection,
     onRemoveTag: (String) -> Unit,
     onClearAll: () -> Unit,
+    onViewDetails: (ElementTag) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     if (tags.isEmpty()) return
@@ -351,7 +346,8 @@ fun ElementTagRow(
         tags.tags.forEach { tag ->
             ElementTagChip(
                 tag = tag,
-                onRemove = { onRemoveTag(tag.id) }
+                onRemove = { onRemoveTag(tag.id) },
+                onViewDetails = onViewDetails
             )
         }
 
@@ -387,7 +383,8 @@ fun WebEditChatInput(
     elementTags: ElementTagCollection = ElementTagCollection(),
     onRemoveTag: (String) -> Unit = {},
     onClearTags: () -> Unit = {},
-    onSendWithContext: ((String, ElementTagCollection) -> Unit)? = null
+    onSendWithContext: ((String, ElementTagCollection) -> Unit)? = null,
+    onViewElementDetails: (ElementTag) -> Unit = {}
 ) {
     Surface(
         modifier = modifier,
@@ -407,6 +404,7 @@ fun WebEditChatInput(
                     tags = elementTags,
                     onRemoveTag = onRemoveTag,
                     onClearAll = onClearTags,
+                    onViewDetails = onViewElementDetails,
                     modifier = Modifier.background(
                         MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
                     )
