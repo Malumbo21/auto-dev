@@ -39,6 +39,8 @@ class AgentContextDiscoveryTest {
             return files.containsKey(path)
         }
         
+        override fun listFilesRecursive(path: String, maxDepth: Int): List<String> = emptyList()
+        
         override fun listFiles(path: String, pattern: String?): List<String> {
             return emptyList()
         }

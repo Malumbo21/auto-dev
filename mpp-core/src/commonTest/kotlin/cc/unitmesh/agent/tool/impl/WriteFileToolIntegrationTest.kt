@@ -47,6 +47,8 @@ class WriteFileToolIntegrationTest {
         override fun resolvePath(relativePath: String): String = 
             if (relativePath.startsWith("/")) relativePath else "/test-project/$relativePath"
         
+        override fun listFilesRecursive(path: String, maxDepth: Int): List<String> = emptyList()
+        
         override fun getFileInfo(path: String): FileInfo? {
             val content = files[path] ?: return null
             return FileInfo(

@@ -47,6 +47,7 @@ class AgentToolFormatterTest {
         override fun getFileInfo(path: String): cc.unitmesh.agent.tool.filesystem.FileInfo? = null
         override fun createDirectory(path: String, createParents: Boolean) {}
         override fun delete(path: String, recursive: Boolean) {}
+        override fun listFilesRecursive(path: String, maxDepth: Int): List<String> = emptyList()
     }
     
     // Mock ShellExecutor for testing

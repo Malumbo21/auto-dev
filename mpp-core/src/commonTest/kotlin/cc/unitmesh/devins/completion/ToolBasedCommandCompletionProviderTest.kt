@@ -47,6 +47,7 @@ class ToolBasedCommandCompletionProviderTest {
 
         override fun createDirectory(path: String, createParents: Boolean) {}
         override fun delete(path: String, recursive: Boolean) {}
+        override fun listFilesRecursive(path: String, maxDepth: Int): List<String> = emptyList()
     }
 
     private class MockShellExecutor : ShellExecutor {
