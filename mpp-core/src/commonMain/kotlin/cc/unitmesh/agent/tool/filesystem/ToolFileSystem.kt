@@ -68,6 +68,14 @@ interface ToolFileSystem {
      * Delete file or directory
      */
     fun delete(path: String, recursive: Boolean = false)
+    
+    /**
+     * List files recursively in directory
+     * @param path Directory path to start from
+     * @param maxDepth Maximum recursion depth (-1 for unlimited)
+     * @return List of file paths
+     */
+    fun listFilesRecursive(path: String, maxDepth: Int = -1): List<String>
 }
 
 /**
@@ -211,6 +219,40 @@ class DefaultToolFileSystem(
         }
     }
     
+    override fun listFilesRecursive(path: String, maxDepth: Int): List<String> {
+        val files = mutableListOf<String>()
+        val resolvedPath = Path(resolvePath(path))
+        
+        if (!fileSystem.exists(resolvedPath)) {
+            return emptyList()
+        }
+        
+        collectFilesRecursive(resolvedPath, files, 0, maxDepth)
+        return files.sorted()
+    }
+    
+    private fun collectFilesRecursive(
+        path: Path,
+        files: MutableList<String>,
+        currentDepth: Int,
+        maxDepth: Int
+    ) {
+        if (maxDepth >= 0 && currentDepth > maxDepth) return
+        
+        try {
+            val metadata = fileSystem.metadataOrNull(path)
+            if (metadata?.isDirectory == true) {
+                fileSystem.list(path).forEach { childPath ->
+                    collectFilesRecursive(childPath, files, currentDepth + 1, maxDepth)
+                }
+            } else {
+                files.add(path.toString())
+            }
+        } catch (e: Exception) {
+            // Skip inaccessible paths
+        }
+    }
+    
     /**
      * Simple pattern matching for file names
      * Supports basic wildcards: * and ?
@@ -241,4 +283,5 @@ class EmptyToolFileSystem : ToolFileSystem {
     override fun getFileInfo(path: String): FileInfo? = null
     override fun createDirectory(path: String, createParents: Boolean) {}
     override fun delete(path: String, recursive: Boolean) {}
+    override fun listFilesRecursive(path: String, maxDepth: Int): List<String> = emptyList()
 }

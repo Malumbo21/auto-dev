@@ -12,6 +12,7 @@ import cc.unitmesh.agent.tool.impl.ShellTool
 import cc.unitmesh.agent.tool.impl.WebFetchTool
 import cc.unitmesh.agent.tool.impl.WriteFileTool
 import cc.unitmesh.agent.tool.impl.SmartEditTool
+import cc.unitmesh.agent.tool.impl.WebElementSourceMapperTool
 
 /**
  * Provider for built-in tools.
@@ -57,6 +58,10 @@ class BuiltinToolsProvider : ToolProvider {
         // Task management tools
         tools.add(PlanManagementTool())
         tools.add(DocQLTool())
+        
+        // Web element source mapping tool
+        val projectPath = dependencies.fileSystem.getProjectPath() ?: "."
+        tools.add(WebElementSourceMapperTool(dependencies.fileSystem, projectPath))
 
         return tools
     }

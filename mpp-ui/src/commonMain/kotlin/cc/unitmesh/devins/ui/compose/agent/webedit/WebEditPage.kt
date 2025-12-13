@@ -8,6 +8,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import cc.unitmesh.agent.CodingAgent
+import cc.unitmesh.agent.AgentTask
 import cc.unitmesh.llm.KoogLLMService
 import cc.unitmesh.viewer.web.webedit.*
 import kotlinx.coroutines.delay
@@ -30,6 +32,7 @@ private suspend fun handleChatMessage(
     currentUrl: String,
     pageTitle: String,
     selectedElement: DOMElement?,
+    elementTags: ElementTagCollection,
     onResponse: (String) -> Unit,
     onError: (String) -> Unit,
     onProcessingChange: (Boolean) -> Unit
@@ -47,7 +50,12 @@ private suspend fun handleChatMessage(
         contextBuilder.append("You are helping analyze a web page.\\n\\n")
         contextBuilder.append("Current page: $pageTitle ($currentUrl)\\n\\n")
 
-        if (selectedElement != null) {
+        // Add element tags context if available
+        if (elementTags.isNotEmpty()) {
+            contextBuilder.append(elementTags.toLLMContext())
+            contextBuilder.append("\\n")
+        } else if (selectedElement != null) {
+            // Fallback to single selected element
             contextBuilder.append("Selected element:\\n")
             contextBuilder.append("- Tag: ${selectedElement.tagName}\\n")
             contextBuilder.append("- Selector: ${selectedElement.selector}\\n")
@@ -76,18 +84,97 @@ private suspend fun handleChatMessage(
 }
 
 /**
+ * Handle chat message with CodingAgent for source code analysis and modification.
+ * This provides deeper integration with the codebase to locate and modify source files.
+ */
+private suspend fun handleChatWithCodingAgent(
+    message: String,
+    elementTags: ElementTagCollection,
+    codingAgent: CodingAgent?,
+    projectPath: String,
+    currentUrl: String,
+    pageTitle: String,
+    onResponse: (String) -> Unit,
+    onError: (String) -> Unit,
+    onProcessingChange: (Boolean) -> Unit
+) {
+    if (codingAgent == null) {
+        onError("CodingAgent is not available")
+        return
+    }
+
+    onProcessingChange(true)
+
+    try {
+        // Build a comprehensive requirement for the CodingAgent
+        val requirementBuilder = StringBuilder()
+        requirementBuilder.appendLine("## Web Element Analysis Request")
+        requirementBuilder.appendLine()
+        requirementBuilder.appendLine("**Page Context:**")
+        requirementBuilder.appendLine("- URL: $currentUrl")
+        requirementBuilder.appendLine("- Title: $pageTitle")
+        requirementBuilder.appendLine()
+
+        // Add element context
+        if (elementTags.isNotEmpty()) {
+            requirementBuilder.appendLine("**Selected DOM Elements:**")
+            requirementBuilder.appendLine()
+            elementTags.tags.forEach { tag ->
+                requirementBuilder.appendLine(tag.toSourceMappingPrompt())
+                requirementBuilder.appendLine()
+            }
+        }
+
+        // Add user request
+        requirementBuilder.appendLine("**User Request:**")
+        requirementBuilder.appendLine(message)
+        requirementBuilder.appendLine()
+        requirementBuilder.appendLine("**Instructions:**")
+        requirementBuilder.appendLine("1. Analyze the DOM element information provided")
+        requirementBuilder.appendLine("2. Search the project for corresponding source files")
+        requirementBuilder.appendLine("3. Identify components, templates, or code that renders these elements")
+        requirementBuilder.appendLine("4. If modifications are requested, suggest or apply the changes")
+
+        val task = AgentTask(
+            requirement = requirementBuilder.toString(),
+            projectPath = projectPath
+        )
+
+        val result = codingAgent.executeTask(task)
+
+        if (result.success) {
+            onResponse(result.message)
+        } else {
+            onError("Agent task failed: ${result.message}")
+        }
+    } catch (e: Exception) {
+        onError("Failed to process with CodingAgent: ${e.message}")
+    } finally {
+        onProcessingChange(false)
+    }
+}
+
+/**
  * WebEdit Page - Browse, select DOM elements, and interact with web pages
  *
  * Layout:
  * - Top: URL bar with navigation controls
  * - Center: WebView with selection overlay
  * - Right: DOM tree sidebar (toggleable)
- * - Bottom: Chat/Q&A input area
+ * - Bottom: Chat/Q&A input area with element tags
+ *
+ * Features:
+ * - DOM element inspection and selection
+ * - Automatic tag creation for selected elements
+ * - LLM-powered analysis with element context
+ * - CodingAgent integration for source code mapping
  */
 @Composable
 fun WebEditPage(
     llmService: KoogLLMService?,
     modifier: Modifier = Modifier,
+    codingAgent: CodingAgent? = null,
+    projectPath: String = "",
     onBack: () -> Unit = {},
     onNotification: (String, String) -> Unit = { _, _ -> }
 ) {
@@ -112,6 +199,17 @@ fun WebEditPage(
     var chatInput by remember { mutableStateOf("") }
     var isProcessingQuery by remember { mutableStateOf(false) }
     var chatHistory by remember { mutableStateOf<List<ChatMessage>>(emptyList()) }
+    
+    // Element tags state - stores selected elements as tags
+    var elementTags by remember { mutableStateOf(ElementTagCollection()) }
+
+    // Auto-add selected element as a tag when element is selected
+    LaunchedEffect(selectedElement) {
+        selectedElement?.let { element ->
+            val tag = ElementTag.fromDOMElement(element)
+            elementTags = elementTags.add(tag)
+        }
+    }
 
     // Auto-load initial URL
     LaunchedEffect(Unit) {
@@ -301,6 +399,7 @@ fun WebEditPage(
                         currentUrl = currentUrl,
                         pageTitle = pageTitle,
                         selectedElement = selectedElement,
+                        elementTags = elementTags,
                         onResponse = { response ->
                             chatHistory = chatHistory + ChatMessage(role = "assistant", content = response)
                         },
@@ -316,7 +415,60 @@ fun WebEditPage(
             },
             modifier = Modifier.fillMaxWidth(),
             enabled = !isProcessingQuery && llmService != null,
-            isProcessing = isProcessingQuery
+            isProcessing = isProcessingQuery,
+            elementTags = elementTags,
+            onRemoveTag = { tagId ->
+                elementTags = elementTags.remove(tagId)
+            },
+            onClearTags = {
+                elementTags = elementTags.clear()
+            },
+            onSendWithContext = { message, tags ->
+                scope.launch {
+                    // Prefer CodingAgent for source code mapping if available
+                    if (codingAgent != null && projectPath.isNotEmpty()) {
+                        handleChatWithCodingAgent(
+                            message = message,
+                            elementTags = tags,
+                            codingAgent = codingAgent,
+                            projectPath = projectPath,
+                            currentUrl = currentUrl,
+                            pageTitle = pageTitle,
+                            onResponse = { response ->
+                                chatHistory = chatHistory + ChatMessage(role = "assistant", content = response)
+                            },
+                            onError = { error ->
+                                onNotification("Error", error)
+                            },
+                            onProcessingChange = { processing ->
+                                isProcessingQuery = processing
+                            }
+                        )
+                    } else {
+                        // Fallback to simple LLM chat with element context
+                        handleChatMessage(
+                            message = message,
+                            llmService = llmService,
+                            currentUrl = currentUrl,
+                            pageTitle = pageTitle,
+                            selectedElement = selectedElement,
+                            elementTags = tags,
+                            onResponse = { response ->
+                                chatHistory = chatHistory + ChatMessage(role = "assistant", content = response)
+                            },
+                            onError = { error ->
+                                onNotification("Error", error)
+                            },
+                            onProcessingChange = { processing ->
+                                isProcessingQuery = processing
+                            }
+                        )
+                    }
+                    chatInput = ""
+                    // Clear tags after sending with context
+                    elementTags = elementTags.clear()
+                }
+            }
         )
     }
 }

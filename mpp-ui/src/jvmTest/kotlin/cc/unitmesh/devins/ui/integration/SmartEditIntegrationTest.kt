@@ -63,6 +63,23 @@ class SmartEditIntegrationTest {
         override fun delete(path: String, recursive: Boolean) {
             File(path).deleteRecursively()
         }
+        
+        override fun listFilesRecursive(path: String, maxDepth: Int): List<String> {
+            val files = mutableListOf<String>()
+            collectFilesRecursive(File(path), files, 0, maxDepth)
+            return files.sorted()
+        }
+        
+        private fun collectFilesRecursive(file: File, files: MutableList<String>, currentDepth: Int, maxDepth: Int) {
+            if (maxDepth >= 0 && currentDepth > maxDepth) return
+            if (file.isDirectory) {
+                file.listFiles()?.forEach { child ->
+                    collectFilesRecursive(child, files, currentDepth + 1, maxDepth)
+                }
+            } else {
+                files.add(file.absolutePath)
+            }
+        }
     }
 
     @Test
