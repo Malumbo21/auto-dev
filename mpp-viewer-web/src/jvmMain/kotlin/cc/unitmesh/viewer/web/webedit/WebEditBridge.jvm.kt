@@ -66,6 +66,18 @@ class JvmWebEditBridge : WebEditBridge {
         executeJavaScript?.invoke(script)
     }
 
+    override suspend fun enableInspectMode() {
+        _isSelectionMode.value = true
+        val script = "window.webEditBridge?.enableInspectMode();"
+        executeJavaScript?.invoke(script)
+    }
+
+    override suspend fun disableInspectMode() {
+        _isSelectionMode.value = false
+        val script = "window.webEditBridge?.disableInspectMode();"
+        executeJavaScript?.invoke(script)
+    }
+
     override suspend fun highlightElement(selector: String) {
         val escapedSelector = selector
             .replace("\\", "\\\\")
@@ -96,6 +108,12 @@ class JvmWebEditBridge : WebEditBridge {
     override suspend fun refreshDOMTree() {
         val script = "window.webEditBridge?.getDOMTree();"
         executeJavaScript?.invoke(script)
+    }
+
+    override suspend fun getElementAtPoint(x: Int, y: Int): DOMElement? {
+        // This would require a callback mechanism to retrieve the result
+        // For now, return null as a stub
+        return null
     }
 
     /**

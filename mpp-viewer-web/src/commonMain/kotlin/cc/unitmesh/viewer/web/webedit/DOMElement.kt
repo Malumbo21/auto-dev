@@ -4,7 +4,7 @@ import kotlinx.serialization.Serializable
 
 /**
  * Represents a DOM element from the web page
- * 
+ *
  * @param id Unique identifier for the element
  * @param tagName HTML tag name (e.g., "div", "span", "button")
  * @param selector CSS selector to locate this element
@@ -12,6 +12,8 @@ import kotlinx.serialization.Serializable
  * @param attributes Key attributes of the element (id, class, etc.)
  * @param boundingBox Bounding box of the element (x, y, width, height)
  * @param children Child elements (for tree structure)
+ * @param isShadowHost Whether this element has a shadow root attached
+ * @param inShadowRoot Whether this element is inside a shadow root
  */
 @Serializable
 data class DOMElement(
@@ -21,7 +23,9 @@ data class DOMElement(
     val textContent: String? = null,
     val attributes: Map<String, String> = emptyMap(),
     val boundingBox: BoundingBox? = null,
-    val children: List<DOMElement> = emptyList()
+    val children: List<DOMElement> = emptyList(),
+    val isShadowHost: Boolean = false,
+    val inShadowRoot: Boolean = false
 ) {
     /**
      * Generate a display name for the DOM tree
@@ -29,8 +33,9 @@ data class DOMElement(
     fun getDisplayName(): String {
         val classAttr = attributes["class"]?.split(" ")?.firstOrNull()?.let { ".$it" } ?: ""
         val idAttr = attributes["id"]?.let { "#$it" } ?: ""
+        val shadowIndicator = if (isShadowHost) " 🔒" else if (inShadowRoot) " 👁" else ""
         val text = textContent?.take(30)?.let { " \"$it\"" } ?: ""
-        return "$tagName$idAttr$classAttr$text"
+        return "$tagName$idAttr$classAttr$shadowIndicator$text"
     }
 }
 

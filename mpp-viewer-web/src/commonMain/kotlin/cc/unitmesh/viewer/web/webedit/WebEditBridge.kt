@@ -75,27 +75,42 @@ interface WebEditBridge {
      * Enable or disable selection mode
      */
     suspend fun setSelectionMode(enabled: Boolean)
-    
+
+    /**
+     * Enable inspect mode (with Shadow DOM support)
+     */
+    suspend fun enableInspectMode()
+
+    /**
+     * Disable inspect mode
+     */
+    suspend fun disableInspectMode()
+
     /**
      * Highlight a specific element
      */
     suspend fun highlightElement(selector: String)
-    
+
     /**
      * Clear all highlights
      */
     suspend fun clearHighlights()
-    
+
     /**
      * Scroll to an element
      */
     suspend fun scrollToElement(selector: String)
-    
+
     /**
      * Refresh the DOM tree
      */
     suspend fun refreshDOMTree()
-    
+
+    /**
+     * Get element at specific coordinates
+     */
+    suspend fun getElementAtPoint(x: Int, y: Int): DOMElement?
+
     /**
      * Get the HTML content of the selected element
      */
