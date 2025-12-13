@@ -33,7 +33,7 @@ data class DOMElement(
     fun getDisplayName(): String {
         val classAttr = attributes["class"]?.split(" ")?.firstOrNull()?.let { ".$it" } ?: ""
         val idAttr = attributes["id"]?.let { "#$it" } ?: ""
-        val shadowIndicator = if (isShadowHost) " 🔒" else if (inShadowRoot) " 👁" else ""
+        val shadowIndicator = if (isShadowHost) " [shadow-host]" else if (inShadowRoot) " [shadow]" else ""
         val text = textContent?.take(30)?.let { " \"$it\"" } ?: ""
         return "$tagName$idAttr$classAttr$shadowIndicator$text"
     }

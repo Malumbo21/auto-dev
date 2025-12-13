@@ -111,9 +111,10 @@ class JvmWebEditBridge : WebEditBridge {
     }
 
     override suspend fun getElementAtPoint(x: Int, y: Int): DOMElement? {
-        // This would require a callback mechanism to retrieve the result
-        // For now, return null as a stub
-        return null
+        // TODO: Implement using JavaScript callback mechanism similar to getSelectedElementHtml
+        // This requires invoking JS to call window.webEditBridge.getElementAtPoint(x, y)
+        // and receiving the result via a callback or promise-based bridge.
+        throw NotImplementedError("getElementAtPoint requires callback mechanism - not yet implemented")
     }
 
     /**

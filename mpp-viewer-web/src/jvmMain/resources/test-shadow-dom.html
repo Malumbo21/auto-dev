@@ -109,7 +109,7 @@
             </div>
         `;
         
-        const innerShadowHost = nestedShadow.getElementById('inner-shadow-host');
+        const innerShadowHost = nestedShadow.querySelector('#inner-shadow-host');
         const innerShadow = innerShadowHost.attachShadow({ mode: 'open' });
         innerShadow.innerHTML = `
             <style>

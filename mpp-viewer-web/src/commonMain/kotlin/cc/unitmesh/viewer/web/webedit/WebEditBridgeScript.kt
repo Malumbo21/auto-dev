@@ -87,10 +87,12 @@ fun getWebEditBridgeScript(): String = """
                 }
             }
 
-            // Traverse children
-            const children = node.children || node.childNodes;
+            // Traverse children (only elements)
+            const children = node.children || [];
             for (let child of children) {
-                traverse(child);
+                if (child.nodeType === Node.ELEMENT_NODE) {
+                    traverse(child);
+                }
             }
         }
 
@@ -338,7 +340,7 @@ fun getWebEditBridgeScript(): String = """
         getDOMTree: function() {
             const self = this;
 
-            function buildTree(el, depth) {
+            function buildTree(el, depth, isInShadow) {
                 if (depth > 8) return null;
 
                 const rect = el.getBoundingClientRect();
@@ -350,21 +352,21 @@ fun getWebEditBridgeScript(): String = """
                     attributes: self.getElementAttributes(el),
                     boundingBox: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
                     children: [],
-                    isShadowHost: !!el.shadowRoot
+                    isShadowHost: !!el.shadowRoot,
+                    inShadowRoot: isInShadow || false
                 };
 
                 // Process regular children
                 Array.from(el.children).slice(0, 30).forEach(child => {
-                    const childNode = buildTree(child, depth + 1);
+                    const childNode = buildTree(child, depth + 1, isInShadow);
                     if (childNode) node.children.push(childNode);
                 });
 
                 // Process shadow DOM children
                 if (el.shadowRoot) {
                     Array.from(el.shadowRoot.children).slice(0, 30).forEach(child => {
-                        const childNode = buildTree(child, depth + 1);
+                        const childNode = buildTree(child, depth + 1, true);
                         if (childNode) {
-                            childNode.inShadowRoot = true;
                             node.children.push(childNode);
                         }
                     });
@@ -373,7 +375,7 @@ fun getWebEditBridgeScript(): String = """
                 return node;
             }
 
-            const tree = buildTree(document.body, 0);
+            const tree = buildTree(document.body, 0, false);
             this.sendToKotlin('DOMTreeUpdated', { root: tree });
         },
 

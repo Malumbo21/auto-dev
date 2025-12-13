@@ -138,7 +138,7 @@ internal fun InspectDebugApp() {
                 modifier = Modifier
                     .weight(0.4f)
                     .fillMaxHeight()
-                    .background(Color(0xFFF5F5F5))
+                    .background(MaterialTheme.colors.surface)
             ) {
                 InspectorPanel(
                     selectedElement = selectedElement,
@@ -174,9 +174,21 @@ private fun ControlPanel(
                 Button(
                     onClick = {
                         scope.launch {
-                            val testPagePath = File("mpp-viewer-web/src/jvmMain/resources/test-shadow-dom.html")
-                                .absolutePath
-                            bridge.navigateTo("file://$testPagePath")
+                            // Try to load from classpath resources first
+                            val resourceUrl = this::class.java.classLoader
+                                .getResource("test-shadow-dom.html")?.toExternalForm()
+
+                            if (resourceUrl != null) {
+                                bridge.navigateTo(resourceUrl)
+                            } else {
+                                // Fallback to file path (for development)
+                                val testPagePath = File("mpp-viewer-web/src/jvmMain/resources/test-shadow-dom.html")
+                                if (testPagePath.exists()) {
+                                    bridge.navigateTo("file://${testPagePath.absolutePath}")
+                                } else {
+                                    println("[Error] Test page not found")
+                                }
+                            }
                         }
                     },
                     enabled = isReady
@@ -197,7 +209,7 @@ private fun ControlPanel(
                     },
                     enabled = isReady,
                     colors = ButtonDefaults.buttonColors(
-                        backgroundColor = if (isInspectMode) Color(0xFF4CAF50) else MaterialTheme.colors.primary
+                        backgroundColor = if (isInspectMode) MaterialTheme.colors.secondary else MaterialTheme.colors.primary
                     )
                 ) {
                     Text(if (isInspectMode) "Disable Inspect" else "Enable Inspect")
@@ -220,7 +232,7 @@ private fun ControlPanel(
                     onClick = onRunTests,
                     enabled = isReady,
                     colors = ButtonDefaults.buttonColors(
-                        backgroundColor = Color(0xFFFF9800)
+                        backgroundColor = MaterialTheme.colors.secondaryVariant
                     )
                 ) {
                     Text("Run Tests")
@@ -266,16 +278,16 @@ private fun InspectorPanel(
 
                     if (selectedElement.isShadowHost) {
                         Text(
-                            "🔒 Shadow Host",
-                            color = Color(0xFF2196F3),
+                            "[Shadow Host]",
+                            color = MaterialTheme.colors.primary,
                             style = MaterialTheme.typography.caption
                         )
                     }
 
                     if (selectedElement.inShadowRoot) {
                         Text(
-                            "👁 Inside Shadow DOM",
-                            color = Color(0xFF9C27B0),
+                            "[Inside Shadow DOM]",
+                            color = MaterialTheme.colors.secondary,
                             style = MaterialTheme.typography.caption
                         )
                     }
@@ -300,7 +312,7 @@ private fun InspectorPanel(
             Text(
                 "No element selected",
                 style = MaterialTheme.typography.body2,
-                color = Color.Gray,
+                color = MaterialTheme.colors.onSurface.copy(alpha = 0.6f),
                 modifier = Modifier.padding(bottom = 16.dp)
             )
         }
@@ -320,7 +332,7 @@ private fun InspectorPanel(
             Text(
                 "No DOM tree available",
                 style = MaterialTheme.typography.body2,
-                color = Color.Gray
+                color = MaterialTheme.colors.onSurface.copy(alpha = 0.6f)
             )
         }
 
@@ -347,21 +359,27 @@ private fun InspectorPanel(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 8.dp),
-                backgroundColor = if (passedCount == totalCount) Color(0xFFE8F5E9) else Color(0xFFFFEBEE),
+                backgroundColor = if (passedCount == totalCount)
+                    MaterialTheme.colors.primary.copy(alpha = 0.1f)
+                else
+                    MaterialTheme.colors.error.copy(alpha = 0.1f),
                 elevation = 2.dp
             ) {
                 Text(
                     text = "Summary: $passedCount / $totalCount tests passed",
                     modifier = Modifier.padding(12.dp),
                     style = MaterialTheme.typography.subtitle1,
-                    color = if (passedCount == totalCount) Color(0xFF4CAF50) else Color(0xFFF44336)
+                    color = if (passedCount == totalCount)
+                        MaterialTheme.colors.primary
+                    else
+                        MaterialTheme.colors.error
                 )
             }
         } else {
             Text(
                 "No test results yet. Click 'Run Tests' to start.",
                 style = MaterialTheme.typography.body2,
-                color = Color.Gray
+                color = MaterialTheme.colors.onSurface.copy(alpha = 0.6f)
             )
         }
     }
@@ -372,7 +390,7 @@ private fun DOMTreeView(element: DOMElement, depth: Int) {
     if (depth > 5) return
 
     val indent = "  ".repeat(depth)
-    val icon = if (element.isShadowHost) "🔒" else if (element.inShadowRoot) "👁" else "▸"
+    val icon = if (element.isShadowHost) "[S]" else if (element.inShadowRoot) "[s]" else "▸"
 
     Text(
         text = "$indent$icon ${element.getDisplayName()}",
@@ -391,7 +409,10 @@ private fun TestResultCard(result: TestResult) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(bottom = 8.dp),
-        backgroundColor = if (result.passed) Color(0xFFE8F5E9) else Color(0xFFFFEBEE),
+        backgroundColor = if (result.passed)
+            MaterialTheme.colors.primary.copy(alpha = 0.1f)
+        else
+            MaterialTheme.colors.error.copy(alpha = 0.1f),
         elevation = 1.dp
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
@@ -406,7 +427,10 @@ private fun TestResultCard(result: TestResult) {
                 )
                 Text(
                     text = if (result.passed) "✓ PASS" else "✗ FAIL",
-                    color = if (result.passed) Color(0xFF4CAF50) else Color(0xFFF44336),
+                    color = if (result.passed)
+                        MaterialTheme.colors.primary
+                    else
+                        MaterialTheme.colors.error,
                     style = MaterialTheme.typography.caption
                 )
             }
@@ -415,7 +439,7 @@ private fun TestResultCard(result: TestResult) {
                 Text(
                     text = result.message,
                     style = MaterialTheme.typography.caption,
-                    color = Color.Gray,
+                    color = MaterialTheme.colors.onSurface.copy(alpha = 0.6f),
                     modifier = Modifier.padding(top = 4.dp)
                 )
             }
@@ -423,7 +447,7 @@ private fun TestResultCard(result: TestResult) {
             Text(
                 text = "Duration: ${result.duration}ms",
                 style = MaterialTheme.typography.caption,
-                color = Color.Gray,
+                color = MaterialTheme.colors.onSurface.copy(alpha = 0.6f),
                 modifier = Modifier.padding(top = 2.dp)
             )
         }
@@ -475,11 +499,13 @@ suspend fun runAutomatedTests(bridge: JvmWebEditBridge): List<TestResult> {
         hasShadowHosts
     })
 
-    // Test 4: Highlight Regular Element
-    results.add(runTest("Highlight Regular Element") {
+    // Test 4: Highlight Regular Element (Manual verification)
+    results.add(runTest("Highlight Regular Element (Manual)") {
         bridge.highlightElement("#regular-button")
         delay(500)
-        true // Visual verification needed
+        // Manual test: Check if highlight box is visible in UI
+        println("[AutoTest] Manual verification: Check if blue highlight box is visible on regular button")
+        true
     })
 
     // Test 5: Simulate Element Selection
@@ -496,17 +522,19 @@ suspend fun runAutomatedTests(bridge: JvmWebEditBridge): List<TestResult> {
         bridge.selectedElement.value != null
     })
 
-    // Test 6: Test Dynamic DOM Changes
-    results.add(runTest("Dynamic DOM Mutation") {
+    // Test 6: Test Dynamic DOM Changes (Manual verification)
+    results.add(runTest("Dynamic DOM Mutation (Manual)") {
         bridge.executeJavaScript?.invoke("""
             document.getElementById('add-element')?.click();
         """.trimIndent())
         delay(500)
+        // Manual test: MutationObserver should detect the change
+        println("[AutoTest] Manual verification: Check if MutationObserver detected DOM change")
         true
     })
 
-    // Test 7: Verify MutationObserver
-    results.add(runTest("MutationObserver Active") {
+    // Test 7: Verify MutationObserver (Manual verification)
+    results.add(runTest("MutationObserver Active (Manual)") {
         // Add multiple elements
         bridge.executeJavaScript?.invoke("""
             for (let i = 0; i < 3; i++) {
@@ -514,6 +542,8 @@ suspend fun runAutomatedTests(bridge: JvmWebEditBridge): List<TestResult> {
             }
         """.trimIndent())
         delay(1000)
+        // Manual test: MutationObserver should batch multiple changes
+        println("[AutoTest] Manual verification: Check if MutationObserver batched multiple changes")
         true
     })
 
@@ -523,13 +553,16 @@ suspend fun runAutomatedTests(bridge: JvmWebEditBridge): List<TestResult> {
         delay(1000)
         val tree = bridge.domTree.value
         val shadowElements = tree?.let { countShadowElements(it) } ?: 0
+        println("[AutoTest] Found $shadowElements shadow DOM elements")
         shadowElements > 0
     })
 
-    // Test 9: Clear Highlights
-    results.add(runTest("Clear Highlights") {
+    // Test 9: Clear Highlights (Manual verification)
+    results.add(runTest("Clear Highlights (Manual)") {
         bridge.clearHighlights()
         delay(300)
+        // Manual test: All highlight boxes should be hidden
+        println("[AutoTest] Manual verification: Check if all highlight boxes are hidden")
         true
     })
 
