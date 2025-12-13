@@ -60,6 +60,12 @@ kotlin {
         }
     }
 
+    js(IR) {
+        browser()
+        useCommonJs()
+        binaries.executable()
+    }
+
     @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
     wasmJs {
         browser()
@@ -82,9 +88,6 @@ kotlin {
 
                 // Coroutines
                 implementation(libs.kotlinx.coroutines.core)
-
-                // compose-webview-multiplatform
-                implementation(libs.compose.webview)
             }
         }
 
@@ -97,6 +100,8 @@ kotlin {
         jvmMain {
             dependencies {
                 implementation(compose.desktop.currentOs)
+                // compose-webview-multiplatform - JVM/Desktop only
+                implementation(libs.compose.webview)
             }
         }
 
@@ -108,9 +113,35 @@ kotlin {
             }
         }
 
+        val androidMain by getting {
+            dependencies {
+                // compose-webview-multiplatform - Android support
+                implementation(libs.compose.webview)
+            }
+        }
+
+        val iosMain by creating {
+            dependsOn(commonMain.get())
+            iosX64Main.get().dependsOn(this)
+            iosArm64Main.get().dependsOn(this)
+            iosSimulatorArm64Main.get().dependsOn(this)
+            dependencies {
+                // compose-webview-multiplatform - iOS support
+                implementation(libs.compose.webview)
+            }
+        }
+
         val wasmJsMain by getting {
             dependencies {
                 // WASM-specific dependencies if needed
+                // Note: compose-webview not available for WASM
+            }
+        }
+
+        val jsMain by getting {
+            dependencies {
+                // JS-specific dependencies if needed
+                // Note: compose-webview not available for JS
             }
         }
     }

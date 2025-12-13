@@ -180,6 +180,7 @@ kotlin {
         val jvmMain by getting {
             dependencies {
                 implementation(project(":mpp-viewer"))
+                implementation(project(":mpp-viewer-web"))
                 implementation(project(":xuiper-ui"))
                 implementation(compose.desktop.currentOs)
 
@@ -252,6 +253,8 @@ kotlin {
 
         val androidMain by getting {
             dependencies {
+                implementation(project(":mpp-viewer-web"))
+                
                 implementation(libs.androidx.activity)
                 implementation(libs.androidx.appcompat)
                 implementation(libs.androidx.core)
@@ -301,6 +304,9 @@ kotlin {
                 api(compose.material3)
                 api(compose.ui)
 
+                // Implementation dependencies
+                implementation(project(":mpp-viewer-web"))
+
                 // ComposeCharts - Cross-platform chart library (iOS)
                 implementation(libs.compose.charts)
 
@@ -320,6 +326,9 @@ kotlin {
             dependencies {
                 // Node.js CLI dependencies
                 implementation(compose.html.core)
+
+                // Note: mpp-viewer-web is not included for JS as WebView is not supported in Node.js CLI
+                // WebEdit features are only available on JVM/Desktop platforms
 
                 // SQLDelight - JS driver
                 implementation(libs.sqldelight.webWorker)
