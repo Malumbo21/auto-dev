@@ -6,7 +6,7 @@ For AutoDev 3.0 (Development version)
 
 - Intellij Plugin: https://plugins.jetbrains.com/plugin/29223-autodev-experiment
 - VSCode Extension: [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=Phodal.autodev)
-- Web Version: https://phodal.github.io/auto-dev/
+- Web Version: https://web.xiuper.com/
 - CLI Tool: `npm install -g @autodev/cli`
 - Desktop & Android see in [release pages](https://github.com/phodal/auto-dev/releases)
 
@@ -20,7 +20,7 @@ For AutoDev 2.0 (Stable version)
 | Module               | Platform            | Status              | Description                                           |
 |----------------------|---------------------|---------------------|-------------------------------------------------------|
 | **mpp-idea**         | IntelliJ IDEA       | ✅ Production        | Jewel UI, Agent toolwindow, code review, remote agent |
-| **mpp-vscode**       | VSCode              | ✅ Production        | CodeLens, auto test/doc, MCP protocol, Tree-sitter    |
+| **mpp-vscode**       | VSCode              | ✅ Production        | Xuiper Agent                                          |
 | **mpp-ui** (Desktop) | macOS/Windows/Linux | ✅ Production        | Compose Multiplatform desktop app                     |
 | **mpp-ui** (CLI)     | Terminal (Node.js)  | ✅ Production        | Terminal UI (React/Ink), local/server mode            |
 | **mpp-ui** (Android) | Android             | ✅ Production        | Native Android app                                    |
