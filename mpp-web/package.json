@@ -3,6 +3,10 @@
   "version": "0.1.0",
   "description": "AutoDev Web UI - Browser-based AI development assistant",
   "type": "module",
+  "packageManager": "pnpm@10.20.0",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
     "build:kotlin": "cd .. && ./gradlew :mpp-core:jsNodeProductionLibraryDistribution",
     "build:ts": "tsc && vite build",

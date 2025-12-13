@@ -4,7 +4,7 @@ import * as mppCore from '@autodev/mpp-core';
 import { ConfigService, type ModelConfig } from './services/ConfigService';
 import { LLMService } from './services/LLMService';
 
-export const App: React.FC = () => {
+export const WebUiApp: React.FC = () => {
   const [message, setMessage] = useState<string>('');
   const [response, setResponse] = useState<string>('');
   const [coreLoaded, setCoreLoaded] = useState<boolean>(false);
@@ -114,7 +114,7 @@ export const App: React.FC = () => {
       <header style={{ marginBottom: '30px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h1 style={{ fontSize: '2.5rem', fontWeight: 'bold', marginBottom: '10px' }}>
-            🤖 AutoDev Web UI
+            AutoDev Web UI
           </h1>
           <p style={{ color: '#666', fontSize: '1.1rem' }}>
             Lightweight React-based web interface using mpp-core
@@ -131,6 +131,21 @@ export const App: React.FC = () => {
           )}
         </div>
         <div>
+          <a
+            href="#/"
+            style={{
+              display: 'inline-block',
+              padding: '10px 14px',
+              marginRight: '10px',
+              borderRadius: '6px',
+              textDecoration: 'none',
+              backgroundColor: '#111827',
+              color: 'white',
+              fontWeight: 600,
+            }}
+          >
+            Back to Home
+          </a>
           <button
             onClick={() => setShowConfig(!showConfig)}
             style={{
@@ -144,7 +159,7 @@ export const App: React.FC = () => {
               fontWeight: '500'
             }}
           >
-            ⚙️ Settings
+            Settings
           </button>
           {chatHistory.length > 0 && (
             <button
@@ -159,7 +174,7 @@ export const App: React.FC = () => {
                 fontWeight: '500'
               }}
             >
-              🗑️ Clear History
+              Clear History
             </button>
           )}
         </div>
@@ -186,7 +201,7 @@ export const App: React.FC = () => {
             maxWidth: '500px',
             width: '90%'
           }}>
-            <h2 style={{ marginBottom: '20px' }}>⚙️ LLM Configuration</h2>
+            <h2 style={{ marginBottom: '20px' }}>LLM Configuration</h2>
             
             <div style={{ marginBottom: '15px' }}>
               <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Provider</label>
@@ -309,7 +324,7 @@ export const App: React.FC = () => {
             maxHeight: '400px',
             overflowY: 'auto'
           }}>
-            <h2 style={{ marginBottom: '15px', marginTop: 0 }}>📜 Chat History</h2>
+            <h2 style={{ marginBottom: '15px', marginTop: 0 }}>Chat History</h2>
             {chatHistory.map((msg, index) => (
               <div 
                 key={index}
@@ -326,7 +341,7 @@ export const App: React.FC = () => {
                   marginBottom: '8px',
                   color: msg.role === 'user' ? '#1976D2' : '#388E3C'
                 }}>
-                  {msg.role === 'user' ? '👤 You' : '🤖 Assistant'}
+                  {msg.role === 'user' ? 'You' : 'Assistant'}
                 </strong>
                 <div style={{ whiteSpace: 'pre-wrap', fontSize: '14px' }}>
                   {msg.content}
@@ -343,7 +358,7 @@ export const App: React.FC = () => {
           borderRadius: '8px',
           backgroundColor: '#f9f9f9'
         }}>
-          <h2 style={{ marginBottom: '15px', marginTop: 0 }}>💬 New Message</h2>
+          <h2 style={{ marginBottom: '15px', marginTop: 0 }}>New Message</h2>
           
           <textarea
             value={message}
@@ -383,7 +398,7 @@ export const App: React.FC = () => {
               fontWeight: '500'
             }}
           >
-            {isStreaming ? '⏳ Sending...' : '📤 Send Message'}
+            {isStreaming ? 'Sending...' : 'Send Message'}
           </button>
 
           {/* Current response (streaming) */}
@@ -397,7 +412,7 @@ export const App: React.FC = () => {
               whiteSpace: 'pre-wrap'
             }}>
               <strong style={{ display: 'block', marginBottom: '10px', color: '#388E3C' }}>
-                🤖 Assistant {isStreaming && '(typing...)'}
+                Assistant {isStreaming && '(typing...)'}
               </strong>
               <div style={{ fontSize: '14px', lineHeight: '1.6' }}>
                 {response}
@@ -413,7 +428,7 @@ export const App: React.FC = () => {
           borderRadius: '8px',
           backgroundColor: '#f0f8ff'
         }}>
-          <h2 style={{ marginBottom: '15px', marginTop: 0 }}>📋 Features</h2>
+          <h2 style={{ marginBottom: '15px', marginTop: 0 }}>Features</h2>
           <ul style={{ lineHeight: '1.8', paddingLeft: '20px', marginBottom: '20px' }}>
             <li>✅ Real-time streaming responses from LLM</li>
             <li>✅ Support multiple providers (OpenAI, Anthropic, DeepSeek, etc.)</li>
@@ -424,7 +439,7 @@ export const App: React.FC = () => {
           </ul>
 
           <div style={{ marginTop: '20px', padding: '15px', backgroundColor: '#fff', borderRadius: '4px' }}>
-            <h3 style={{ fontSize: '1rem', marginBottom: '10px', marginTop: 0 }}>⚡ Quick Start:</h3>
+            <h3 style={{ fontSize: '1rem', marginBottom: '10px', marginTop: 0 }}>Quick Start</h3>
             <ol style={{ fontSize: '14px', lineHeight: '1.8', paddingLeft: '20px', marginBottom: 0 }}>
               <li>Click "⚙️ Settings" to configure your LLM provider</li>
               <li>Enter your API key and select a model</li>
