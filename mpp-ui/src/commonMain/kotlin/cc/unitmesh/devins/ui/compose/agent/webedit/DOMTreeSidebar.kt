@@ -5,6 +5,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -16,6 +18,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import cc.unitmesh.viewer.web.webedit.DOMElement
+import kotlinx.coroutines.launch
 
 /**
  * DOM Tree Sidebar - displays the DOM structure of the current page
@@ -29,10 +32,23 @@ fun DOMTreeSidebar(
     onElementHover: (String?) -> Unit = {}
 ) {
     var searchQuery by remember { mutableStateOf("") }
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
 
     // Convert DOMElement tree to flat list with depth
     val flattenedTree = remember(domTree) {
         domTree?.let { flattenDOMTree(it, 0) } ?: emptyList()
+    }
+
+    // Auto-scroll to selected element when it changes
+    LaunchedEffect(selectedElement?.selector, flattenedTree) {
+        if (selectedElement != null && flattenedTree.isNotEmpty()) {
+            val index = flattenedTree.indexOfFirst { it.selector == selectedElement.selector }
+            if (index >= 0) {
+                // Scroll to make the item visible (with some padding)
+                listState.animateScrollToItem(maxOf(0, index - 2))
+            }
+        }
     }
 
     Column(
@@ -82,10 +98,11 @@ fun DOMTreeSidebar(
             }
         } else {
             LazyColumn(
+                state = listState,
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
-                items(flattenedTree) { item ->
+                itemsIndexed(flattenedTree, key = { index, item -> item.id }) { _, item ->
                     DOMTreeItemRow(
                         item = item,
                         isSelected = selectedElement?.selector == item.selector,
@@ -102,6 +119,7 @@ fun DOMTreeSidebar(
  * Data class for flattened DOM tree items with depth
  */
 data class DOMTreeItem(
+    val id: String,
     val tagName: String,
     val selector: String,
     val depth: Int,
@@ -116,6 +134,7 @@ private fun flattenDOMTree(element: DOMElement, depth: Int): List<DOMTreeItem> {
     val result = mutableListOf<DOMTreeItem>()
     result.add(
         DOMTreeItem(
+            id = element.id,
             tagName = element.tagName,
             selector = element.selector,
             depth = depth,

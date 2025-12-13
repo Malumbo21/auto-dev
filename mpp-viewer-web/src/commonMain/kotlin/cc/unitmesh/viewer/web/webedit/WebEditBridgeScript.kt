@@ -195,14 +195,16 @@ fun getWebEditBridgeScript(): String = """
         highlightElement: function(selector) {
             this.clearHoverHighlight();
             try {
-                const elements = querySelectorAllDeep(selector);
-                const el = elements[0];
+                const el = this.findElementBySelector(selector);
                 if (el) {
                     this.highlightedElement = el;
                     this.updateHighlightBox(el, hoverBox);
+                    console.log('[WebEditBridge] highlightElement success:', selector);
+                } else {
+                    console.warn('[WebEditBridge] highlightElement: element not found:', selector);
                 }
             } catch(e) {
-                console.error('[WebEditBridge] highlightElement error:', e);
+                console.error('[WebEditBridge] highlightElement error:', e, 'selector:', selector);
             }
         },
 
@@ -287,14 +289,54 @@ fun getWebEditBridgeScript(): String = """
         // Scroll to element (supports shadow DOM)
         scrollToElement: function(selector) {
             try {
-                const elements = querySelectorAllDeep(selector);
-                const el = elements[0];
+                const el = this.findElementBySelector(selector);
                 if (el) {
                     el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    console.log('[WebEditBridge] scrollToElement success:', selector);
+                } else {
+                    console.warn('[WebEditBridge] scrollToElement: element not found:', selector);
                 }
             } catch(e) {
-                console.error('[WebEditBridge] scrollToElement error:', e);
+                console.error('[WebEditBridge] scrollToElement error:', e, 'selector:', selector);
             }
+        },
+
+        // Find element by selector - tries ID first, then CSS selector
+        findElementBySelector: function(selector) {
+            // If selector starts with #, try getElementById first (more reliable)
+            if (selector.startsWith('#')) {
+                const idPart = selector.split(' ')[0].substring(1); // Get first ID segment
+                const byId = document.getElementById(idPart);
+                if (byId) {
+                    // If there are more parts in the selector, use querySelector from that element
+                    const rest = selector.substring(selector.indexOf(' ')).trim();
+                    if (rest && rest.startsWith('>')) {
+                        try {
+                            const child = byId.querySelector(rest.substring(1).trim());
+                            if (child) return child;
+                        } catch(e) { /* fall through */ }
+                    }
+                    return byId;
+                }
+            }
+            
+            // Try standard querySelector (with error handling for invalid selectors)
+            try {
+                const el = document.querySelector(selector);
+                if (el) return el;
+            } catch(e) {
+                console.warn('[WebEditBridge] querySelector failed:', e.message);
+            }
+            
+            // Fall back to querySelectorAllDeep for shadow DOM
+            try {
+                const elements = querySelectorAllDeep(selector);
+                if (elements.length > 0) return elements[0];
+            } catch(e) {
+                console.warn('[WebEditBridge] querySelectorAllDeep failed:', e.message);
+            }
+            
+            return null;
         },
 
         // Get element at specific coordinates
@@ -332,7 +374,7 @@ fun getWebEditBridgeScript(): String = """
 
         // Get unique selector for element (shadow DOM aware)
         getSelector: function(el) {
-            if (el.id) return '#' + el.id;
+            if (el.id) return '#' + this.escapeCssSelector(el.id);
             if (el === document.body) return 'body';
             if (el === document.documentElement) return 'html';
 
@@ -343,11 +385,15 @@ fun getWebEditBridgeScript(): String = """
                 let selector = current.tagName.toLowerCase();
 
                 if (current.id) {
-                    selector = '#' + current.id;
+                    selector = '#' + this.escapeCssSelector(current.id);
                     path.unshift(selector);
                     break;
                 } else if (current.className && typeof current.className === 'string') {
-                    const classes = current.className.trim().split(/\\s+/).slice(0, 2);
+                    // Split classes and escape each one, filter empty/invalid
+                    const classes = current.className.trim().split(/\s+/)
+                        .filter(c => c && c.length > 0)
+                        .slice(0, 2)
+                        .map(c => this.escapeCssSelector(c));
                     if (classes.length > 0 && classes[0]) {
                         selector += '.' + classes.join('.');
                     }
@@ -365,6 +411,13 @@ fun getWebEditBridgeScript(): String = """
             }
 
             return path.join(' > ');
+        },
+
+        // Escape special characters in CSS selectors
+        escapeCssSelector: function(str) {
+            if (!str) return '';
+            // Escape special CSS selector characters: . # [ ] : ( ) > + ~ * = ^ $ | \
+            return str.replace(/([.#\[\]:()>+~*=^$|\\])/g, '\\$1');
         },
 
         // Get DOM tree with Shadow DOM support
