@@ -181,7 +181,7 @@ kotlin {
             dependencies {
                 implementation(project(":mpp-viewer"))
                 implementation(project(":mpp-viewer-web"))
-                implementation(project(":xuiper-ui"))
+                implementation(project(":xiuper-ui"))
                 implementation(compose.desktop.currentOs)
 
                 // compose.webview for desktop WebView support
@@ -254,7 +254,7 @@ kotlin {
         val androidMain by getting {
             dependencies {
                 implementation(project(":mpp-viewer-web"))
-                
+
                 implementation(libs.androidx.activity)
                 implementation(libs.androidx.appcompat)
                 implementation(libs.androidx.core)
@@ -450,7 +450,7 @@ compose.desktop {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "AutoDev Desktop"
             packageVersion = "1.0.5"
-            description = "AutoDev Desktop Application with Xuiper Agents Support"
+            description = "AutoDev Desktop Application with Xiuper Agents Support"
             copyright = "© 2024 AutoDev Team. All rights reserved."
             vendor = "AutoDev Team"
 

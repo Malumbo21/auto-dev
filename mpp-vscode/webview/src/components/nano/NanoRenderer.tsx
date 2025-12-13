@@ -7,7 +7,7 @@
  * Each component type has its own render function, making it easy to identify
  * missing implementations when new components are added.
  * 
- * @see xuiper-ui/src/main/kotlin/cc/unitmesh/xuiper/render/NanoRenderer.kt
+ * @see xiuper-ui/src/main/kotlin/cc/unitmesh/xuiper/render/NanoRenderer.kt
  * @see mpp-ui/src/jvmMain/kotlin/cc/unitmesh/devins/ui/nano/ComposeNanoRenderer.kt
  */
 

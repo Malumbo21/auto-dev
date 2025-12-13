@@ -16,7 +16,7 @@ import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
  * iOS implementation of NanoDSLBlockRenderer.
  *
  * Displays NanoDSL code with syntax highlighting.
- * Live preview is not available on iOS platform as xuiper-ui (full parser) is JVM-only.
+ * Live preview is not available on iOS platform as xiuper-ui (full parser) is JVM-only.
  */
 @Composable
 actual fun NanoDSLBlockRenderer(

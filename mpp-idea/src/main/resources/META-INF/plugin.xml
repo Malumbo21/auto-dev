@@ -34,7 +34,7 @@
         <projectService serviceImplementation="cc.unitmesh.devins.idea.editor.multimodal.IdeaMultimodalService"/>
         <!-- ToolWindow for Agent UI with tab-based navigation (Advanced version) -->
         <toolWindow factoryClass="cc.unitmesh.devins.idea.toolwindow.IdeaAgentToolWindowFactory"
-                    id="Xuiper Agents"
+                    id="Xiuper Agents"
                     anchor="right"
                     secondary="false"
                     icon="cc.unitmesh.devins.idea.AutoDevIcons.ToolWindow"/>

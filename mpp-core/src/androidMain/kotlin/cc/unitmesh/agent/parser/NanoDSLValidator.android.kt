@@ -7,10 +7,10 @@ private val logger = getLogger("NanoDSLValidator.Android")
 /**
  * Android implementation of NanoDSLValidator.
  * 
- * Attempts to use xuiper-ui's NanoParser if available via reflection,
+ * Attempts to use xiuper-ui's NanoParser if available via reflection,
  * otherwise falls back to basic validation.
  * 
- * Note: Android shares the JVM runtime but xuiper-ui may not be bundled
+ * Note: Android shares the JVM runtime but xiuper-ui may not be bundled
  * in Android apps due to size concerns.
  */
 actual class NanoDSLValidator actual constructor() {
@@ -21,12 +21,12 @@ actual class NanoDSLValidator actual constructor() {
     private var toJsonMethod: java.lang.reflect.Method? = null
     
     init {
-        // Try to load xuiper-ui's NanoDSL class via reflection
+        // Try to load xiuper-ui's NanoDSL class via reflection
         fullParserAvailable = try {
             nanoDSLClass = Class.forName("cc.unitmesh.xuiper.dsl.NanoDSL")
             validateMethod = nanoDSLClass!!.getDeclaredMethod("validate", String::class.java)
             toJsonMethod = nanoDSLClass!!.getDeclaredMethod("toJson", String::class.java, Boolean::class.javaPrimitiveType)
-            logger.info { "NanoDSL parser available via xuiper-ui" }
+            logger.info { "NanoDSL parser available via xiuper-ui" }
             true
         } catch (e: Exception) {
             logger.debug { "NanoDSL parser not available: ${e.message}" }

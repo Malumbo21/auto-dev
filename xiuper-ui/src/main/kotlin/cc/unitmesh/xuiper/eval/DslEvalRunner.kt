@@ -22,10 +22,10 @@ private val logger = KotlinLogging.logger {}
  * Main runner for NanoDSL evaluation tests.
  * 
  * Usage:
- *   ./gradlew :xuiper-ui:runDslEval
+ *   ./gradlew :xiuper-ui:runDslEval
  * 
  * Or with custom config:
- *   ./gradlew :xuiper-ui:runDslEval -DmodelProvider=openai -DmodelName=gpt-4o
+ *   ./gradlew :xiuper-ui:runDslEval -DmodelProvider=openai -DmodelName=gpt-4o
  */
 fun main(args: Array<String>) {
     val runner = DslEvalRunner()
@@ -218,7 +218,7 @@ class DslEvalRunner(
                 |
                 |Example for environment variable:
                 |  export $envName=your_api_key_here
-                |  ./gradlew :xuiper-ui:runDslEval
+                |  ./gradlew :xiuper-ui:runDslEval
                 """.trimMargin()
             )
         }

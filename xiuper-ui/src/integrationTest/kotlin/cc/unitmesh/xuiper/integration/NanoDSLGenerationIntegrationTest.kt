@@ -15,7 +15,7 @@ import kotlin.time.Duration.Companion.minutes
  * 2. Calls LLM to generate NanoDSL
  * 3. Verifies the generated DSL is compilable
  * 
- * Run with: ./gradlew :xuiper-ui:integrationTest
+ * Run with: ./gradlew :xiuper-ui:integrationTest
  */
 class NanoDSLGenerationIntegrationTest : NanoDSLIntegrationTestBase() {
 

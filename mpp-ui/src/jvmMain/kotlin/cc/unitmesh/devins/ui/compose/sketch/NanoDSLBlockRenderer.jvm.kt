@@ -23,7 +23,7 @@ import androidx.compose.material3.Surface as M3Surface
  * JVM implementation of NanoDSLBlockRenderer with live UI preview.
  *
  * Features:
- * - Parses NanoDSL source code using xuiper-ui's NanoDSL parser
+ * - Parses NanoDSL source code using xiuper-ui's NanoDSL parser
  * - Renders live UI preview using StatefulNanoRenderer
  * - Toggle between preview and source code view
  * - Shows parse errors with details

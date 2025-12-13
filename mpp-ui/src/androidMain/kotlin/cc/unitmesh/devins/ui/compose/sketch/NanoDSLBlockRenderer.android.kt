@@ -16,7 +16,7 @@ import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
  * Android implementation of NanoDSLBlockRenderer.
  *
  * Displays NanoDSL code with syntax highlighting.
- * Live preview is not available on Android platform as xuiper-ui (full parser) is JVM-only.
+ * Live preview is not available on Android platform as xiuper-ui (full parser) is JVM-only.
  */
 @Composable
 actual fun NanoDSLBlockRenderer(

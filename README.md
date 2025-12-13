@@ -20,7 +20,7 @@ For AutoDev 2.0 (Stable version)
 | Module               | Platform            | Status              | Description                                           |
 |----------------------|---------------------|---------------------|-------------------------------------------------------|
 | **mpp-idea**         | IntelliJ IDEA       | ✅ Production        | Jewel UI, Agent toolwindow, code review, remote agent |
-| **mpp-vscode**       | VSCode              | ✅ Production        | Xuiper Agent                                          |
+| **mpp-vscode**       | VSCode              | ✅ Production        | Xiuper Agent                                          |
 | **mpp-ui** (Desktop) | macOS/Windows/Linux | ✅ Production        | Compose Multiplatform desktop app                     |
 | **mpp-ui** (CLI)     | Terminal (Node.js)  | ✅ Production        | Terminal UI (React/Ink), local/server mode            |
 | **mpp-ui** (Android) | Android             | ✅ Production        | Native Android app                                    |

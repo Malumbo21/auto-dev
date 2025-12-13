@@ -122,10 +122,10 @@ object AutoDevColors {
     }
 
     // ========================================================================
-    // Xuiper Brand - speed mark palette (X=>)
+    // Xiuper Brand - speed mark palette (X=>)
     // NOTE: Keep launch/splash visuals token-driven; do not hardcode colors in UI.
     // ========================================================================
-    object Xuiper {
+    object Xiuper {
         // Darker, warmer void for the splash background (distinct from AutoDev Void.bg)
         val bg = Color(0xFF07060A)
         val bg2 = Color(0xFF0B1020)

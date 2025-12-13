@@ -8,8 +8,8 @@ import java.io.File
 /**
  * Renders NanoDSL files to HTML files.
  * 
- * Run with: ./gradlew :xuiper-ui:renderHtml
- * Or: ./gradlew :xuiper-ui:renderHtml -PdslDir=testcases/expect -PoutputDir=testcases/html
+ * Run with: ./gradlew :xiuper-ui:renderHtml
+ * Or: ./gradlew :xiuper-ui:renderHtml -PdslDir=testcases/expect -PoutputDir=testcases/html
  */
 fun main(args: Array<String>) {
     val inputDir = args.getOrNull(0) ?: "testcases/actual/integration"

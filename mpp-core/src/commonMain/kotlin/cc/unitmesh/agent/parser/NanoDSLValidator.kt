@@ -39,7 +39,7 @@ sealed class NanoDSLParseResult {
 /**
  * NanoDSL validator interface - cross-platform
  * 
- * JVM platforms perform full AST parsing via xuiper-ui's NanoParser.
+ * JVM platforms perform full AST parsing via xiuper-ui's NanoParser.
  * Non-JVM platforms perform lightweight syntax checks.
  * 
  * Usage:

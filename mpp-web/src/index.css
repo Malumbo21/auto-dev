@@ -239,6 +239,74 @@ body {
   letter-spacing: 1.2px;
 }
 
+/* SDLC Pipeline visualization */
+.xu-sdlc-pipeline {
+  margin-top: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 20px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.xu-pipeline-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 18px;
+  border-radius: 12px;
+  background: rgba(99, 102, 241, 0.12);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  min-width: 140px;
+  transition: all 0.2s ease;
+}
+
+.xu-pipeline-item:hover {
+  background: rgba(99, 102, 241, 0.18);
+  border-color: rgba(99, 102, 241, 0.5);
+  transform: translateY(-2px);
+}
+
+.xu-pipeline-item--coming {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  opacity: 0.7;
+}
+
+.xu-pipeline-item--coming:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.xu-pipeline-icon {
+  font-size: 28px;
+}
+
+.xu-pipeline-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.92);
+  text-align: center;
+}
+
+.xu-pipeline-sub {
+  font-size: 11px;
+  color: rgba(229, 231, 235, 0.7);
+  text-align: center;
+}
+
+.xu-pipeline-arrow {
+  font-size: 20px;
+  color: rgba(99, 102, 241, 0.6);
+  font-weight: 700;
+  padding: 0 4px;
+}
+
 .xu-section {
   padding: 54px 0;
 }
@@ -284,8 +352,52 @@ body {
   line-height: 1.65;
   font-size: 13px;
 }
+.xu-card--platform {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 20px 16px;
+  gap: 10px;
+  min-height: 180px;
+}
+
 .xu-card--platform .xu-card__title {
-  font-size: 14px;
+  font-size: 15px;
+  margin-top: 4px;
+}
+
+.xu-card--platform .xu-card__desc {
+  flex: 1;
+}
+
+.xu-platform-icon {
+  font-size: 32px;
+  margin-bottom: 4px;
+}
+
+.xu-platform-usage {
+  margin-top: 8px;
+  padding: 6px 12px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+}
+
+.xu-platform-link {
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(99, 102, 241, 0.95);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.xu-platform-link:hover {
+  color: rgba(236, 72, 153, 0.95);
 }
 
 .xu-steps {

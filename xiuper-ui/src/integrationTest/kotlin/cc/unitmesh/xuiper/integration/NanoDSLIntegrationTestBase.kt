@@ -29,7 +29,7 @@ private val logger = KotlinLogging.logger {}
  * 
  * Test execution requires:
  * - Valid API key in ~/.autodev/config.yaml or environment variables
- * - Run with: ./gradlew :xuiper-ui:integrationTest
+ * - Run with: ./gradlew :xiuper-ui:integrationTest
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 abstract class NanoDSLIntegrationTestBase {

@@ -5,7 +5,7 @@ import cc.unitmesh.yaml.YamlUtils
 import java.io.File
 
 /**
- * Configuration loader for xuiper-ui evaluation.
+ * Configuration loader for xiuper-ui evaluation.
  * Loads LLM configuration from ~/.autodev/config.yaml
  */
 object ConfigLoader {

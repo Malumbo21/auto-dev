@@ -9,8 +9,8 @@ import java.io.File
 /**
  * Validates NanoDSL files and reports parsing results.
  *
- * Run with: ./gradlew :xuiper-ui:validateDsl
- * Or with verbose: ./gradlew :xuiper-ui:validateDsl -Pverbose=true
+ * Run with: ./gradlew :xiuper-ui:validateDsl
+ * Or with verbose: ./gradlew :xiuper-ui:validateDsl -Pverbose=true
  */
 fun main(args: Array<String>) {
     val dir = args.firstOrNull() ?: "testcases/actual/integration"

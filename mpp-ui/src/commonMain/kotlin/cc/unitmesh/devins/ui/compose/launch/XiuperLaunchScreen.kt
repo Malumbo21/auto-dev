@@ -35,13 +35,13 @@ import kotlin.math.pow
 import kotlin.math.sin
 
 /**
- * Xuiper launch screen animation - Rocket version.
+ * Xiuper launch screen animation - Rocket version.
  *
  * Intent:
  * - Rocket flies from left, passes through X, shoots to the right
  * - X lights up when rocket passes through
  * - Fire trail and energy effects
- * - Use Xuiper palette via tokens (no hardcoded UI colors).
+ * - Use Xiuper palette via tokens (no hardcoded UI colors).
  * - Respect reduced motion.
  */
 @Composable
@@ -129,8 +129,8 @@ fun XiuperLaunchScreen(
             .background(
                 Brush.radialGradient(
                     colors = listOf(
-                        AutoDevColors.Xuiper.bg2,
-                        AutoDevColors.Xuiper.bg
+                        AutoDevColors.Xiuper.bg2,
+                        AutoDevColors.Xiuper.bg
                     )
                 )
             ),
@@ -153,8 +153,8 @@ fun XiuperLaunchScreen(
 
                 fun lerp(from: Float, to: Float, t: Float): Float = from + (to - from) * t
 
-                val hot = AutoDevColors.Xuiper.markHot.copy(alpha = a)
-                val cool = AutoDevColors.Xuiper.markCool.copy(alpha = a)
+                val hot = AutoDevColors.Xiuper.markHot.copy(alpha = a)
+                val cool = AutoDevColors.Xiuper.markCool.copy(alpha = a)
 
                 // X position (centered)
                 val xCenterX = center.x
@@ -166,8 +166,8 @@ fun XiuperLaunchScreen(
                 drawCircle(
                     brush = Brush.radialGradient(
                         colors = listOf(
-                            AutoDevColors.Xuiper.markHot.copy(alpha = a * xGlowVal * 0.5f),
-                            AutoDevColors.Xuiper.markCool.copy(alpha = a * xGlowVal * 0.3f),
+                            AutoDevColors.Xiuper.markHot.copy(alpha = a * xGlowVal * 0.5f),
+                            AutoDevColors.Xiuper.markCool.copy(alpha = a * xGlowVal * 0.3f),
                             Color.Transparent
                         ),
                         center = Offset(xCenterX, center.y),
@@ -185,8 +185,8 @@ fun XiuperLaunchScreen(
                         brush = Brush.radialGradient(
                             colors = listOf(
                                 Color.Transparent,
-                                AutoDevColors.Xuiper.markHot.copy(alpha = burstAlpha),
-                                AutoDevColors.Xuiper.markCool.copy(alpha = burstAlpha * 0.6f),
+                                AutoDevColors.Xiuper.markHot.copy(alpha = burstAlpha),
+                                AutoDevColors.Xiuper.markCool.copy(alpha = burstAlpha * 0.6f),
                                 Color.Transparent
                             ),
                             center = Offset(xCenterX, center.y),
@@ -205,14 +205,14 @@ fun XiuperLaunchScreen(
 
                 // X glow (behind strokes)
                 drawLine(
-                    color = AutoDevColors.Xuiper.markHot.copy(alpha = a * xGlowVal * 0.5f),
+                    color = AutoDevColors.Xiuper.markHot.copy(alpha = a * xGlowVal * 0.5f),
                     start = x1Start,
                     end = x1End,
                     strokeWidth = stroke * 4f,
                     cap = StrokeCap.Round
                 )
                 drawLine(
-                    color = AutoDevColors.Xuiper.markCool.copy(alpha = a * xGlowVal * 0.5f),
+                    color = AutoDevColors.Xiuper.markCool.copy(alpha = a * xGlowVal * 0.5f),
                     start = x2Start,
                     end = x2End,
                     strokeWidth = stroke * 4f,
@@ -252,8 +252,8 @@ fun XiuperLaunchScreen(
                             brush = Brush.horizontalGradient(
                                 colors = listOf(
                                     Color.Transparent,
-                                    AutoDevColors.Xuiper.markHot.copy(alpha = a * fire * 0.2f),
-                                    AutoDevColors.Xuiper.markHot.copy(alpha = a * fire * 0.4f)
+                                    AutoDevColors.Xiuper.markHot.copy(alpha = a * fire * 0.2f),
+                                    AutoDevColors.Xiuper.markHot.copy(alpha = a * fire * 0.4f)
                                 ),
                                 startX = rocketX - trailLen,
                                 endX = rocketX - rocketLen
@@ -269,8 +269,8 @@ fun XiuperLaunchScreen(
                             brush = Brush.horizontalGradient(
                                 colors = listOf(
                                     Color.Transparent,
-                                    AutoDevColors.Xuiper.markHot.copy(alpha = a * fire * 0.5f),
-                                    AutoDevColors.Xuiper.markCool.copy(alpha = a * fire * 0.7f)
+                                    AutoDevColors.Xiuper.markHot.copy(alpha = a * fire * 0.5f),
+                                    AutoDevColors.Xiuper.markCool.copy(alpha = a * fire * 0.7f)
                                 ),
                                 startX = rocketX - trailLen * 0.7f,
                                 endX = rocketX - rocketLen
@@ -287,7 +287,7 @@ fun XiuperLaunchScreen(
                                 colors = listOf(
                                     Color.Transparent,
                                     Color.White.copy(alpha = a * fire * 0.6f),
-                                    AutoDevColors.Xuiper.markCool.copy(alpha = a * fire * 0.9f)
+                                    AutoDevColors.Xiuper.markCool.copy(alpha = a * fire * 0.9f)
                                 ),
                                 startX = rocketX - trailLen * 0.4f,
                                 endX = rocketX - rocketLen * 0.5f
@@ -309,7 +309,7 @@ fun XiuperLaunchScreen(
 
                             drawCircle(
                                 color = if (i % 2 == 0)
-                                    AutoDevColors.Xuiper.markHot.copy(alpha = pAlpha)
+                                    AutoDevColors.Xiuper.markHot.copy(alpha = pAlpha)
                                 else
                                     Color.White.copy(alpha = pAlpha * 0.8f),
                                 radius = pRadius,
@@ -320,7 +320,7 @@ fun XiuperLaunchScreen(
 
                     // Rocket body glow
                     drawLine(
-                        color = AutoDevColors.Xuiper.markCool.copy(alpha = a * 0.6f),
+                        color = AutoDevColors.Xiuper.markCool.copy(alpha = a * 0.6f),
                         start = Offset(rocketX - rocketLen, rocketY),
                         end = Offset(rocketX + rocketLen, rocketY),
                         strokeWidth = rocketWidth * 3f,
@@ -331,8 +331,8 @@ fun XiuperLaunchScreen(
                     drawLine(
                         brush = Brush.horizontalGradient(
                             colors = listOf(
-                                AutoDevColors.Xuiper.markHot,
-                                AutoDevColors.Xuiper.markCool,
+                                AutoDevColors.Xiuper.markHot,
+                                AutoDevColors.Xiuper.markCool,
                                 Color.White.copy(alpha = 0.9f)
                             ),
                             startX = rocketX - rocketLen,
@@ -378,9 +378,9 @@ fun XiuperLaunchScreen(
                             color = if (i % 3 == 0)
                                 Color.White.copy(alpha = sparkAlpha)
                             else if (i % 3 == 1)
-                                AutoDevColors.Xuiper.markHot.copy(alpha = sparkAlpha)
+                                AutoDevColors.Xiuper.markHot.copy(alpha = sparkAlpha)
                             else
-                                AutoDevColors.Xuiper.markCool.copy(alpha = sparkAlpha),
+                                AutoDevColors.Xiuper.markCool.copy(alpha = sparkAlpha),
                             radius = sparkRadius,
                             center = Offset(sparkX, sparkY)
                         )
@@ -391,10 +391,10 @@ fun XiuperLaunchScreen(
             val textAlpha = fade.value * xGlow.value
 
             Text(
-                text = "Xuiper",
+                text = "Xiuper",
                 fontSize = 50.sp,
                 fontWeight = FontWeight.Bold,
-                color = AutoDevColors.Xuiper.text.copy(alpha = textAlpha)
+                color = AutoDevColors.Xiuper.text.copy(alpha = textAlpha)
             )
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -404,7 +404,7 @@ fun XiuperLaunchScreen(
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium,
                 letterSpacing = 3.sp,
-                color = AutoDevColors.Xuiper.textSecondary.copy(alpha = textAlpha)
+                color = AutoDevColors.Xiuper.textSecondary.copy(alpha = textAlpha)
             )
         }
     }

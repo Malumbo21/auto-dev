@@ -4,7 +4,7 @@
  * Handles NanoUI actions in a React environment.
  * Provides platform-specific implementations for navigation, toast, and fetch.
  * 
- * @see xuiper-ui/src/main/kotlin/cc/unitmesh/xuiper/action/NanoActionHandler.kt
+ * @see xiuper-ui/src/main/kotlin/cc/unitmesh/xuiper/action/NanoActionHandler.kt
  */
 
 // Types are defined locally to avoid circular dependencies

@@ -4,7 +4,7 @@
  * TypeScript types matching the Kotlin NanoIR data classes.
  * Used for rendering NanoUI components in the VSCode webview.
  * 
- * @see xuiper-ui/src/main/kotlin/cc/unitmesh/xuiper/ir/NanoIR.kt
+ * @see xiuper-ui/src/main/kotlin/cc/unitmesh/xuiper/ir/NanoIR.kt
  */
 
 /**

@@ -3,7 +3,7 @@
  *
  * Provides React components for rendering NanoIR to the VSCode webview.
  *
- * @see xuiper-ui/src/main/kotlin/cc/unitmesh/xuiper/render/NanoRenderer.kt
+ * @see xiuper-ui/src/main/kotlin/cc/unitmesh/xuiper/render/NanoRenderer.kt
  */
 
 export { NanoRenderer } from './NanoRenderer';

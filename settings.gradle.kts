@@ -17,7 +17,7 @@ include("mpp-codegraph")
 include("mpp-server")
 include("mpp-viewer")
 include("mpp-viewer-web")
-include("xuiper-ui")
+include("xiuper-ui")
 
 // IDEA plugin as composite build
 includeBuild("mpp-idea")

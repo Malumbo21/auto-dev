@@ -204,7 +204,7 @@ JSON
 
 ```bash
 # 配置 API Key (支持从 ~/.autodev/config.yaml 自动读取)
-./gradlew :xuiper-ui:runDslEval
+./gradlew :xiuper-ui:runDslEval
 ```
 
 ### **7.2 目录结构**

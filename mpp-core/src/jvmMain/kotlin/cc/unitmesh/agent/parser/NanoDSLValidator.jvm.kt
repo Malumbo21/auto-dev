@@ -7,7 +7,7 @@ private val logger = getLogger("NanoDSLValidator.JVM")
 /**
  * JVM implementation of NanoDSLValidator.
  * 
- * Attempts to use xuiper-ui's NanoParser if available via reflection,
+ * Attempts to use xiuper-ui's NanoParser if available via reflection,
  * otherwise falls back to basic validation.
  */
 actual class NanoDSLValidator actual constructor() {
@@ -19,13 +19,13 @@ actual class NanoDSLValidator actual constructor() {
     private var toJsonMethod: java.lang.reflect.Method? = null
     
     init {
-        // Try to load xuiper-ui's NanoDSL class via reflection
+        // Try to load xiuper-ui's NanoDSL class via reflection
         fullParserAvailable = try {
             nanoDSLClass = Class.forName("cc.unitmesh.xuiper.dsl.NanoDSL")
             validateMethod = nanoDSLClass!!.getDeclaredMethod("validate", String::class.java)
             parseResultMethod = nanoDSLClass!!.getDeclaredMethod("parseResult", String::class.java)
             toJsonMethod = nanoDSLClass!!.getDeclaredMethod("toJson", String::class.java, Boolean::class.javaPrimitiveType)
-            logger.info { "NanoDSL parser available via xuiper-ui" }
+            logger.info { "NanoDSL parser available via xiuper-ui" }
             true
         } catch (e: Exception) {
             logger.debug { "NanoDSL parser not available: ${e.message}" }
@@ -78,7 +78,7 @@ actual class NanoDSLValidator actual constructor() {
     }
     
     /**
-     * Convert xuiper-ui's ValidationResult to our NanoDSLValidationResult via reflection
+     * Convert xiuper-ui's ValidationResult to our NanoDSLValidationResult via reflection
      */
     private fun convertValidationResult(result: Any): NanoDSLValidationResult {
         return try {

@@ -10,7 +10,7 @@ import androidx.compose.ui.Modifier
  * with fallback to syntax-highlighted code display.
  *
  * On non-JVM platforms (JS, WASM, iOS, Android): Displays syntax-highlighted NanoDSL code only,
- * as the full parser (xuiper-ui) is JVM-only.
+ * as the full parser (xiuper-ui) is JVM-only.
  *
  * Usage in SketchRenderer:
  * ```kotlin
