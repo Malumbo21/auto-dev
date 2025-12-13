@@ -10,6 +10,7 @@ plugins {
     id("org.jetbrains.compose")
     kotlin("plugin.serialization")
     id("org.jetbrains.kotlin.plugin.compose")
+    id("com.android.library")
 }
 
 repositories {
@@ -39,6 +40,23 @@ kotlin {
         }
         testRuns["test"].executionTask.configure {
             useJUnitPlatform()
+        }
+    }
+
+    androidTarget {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        }
+    }
+
+    listOf(
+        iosX64(),
+        iosArm64(),
+        iosSimulatorArm64()
+    ).forEach { iosTarget ->
+        iosTarget.binaries.framework {
+            baseName = "AutoDevViewerWeb"
+            isStatic = true
         }
     }
 
@@ -166,3 +184,16 @@ tasks.matching { it.name.contains("processResources", ignoreCase = true) }.confi
     dependsOn(downloadMermaid)
 }
 
+android {
+    namespace = "cc.unitmesh.viewer.web"
+    compileSdk = 36
+
+    defaultConfig {
+        minSdk = 24
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+}
