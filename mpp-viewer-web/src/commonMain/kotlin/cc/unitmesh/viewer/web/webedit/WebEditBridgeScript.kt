@@ -12,10 +12,18 @@ package cc.unitmesh.viewer.web.webedit
  */
 fun getWebEditBridgeScript(): String = """
 (function() {
+    console.log('[WebEditBridge] Script injection starting...');
+    
     // Prevent multiple injections
-    if (window.webEditBridge) return;
-
+    if (window.webEditBridge) {
+        console.log('[WebEditBridge] Already injected, skipping');
+        return;
+    }
+    
+    console.log('[WebEditBridge] Checking kmpJsBridge availability:', typeof window.kmpJsBridge);
+    
     // ========== Shadow DOM Inspect Overlay ==========
+    console.log('[WebEditBridge] Creating overlay host...');
     // Create isolated overlay container using Shadow DOM
     const overlayHost = document.createElement('div');
     overlayHost.id = 'webedit-inspect-overlay-host';
@@ -381,12 +389,34 @@ fun getWebEditBridgeScript(): String = """
 
         // Send message to Kotlin
         sendToKotlin: function(type, data) {
+            console.log('[WebEditBridge] sendToKotlin called:', type, data);
+            console.log('[WebEditBridge] kmpJsBridge available:', typeof window.kmpJsBridge);
+            
             if (window.kmpJsBridge && window.kmpJsBridge.callNative) {
-                window.kmpJsBridge.callNative('webEditMessage',
-                    JSON.stringify({ type: type, data: data }), function() {});
+                console.log('[WebEditBridge] Calling kmpJsBridge.callNative...');
+                try {
+                    const message = JSON.stringify({ type: type, data: data });
+                    console.log('[WebEditBridge] Message:', message);
+                    window.kmpJsBridge.callNative('webEditMessage', message, function(result) {
+                        console.log('[WebEditBridge] Kotlin callback result:', result);
+                    });
+                } catch (e) {
+                    console.error('[WebEditBridge] Error calling native:', e);
+                }
+            } else {
+                console.error('[WebEditBridge] kmpJsBridge not available!');
             }
         }
     };
+    
+    console.log('[WebEditBridge] Bridge object created');
+    
+    // Send initial PageLoaded message
+    console.log('[WebEditBridge] Sending PageLoaded message...');
+    window.webEditBridge.sendToKotlin('PageLoaded', {
+        url: window.location.href,
+        title: document.title
+    });
 
     // ========== Event Handlers for Inspect Mode ==========
     let lastHoverTime = 0;

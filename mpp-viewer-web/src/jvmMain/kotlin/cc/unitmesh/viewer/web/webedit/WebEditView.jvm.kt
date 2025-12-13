@@ -83,6 +83,8 @@ actual fun WebEditView(
 
     // Register JS bridge handlers for messages from WebView
     LaunchedEffect(Unit) {
+        println("[WebEditView] Registering JS bridge handler: webEditMessage")
+        
         jsBridge.register(object : IJsMessageHandler {
             override fun methodName(): String = "webEditMessage"
 
@@ -91,16 +93,27 @@ actual fun WebEditView(
                 navigator: WebViewNavigator?,
                 callback: (String) -> Unit
             ) {
+                println("[WebEditView] JS Bridge message received: ${message.params}")
+                
                 try {
                     val json = Json.parseToJsonElement(message.params).jsonObject
-                    val type = json["type"]?.jsonPrimitive?.content ?: return
+                    val type = json["type"]?.jsonPrimitive?.content ?: run {
+                        println("[WebEditView] ERROR: Message has no type field")
+                        return
+                    }
                     // data is now an object, not a string
-                    val data = json["data"]?.jsonObject ?: return
+                    val data = json["data"]?.jsonObject ?: run {
+                        println("[WebEditView] ERROR: Message has no data field")
+                        return
+                    }
+                    
+                    println("[WebEditView] Message type: $type")
 
                     when (type) {
                         "PageLoaded" -> {
                             val url = data["url"]?.jsonPrimitive?.content ?: ""
                             val title = data["title"]?.jsonPrimitive?.content ?: ""
+                            println("[WebEditView] ✓ PageLoaded: url=$url, title=$title")
                             bridge.handleMessage(WebEditMessage.PageLoaded(url, title))
                             onPageLoaded(url, title)
                         }
@@ -109,6 +122,7 @@ actual fun WebEditView(
                             if (elementJson != null) {
                                 val element = parseElement(elementJson.toString())
                                 if (element != null) {
+                                    println("[WebEditView] ✓ ElementSelected: ${element.tagName} - ${element.selector}")
                                     bridge.handleMessage(WebEditMessage.ElementSelected(element))
                                     onElementSelected(element)
                                 }
@@ -119,6 +133,7 @@ actual fun WebEditView(
                             if (rootJson != null) {
                                 val root = parseElement(rootJson.toString())
                                 if (root != null) {
+                                    println("[WebEditView] ✓ DOMTreeUpdated: ${root.children.size} children")
                                     bridge.handleMessage(WebEditMessage.DOMTreeUpdated(root))
                                     onDOMTreeUpdated(root)
                                 }
@@ -126,11 +141,13 @@ actual fun WebEditView(
                         }
                         "Error" -> {
                             val errorMessage = data["message"]?.jsonPrimitive?.content ?: "Unknown error"
+                            println("[WebEditView] ✗ Error from JS: $errorMessage")
                             bridge.handleMessage(WebEditMessage.Error(errorMessage))
                         }
                     }
                 } catch (e: Exception) {
-                    println("[WebEditView] Error parsing message: ${e.message}")
+                    println("[WebEditView] ✗ Error parsing message: ${e.message}")
+                    e.printStackTrace()
                 }
                 callback("ok")
             }
@@ -139,10 +156,16 @@ actual fun WebEditView(
 
     // Monitor loading state and inject script when page loads
     LaunchedEffect(webViewState.isLoading, webViewState.lastLoadedUrl, loadingState) {
+        println("[WebEditView] State changed: isLoading=${webViewState.isLoading}, lastLoadedUrl=${webViewState.lastLoadedUrl}, loadingState=$loadingState")
+        
         when {
             // Handle finished state
             !webViewState.isLoading && loadingState is LoadingState.Finished -> {
+                println("[WebEditView] Page finished loading: ${webViewState.lastLoadedUrl}")
+                
                 if (webViewState.lastLoadedUrl != null && webViewState.lastLoadedUrl != "about:blank") {
+                    println("[WebEditView] Processing loaded page: ${webViewState.lastLoadedUrl}")
+                    
                     // Update bridge state
                     if (bridge is JvmWebEditBridge) {
                         bridge.setLoading(false)
@@ -155,22 +178,44 @@ actual fun WebEditView(
                     // We'll detect this by checking if the JavaScript bridge can be injected
                     try {
                         // Inject the WebEdit bridge script
+                        println("[WebEditView] Waiting 300ms for page to stabilize...")
                         kotlinx.coroutines.delay(300) // Wait for page to stabilize
+                        
+                        println("[WebEditView] Injecting bridge script...")
                         val script = getWebEditBridgeScript()
                         webViewNavigator.evaluateJavaScript(script)
-
+                        
+                        println("[WebEditView] ✓ Bridge script injected successfully")
+                        
+                        // Test JavaScript execution
+                        println("[WebEditView] Testing JavaScript execution...")
+                        webViewNavigator.evaluateJavaScript("""
+                            (function() {
+                                if (window.kmpJsBridge) {
+                                    window.kmpJsBridge.callNative('webEditMessage', JSON.stringify({
+                                        type: 'PageLoaded',
+                                        data: { url: window.location.href, title: document.title }
+                                    }), function(r) {});
+                                }
+                            })();
+                        """.trimIndent())
+                        
                         bridge.markReady()
-                        println("[WebEditView] Bridge script injected for: ${webViewState.lastLoadedUrl}")
+                        println("[WebEditView] ✓ Bridge marked as ready for: ${webViewState.lastLoadedUrl}")
                     } catch (e: Exception) {
-                        println("[WebEditView] Failed to inject bridge script: ${e.message}")
+                        println("[WebEditView] ✗ Failed to inject bridge script: ${e.message}")
+                        e.printStackTrace()
                         if (bridge is JvmWebEditBridge) {
                             bridge.handleMessage(WebEditMessage.Error("Failed to load page: ${e.message}"))
                         }
                     }
+                } else {
+                    println("[WebEditView] Skipping blank page: ${webViewState.lastLoadedUrl}")
                 }
             }
             // Handle loading state
             webViewState.isLoading -> {
+                println("[WebEditView] Page is loading...")
                 if (bridge is JvmWebEditBridge) {
                     bridge.setLoading(true)
                 }
