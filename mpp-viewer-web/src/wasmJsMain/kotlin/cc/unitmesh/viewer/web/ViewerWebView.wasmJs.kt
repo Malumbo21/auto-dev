@@ -1,5 +1,13 @@
 package cc.unitmesh.viewer.web
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import cc.unitmesh.config.console
+import cc.unitmesh.viewer.ViewerHost
+import cc.unitmesh.viewer.ViewerRequest
+
 /**
  * WASM JS implementation: Inline viewer HTML content
  * 
@@ -111,14 +119,6 @@ actual fun getViewerHtml(): String {
     """.trimIndent()
 }
 
-package cc.unitmesh.viewer.web
-
-import androidx.compose.foundation.layout.Box
-import androidx.compose.material.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import cc.unitmesh.viewer.ViewerHost
-import cc.unitmesh.viewer.ViewerRequest
 
 /**
  * Create a WebViewerHost instance for JS platform

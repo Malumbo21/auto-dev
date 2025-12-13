@@ -105,13 +105,6 @@ actual object MarkdownSketchRenderer {
                                 highlightsBuilder = highlightsBuilder,
                                 showHeader = true,
                             )
-
-                            if (language?.lowercase() == "mermaid" && isComplete) {
-                                cc.unitmesh.viewer.web.MermaidRenderer(
-                                    mermaidCode = code,
-                                    modifier = Modifier.fillMaxWidth().heightIn(min = 200.dp)
-                                )
-                            }
                         }
                     },
                 ),
