@@ -122,6 +122,28 @@ object AutoDevColors {
     }
 
     // ========================================================================
+    // Xuiper Brand - speed mark palette (X=>)
+    // NOTE: Keep launch/splash visuals token-driven; do not hardcode colors in UI.
+    // ========================================================================
+    object Xuiper {
+        // Darker, warmer void for the splash background (distinct from AutoDev Void.bg)
+        val bg = Color(0xFF07060A)
+        val bg2 = Color(0xFF0B1020)
+
+        // Speed mark colors
+        val markHot = Color(0xFFFF4D00)        // neon orange
+        val markCool = Color(0xFF7C3AED)       // electric violet
+
+        // Glow helpers
+        val markHotDim = Color(0x40FF4D00)     // 25% opacity
+        val markCoolDim = Color(0x407C3AED)    // 25% opacity
+
+        // Text on splash (off-white)
+        val text = Text.primary
+        val textSecondary = Text.secondary
+    }
+
+    // ========================================================================
     // Diff Colors - Diff 显示专用颜色
     // ========================================================================
     data class DiffColors(

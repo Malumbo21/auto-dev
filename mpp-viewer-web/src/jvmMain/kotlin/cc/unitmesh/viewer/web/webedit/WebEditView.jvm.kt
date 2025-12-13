@@ -1,7 +1,7 @@
 package cc.unitmesh.viewer.web.webedit
 
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material.LinearProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import com.multiplatform.webview.jsbridge.IJsMessageHandler
