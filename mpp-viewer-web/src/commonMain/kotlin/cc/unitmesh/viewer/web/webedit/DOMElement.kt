@@ -62,6 +62,24 @@ sealed class WebEditMessage {
     data class DOMTreeUpdated(val root: DOMElement) : WebEditMessage()
     
     /**
+     * D2Snap compressed DOM tree updated
+     */
+    @Serializable
+    data class D2SnapTreeUpdated(val root: D2SnapElement) : WebEditMessage()
+    
+    /**
+     * Accessibility tree updated
+     */
+    @Serializable
+    data class AccessibilityTreeUpdated(val root: AccessibilityNode) : WebEditMessage()
+    
+    /**
+     * Actionable elements updated (from accessibility tree)
+     */
+    @Serializable
+    data class ActionableElementsUpdated(val elements: List<AccessibilityNode>) : WebEditMessage()
+    
+    /**
      * Element selected by user
      */
     @Serializable
@@ -84,6 +102,12 @@ sealed class WebEditMessage {
      */
     @Serializable
     data class LoadProgress(val progress: Int) : WebEditMessage()
+    
+    /**
+     * DOM changed notification (from MutationObserver)
+     */
+    @Serializable
+    data class DOMChanged(val mutationCount: Int) : WebEditMessage()
 }
 
 /**

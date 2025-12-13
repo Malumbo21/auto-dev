@@ -112,6 +112,23 @@ interface WebEditBridge {
     suspend fun refreshDOMTree()
 
     /**
+     * Get D2Snap compressed DOM tree (optimized for LLM consumption)
+     * Based on: https://arxiv.org/html/2508.04412v2
+     */
+    suspend fun refreshD2SnapTree()
+
+    /**
+     * Get Accessibility Tree (semantic tree for screen readers/LLM)
+     * Based on: https://arxiv.org/html/2508.04412v2
+     */
+    suspend fun refreshAccessibilityTree()
+
+    /**
+     * Get only actionable elements from the page
+     */
+    suspend fun refreshActionableElements()
+
+    /**
      * Get element at specific coordinates
      */
     suspend fun getElementAtPoint(x: Int, y: Int): DOMElement?

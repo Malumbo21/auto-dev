@@ -116,6 +116,21 @@ class WasmWebEditBridge : WebEditBridge {
         executeJavaScript?.invoke(script)
     }
 
+    override suspend fun refreshD2SnapTree() {
+        val script = "window.webEditBridge?.getD2SnapTree();"
+        executeJavaScript?.invoke(script)
+    }
+
+    override suspend fun refreshAccessibilityTree() {
+        val script = "window.webEditBridge?.getAccessibilityTree();"
+        executeJavaScript?.invoke(script)
+    }
+
+    override suspend fun refreshActionableElements() {
+        val script = "window.webEditBridge?.getActionableElements();"
+        executeJavaScript?.invoke(script)
+    }
+
     override suspend fun getElementAtPoint(x: Int, y: Int): DOMElement? {
         // TODO: Implement using JavaScript callback mechanism similar to getSelectedElementHtml
         // This requires invoking JS to call window.webEditBridge.getElementAtPoint(x, y)
@@ -142,6 +157,15 @@ class WasmWebEditBridge : WebEditBridge {
                 _domTree.value = message.root
                 _errorMessage.value = null // Clear error on successful update
             }
+            is WebEditMessage.D2SnapTreeUpdated -> {
+                // D2Snap tree is for LLM consumption, not stored in bridge state
+            }
+            is WebEditMessage.AccessibilityTreeUpdated -> {
+                // Accessibility tree is for LLM consumption, not stored in bridge state
+            }
+            is WebEditMessage.ActionableElementsUpdated -> {
+                // Actionable elements are for LLM consumption, not stored in bridge state
+            }
             is WebEditMessage.ElementSelected -> {
                 _selectedElement.value = message.element
             }
@@ -158,6 +182,9 @@ class WasmWebEditBridge : WebEditBridge {
             }
             is WebEditMessage.LoadProgress -> {
                 _loadProgress.value = message.progress
+            }
+            is WebEditMessage.DOMChanged -> {
+                // DOM changes trigger automatic refresh via MutationObserver
             }
         }
     }

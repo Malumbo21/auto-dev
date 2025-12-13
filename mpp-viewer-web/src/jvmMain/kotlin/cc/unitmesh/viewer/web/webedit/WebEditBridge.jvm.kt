@@ -127,6 +127,21 @@ class JvmWebEditBridge : WebEditBridge {
         executeJavaScript?.invoke(script)
     }
 
+    override suspend fun refreshD2SnapTree() {
+        val script = "window.webEditBridge?.getD2SnapTree();"
+        executeJavaScript?.invoke(script)
+    }
+
+    override suspend fun refreshAccessibilityTree() {
+        val script = "window.webEditBridge?.getAccessibilityTree();"
+        executeJavaScript?.invoke(script)
+    }
+
+    override suspend fun refreshActionableElements() {
+        val script = "window.webEditBridge?.getActionableElements();"
+        executeJavaScript?.invoke(script)
+    }
+
     override suspend fun getElementAtPoint(x: Int, y: Int): DOMElement? {
         // TODO: Implement using JavaScript callback mechanism similar to getSelectedElementHtml
         // This requires invoking JS to call window.webEditBridge.getElementAtPoint(x, y)
@@ -160,6 +175,22 @@ class JvmWebEditBridge : WebEditBridge {
                 _domTree.value = message.root
                 _errorMessage.value = null // Clear error on successful update
             }
+            is WebEditMessage.D2SnapTreeUpdated -> {
+                println("[JvmWebEditBridge] 📦 D2Snap Tree Updated:")
+                println("  - Root: ${message.root.tagName}")
+                println("  - Children: ${message.root.children.size}")
+                // D2Snap tree is for LLM consumption, not stored in bridge state
+            }
+            is WebEditMessage.AccessibilityTreeUpdated -> {
+                println("[JvmWebEditBridge] ♿ Accessibility Tree Updated:")
+                println("  - Root role: ${message.root.role}")
+                println("  - Root name: ${message.root.name}")
+                // Accessibility tree is for LLM consumption, not stored in bridge state
+            }
+            is WebEditMessage.ActionableElementsUpdated -> {
+                println("[JvmWebEditBridge] 🎯 Actionable Elements Updated: ${message.elements.size} elements")
+                // Actionable elements are for LLM consumption, not stored in bridge state
+            }
             is WebEditMessage.ElementSelected -> {
                 println("[JvmWebEditBridge] ✨ Element Selected: ${message.element.tagName}")
                 _selectedElement.value = message.element
@@ -179,6 +210,10 @@ class JvmWebEditBridge : WebEditBridge {
             is WebEditMessage.LoadProgress -> {
                 println("[JvmWebEditBridge] ⏳ Load Progress: ${message.progress}%")
                 _loadProgress.value = message.progress
+            }
+            is WebEditMessage.DOMChanged -> {
+                println("[JvmWebEditBridge] 🔄 DOM Changed: ${message.mutationCount} mutations")
+                // DOM changes trigger automatic refresh via MutationObserver
             }
         }
     }

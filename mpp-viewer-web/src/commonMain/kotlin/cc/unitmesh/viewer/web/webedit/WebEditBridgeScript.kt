@@ -224,24 +224,42 @@ fun getWebEditBridgeScript(): String = """
             this.clearSelection();
         },
 
-        // ========== MutationObserver for DOM Changes ==========
+        // ========== MutationObserver for DOM Changes with Throttled Refresh ==========
+        domRefreshPending: false,
+        domRefreshTimeout: null,
+        DOM_REFRESH_THROTTLE: 1000, // ms
+
         startMutationObserver: function() {
             if (this.mutationObserver) return;
+            const self = this;
 
             this.mutationObserver = new MutationObserver((mutations) => {
                 // Update highlights if elements are still in DOM
-                if (this.highlightedElement && !document.contains(this.highlightedElement)) {
-                    this.clearHoverHighlight();
+                if (self.highlightedElement && !document.contains(self.highlightedElement)) {
+                    self.clearHoverHighlight();
                 }
-                if (this.selectedElement && !document.contains(this.selectedElement)) {
-                    this.clearSelection();
-                } else if (this.selectedElement) {
+                if (self.selectedElement && !document.contains(self.selectedElement)) {
+                    self.clearSelection();
+                } else if (self.selectedElement) {
                     // Update position if element moved
-                    this.updateHighlightBox(this.selectedElement, selectedBox);
+                    self.updateHighlightBox(self.selectedElement, selectedBox);
+                }
+
+                // Throttled DOM tree refresh
+                if (!self.domRefreshPending) {
+                    self.domRefreshPending = true;
+                    if (self.domRefreshTimeout) {
+                        clearTimeout(self.domRefreshTimeout);
+                    }
+                    self.domRefreshTimeout = setTimeout(function() {
+                        self.domRefreshPending = false;
+                        self.getDOMTree();
+                        console.log('[WebEditBridge] DOM tree refreshed after mutations');
+                    }, self.DOM_REFRESH_THROTTLE);
                 }
 
                 // Notify Kotlin about DOM changes
-                this.sendToKotlin('DOMChanged', {
+                self.sendToKotlin('DOMChanged', {
                     mutationCount: mutations.length
                 });
             });
@@ -255,6 +273,11 @@ fun getWebEditBridgeScript(): String = """
         },
 
         stopMutationObserver: function() {
+            if (this.domRefreshTimeout) {
+                clearTimeout(this.domRefreshTimeout);
+                this.domRefreshTimeout = null;
+            }
+            this.domRefreshPending = false;
             if (this.mutationObserver) {
                 this.mutationObserver.disconnect();
                 this.mutationObserver = null;
@@ -385,6 +408,337 @@ fun getWebEditBridgeScript(): String = """
 
             const tree = buildTree(document.body, 0, false);
             this.sendToKotlin('DOMTreeUpdated', { root: tree });
+        },
+
+        // ========== D2Snap: DOM Downsampling Algorithm ==========
+        // Based on: https://arxiv.org/html/2508.04412v2
+        INTERACTIVE_TAGS: new Set(['a', 'button', 'input', 'select', 'textarea', 'option', 'optgroup', 'label', 'form', 'details', 'summary', 'dialog', 'menu', 'menuitem']),
+        SEMANTIC_TAGS: new Set(['header', 'footer', 'nav', 'main', 'article', 'section', 'aside', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'ul', 'ol', 'li', 'dl', 'dt', 'dd', 'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td', 'caption', 'figure', 'figcaption', 'blockquote', 'pre', 'code', 'img', 'video', 'audio', 'iframe', 'embed', 'object', 'canvas', 'svg']),
+        PRESERVED_ATTRS: new Set(['id', 'name', 'class', 'type', 'href', 'src', 'alt', 'title', 'value', 'placeholder', 'disabled', 'readonly', 'checked', 'selected', 'required', 'role', 'for', 'tabindex', 'contenteditable']),
+        DYNAMIC_ID_PATTERNS: [
+            /^(.+?)-[0-9a-f]{8,}$/,
+            /^(.+?)-\d{4,}$/,
+            /^(.+?)_[0-9a-f]{8,}$/,
+            /^(.+?)_\d{4,}$/,
+            /^:r[0-9a-z]+:$/,
+            /^(.+?)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+        ],
+
+        truncateDynamicId: function(id) {
+            for (const pattern of this.DYNAMIC_ID_PATTERNS) {
+                const match = id.match(pattern);
+                if (match) {
+                    const prefix = match[1] || '';
+                    return prefix ? prefix + '-{dynamic}' : '{dynamic}';
+                }
+            }
+            return id;
+        },
+
+        filterD2SnapAttributes: function(el) {
+            const attrs = {};
+            const self = this;
+            
+            Array.from(el.attributes).forEach(attr => {
+                const name = attr.name.toLowerCase();
+                if (self.PRESERVED_ATTRS.has(name) || name.startsWith('aria-') || name.startsWith('data-testid')) {
+                    let value = attr.value;
+                    if (name === 'id') {
+                        value = self.truncateDynamicId(value);
+                    } else if (name === 'class') {
+                        // Keep only first 3 meaningful classes, filter utility classes
+                        value = value.split(/\s+/)
+                            .filter(c => c && !/^[a-z]{1,2}-\d+$/.test(c))
+                            .slice(0, 3)
+                            .join(' ');
+                    } else {
+                        value = value.substring(0, 200);
+                    }
+                    if (value) attrs[name] = value;
+                }
+            });
+            return attrs;
+        },
+
+        shouldPreserveD2SnapNode: function(el, attrs, childCount) {
+            const tag = el.tagName.toLowerCase();
+            if (this.INTERACTIVE_TAGS.has(tag)) return true;
+            if (this.SEMANTIC_TAGS.has(tag)) return true;
+            if (el.shadowRoot) return true;
+            if (childCount > 1) return true;
+            
+            const text = (el.textContent || '').trim();
+            if (text.length > 2) return true;
+            
+            const hasAria = Object.keys(attrs).some(k => k.startsWith('aria-'));
+            if (hasAria || attrs.role || attrs.id || attrs.name) return true;
+            
+            return false;
+        },
+
+        getD2SnapTree: function(maxDepth, maxTextLen) {
+            maxDepth = maxDepth || 10;
+            maxTextLen = maxTextLen || 100;
+            const self = this;
+
+            function buildD2Snap(el, depth, isInShadow) {
+                if (depth > maxDepth) return null;
+
+                const tag = el.tagName.toLowerCase();
+                const attrs = self.filterD2SnapAttributes(el);
+                
+                // Build children first
+                const children = [];
+                Array.from(el.children).slice(0, 30).forEach(child => {
+                    const childNode = buildD2Snap(child, depth + 1, isInShadow);
+                    if (childNode) children.push(childNode);
+                });
+                
+                // Process shadow DOM
+                if (el.shadowRoot) {
+                    Array.from(el.shadowRoot.children).slice(0, 30).forEach(child => {
+                        const childNode = buildD2Snap(child, depth + 1, true);
+                        if (childNode) children.push(childNode);
+                    });
+                }
+
+                // Apply flattening rules
+                if (!self.shouldPreserveD2SnapNode(el, attrs, children.length)) {
+                    if (children.length === 1) return children[0]; // Flatten
+                    if (children.length === 0) return null; // Remove empty
+                }
+
+                // Truncate text
+                let text = (el.textContent || '').trim();
+                if (text.length > maxTextLen) {
+                    text = text.substring(0, maxTextLen) + '...';
+                }
+
+                return {
+                    id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2, 11)),
+                    tagName: tag,
+                    selector: self.getSelector(el),
+                    text: text || null,
+                    attributes: attrs,
+                    children: children,
+                    isShadowHost: !!el.shadowRoot,
+                    inShadowRoot: isInShadow || false
+                };
+            }
+
+            const tree = buildD2Snap(document.body, 0, false);
+            this.sendToKotlin('D2SnapTreeUpdated', { root: tree });
+            return tree;
+        },
+
+        // ========== Accessibility Tree Extraction ==========
+        // Based on: https://arxiv.org/html/2508.04412v2
+        computeRole: function(el) {
+            const tag = el.tagName.toLowerCase();
+            const role = el.getAttribute('role');
+            if (role) return role;
+
+            const type = el.getAttribute('type');
+            const roleMap = {
+                'button': 'button',
+                'a': el.hasAttribute('href') ? 'link' : null,
+                'input': this.computeInputRole(type),
+                'select': el.hasAttribute('multiple') ? 'listbox' : 'combobox',
+                'textarea': 'textbox',
+                'img': 'img',
+                'nav': 'navigation',
+                'main': 'main',
+                'header': 'banner',
+                'footer': 'contentinfo',
+                'aside': 'complementary',
+                'article': 'article',
+                'section': (el.hasAttribute('aria-label') || el.hasAttribute('aria-labelledby')) ? 'region' : null,
+                'form': 'form',
+                'table': 'table',
+                'tr': 'row',
+                'th': 'columnheader',
+                'td': 'cell',
+                'ul': 'list',
+                'ol': 'list',
+                'li': 'listitem',
+                'dialog': 'dialog',
+                'menu': 'menu',
+                'menuitem': 'menuitem',
+                'details': 'group',
+                'summary': 'button',
+                'h1': 'heading', 'h2': 'heading', 'h3': 'heading', 'h4': 'heading', 'h5': 'heading', 'h6': 'heading',
+                'progress': 'progressbar',
+                'meter': 'meter',
+                'option': 'option',
+                'search': 'search',
+                'output': 'status'
+            };
+            return roleMap[tag] || null;
+        },
+
+        computeInputRole: function(type) {
+            const inputRoles = {
+                'button': 'button', 'submit': 'button', 'reset': 'button', 'image': 'button',
+                'checkbox': 'checkbox', 'radio': 'radio', 'range': 'slider',
+                'number': 'spinbutton', 'search': 'searchbox', 'hidden': 'none',
+                'file': 'button', 'color': 'button'
+            };
+            return inputRoles[type] || 'textbox';
+        },
+
+        computeAccessibleName: function(el) {
+            const ariaLabel = el.getAttribute('aria-label');
+            if (ariaLabel) return ariaLabel;
+            
+            const tag = el.tagName.toLowerCase();
+            if (tag === 'input' || tag === 'textarea') {
+                const placeholder = el.getAttribute('placeholder');
+                if (placeholder) return placeholder;
+            }
+            if (tag === 'img') {
+                const alt = el.getAttribute('alt');
+                if (alt) return alt;
+            }
+            
+            const textTags = ['a', 'button', 'label', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'option', 'summary'];
+            if (textTags.includes(tag)) {
+                const text = (el.textContent || '').trim();
+                if (text && text.length < 200) return text;
+            }
+            
+            const title = el.getAttribute('title');
+            if (title) return title;
+            
+            const text = (el.textContent || '').trim();
+            if (text && text.length < 50) return text;
+            
+            return null;
+        },
+
+        computeState: function(el) {
+            const state = {};
+            const attrs = ['disabled', 'readonly', 'required', 'checked', 'selected', 'hidden', 'open'];
+            attrs.forEach(attr => {
+                if (el.hasAttribute(attr)) state[attr === 'open' ? 'expanded' : attr] = true;
+            });
+            
+            const ariaStates = {
+                'aria-disabled': 'disabled',
+                'aria-hidden': 'hidden',
+                'aria-expanded': 'expanded',
+                'aria-selected': 'selected',
+                'aria-checked': 'checked',
+                'aria-pressed': 'pressed',
+                'aria-invalid': 'invalid',
+                'aria-busy': 'busy'
+            };
+            
+            Object.entries(ariaStates).forEach(([ariaAttr, stateKey]) => {
+                const val = el.getAttribute(ariaAttr);
+                if (val === 'true') state[stateKey] = true;
+                if (val === 'false' && state[stateKey]) delete state[stateKey];
+            });
+            
+            return state;
+        },
+
+        computeValue: function(el) {
+            const tag = el.tagName.toLowerCase();
+            if (['input', 'textarea'].includes(tag)) {
+                const type = el.getAttribute('type');
+                if (type === 'password') return null;
+                const val = el.value || el.getAttribute('value');
+                return val && val.length < 100 ? val : null;
+            }
+            if (['progress', 'meter'].includes(tag)) {
+                return el.getAttribute('value');
+            }
+            return null;
+        },
+
+        getAccessibilityTree: function() {
+            const self = this;
+            const actionableRoles = new Set(['button', 'link', 'textbox', 'checkbox', 'radio', 'combobox', 'listbox', 'menuitem', 'option', 'slider', 'spinbutton', 'switch', 'tab', 'searchbox']);
+
+            function buildA11yNode(el, depth) {
+                if (depth > 15) return null;
+                
+                const tag = el.tagName.toLowerCase();
+                const role = self.computeRole(el);
+                const name = self.computeAccessibleName(el);
+                const state = self.computeState(el);
+                
+                // Build children
+                const children = [];
+                Array.from(el.children).forEach(child => {
+                    const childNode = buildA11yNode(child, depth + 1);
+                    if (childNode) children.push(childNode);
+                });
+                
+                // Shadow DOM
+                if (el.shadowRoot) {
+                    Array.from(el.shadowRoot.children).forEach(child => {
+                        const childNode = buildA11yNode(child, depth + 1);
+                        if (childNode) children.push(childNode);
+                    });
+                }
+                
+                // Skip non-semantic containers
+                if (!role && !name && Object.keys(state).length === 0) {
+                    if (children.length === 1) return children[0];
+                    if (children.length > 1) {
+                        return {
+                            role: 'group',
+                            selector: self.getSelector(el),
+                            children: children
+                        };
+                    }
+                    return null;
+                }
+                
+                return {
+                    role: role || 'generic',
+                    name: name,
+                    state: Object.keys(state).length > 0 ? state : undefined,
+                    value: self.computeValue(el),
+                    selector: self.getSelector(el),
+                    children: children.length > 0 ? children : undefined,
+                    description: el.getAttribute('title')
+                };
+            }
+
+            const tree = buildA11yNode(document.body, 0);
+            this.sendToKotlin('AccessibilityTreeUpdated', { root: tree });
+            return tree;
+        },
+
+        // Get only actionable elements from accessibility tree
+        getActionableElements: function() {
+            const self = this;
+            const actionableRoles = new Set(['button', 'link', 'textbox', 'checkbox', 'radio', 'combobox', 'listbox', 'menuitem', 'option', 'slider', 'spinbutton', 'switch', 'tab', 'searchbox']);
+            const elements = [];
+
+            function findActionable(el) {
+                const role = self.computeRole(el);
+                if (role && actionableRoles.has(role)) {
+                    elements.push({
+                        role: role,
+                        name: self.computeAccessibleName(el),
+                        state: self.computeState(el),
+                        value: self.computeValue(el),
+                        selector: self.getSelector(el)
+                    });
+                }
+                
+                Array.from(el.children).forEach(findActionable);
+                if (el.shadowRoot) {
+                    Array.from(el.shadowRoot.children).forEach(findActionable);
+                }
+            }
+
+            findActionable(document.body);
+            this.sendToKotlin('ActionableElementsUpdated', { elements: elements });
+            return elements;
         },
 
         // Send message to Kotlin
