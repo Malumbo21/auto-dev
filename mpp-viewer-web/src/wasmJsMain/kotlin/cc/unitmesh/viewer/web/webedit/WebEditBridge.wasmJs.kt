@@ -44,7 +44,13 @@ class WasmWebEditBridge : WebEditBridge {
     override suspend fun navigateTo(url: String) {
         _isLoading.value = true
         _currentUrl.value = url
-        navigateCallback?.invoke(url)
+        _errorMessage.value = null // Clear previous errors
+        try {
+            navigateCallback?.invoke(url)
+        } catch (e: Exception) {
+            _errorMessage.value = "Failed to navigate: ${e.message}"
+            _isLoading.value = false
+        }
     }
 
     override suspend fun reload() {

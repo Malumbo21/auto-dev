@@ -23,25 +23,34 @@ fun WebEditChatInput(
     onSend: (String) -> Unit,
     modifier: Modifier = Modifier,
     placeholder: String = "Ask about the page or selected element...",
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    isProcessing: Boolean = false
 ) {
     Surface(
         modifier = modifier,
         tonalElevation = 2.dp
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
+        Column {
+            // Processing indicator
+            if (isProcessing) {
+                LinearProgressIndicator(
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
             // Input field
             OutlinedTextField(
                 value = input,
                 onValueChange = onInputChange,
                 modifier = Modifier.weight(1f).heightIn(min = 44.dp, max = 120.dp),
-                placeholder = { 
+                placeholder = {
                     Text(
                         text = placeholder,
                         style = MaterialTheme.typography.bodyMedium
@@ -51,7 +60,7 @@ fun WebEditChatInput(
                 shape = RoundedCornerShape(12.dp),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                 keyboardActions = KeyboardActions(
-                    onSend = { 
+                    onSend = {
                         if (input.isNotBlank()) {
                             onSend(input)
                         }
@@ -62,15 +71,15 @@ fun WebEditChatInput(
                     unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
                 )
             )
-            
+
             // Send button
             FilledIconButton(
-                onClick = { 
+                onClick = {
                     if (input.isNotBlank()) {
                         onSend(input)
                     }
                 },
-                enabled = enabled && input.isNotBlank(),
+                enabled = enabled && input.isNotBlank() && !isProcessing,
                 modifier = Modifier.size(44.dp)
             ) {
                 Icon(
@@ -79,6 +88,7 @@ fun WebEditChatInput(
                     modifier = Modifier.size(20.dp)
                 )
             }
+        }
         }
     }
 }

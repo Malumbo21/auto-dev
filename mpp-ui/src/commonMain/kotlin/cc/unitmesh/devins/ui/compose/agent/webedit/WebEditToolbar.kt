@@ -35,6 +35,8 @@ fun WebEditToolbar(
     onNavigate: (String) -> Unit,
     onBack: () -> Unit,
     onReload: () -> Unit,
+    onGoBack: () -> Unit = {},
+    onGoForward: () -> Unit = {},
     onToggleSelectionMode: () -> Unit,
     onToggleDOMSidebar: () -> Unit,
     modifier: Modifier = Modifier
@@ -64,7 +66,7 @@ fun WebEditToolbar(
 
             // Navigation buttons
             IconButton(
-                onClick = { /* Go back in browser history */ },
+                onClick = onGoBack,
                 modifier = Modifier.size(32.dp)
             ) {
                 Icon(
@@ -75,7 +77,7 @@ fun WebEditToolbar(
             }
 
             IconButton(
-                onClick = { /* Go forward in browser history */ },
+                onClick = onGoForward,
                 modifier = Modifier.size(32.dp)
             ) {
                 Icon(

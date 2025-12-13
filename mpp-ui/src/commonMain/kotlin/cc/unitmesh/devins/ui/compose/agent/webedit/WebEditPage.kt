@@ -10,7 +10,70 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import cc.unitmesh.llm.KoogLLMService
 import cc.unitmesh.viewer.web.webedit.*
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+
+/**
+ * Chat message for WebEdit Q&A
+ */
+data class ChatMessage(
+    val role: String, // "user" or "assistant"
+    val content: String
+)
+
+/**
+ * Handle chat message with LLM integration
+ */
+private suspend fun handleChatMessage(
+    message: String,
+    llmService: KoogLLMService?,
+    currentUrl: String,
+    pageTitle: String,
+    selectedElement: DOMElement?,
+    onResponse: (String) -> Unit,
+    onError: (String) -> Unit,
+    onProcessingChange: (Boolean) -> Unit
+) {
+    if (llmService == null) {
+        onError("LLM service is not available")
+        return
+    }
+
+    onProcessingChange(true)
+
+    try {
+        // Build context prompt
+        val contextBuilder = StringBuilder()
+        contextBuilder.append("You are helping analyze a web page.\\n\\n")
+        contextBuilder.append("Current page: $pageTitle ($currentUrl)\\n\\n")
+
+        if (selectedElement != null) {
+            contextBuilder.append("Selected element:\\n")
+            contextBuilder.append("- Tag: ${selectedElement.tagName}\\n")
+            contextBuilder.append("- Selector: ${selectedElement.selector}\\n")
+            if (selectedElement.textContent?.isNotEmpty() == true) {
+                contextBuilder.append("- Text: ${selectedElement.textContent}\\n")
+            }
+            if (selectedElement.attributes.isNotEmpty()) {
+                contextBuilder.append("- Attributes: ${selectedElement.attributes}\\n")
+            }
+            contextBuilder.append("\\n")
+        }
+
+        contextBuilder.append("User question: $message\\n\\n")
+        contextBuilder.append("Please provide a helpful and concise answer.")
+
+        // Call LLM service using sendPrompt
+        val prompt = contextBuilder.toString()
+        val response = llmService.sendPrompt(prompt)
+
+        onResponse(response)
+    } catch (e: Exception) {
+        onError("Failed to process query: ${e.message}")
+    } finally {
+        onProcessingChange(false)
+    }
+}
 
 /**
  * WebEdit Page - Browse, select DOM elements, and interact with web pages
@@ -41,11 +104,32 @@ fun WebEditPage(
     val selectedElement by bridge.selectedElement.collectAsState()
     val domTree by bridge.domTree.collectAsState()
     val errorMessage by bridge.errorMessage.collectAsState()
+    val isReady by bridge.isReady.collectAsState()
 
     // Local UI state
-    var inputUrl by remember { mutableStateOf("") }
+    var inputUrl by remember { mutableStateOf("https://ide.unitmesh.cc") }
     var showDOMSidebar by remember { mutableStateOf(true) }
     var chatInput by remember { mutableStateOf("") }
+    var isProcessingQuery by remember { mutableStateOf(false) }
+    var chatHistory by remember { mutableStateOf<List<ChatMessage>>(emptyList()) }
+
+    // Auto-load initial URL
+    LaunchedEffect(Unit) {
+        if (currentUrl.isEmpty() && inputUrl.isNotEmpty()) {
+            scope.launch {
+                delay(1000)
+                bridge.navigateTo(inputUrl)
+            }
+        }
+    }
+
+    // Request initial DOM tree once the bridge is ready for the loaded page.
+    LaunchedEffect(isReady, currentUrl) {
+        if (!isReady) return@LaunchedEffect
+        if (currentUrl.isBlank() || currentUrl == "about:blank") return@LaunchedEffect
+        delay(400)
+        bridge.refreshDOMTree()
+    }
 
     Column(modifier = modifier.fillMaxSize()) {
         // Top bar with URL input and controls
@@ -56,6 +140,12 @@ fun WebEditPage(
             isSelectionMode = isSelectionMode,
             showDOMSidebar = showDOMSidebar,
             onUrlChange = { inputUrl = it },
+            onGoBack = {
+                scope.launch { bridge.goBack() }
+            },
+            onGoForward = {
+                scope.launch { bridge.goForward() }
+            },
             onNavigate = { url ->
                 val trimmed = url.trim()
                 if (trimmed.isEmpty()) return@WebEditToolbar
@@ -205,12 +295,28 @@ fun WebEditPage(
             onInputChange = { chatInput = it },
             onSend = { message ->
                 scope.launch {
-                    // TODO: Handle chat message with LLM
-                    // Could use selectedElement context for more targeted Q&A
+                    handleChatMessage(
+                        message = message,
+                        llmService = llmService,
+                        currentUrl = currentUrl,
+                        pageTitle = pageTitle,
+                        selectedElement = selectedElement,
+                        onResponse = { response ->
+                            chatHistory = chatHistory + ChatMessage(role = "assistant", content = response)
+                        },
+                        onError = { error ->
+                            onNotification("Error", error)
+                        },
+                        onProcessingChange = { processing ->
+                            isProcessingQuery = processing
+                        }
+                    )
                     chatInput = ""
                 }
             },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !isProcessingQuery && llmService != null,
+            isProcessing = isProcessingQuery
         )
     }
 }

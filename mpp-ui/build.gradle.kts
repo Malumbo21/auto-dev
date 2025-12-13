@@ -508,6 +508,19 @@ tasks.register<JavaExec>("runCodeReviewDemo") {
     standardInput = System.`in`
 }
 
+// Task to run WebEdit Automation Test
+tasks.register<JavaExec>("runWebEditTest") {
+    group = "application"
+    description = "Run WebEdit Automation Test (Automated testing of WebEdit features)"
+
+    val jvmCompilation = kotlin.jvm().compilations.getByName("main")
+    classpath(jvmCompilation.output, configurations["jvmRuntimeClasspath"])
+    mainClass.set("cc.unitmesh.devins.ui.webedit.WebEditAutomationTestKt")
+
+    // Enable standard input
+    standardInput = System.`in`
+}
+
 // Task to run Document CLI
 tasks.register<JavaExec>("runDocumentCli") {
     group = "application"

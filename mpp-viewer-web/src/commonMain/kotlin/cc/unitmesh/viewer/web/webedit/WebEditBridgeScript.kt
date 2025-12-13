@@ -389,22 +389,31 @@ fun getWebEditBridgeScript(): String = """
 
         // Send message to Kotlin
         sendToKotlin: function(type, data) {
-            console.log('[WebEditBridge] sendToKotlin called:', type, data);
+            console.log('[WebEditBridge] sendToKotlin called:', type);
+            console.log('[WebEditBridge] Data preview:', JSON.stringify(data).substring(0, 100));
             console.log('[WebEditBridge] kmpJsBridge available:', typeof window.kmpJsBridge);
             
             if (window.kmpJsBridge && window.kmpJsBridge.callNative) {
                 console.log('[WebEditBridge] Calling kmpJsBridge.callNative...');
                 try {
-                    const message = JSON.stringify({ type: type, data: data });
-                    console.log('[WebEditBridge] Message:', message);
-                    window.kmpJsBridge.callNative('webEditMessage', message, function(result) {
-                        console.log('[WebEditBridge] Kotlin callback result:', result);
-                    });
+                    const messageObj = { type: type, data: data };
+                    const message = JSON.stringify(messageObj);
+                    console.log('[WebEditBridge] Sending message length:', message.length);
+                    window.kmpJsBridge.callNative(
+                        'webEditMessage',
+                        message,
+                        function(result) {
+                            console.log('[WebEditBridge] ✓ Kotlin callback received:', result);
+                        }
+                    );
+                    console.log('[WebEditBridge] ✓ callNative invoked successfully');
                 } catch (e) {
-                    console.error('[WebEditBridge] Error calling native:', e);
+                    console.error('[WebEditBridge] ✗ Error calling native:', e);
+                    console.error('[WebEditBridge] Error stack:', e.stack);
                 }
             } else {
-                console.error('[WebEditBridge] kmpJsBridge not available!');
+                console.error('[WebEditBridge] ✗ kmpJsBridge not available!');
+                console.error('[WebEditBridge] window keys:', Object.keys(window).filter(k => k.includes('bridge') || k.includes('Bridge')));
             }
         }
     };

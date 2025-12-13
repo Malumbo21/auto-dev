@@ -45,9 +45,21 @@ class JvmWebEditBridge : WebEditBridge {
     var goForwardCallback: (() -> Unit)? = null
 
     override suspend fun navigateTo(url: String) {
+        println("[JvmWebEditBridge] 🚀 navigateTo called: '$url'")
         _isLoading.value = true
         _currentUrl.value = url
-        navigateCallback?.invoke(url)
+        _errorMessage.value = null // Clear previous errors
+        try {
+            println("[JvmWebEditBridge] 📞 Calling navigateCallback...")
+            navigateCallback?.invoke(url) ?: println("[JvmWebEditBridge] ⚠️ navigateCallback is null!")
+            println("[JvmWebEditBridge] ✅ navigateCallback invoked")
+        } catch (e: Exception) {
+            val errorMsg = "Failed to navigate: ${e.message}"
+            println("[JvmWebEditBridge] ❌ Navigation error: $errorMsg")
+            e.printStackTrace()
+            _errorMessage.value = errorMsg
+            _isLoading.value = false
+        }
     }
 
     override suspend fun reload() {
@@ -64,9 +76,11 @@ class JvmWebEditBridge : WebEditBridge {
     }
 
     override suspend fun setSelectionMode(enabled: Boolean) {
+        println("[JvmWebEditBridge] 🎯 setSelectionMode: $enabled")
         _isSelectionMode.value = enabled
         val script = "window.webEditBridge?.setSelectionMode($enabled);"
-        executeJavaScript?.invoke(script)
+        println("[JvmWebEditBridge] 📜 Executing JS: $script")
+        executeJavaScript?.invoke(script) ?: println("[JvmWebEditBridge] ⚠️ executeJavaScript is null!")
     }
 
     override suspend fun enableInspectMode() {
@@ -131,19 +145,27 @@ class JvmWebEditBridge : WebEditBridge {
     }
 
     override fun markReady() {
+        println("[JvmWebEditBridge] ✅ Bridge marked as READY")
         _isReady.value = true
     }
 
     override fun handleMessage(message: WebEditMessage) {
+        println("[JvmWebEditBridge] 📨 handleMessage: ${message::class.simpleName}")
         when (message) {
             is WebEditMessage.DOMTreeUpdated -> {
+                println("[JvmWebEditBridge] 🌳 DOM Tree Updated:")
+                println("  - Root: ${message.root.tagName}")
+                println("  - Children: ${message.root.children.size}")
+                println("  - Selector: ${message.root.selector}")
                 _domTree.value = message.root
                 _errorMessage.value = null // Clear error on successful update
             }
             is WebEditMessage.ElementSelected -> {
+                println("[JvmWebEditBridge] ✨ Element Selected: ${message.element.tagName}")
                 _selectedElement.value = message.element
             }
             is WebEditMessage.PageLoaded -> {
+                println("[JvmWebEditBridge] 📄 Page Loaded: ${message.title} (${message.url})")
                 _currentUrl.value = message.url
                 _pageTitle.value = message.title
                 _isLoading.value = false
@@ -151,10 +173,11 @@ class JvmWebEditBridge : WebEditBridge {
                 _errorMessage.value = null // Clear error on successful page load
             }
             is WebEditMessage.Error -> {
+                println("[JvmWebEditBridge] ❌ Error: ${message.message}")
                 _errorMessage.value = message.message
-                println("[WebEditBridge] Error: ${message.message}")
             }
             is WebEditMessage.LoadProgress -> {
+                println("[JvmWebEditBridge] ⏳ Load Progress: ${message.progress}%")
                 _loadProgress.value = message.progress
             }
         }

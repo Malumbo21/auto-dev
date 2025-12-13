@@ -22,6 +22,16 @@ repositories {
 group = "cc.unitmesh.viewer.web"
 version = project.findProperty("mppVersion") as String? ?: "0.1.5"
 
+// Force consistent Kotlin stdlib version across all dependencies
+configurations.all {
+    resolutionStrategy {
+        force("org.jetbrains.kotlin:kotlin-stdlib:2.2.0")
+        force("org.jetbrains.kotlin:kotlin-stdlib-common:2.2.0")
+        force("org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.2.0")
+        force("org.jetbrains.kotlin:kotlin-reflect:2.2.0")
+    }
+}
+
 kotlin {
     jvm {
         compilerOptions {
