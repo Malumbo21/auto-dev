@@ -202,6 +202,142 @@
         customElements.define('custom-card', CustomCard);
 
         console.log('Shadow DOM test page loaded');
+        
+        // ========== WORKAROUND: Mock kmpJsBridge for testing ==========
+        // Since real kmpJsBridge injection is not working, we create a simple mock
+        // that stores messages and allows Kotlin to poll them
+        if (!window.kmpJsBridge) {
+            console.log('[Mock] Creating fake kmpJsBridge for testing...');
+            window.__jsToKotlinQueue__ = [];
+            window.kmpJsBridge = {
+                callNative: function(methodName, params, callback) {
+                    console.log('[Mock] callNative:', methodName, params);
+                    // Store message for Kotlin to poll
+                    window.__jsToKotlinQueue__.push({
+                        method: methodName,
+                        params: params,
+                        timestamp: Date.now()
+                    });
+                    
+                    // WORKAROUND: Store full message data and signal via title
+                    if (methodName === 'webEditMessage') {
+                        const msgData = JSON.parse(params);
+                        if (msgData.type === 'DOMTreeUpdated') {
+                            // Store the full DOM tree data globally
+                            window.__domTreeData__ = msgData.data.root;
+                            
+                            // Count elements and shadow hosts
+                            const countElements = (el) => {
+                                if (!el || !el.children) return 1;
+                                return 1 + el.children.reduce((sum, child) => sum + countElements(child), 0);
+                            };
+                            const countShadowHosts = (el) => {
+                                if (!el || !el.children) return el.isShadowHost ? 1 : 0;
+                                return (el.isShadowHost ? 1 : 0) + el.children.reduce((sum, child) => sum + countShadowHosts(child), 0);
+                            };
+                            
+                            const totalEls = countElements(msgData.data.root);
+                            const shadowHosts = countShadowHosts(msgData.data.root);
+                            
+                            // Signal with comprehensive stats
+                            document.title = `DOM_READY_${totalEls}_ELEMENTS_${shadowHosts}_SHADOWS`;
+                            console.log('[Mock] DOM Tree ready:', totalEls, 'elements,', shadowHosts, 'shadow hosts');
+                        }
+                    }
+                    
+                    // Simulate async callback
+                    if (callback) {
+                        setTimeout(() => callback('ok'), 10);
+                    }
+                }
+            };
+            console.log('[Mock] Fake kmpJsBridge created');
+        }
+        
+        // ========== Inline WebEdit Bridge for Testing ==========
+        // Since evaluateJavaScript may not work reliably, we inline the bridge here
+        if (!window.webEditBridge) {
+            console.log('[Inline] Creating webEditBridge...');
+            window.webEditBridge = {
+                inspectMode: false,
+                
+                getDOMTree: function() {
+                    console.log('[Inline] getDOMTree called');
+                    const buildTree = (el, depth) => {
+                        if (depth > 8) return null;
+                        const rect = el.getBoundingClientRect();
+                        const node = {
+                            id: Date.now().toString(36) + Math.random().toString(36).slice(2, 11),
+                            tagName: el.tagName.toLowerCase(),
+                            selector: el.id ? `#${el.id}` : el.tagName.toLowerCase(),
+                            textContent: (el.textContent || '').trim().substring(0, 50),
+                            attributes: {},
+                            boundingBox: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+                            children: [],
+                            isShadowHost: !!el.shadowRoot,
+                            inShadowRoot: false
+                        };
+                        
+                        // Add key attributes
+                        if (el.id) node.attributes.id = el.id;
+                        if (el.className) node.attributes.class = el.className;
+                        
+                        // Process children
+                        Array.from(el.children).slice(0, 30).forEach(child => {
+                            const childNode = buildTree(child, depth + 1);
+                            if (childNode) node.children.push(childNode);
+                        });
+                        
+                        // Process shadow children
+                        if (el.shadowRoot) {
+                            Array.from(el.shadowRoot.children).slice(0, 30).forEach(child => {
+                                const childNode = buildTree(child, depth + 1);
+                                if (childNode) {
+                                    childNode.inShadowRoot = true;
+                                    node.children.push(childNode);
+                                }
+                            });
+                        }
+                        
+                        return node;
+                    };
+                    
+                    const tree = buildTree(document.body, 0);
+                    console.log('[Inline] Tree built, sending to Kotlin...');
+                    
+                    // Send to Kotlin
+                    if (window.kmpJsBridge && window.kmpJsBridge.callNative) {
+                        const message = JSON.stringify({
+                            type: 'DOMTreeUpdated',
+                            data: { root: tree }
+                        });
+                        window.kmpJsBridge.callNative('webEditMessage', message);
+                        console.log('[Inline] DOMTreeUpdated sent to Kotlin');
+                    }
+                }
+            };
+            
+            // Auto-send DOM tree when kmpJsBridge is ready
+            const waitForBridge = () => {
+                if (window.kmpJsBridge && window.kmpJsBridge.callNative) {
+                    console.log('[Inline] kmpJsBridge available, auto-sending initial DOM tree...');
+                    window.webEditBridge.getDOMTree();
+                } else {
+                    console.log('[Inline] Waiting for kmpJsBridge...');
+                    setTimeout(waitForBridge, 200);
+                }
+            };
+            setTimeout(waitForBridge, 500);
+        }
+        
+        // Additional helper: Force refresh DOM tree on demand
+        window.refreshDOMTree = function() {
+            if (window.webEditBridge && window.webEditBridge.getDOMTree) {
+                window.webEditBridge.getDOMTree();
+                return true;
+            }
+            return false;
+        };
     </script>
 </body>
 </html>
