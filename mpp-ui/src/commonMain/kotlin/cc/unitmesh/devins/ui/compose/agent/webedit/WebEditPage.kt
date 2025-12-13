@@ -40,6 +40,7 @@ fun WebEditPage(
     val isSelectionMode by bridge.isSelectionMode.collectAsState()
     val selectedElement by bridge.selectedElement.collectAsState()
     val domTree by bridge.domTree.collectAsState()
+    val errorMessage by bridge.errorMessage.collectAsState()
 
     // Local UI state
     var inputUrl by remember { mutableStateOf("") }
@@ -111,6 +112,35 @@ fun WebEditPage(
                     LinearProgressIndicator(
                         modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter)
                     )
+                }
+
+                // Error message display
+                if (errorMessage != null) {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .align(Alignment.TopCenter)
+                            .padding(8.dp),
+                        shape = RoundedCornerShape(4.dp),
+                        color = MaterialTheme.colorScheme.errorContainer,
+                        shadowElevation = 4.dp
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "⚠️",
+                                style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier.padding(end = 8.dp)
+                            )
+                            Text(
+                                text = errorMessage ?: "",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                    }
                 }
 
                 if (isSelectionMode) {

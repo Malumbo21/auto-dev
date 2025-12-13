@@ -52,6 +52,11 @@ interface WebEditBridge {
     val isReady: StateFlow<Boolean>
     
     /**
+     * Last error message, if any
+     */
+    val errorMessage: StateFlow<String?>
+
+    /**
      * Navigate to a URL
      */
     suspend fun navigateTo(url: String)
@@ -138,7 +143,8 @@ data class WebEditState(
     val domTree: DOMElement? = null,
     val selectedElement: DOMElement? = null,
     val isSelectionMode: Boolean = false,
-    val isReady: Boolean = false
+    val isReady: Boolean = false,
+    val errorMessage: String? = null
 )
 
 /**

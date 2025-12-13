@@ -456,6 +456,24 @@ fun getWebEditBridgeScript(): String = """
         title: document.title
     });
 
+    // Monitor for JavaScript errors
+    window.addEventListener('error', function(event) {
+        const message = event.message || 'Unknown error';
+        const source = event.filename || '';
+        const lineno = event.lineno || 0;
+        const errorMsg = `JavaScript Error: ${'$'}{message} at ${'$'}{source}:${'$'}{lineno}`;
+        console.error('[WebEditBridge]', errorMsg);
+        window.webEditBridge.sendToKotlin('Error', { message: errorMsg });
+    }, true);
+
+    // Monitor for unhandled promise rejections
+    window.addEventListener('unhandledrejection', function(event) {
+        const reason = event.reason || 'Unknown rejection';
+        const errorMsg = `Unhandled Promise Rejection: ${'$'}{reason}`;
+        console.error('[WebEditBridge]', errorMsg);
+        window.webEditBridge.sendToKotlin('Error', { message: errorMsg });
+    });
+
     console.log('[WebEditBridge] Initialized with Shadow DOM support');
 })();
 """.trimIndent()

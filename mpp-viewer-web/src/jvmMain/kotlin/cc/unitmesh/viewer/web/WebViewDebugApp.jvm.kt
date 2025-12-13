@@ -86,6 +86,7 @@ internal fun InspectDebugApp() {
     val domTree by bridge.domTree.collectAsState()
     val isInspectMode by bridge.isSelectionMode.collectAsState()
     val isReady by bridge.isReady.collectAsState()
+    val errorMessage by bridge.errorMessage.collectAsState()
 
     var testResults by remember { mutableStateOf<List<TestResult>>(emptyList()) }
     var isRunningTests by remember { mutableStateOf(false) }
@@ -117,6 +118,31 @@ internal fun InspectDebugApp() {
                         }
                     }
                 )
+
+                // Error message display
+                if (errorMessage != null) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = MaterialTheme.colors.error,
+                        elevation = 4.dp
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "⚠️",
+                                style = MaterialTheme.typography.h6,
+                                modifier = Modifier.padding(end = 8.dp)
+                            )
+                            Text(
+                                text = errorMessage ?: "",
+                                style = MaterialTheme.typography.body2,
+                                color = MaterialTheme.colors.onError
+                            )
+                        }
+                    }
+                }
 
                 // WebView
                 WebEditView(

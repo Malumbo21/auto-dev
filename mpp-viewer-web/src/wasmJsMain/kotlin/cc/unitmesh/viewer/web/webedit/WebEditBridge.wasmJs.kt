@@ -32,6 +32,9 @@ class WasmWebEditBridge : WebEditBridge {
     private val _isReady = MutableStateFlow(false)
     override val isReady: StateFlow<Boolean> = _isReady.asStateFlow()
     
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    override val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+
     var executeJavaScript: ((String) -> Unit)? = null
     var navigateCallback: ((String) -> Unit)? = null
     var reloadCallback: (() -> Unit)? = null
@@ -60,6 +63,18 @@ class WasmWebEditBridge : WebEditBridge {
     override suspend fun setSelectionMode(enabled: Boolean) {
         _isSelectionMode.value = enabled
         val script = "window.webEditBridge?.setSelectionMode($enabled);"
+        executeJavaScript?.invoke(script)
+    }
+
+    override suspend fun enableInspectMode() {
+        _isSelectionMode.value = true
+        val script = "window.webEditBridge?.enableInspectMode();"
+        executeJavaScript?.invoke(script)
+    }
+
+    override suspend fun disableInspectMode() {
+        _isSelectionMode.value = false
+        val script = "window.webEditBridge?.disableInspectMode();"
         executeJavaScript?.invoke(script)
     }
 
@@ -95,6 +110,13 @@ class WasmWebEditBridge : WebEditBridge {
         executeJavaScript?.invoke(script)
     }
 
+    override suspend fun getElementAtPoint(x: Int, y: Int): DOMElement? {
+        // TODO: Implement using JavaScript callback mechanism similar to getSelectedElementHtml
+        // This requires invoking JS to call window.webEditBridge.getElementAtPoint(x, y)
+        // and receiving the result via a callback or promise-based bridge.
+        throw NotImplementedError("getElementAtPoint requires callback mechanism - not yet implemented")
+    }
+
     /**
      * Get HTML content of selected element.
      * TODO: Implement for WASM platform using JavaScript interop when available.
@@ -112,6 +134,7 @@ class WasmWebEditBridge : WebEditBridge {
         when (message) {
             is WebEditMessage.DOMTreeUpdated -> {
                 _domTree.value = message.root
+                _errorMessage.value = null // Clear error on successful update
             }
             is WebEditMessage.ElementSelected -> {
                 _selectedElement.value = message.element
@@ -121,8 +144,10 @@ class WasmWebEditBridge : WebEditBridge {
                 _pageTitle.value = message.title
                 _isLoading.value = false
                 _loadProgress.value = 100
+                _errorMessage.value = null // Clear error on successful page load
             }
             is WebEditMessage.Error -> {
+                _errorMessage.value = message.message
                 println("[WebEditBridge] Error: ${message.message}")
             }
             is WebEditMessage.LoadProgress -> {

@@ -32,6 +32,9 @@ class JvmWebEditBridge : WebEditBridge {
     private val _isReady = MutableStateFlow(false)
     override val isReady: StateFlow<Boolean> = _isReady.asStateFlow()
     
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    override val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+
     // Callback to execute JavaScript in WebView
     var executeJavaScript: ((String) -> Unit)? = null
     
@@ -135,6 +138,7 @@ class JvmWebEditBridge : WebEditBridge {
         when (message) {
             is WebEditMessage.DOMTreeUpdated -> {
                 _domTree.value = message.root
+                _errorMessage.value = null // Clear error on successful update
             }
             is WebEditMessage.ElementSelected -> {
                 _selectedElement.value = message.element
@@ -144,8 +148,10 @@ class JvmWebEditBridge : WebEditBridge {
                 _pageTitle.value = message.title
                 _isLoading.value = false
                 _loadProgress.value = 100
+                _errorMessage.value = null // Clear error on successful page load
             }
             is WebEditMessage.Error -> {
+                _errorMessage.value = message.message
                 println("[WebEditBridge] Error: ${message.message}")
             }
             is WebEditMessage.LoadProgress -> {

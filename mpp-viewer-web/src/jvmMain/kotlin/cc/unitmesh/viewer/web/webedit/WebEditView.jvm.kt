@@ -47,8 +47,6 @@ actual fun WebEditView(
     val webViewNavigator = rememberWebViewNavigator()
     val jsBridge = rememberWebViewJsBridge()
 
-    // Track if script has been injected for this page
-    var scriptInjected by remember { mutableStateOf(false) }
 
     // Configure the JVM bridge with WebView callbacks
     LaunchedEffect(Unit) {
@@ -140,31 +138,42 @@ actual fun WebEditView(
     }
 
     // Monitor loading state and inject script when page loads
-    LaunchedEffect(webViewState.isLoading, webViewState.lastLoadedUrl) {
-        if (!webViewState.isLoading && webViewState.loadingState is LoadingState.Finished) {
-            // Reset script injection flag for new page
-            if (webViewState.lastLoadedUrl != null && webViewState.lastLoadedUrl != "about:blank") {
-                scriptInjected = false
+    LaunchedEffect(webViewState.isLoading, webViewState.lastLoadedUrl, loadingState) {
+        when {
+            // Handle finished state
+            !webViewState.isLoading && loadingState is LoadingState.Finished -> {
+                if (webViewState.lastLoadedUrl != null && webViewState.lastLoadedUrl != "about:blank") {
+                    // Update bridge state
+                    if (bridge is JvmWebEditBridge) {
+                        bridge.setLoading(false)
+                        bridge.setUrl(webViewState.lastLoadedUrl ?: "")
+                        bridge.setTitle(webViewState.pageTitle ?: "")
+                    }
 
-                // Update bridge state
-                if (bridge is JvmWebEditBridge) {
-                    bridge.setLoading(false)
-                    bridge.setUrl(webViewState.lastLoadedUrl ?: "")
-                    bridge.setTitle(webViewState.pageTitle ?: "")
+                    // Check if the page loaded successfully by examining the URL
+                    // If there's a certificate error or network error, the page might not load
+                    // We'll detect this by checking if the JavaScript bridge can be injected
+                    try {
+                        // Inject the WebEdit bridge script
+                        kotlinx.coroutines.delay(300) // Wait for page to stabilize
+                        val script = getWebEditBridgeScript()
+                        webViewNavigator.evaluateJavaScript(script)
+
+                        bridge.markReady()
+                        println("[WebEditView] Bridge script injected for: ${webViewState.lastLoadedUrl}")
+                    } catch (e: Exception) {
+                        println("[WebEditView] Failed to inject bridge script: ${e.message}")
+                        if (bridge is JvmWebEditBridge) {
+                            bridge.handleMessage(WebEditMessage.Error("Failed to load page: ${e.message}"))
+                        }
+                    }
                 }
-
-                // Inject the WebEdit bridge script
-                kotlinx.coroutines.delay(300) // Wait for page to stabilize
-                val script = getWebEditBridgeScript()
-                webViewNavigator.evaluateJavaScript(script)
-                scriptInjected = true
-
-                bridge.markReady()
-                println("[WebEditView] Bridge script injected for: ${webViewState.lastLoadedUrl}")
             }
-        } else if (webViewState.isLoading) {
-            if (bridge is JvmWebEditBridge) {
-                bridge.setLoading(true)
+            // Handle loading state
+            webViewState.isLoading -> {
+                if (bridge is JvmWebEditBridge) {
+                    bridge.setLoading(true)
+                }
             }
         }
     }
