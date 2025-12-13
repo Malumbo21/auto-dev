@@ -300,6 +300,41 @@ class WasmJsToolFileSystem(
             .replace("?", ".")
         return Regex("^$regexPattern$")
     }
+    
+    override fun listFilesRecursive(path: String, maxDepth: Int): List<String> {
+        val files = mutableListOf<String>()
+        val resolvedPath = resolvePath(path)
+        val normalizedPath = normalizePath(resolvedPath)
+        
+        val node = findNode(normalizedPath)
+        if (node != null) {
+            collectFilesRecursive(normalizedPath, node, files, 0, maxDepth)
+        }
+        
+        return files.sorted()
+    }
+    
+    private fun collectFilesRecursive(
+        currentPath: String,
+        node: MemoryFSNode,
+        files: MutableList<String>,
+        currentDepth: Int,
+        maxDepth: Int
+    ) {
+        if (maxDepth >= 0 && currentDepth > maxDepth) return
+        
+        when (node) {
+            is MemoryFSNode.File -> {
+                files.add(currentPath)
+            }
+            is MemoryFSNode.Directory -> {
+                node.children.forEach { (name, childNode) ->
+                    val childPath = if (currentPath == "/") "/$name" else "$currentPath/$name"
+                    collectFilesRecursive(childPath, childNode, files, currentDepth + 1, maxDepth)
+                }
+            }
+        }
+    }
 }
 
 /**

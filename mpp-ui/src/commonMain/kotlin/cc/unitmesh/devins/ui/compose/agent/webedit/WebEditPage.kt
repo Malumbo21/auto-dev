@@ -199,6 +199,7 @@ fun WebEditPage(
     var chatInput by remember { mutableStateOf("") }
     var isProcessingQuery by remember { mutableStateOf(false) }
     var chatHistory by remember { mutableStateOf<List<ChatMessage>>(emptyList()) }
+    var showChatHistory by remember { mutableStateOf(false) }
     
     // Element tags state - stores selected elements as tags
     var elementTags by remember { mutableStateOf(ElementTagCollection()) }
@@ -274,6 +275,15 @@ fun WebEditPage(
         )
 
         Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            // Chat history panel (left side, toggleable)
+            if (showChatHistory && chatHistory.isNotEmpty()) {
+                WebEditChatHistory(
+                    messages = chatHistory,
+                    modifier = Modifier.width(400.dp).fillMaxHeight(),
+                    onClose = { showChatHistory = false }
+                )
+            }
+            
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -393,6 +403,10 @@ fun WebEditPage(
             onInputChange = { chatInput = it },
             onSend = { message ->
                 scope.launch {
+                    // Add user message to history
+                    chatHistory = chatHistory + ChatMessage(role = "user", content = message)
+                    showChatHistory = true
+                    
                     handleChatMessage(
                         message = message,
                         llmService = llmService,
@@ -405,6 +419,7 @@ fun WebEditPage(
                         },
                         onError = { error ->
                             onNotification("Error", error)
+                            chatHistory = chatHistory + ChatMessage(role = "assistant", content = "❌ Error: $error")
                         },
                         onProcessingChange = { processing ->
                             isProcessingQuery = processing
@@ -425,6 +440,10 @@ fun WebEditPage(
             },
             onSendWithContext = { message, tags ->
                 scope.launch {
+                    // Add user message to history
+                    chatHistory = chatHistory + ChatMessage(role = "user", content = message)
+                    showChatHistory = true
+                    
                     // Prefer CodingAgent for source code mapping if available
                     if (codingAgent != null && projectPath.isNotEmpty()) {
                         handleChatWithCodingAgent(
@@ -439,6 +458,7 @@ fun WebEditPage(
                             },
                             onError = { error ->
                                 onNotification("Error", error)
+                                chatHistory = chatHistory + ChatMessage(role = "assistant", content = "❌ Error: $error")
                             },
                             onProcessingChange = { processing ->
                                 isProcessingQuery = processing
@@ -458,6 +478,7 @@ fun WebEditPage(
                             },
                             onError = { error ->
                                 onNotification("Error", error)
+                                chatHistory = chatHistory + ChatMessage(role = "assistant", content = "❌ Error: $error")
                             },
                             onProcessingChange = { processing ->
                                 isProcessingQuery = processing

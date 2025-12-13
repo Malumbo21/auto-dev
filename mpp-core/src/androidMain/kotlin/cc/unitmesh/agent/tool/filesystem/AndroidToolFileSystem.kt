@@ -345,5 +345,68 @@ class AndroidToolFileSystem(
             isWritable = file.canWrite()
         )
     }
+    
+    override fun listFilesRecursive(path: String, maxDepth: Int): List<String> {
+        val files = mutableListOf<String>()
+        val resolvedPath = resolvePath(path)
+        
+        if (isContentUri(resolvedPath)) {
+            // For content URIs, recursion is limited
+            collectFilesFromContentUri(resolvedPath, files, 0, maxDepth)
+        } else {
+            val file = File(resolvedPath)
+            if (file.exists()) {
+                collectFilesRecursive(file, files, 0, maxDepth)
+            }
+        }
+        
+        return files.sorted()
+    }
+    
+    private fun collectFilesRecursive(
+        file: File,
+        files: MutableList<String>,
+        currentDepth: Int,
+        maxDepth: Int
+    ) {
+        if (maxDepth >= 0 && currentDepth > maxDepth) return
+        
+        try {
+            if (file.isDirectory) {
+                file.listFiles()?.forEach { child ->
+                    collectFilesRecursive(child, files, currentDepth + 1, maxDepth)
+                }
+            } else {
+                files.add(file.absolutePath)
+            }
+        } catch (e: Exception) {
+            // Skip inaccessible paths
+        }
+    }
+    
+    private fun collectFilesFromContentUri(
+        uri: String,
+        files: MutableList<String>,
+        currentDepth: Int,
+        maxDepth: Int
+    ) {
+        if (maxDepth >= 0 && currentDepth > maxDepth) return
+        
+        try {
+            val parsedUri = Uri.parse(uri)
+            val documentFile = DocumentFile.fromTreeUri(context, parsedUri)
+            
+            documentFile?.listFiles()?.forEach { file ->
+                if (file.isDirectory) {
+                    file.uri?.let {
+                        collectFilesFromContentUri(it.toString(), files, currentDepth + 1, maxDepth)
+                    }
+                } else {
+                    file.uri?.let { files.add(it.toString()) }
+                }
+            }
+        } catch (e: Exception) {
+            // Skip inaccessible URIs
+        }
+    }
 }
-
