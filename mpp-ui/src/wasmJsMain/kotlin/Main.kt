@@ -20,6 +20,22 @@ import org.jetbrains.compose.resources.ExperimentalResourceApi
 import org.jetbrains.compose.resources.configureWebResources
 import org.jetbrains.compose.resources.preloadFont
 
+private fun notifyWasmReadyOnce() {
+    // NOTE: js() expects an expression. Wrap statements in an IIFE.
+    js(
+        """(() => {
+          if (!self.__XIUPER_WASM_READY__) {
+            self.__XIUPER_WASM_READY__ = true;
+            try {
+              self.dispatchEvent(new CustomEvent('xiuper:wasm-ready'));
+            } catch (e) {
+              self.dispatchEvent(new Event('xiuper:wasm-ready'));
+            }
+          }
+        })()"""
+    )
+}
+
 /**
  * WASM JS entry point with full UTF-8 font support
  *
@@ -46,6 +62,12 @@ fun main() {
     ComposeViewport {
         val utf8Font = preloadFont(Res.font.NotoSansSC_Regular).value
         var fontsFallbackInitialized by remember { mutableStateOf(false) }
+
+        LaunchedEffect(Unit) {
+            // When we reach here, the WASM runtime has been loaded and Kotlin code is executing.
+            // Notify the HTML loader to stop blocking the user.
+            notifyWasmReadyOnce()
+        }
 
         AutoDevApp()
 

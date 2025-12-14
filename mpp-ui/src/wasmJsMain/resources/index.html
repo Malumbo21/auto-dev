@@ -351,6 +351,58 @@
         var progressText = document.getElementById('progress-text');
         var loader = document.getElementById('xuiper-loader');
 
+        var READY_EVENT = 'xiuper:wasm-ready';
+        var ready = false;
+
+        function connectionHint() {
+            var c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+            if (!c) return '';
+            var parts = [];
+            if (c.effectiveType) parts.push(c.effectiveType);
+            if (typeof c.downlink === 'number') parts.push(c.downlink + 'Mb/s');
+            return parts.length ? (' (' + parts.join(', ') + ')') : '';
+        }
+
+        function markReadyAndHide() {
+            if (ready) return;
+            ready = true;
+            // Give the app a tiny moment to paint before hiding the overlay.
+            progressText.textContent = 'Starting application...';
+            setTimeout(hideLoader, 150);
+        }
+
+        window.addEventListener(READY_EVENT, function() {
+            markReadyAndHide();
+        });
+
+        // If WASM signaled readiness before this script ran (rare), still handle it.
+        if (window.__XIUPER_WASM_READY__) {
+            markReadyAndHide();
+        }
+
+        // Slow network hints (WASM + fonts can be large)
+        setTimeout(function() {
+            if (!ready) {
+                progressText.textContent = '网络似乎较慢' + connectionHint() + '，WASM/字体资源可能需要更久，请耐心等待…';
+            }
+        }, 6000);
+        setTimeout(function() {
+            if (!ready) {
+                progressText.textContent = '仍在加载中：建议检查网络/代理，或稍后刷新页面。';
+            }
+        }, 15000);
+
+        window.addEventListener('error', function() {
+            if (!ready) {
+                progressText.textContent = '加载失败：请刷新页面或检查网络/控制台错误信息。';
+            }
+        });
+        window.addEventListener('unhandledrejection', function() {
+            if (!ready) {
+                progressText.textContent = '加载失败：请刷新页面或检查网络/控制台错误信息。';
+            }
+        });
+
         // Simulate progress stages for WASM loading
         var stages = [
             { progress: 10, text: 'Fetching WASM module...' },
@@ -389,7 +441,7 @@
             // Check if canvas has content (width/height attributes set by Compose)
             if (canvas.width > 0 && canvas.height > 0) {
                 observer.disconnect();
-                hideLoader();
+                markReadyAndHide();
             }
         });
 
@@ -398,18 +450,20 @@
             attributeFilter: ['width', 'height']
         });
 
-        // Fallback: hide after max wait time (30 seconds for slow connections)
+        // Fallback: after a long wait, keep overlay but show a stronger hint (do NOT hide blindly)
         setTimeout(function() {
-            if (loader.style.display !== 'none') {
-                hideLoader();
+            if (!ready) {
+                progressBar.style.width = '95%';
+                progressText.textContent = '加载时间较长：可能是网络较慢或被拦截，建议切换网络/代理或刷新重试。';
             }
         }, 30000);
 
         // Also hide when window fully loads (backup)
         window.addEventListener('load', function() {
             setTimeout(function() {
-                if (loader.style.display !== 'none') {
-                    hideLoader();
+                // If the app already painted to canvas, treat it as ready (heuristic fallback)
+                if (!ready && canvas && canvas.width > 0 && canvas.height > 0) {
+                    markReadyAndHide();
                 }
             }, 1000);
         });
