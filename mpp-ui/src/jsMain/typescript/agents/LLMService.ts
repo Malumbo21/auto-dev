@@ -9,7 +9,7 @@ import type { LegacyConfig } from '../config/ConfigManager';
 
 // Import the compiled Kotlin/JS module
 // @ts-ignore - Kotlin/JS generated module
-import MppCore from '@autodev/mpp-core';
+import MppCore from '@xiuper/mpp-core';
 
 // Access the exported Kotlin/JS classes
 const { JsKoogLLMService, JsModelConfig, JsMessage } = MppCore.cc.unitmesh.llm;

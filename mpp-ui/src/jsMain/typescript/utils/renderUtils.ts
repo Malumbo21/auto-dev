@@ -14,7 +14,7 @@ let codeFenceParser: any = null;
 
 async function getCodeFenceParser() {
   if (!codeFenceParser) {
-    const mppCore = await import('@autodev/mpp-core/autodev-mpp-core.js');
+    const mppCore = await import('@xiuper/mpp-core/xiuper-mpp-core.js');
     const exports = mppCore['module.exports'] || mppCore.default || mppCore;
     if (exports?.cc?.unitmesh?.devins?.parser?.CodeFence) {
       codeFenceParser = exports.cc.unitmesh.devins.parser.CodeFence;

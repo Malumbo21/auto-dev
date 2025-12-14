@@ -12,7 +12,7 @@ import { TuiRenderer } from '../agents/render/TuiRenderer.js';
 import { InputRouter } from '../processors/InputRouter.js';
 import { SlashCommandProcessor } from '../processors/SlashCommandProcessor.js';
 import { compileDevIns } from '../utils/commandUtils.js';
-import mppCore from '@autodev/mpp-core';
+import mppCore from '@xiuper/mpp-core';
 import * as path from 'path';
 import * as fs from 'fs';
 

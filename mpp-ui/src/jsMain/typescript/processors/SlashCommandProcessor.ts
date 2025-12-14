@@ -10,7 +10,7 @@ import { HELP_TEXT, GOODBYE_MESSAGE } from '../constants/asciiArt.js';
 import { t } from '../i18n/index.js';
 import { DomainDictService, getCurrentProjectPath, isValidProjectPath } from '../utils/domainDictUtils.js';
 import { ConfigManager } from '../config/ConfigManager.js';
-import * as mppCore from '@autodev/mpp-core';
+import * as mppCore from '@xiuper/mpp-core';
 
 /**
  * 命令定义

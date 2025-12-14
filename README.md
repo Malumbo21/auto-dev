@@ -11,7 +11,7 @@
 
 - **IntelliJ IDEA Plugin**: [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/29223-autodev-experiment)
 - **VSCode Extension**: [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=Phodal.autodev)
-- **CLI Tool**: `npm install -g @autodev/cli`
+- **CLI Tool**: `npm install -g @xiuper/cli`
 - **Web Version**: https://web.xiuper.com/
 - **Desktop & Android**: [Release Pages](https://github.com/phodal/auto-dev/releases)
 

@@ -42,7 +42,7 @@ function askConfirmation(question) {
 }
 
 async function main() {
-  console.log('🚀 Remote Publish Script for @autodev/cli\n');
+  console.log('🚀 Remote Publish Script for @xiuper/cli\n');
   
   // Read current package.json
   const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
@@ -51,7 +51,7 @@ async function main() {
   console.log('📦 Current package info:');
   console.log('   Name:', packageJson.name);
   console.log('   Version:', currentVersion);
-  console.log('   mpp-core dependency:', packageJson.dependencies['@autodev/mpp-core']);
+  console.log('   mpp-core dependency:', packageJson.dependencies['@xiuper/mpp-core']);
   console.log();
   
   // Confirm publish
@@ -84,8 +84,8 @@ async function main() {
   console.log('✅ mpp-core package found (v' + mppCoreVersion + ')\n');
   
   // Step 3: Publish mpp-core to npm
-  console.log('3️⃣  Publishing @autodev/mpp-core...');
-  const shouldPublishCore = await askConfirmation('Publish @autodev/mpp-core v' + mppCoreVersion + ' to npm?');
+  console.log('3️⃣  Publishing @xiuper/mpp-core...');
+  const shouldPublishCore = await askConfirmation('Publish @xiuper/mpp-core v' + mppCoreVersion + ' to npm?');
   if (!shouldPublishCore) {
     console.log('⏭️  Skipping mpp-core publish (using existing version)\n');
   } else {
@@ -112,9 +112,9 @@ async function main() {
   console.log('4️⃣  Updating package.json for remote dependency...');
   copyFileSync(packageJsonPath, packageJsonBackupPath);
   
-  packageJson.dependencies['@autodev/mpp-core'] = '^' + mppCoreVersion;
+  packageJson.dependencies['@xiuper/mpp-core'] = '^' + mppCoreVersion;
   writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2) + '\n');
-  console.log('✅ Updated to use @autodev/mpp-core@^' + mppCoreVersion + '\n');
+  console.log('✅ Updated to use @xiuper/mpp-core@^' + mppCoreVersion + '\n');
   
   // Step 5: Install dependencies with remote version
   console.log('5️⃣  Installing dependencies...');
@@ -140,9 +140,9 @@ async function main() {
     process.exit(1);
   }
   
-  // Step 7: Publish @autodev/cli
-  console.log('7️⃣  Publishing @autodev/cli...');
-  const shouldPublishCli = await askConfirmation('Publish @autodev/cli v' + currentVersion + ' to npm?');
+  // Step 7: Publish @xiuper/cli
+  console.log('7️⃣  Publishing @xiuper/cli...');
+  const shouldPublishCli = await askConfirmation('Publish @xiuper/cli v' + currentVersion + ' to npm?');
   if (!shouldPublishCli) {
     console.log('❌ Publish cancelled');
     console.log('🔄 Restoring package.json...');
@@ -152,7 +152,7 @@ async function main() {
   
   try {
     execSync('npm publish --access public', { cwd: rootDir, stdio: 'inherit' });
-    console.log('✅ @autodev/cli published successfully\n');
+    console.log('✅ @xiuper/cli published successfully\n');
   } catch (error) {
     console.error('❌ @autodev/cli publish failed');
     console.log('🔄 Restoring package.json...');
@@ -176,12 +176,12 @@ async function main() {
   
   console.log('🎉 Remote publish complete!\n');
   console.log('📦 Published packages:');
-  console.log('   @autodev/mpp-core@' + mppCoreVersion);
-  console.log('   @autodev/cli@' + currentVersion);
+  console.log('   @xiuper/mpp-core@' + mppCoreVersion);
+  console.log('   @xiuper/cli@' + currentVersion);
   console.log('\n💡 To install globally:');
-  console.log('   npm install -g @autodev/cli');
+  console.log('   npm install -g @xiuper/cli');
   console.log('\n💡 To use:');
-  console.log('   autodev');
+  console.log('   xiuper');
 }
 
 main().catch(error => {

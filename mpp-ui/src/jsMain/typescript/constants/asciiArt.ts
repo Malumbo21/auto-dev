@@ -1,14 +1,14 @@
 /**
- * ASCII Art and branding constants for AutoDev CLI
+ * ASCII Art and branding constants for Xiuper CLI
  */
 
 export const AUTODEV_LOGO = `
-   ╔═╗╦ ╦╔╦╗╔═╗╔╦╗╔═╗╦  ╦
-   ╠═╣║ ║ ║ ║ ║ ║║║╣ ╚╗╔╝
-   ╩ ╩╚═╝ ╩ ╚═╝═╩╝╚═╝ ╚╝ 
+   ╦ ╦╦╦ ╦╔═╗╔═╗╦═╗
+   ╠╦╝║║ ║╠═╝║╣ ╠╦╝
+   ╩╚═╩╚═╝╩  ╚═╝╩╚═
 `;
 
-export const AUTODEV_TAGLINE = 'AI-Powered Development Assistant';
+export const AUTODEV_TAGLINE = 'One Platform. All Phases. Every Device.';
 
 export const WELCOME_MESSAGE = `
 ${AUTODEV_LOGO}
@@ -21,7 +21,7 @@ ${AUTODEV_TAGLINE}
 `;
 
 export const HELP_TEXT = `
-📚 AutoDev CLI Help
+📚 Xiuper CLI Help
 
 Commands:
   /help       - Show this help message
@@ -46,6 +46,6 @@ Shortcuts:
 `;
 
 export const GOODBYE_MESSAGE = `
-👋 Thanks for using AutoDev!
+👋 Thanks for using Xiuper!
 💾 Your session has been saved.
 `;

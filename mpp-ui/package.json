@@ -1,9 +1,10 @@
 {
-  "name": "@autodev/cli",
-  "version": "0.3.4",
+  "name": "@xiuper/cli",
+  "version": "0.0.1",
   "description": "AutoDev Xiuper CLI - Terminal UI for AI-powered development assistant",
   "type": "module",
   "bin": {
+    "xiuper": "./dist/jsMain/typescript/index.js",
     "autodev": "./dist/jsMain/typescript/index.js"
   },
   "scripts": {
@@ -40,16 +41,17 @@
     "cli",
     "terminal",
     "coding-assistant",
+    "xiuper",
     "autodev",
     "tui"
   ],
-  "author": "AutoDev Xiuper Team",
+  "author": "Xiuper Team",
   "license": "MIT",
   "engines": {
     "node": ">=20.0.0"
   },
   "dependencies": {
-    "@autodev/mpp-core": "file:../mpp-core/build/dist/js/productionLibrary",
+    "@xiuper/mpp-core": "file:../mpp-core/build/dist/js/productionLibrary",
     "@js-joda/core": "^5.6.5",
     "@modelcontextprotocol/sdk": "^1.0.4",
     "@unit-mesh/treesitter-artifacts": "^1.7.7",

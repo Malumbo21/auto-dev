@@ -7,7 +7,7 @@
  * 3. Uses DocumentAgent with DocQLTool for intelligent querying
  */
 
-import mppCore from '@autodev/mpp-core';
+import mppCore from '@xiuper/mpp-core';
 import { semanticChalk } from '../design-system/theme-helpers.js';
 import * as fs from 'fs';
 import * as path from 'path';

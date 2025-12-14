@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
 /**
- * AutoDev CLI - Main entry point
+ * Xiuper CLI - Main entry point
  *
- * This file serves as the entry point for the @autodev/cli application.
+ * This file serves as the entry point for the @xiuper/cli application.
  * It supports both interactive TUI mode and non-interactive coding agent mode.
  */
 
@@ -16,7 +16,7 @@ import { CliRenderer } from './agents/render/CliRenderer.js';
 import { ServerAgentClient } from './agents/ServerAgentClient.js';
 import { ServerRenderer } from './agents/render/ServerRenderer.js';
 import { runReview } from './modes/ReviewMode.js';
-import mppCore from '@autodev/mpp-core';
+import mppCore from '@xiuper/mpp-core';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -29,7 +29,7 @@ const { cc: KotlinCC } = mppCore;
 async function saveChatHistoryToLog(conversationHistory: any[]): Promise<void> {
   try {
     // Create log directory if it doesn't exist
-    const logDir = path.join(os.homedir(), '.autodev', 'logs');
+    const logDir = path.join(os.homedir(), '.xiuper', 'logs');
     if (!fs.existsSync(logDir)) {
       fs.mkdirSync(logDir, { recursive: true });
     }
@@ -110,7 +110,7 @@ async function runCodingAgent(projectPath: string, task: string, quiet: boolean 
     }
 
     if (!quiet) {
-      console.log(`\n🚀 AutoDev Coding Agent`);
+      console.log(`\n🚀 Xiuper Coding Agent`);
       console.log(`📦 Provider: ${activeConfig.provider}`);
       console.log(`🤖 Model: ${activeConfig.model}`);
       console.log(`🔧 Built-in tools: Always enabled (all)`);

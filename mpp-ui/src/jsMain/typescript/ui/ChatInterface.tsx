@@ -64,7 +64,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       try {
         const { ConfigManager } = await import('../config/ConfigManager.js');
         const { getCurrentProjectPath } = await import('../utils/domainDictUtils.js');
-        const KotlinCC = (await import('@autodev/mpp-core')).default.cc;
+        const KotlinCC = (await import('@xiuper/mpp-core')).default.cc;
 
         const projectPath = getCurrentProjectPath();
         if (!projectPath) return;

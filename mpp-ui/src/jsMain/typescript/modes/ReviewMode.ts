@@ -7,7 +7,7 @@
  * - ~87% token savings compared to tool-driven approach
  */
 
-import mppCore from '@autodev/mpp-core';
+import mppCore from '@xiuper/mpp-core';
 import { semanticChalk } from '../design-system/theme-helpers.js';
 
 const { cc: KotlinCC } = mppCore;
