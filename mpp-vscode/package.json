@@ -254,7 +254,7 @@
     "vitest": "^1.0.0"
   },
   "dependencies": {
-    "xiuper-mpp-core": "0.0.1",
+    "@xiuper/mpp-core": "0.0.1",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "@unit-mesh/treesitter-artifacts": "^1.7.7",
     "cors": "^2.8.5",
