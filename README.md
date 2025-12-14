@@ -1,19 +1,23 @@
-# AutoDev 3.0 - Xiuper (Work in Progress)
+# AutoDev Xiuper
 
-> The full platform supported AI4SDLC agents.
+> **One Platform. All Phases. Every Device.**  
+> 统一平台·全开发阶段·跨全设备
 
-For AutoDev 3.0 (Development version)
+**AutoDev Xiuper** is the AI-native development platform built on Kotlin Multiplatform, covering all 7 phases of SDLC (Requirements → Development → Review → Testing → Data → Deployment → Operations) and supporting 8+ platforms (IDEA, VSCode, CLI, Web, Desktop, Android, iOS, Server).
 
-- Intellij Plugin: https://plugins.jetbrains.com/plugin/29223-autodev-experiment
-- VSCode Extension: [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=Phodal.autodev)
-- Web Version: https://web.xiuper.com/
-- CLI Tool: `npm install -g @autodev/cli`
-- Desktop & Android see in [release pages](https://github.com/phodal/auto-dev/releases)
+## 🚀 Get Started
 
-For AutoDev 2.0 (Stable version)
+### Download AutoDev Xiuper
 
-- branch: https://github.com/phodal/auto-dev/tree/autodev2
-- Intellij Plugin: https://plugins.jetbrains.com/plugin/26988
+- **IntelliJ IDEA Plugin**: [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/29223-autodev-experiment)
+- **VSCode Extension**: [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=Phodal.autodev)
+- **CLI Tool**: `npm install -g @autodev/cli`
+- **Web Version**: https://web.xiuper.com/
+- **Desktop & Android**: [Release Pages](https://github.com/phodal/auto-dev/releases)
+
+### Previous Versions
+
+- **AutoDev 2.0** (Stable): [Branch](https://github.com/phodal/auto-dev/tree/autodev2) | [Plugin](https://plugins.jetbrains.com/plugin/26988)
 
 ### Modules
 
@@ -30,14 +34,23 @@ For AutoDev 2.0 (Stable version)
 
 ### 🌟 Key Features
 
-- **Unified Codebase**: Core logic shared across all platforms - write once, run everywhere
-- **Native Performance**: Compiled natively for each platform with zero overhead
-- **Full AI Agent**: Built-in Coding Agent, tool system, multi-LLM support (OpenAI, Anthropic, Google, DeepSeek, Ollama,
-  etc.)
-- **DevIns Language**: Executable AI Agent scripting language
-- **MCP Protocol**: Model Context Protocol support for extensible tool ecosystem
-- **Code Understanding**: TreeSitter-based multi-language parsing (Java, Kotlin, Python, JS, TS, Go, Rust, C#)
-- **Internationalization**: Chinese/English UI support
+**Xiuper Edition** represents a major milestone in AI-powered development:
+
+- **One Platform**: Unified Kotlin Multiplatform architecture - write once, deploy everywhere
+- **All Phases**: 7 specialized agents covering complete software development lifecycle
+  - Requirements → Development → Review → Testing → Data → Deployment → Operations
+- **Every Device**: Native support for 8+ platforms with zero compromise on performance
+  - IDE: IntelliJ IDEA, VSCode
+  - Desktop: macOS, Windows, Linux (Compose Multiplatform)
+  - Mobile: Android, iOS (Native + Compose)
+  - Terminal: CLI (Node.js with React/Ink)
+  - Web: Modern web app
+  - Server: Remote agent server (Ktor)
+- **Multi-LLM Support**: OpenAI, Anthropic, Google, DeepSeek, Ollama, and more
+- **DevIns Language**: Executable AI Agent scripting language for workflow automation
+- **MCP Protocol**: Extensible tool ecosystem via Model Context Protocol
+- **Code Intelligence**: TreeSitter-based parsing for Java, Kotlin, Python, JS, TS, Go, Rust, C#
+- **Global Ready**: Full internationalization (Chinese/English)
 
 ## License
 

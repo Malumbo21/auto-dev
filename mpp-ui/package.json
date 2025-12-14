@@ -1,7 +1,7 @@
 {
   "name": "@autodev/cli",
   "version": "0.3.4",
-  "description": "AutoDev CLI - Terminal UI for AI-powered development assistant",
+  "description": "AutoDev Xiuper CLI - Terminal UI for AI-powered development assistant",
   "type": "module",
   "bin": {
     "autodev": "./dist/jsMain/typescript/index.js"
@@ -43,7 +43,7 @@
     "autodev",
     "tui"
   ],
-  "author": "AutoDev Team",
+  "author": "AutoDev Xiuper Team",
   "license": "MIT",
   "engines": {
     "node": ">=20.0.0"

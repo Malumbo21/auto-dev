@@ -5,7 +5,8 @@
     <vendor email="h@phodal.com" url="https://github.com/phodal">Phodal</vendor>
 
     <description><![CDATA[
-    AutoDev Idea - Provides Compose-based UI components for IntelliJ IDEA 2025.2+.
+    <strong>AutoDev Xiuper: One Platform. All Phases. Every Device.</strong><br/>
+    AutoDev Xiuper - Provides Compose-based UI components for IntelliJ IDEA 2025.2+.
     This module leverages Jewel theme for native IDE integration with DevIn language support.
     ]]></description>
 

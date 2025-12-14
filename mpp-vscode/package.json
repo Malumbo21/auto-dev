@@ -1,7 +1,7 @@
 {
   "name": "autodev",
-  "displayName": "AutoDev - 🧙the AI-powered coding wizard (KMP Edition).",
-  "description": "🧙‍ AI-powered coding wizard with multilingual support 🌐, auto code generation 🏗️, based on Kotlin Multiplatform. AutoDev provides CodeLens, Chat, and powerful agent features! 🚀",
+  "displayName": "AutoDev Xiuper - 🧙the AI-powered coding wizard (KMP Edition).",
+  "description": "🧙‍ AutoDev Xiuper: One Platform. All Phases. Every Device. AI-powered coding wizard with multilingual support 🌐, auto code generation 🏗️, based on Kotlin Multiplatform. Provides CodeLens, Chat, and powerful agent features! 🚀",
   "version": "0.5.3",
   "publisher": "Phodal",
   "license": "Apache-2.0",
