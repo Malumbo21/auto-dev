@@ -41,12 +41,12 @@ export async function initCompletionManager() {
     try {
       // Dynamic import from build output
       // @ts-ignore - Runtime import, path is correct after build
-      const mppCore = await import('@autodev/mpp-core/autodev-mpp-core.js');
+      const mppCore = await import('@xiuper/mpp-core/autodev-mpp-core.js');
       const exports = mppCore['module.exports'] || mppCore.default || mppCore;
       if (exports?.cc?.unitmesh?.llm?.JsCompletionManager) {
         completionManager = new exports.cc.unitmesh.llm.JsCompletionManager();
         console.log('✅ CompletionManager initialized');
-        
+
         // Initialize workspace with current directory
         try {
           const workspacePath = process.cwd();
@@ -79,7 +79,7 @@ export async function initDevInsCompiler() {
     try {
       // Dynamic import from build output
       // @ts-ignore - Runtime import, path is correct after build
-      const mppCore = await import('@autodev/mpp-core/autodev-mpp-core.js');
+      const mppCore = await import('@xiuper/mpp-core/autodev-mpp-core.js');
       const exports = mppCore['module.exports'] || mppCore.default || mppCore;
       if (exports?.cc?.unitmesh?.llm?.JsDevInsCompiler) {
         devinsCompiler = new exports.cc.unitmesh.llm.JsDevInsCompiler();
@@ -102,7 +102,7 @@ export async function initDevInsCompiler() {
 export async function compileDevIns(source: string, variables?: Record<string, any>): Promise<JsDevInsResult | null> {
   const compiler = await initDevInsCompiler();
   if (!compiler) return null;
-  
+
   try {
     const result = await compiler.compile(source, variables);
     return result;
@@ -124,13 +124,13 @@ export async function compileDevIns(source: string, variables?: Record<string, a
 export function hasDevInsCommands(text: string): boolean {
   // Check for /command: syntax (most common)
   if (/\/[a-z-]+:/i.test(text)) return true;
-  
+
   // Check for @agent syntax
   if (/@[a-z-]+/i.test(text)) return true;
-  
+
   // Check for $variable syntax
   if (/\$[a-z_][a-z0-9_]*/i.test(text)) return true;
-  
+
   return false;
 }
 
@@ -140,7 +140,7 @@ export function hasDevInsCommands(text: string): boolean {
 export async function getCompletionSuggestions(text: string, cursorPosition: number): Promise<JsCompletionItem[]> {
   const manager = await initCompletionManager();
   if (!manager) return [];
-  
+
   try {
     const items = manager.getCompletions(text, cursorPosition);
     return Array.from(items || []);
@@ -155,13 +155,13 @@ export async function getCompletionSuggestions(text: string, cursorPosition: num
  * This properly handles special cases like adding ":" after commands
  */
 export async function applyCompletionItem(
-  text: string, 
-  cursorPosition: number, 
+  text: string,
+  cursorPosition: number,
   completionIndex: number
 ): Promise<JsInsertResult | null> {
   const manager = await initCompletionManager();
   if (!manager) return null;
-  
+
   try {
     const result = manager.applyCompletion(text, cursorPosition, completionIndex);
     return result || null;
@@ -177,7 +177,7 @@ export async function applyCompletionItem(
 export async function shouldTriggerCompletion(char: string): Promise<boolean> {
   const manager = await initCompletionManager();
   if (!manager) return false;
-  
+
   try {
     return manager.shouldTrigger(char);
   } catch (error) {

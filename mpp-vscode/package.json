@@ -7,13 +7,13 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/unit-mesh/auto-dev-vscode"
+    "url": "https://github.com/unit-mesh/auto-dev"
   },
   "bugs": {
-    "url": "https://github.com/unit-mesh/auto-dev-vscode/issues"
+    "url": "https://github.com/unit-mesh/auto-dev/issues"
   },
   "homepage": "https://vscode.unitmesh.cc",
-  "qna": "https://github.com/unit-mesh/auto-dev-vscode/issues/new/choose",
+  "qna": "https://github.com/unit-mesh/auto-dev/issues/new/choose",
   "pricing": "Free",
   "icon": "media/pluginIcon.png",
   "engines": {
@@ -254,7 +254,7 @@
     "vitest": "^1.0.0"
   },
   "dependencies": {
-    "@xiuper/mpp-core": "0.0.1",
+    "@xiuper/mpp-core": "^0.0.2",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "@unit-mesh/treesitter-artifacts": "^1.7.7",
     "cors": "^2.8.5",

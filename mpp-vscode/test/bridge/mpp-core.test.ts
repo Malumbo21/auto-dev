@@ -6,7 +6,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ProviderTypes } from '../../src/bridge/mpp-core';
 
 // Mock the mpp-core module
-vi.mock('@autodev/mpp-core', () => ({
+vi.mock('@xiuper/mpp-core', () => ({
   default: {
     cc: {
       unitmesh: {

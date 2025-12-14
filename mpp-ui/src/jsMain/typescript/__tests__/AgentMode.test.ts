@@ -23,7 +23,7 @@ vi.mock('../config/ConfigManager.js', () => ({
   }
 }));
 
-vi.mock('@autodev/mpp-core', () => ({
+vi.mock('@xiuper/mpp-core', () => ({
   default: {
     cc: {
       unitmesh: {

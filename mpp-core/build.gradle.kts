@@ -8,7 +8,7 @@ plugins {
 
     // Temporarily disabled: npm publish plugin doesn't support wasmJs targets
     // TODO: Re-enable once plugin supports wasmJs or split into separate modules
-    // id("dev.petuska.npm.publish") version "3.5.3"
+     id("dev.petuska.npm.publish") version "3.5.3"
 }
 
 repositories {
@@ -282,32 +282,32 @@ kotlin {
     }
 }
 
-// npmPublish {
-//     organization.set("autodev")
-//
-//     packages {
-//         named("js") {
-//             packageJson {
-//                 name = "@autodev/mpp-core"
-//                 version = project.version.toString()
-//                 main = "autodev-mpp-core.js"
-//                 types = "autodev-mpp-core.d.ts"
-//                 description.set("AutoDev Multiplatform Core - AI Agent and DevIns Compiler")
-//                 author {
-//                     name.set("Unit Mesh")
-//                     email.set("h@phodal.com")
-//                 }
-//                 license.set("MIT")
-//                 private.set(false)
-//                 repository {
-//                     type.set("git")
-//                     url.set("https://github.com/unit-mesh/auto-dev.git")
-//                 }
-//                 keywords.set(listOf("kotlin", "multiplatform", "ai", "llm", "devins"))
-//             }
-//         }
-//     }
-// }
+npmPublish {
+    organization.set("xiuper")
+
+    packages {
+        named("js") {
+            packageJson {
+                name = "@xiuper/mpp-core"
+                version = project.version.toString()
+                main = "xiuper-mpp-core.js"
+                types = "xiuper-mpp-core.d.ts"
+                description.set("AutoDev Xiuper Core - One Platform. All Phases. Every Device.")
+                author {
+                    name.set("Unit Mesh")
+                    email.set("h@phodal.com")
+                }
+                license.set("MIT")
+                private.set(false)
+                repository {
+                    type.set("git")
+                    url.set("https://github.com/phodal/auto-dev.git")
+                }
+                keywords.set(listOf("ai4sdl", "ai", "llm", "agent"))
+            }
+        }
+    }
+}
 
 // Disable wasmJs browser tests due to webpack compatibility issues
 // See: https://github.com/webpack/webpack/issues/XXX

@@ -6,7 +6,7 @@
  */
 
 // @ts-ignore - Kotlin/JS generated module
-import MppCore from 'xiuper-mpp-core';
+import MppCore from '@xiuper/mpp-core';
 
 // Access the exported Kotlin/JS classes
 const {

@@ -3,9 +3,9 @@
 /**
  * Remote publish script
  * This publishes both mpp-core and mpp-ui to npm registry
- * 
+ *
  * Steps:
- * 1. Build and publish @autodev/mpp-core to npm
+ * 1. Build and publish @xiuper/mpp-core to npm
  * 2. Update package.json to use published version
  * 3. Build and publish @autodev/cli
  * 4. Restore package.json to use local file: dependency
@@ -33,7 +33,7 @@ function askConfirmation(question) {
       input: process.stdin,
       output: process.stdout
     });
-    
+
     rl.question(question + ' (y/N): ', (answer) => {
       rl.close();
       resolve(answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes');
@@ -43,34 +43,34 @@ function askConfirmation(question) {
 
 async function main() {
   console.log('🚀 Remote Publish Script for @xiuper/cli\n');
-  
+
   // Read current package.json
   const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
   const currentVersion = packageJson.version;
-  
+
   console.log('📦 Current package info:');
   console.log('   Name:', packageJson.name);
   console.log('   Version:', currentVersion);
   console.log('   mpp-core dependency:', packageJson.dependencies['@xiuper/mpp-core']);
   console.log();
-  
+
   // Confirm publish
   const shouldContinue = await askConfirmation('Do you want to continue with remote publish?');
   if (!shouldContinue) {
     console.log('❌ Publish cancelled');
     process.exit(0);
   }
-  
-  // Step 1: Build mpp-core
+
+  // Step 1: Build mpp-core (includes automatic package.json fix)
   console.log('\n1️⃣  Building mpp-core...');
   try {
     execSync('npm run build:kotlin', { cwd: rootDir, stdio: 'inherit' });
-    console.log('✅ mpp-core build complete\n');
+    console.log('✅ mpp-core build complete (package.json fixed automatically)\n');
   } catch (error) {
     console.error('❌ mpp-core build failed');
     process.exit(1);
   }
-  
+
   // Step 2: Check if mpp-core package exists
   console.log('2️⃣  Checking mpp-core package...');
   const mppCorePackageJsonPath = resolve(mppCorePackageDir, 'package.json');
@@ -78,11 +78,11 @@ async function main() {
     console.error('❌ mpp-core package.json not found at:', mppCorePackageJsonPath);
     process.exit(1);
   }
-  
+
   const mppCorePackageJson = JSON.parse(readFileSync(mppCorePackageJsonPath, 'utf-8'));
   const mppCoreVersion = mppCorePackageJson.version;
   console.log('✅ mpp-core package found (v' + mppCoreVersion + ')\n');
-  
+
   // Step 3: Publish mpp-core to npm
   console.log('3️⃣  Publishing @xiuper/mpp-core...');
   const shouldPublishCore = await askConfirmation('Publish @xiuper/mpp-core v' + mppCoreVersion + ' to npm?');
@@ -92,11 +92,11 @@ async function main() {
     try {
       // Check if user is logged in
       execSync('npm whoami', { cwd: mppCorePackageDir, stdio: 'pipe' });
-      
+
       // Publish
       execSync('npm publish --access public', { cwd: mppCorePackageDir, stdio: 'inherit' });
       console.log('✅ mpp-core published successfully\n');
-      
+
       // Wait a bit for npm registry to update
       console.log('⏳ Waiting for npm registry to update (5 seconds)...');
       await new Promise(resolve => setTimeout(resolve, 5000));
@@ -107,15 +107,15 @@ async function main() {
       process.exit(1);
     }
   }
-  
+
   // Step 4: Backup and update package.json
   console.log('4️⃣  Updating package.json for remote dependency...');
   copyFileSync(packageJsonPath, packageJsonBackupPath);
-  
+
   packageJson.dependencies['@xiuper/mpp-core'] = '^' + mppCoreVersion;
   writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2) + '\n');
   console.log('✅ Updated to use @xiuper/mpp-core@^' + mppCoreVersion + '\n');
-  
+
   // Step 5: Install dependencies with remote version
   console.log('5️⃣  Installing dependencies...');
   try {
@@ -127,7 +127,7 @@ async function main() {
     copyFileSync(packageJsonBackupPath, packageJsonPath);
     process.exit(1);
   }
-  
+
   // Step 6: Build TypeScript
   console.log('6️⃣  Building TypeScript...');
   try {
@@ -139,7 +139,7 @@ async function main() {
     copyFileSync(packageJsonBackupPath, packageJsonPath);
     process.exit(1);
   }
-  
+
   // Step 7: Publish @xiuper/cli
   console.log('7️⃣  Publishing @xiuper/cli...');
   const shouldPublishCli = await askConfirmation('Publish @xiuper/cli v' + currentVersion + ' to npm?');
@@ -149,7 +149,7 @@ async function main() {
     copyFileSync(packageJsonBackupPath, packageJsonPath);
     process.exit(0);
   }
-  
+
   try {
     execSync('npm publish --access public', { cwd: rootDir, stdio: 'inherit' });
     console.log('✅ @xiuper/cli published successfully\n');
@@ -159,12 +159,12 @@ async function main() {
     copyFileSync(packageJsonBackupPath, packageJsonPath);
     process.exit(1);
   }
-  
+
   // Step 8: Restore package.json for local development
   console.log('8️⃣  Restoring package.json for local development...');
   copyFileSync(packageJsonBackupPath, packageJsonPath);
   console.log('✅ package.json restored\n');
-  
+
   // Step 9: Reinstall with local file: dependency
   console.log('9️⃣  Reinstalling local dependencies...');
   try {
@@ -173,7 +173,7 @@ async function main() {
   } catch (error) {
     console.warn('⚠️  npm install failed, you may need to run it manually\n');
   }
-  
+
   console.log('🎉 Remote publish complete!\n');
   console.log('📦 Published packages:');
   console.log('   @xiuper/mpp-core@' + mppCoreVersion);
@@ -186,12 +186,12 @@ async function main() {
 
 main().catch(error => {
   console.error('❌ Unexpected error:', error);
-  
+
   // Try to restore package.json
   if (existsSync(packageJsonBackupPath)) {
     console.log('🔄 Restoring package.json...');
     copyFileSync(packageJsonBackupPath, packageJsonPath);
   }
-  
+
   process.exit(1);
 });

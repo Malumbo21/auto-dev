@@ -23,19 +23,19 @@ try {
   console.log('1️⃣  Checking mpp-core build...');
   const mppCorePath = resolve(rootDir, '../mpp-core/build/packages/js/autodev-mpp-core.js');
   const mppCorePackageJson = resolve(rootDir, '../mpp-core/build/packages/js/package.json');
-  
+
   if (!existsSync(mppCorePath) || !existsSync(mppCorePackageJson)) {
     console.error('❌ mpp-core not built!');
     console.error('   Run: npm run build:kotlin');
     process.exit(1);
   }
   console.log('✅ mpp-core build found\n');
-  
+
   // Step 2: Verify package.json has local dependency
   console.log('2️⃣  Verifying package.json...');
   const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
-  const mppCoreDep = packageJson.dependencies['@autodev/mpp-core'];
-  
+  const mppCoreDep = packageJson.dependencies['@xiuper/mpp-core'];
+
   if (!mppCoreDep || !mppCoreDep.startsWith('file:../mpp-core/build/packages/js')) {
     console.error('❌ package.json should use local file: dependency');
     console.error('   Expected: "file:../mpp-core/build/packages/js"');
@@ -43,12 +43,12 @@ try {
     process.exit(1);
   }
   console.log('✅ Using local mpp-core dependency\n');
-  
+
   // Step 3: Build TypeScript
   console.log('3️⃣  Building TypeScript...');
   execSync('npm run build:ts', { cwd: rootDir, stdio: 'inherit' });
   console.log('✅ TypeScript build complete\n');
-  
+
   // Step 4: Run tests
   console.log('4️⃣  Running tests...');
   try {
@@ -57,19 +57,19 @@ try {
   } catch (error) {
     console.warn('⚠️  Some tests failed, continuing anyway...\n');
   }
-  
+
   // Step 5: Create local package
   console.log('5️⃣  Creating local package...');
   execSync('npm pack', { cwd: rootDir, stdio: 'inherit' });
   console.log('✅ Package created\n');
-  
+
   console.log('🎉 Local publish complete!\n');
   console.log('To install globally for testing:');
   console.log('  npm link');
   console.log('  autodev --help');
   console.log('\nOr install the .tgz file:');
   console.log('  npm install -g autodev-cli-' + packageJson.version + '.tgz');
-  
+
 } catch (error) {
   console.error('❌ Local publish failed:', error.message);
   process.exit(1);

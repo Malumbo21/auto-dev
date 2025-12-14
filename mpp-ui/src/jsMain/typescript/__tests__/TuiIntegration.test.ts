@@ -37,7 +37,7 @@ vi.mock('../agents/LLMService.js', () => ({
   }))
 }));
 
-vi.mock('@autodev/mpp-core', () => ({
+vi.mock('@xiuper/mpp-core', () => ({
   default: {
     cc: {
       unitmesh: {
@@ -268,10 +268,10 @@ describe('TUI Integration Tests', () => {
 
     it('should handle /init command in chat mode', async () => {
       await modeManager.switchToMode('chat', mockContext);
-      
+
       const result = await modeManager.handleInput('/init');
       expect(result).toBe(true);
-      
+
       // Should add user message
       expect(mockContext.addMessage).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -283,10 +283,10 @@ describe('TUI Integration Tests', () => {
 
     it('should handle /init command in agent mode', async () => {
       await modeManager.switchToMode('agent', mockContext);
-      
+
       const result = await modeManager.handleInput('/init');
       expect(result).toBe(true);
-      
+
       // Should be handled by router, not sent to agent
       expect(mockContext.addMessage).toHaveBeenCalled();
     });

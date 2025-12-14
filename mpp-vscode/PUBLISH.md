@@ -6,17 +6,17 @@
 - **Version**: 0.6.0 (Xiuper Edition)
 - **Package File**: `autodev-0.6.0.vsix`
 - **Dependencies**: Uses published npm packages
-  - `xiuper-mpp-core@0.0.1`
-  - `xiuper-cli@0.0.1` (optional)
+  - `@xiuper/mpp-core@0.0.2`
+  - `@xiuper/cli@0.0.2` (optional)
 
 ## ✅ Pre-publish Checklist
 
 Xiuper Edition (0.6.0):
-- [ ] Version updated to 0.6.0 in package.json
-- [ ] mpp-core (0.0.1) published to npm as `xiuper-mpp-core`
-- [ ] mpp-vscode updated to use published mpp-core
-- [ ] Extension built successfully
-- [ ] Extension packaged as VSIX
+- [x] Version updated to 0.6.0 in package.json
+- [x] mpp-core (0.0.2) published to npm as `@xiuper/mpp-core`
+- [x] mpp-vscode updated to use published mpp-core
+- [x] Extension built successfully
+- [x] Extension packaged as VSIX
 - [ ] Changes committed and pushed to GitHub
 - [ ] Test installation locally
 
@@ -124,8 +124,8 @@ For future updates:
 ## ⚠️ Important Notes
 
 1. **Same Publisher ID**: This extension uses `Phodal` as publisher, matching the existing AutoDev extension
-2. **Version Coordination**: mpp-core (0.3.4) and CLI (0.3.4) are published separately
-3. **File Size**: Extension is 3.11 MB compressed (includes WASM files for Tree-sitter)
+2. **Version Coordination**: mpp-core (0.0.2) and CLI (0.0.2) are published separately as scoped packages: `@xiuper/mpp-core` and `@xiuper/cli`
+3. **File Size**: Extension is 3.14 MB compressed (includes WASM files for Tree-sitter)
 4. **Minimum VSCode**: Requires VSCode 1.85.0 or higher
 
 ## 🎯 Next Steps

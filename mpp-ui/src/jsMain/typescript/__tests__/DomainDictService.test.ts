@@ -6,7 +6,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { DomainDictService, getCurrentProjectPath, isValidProjectPath } from '../utils/domainDictUtils.js';
 
 // Mock mpp-core
-vi.mock('@autodev/mpp-core', () => ({
+vi.mock('@xiuper/mpp-core', () => ({
   default: {
     cc: {
       unitmesh: {
@@ -98,7 +98,7 @@ describe('DomainDictService', () => {
       });
 
       // Mock the generator to return exists = true
-      const mppCore = await import('@autodev/mpp-core');
+      const mppCore = await import('@xiuper/mpp-core');
       const mockGenerator = vi.mocked(mppCore.default.cc.unitmesh.llm.JsDomainDictGenerator);
       mockGenerator.mockImplementation(() => ({
         generateAndSave: vi.fn().mockResolvedValue({
@@ -125,7 +125,7 @@ describe('DomainDictService', () => {
       });
 
       // Mock the generator to return exists = false
-      const mppCore = await import('@autodev/mpp-core');
+      const mppCore = await import('@xiuper/mpp-core');
       const mockGenerator = vi.mocked(mppCore.default.cc.unitmesh.llm.JsDomainDictGenerator);
       mockGenerator.mockImplementation(() => ({
         generateAndSave: vi.fn().mockResolvedValue({
@@ -171,7 +171,7 @@ describe('DomainDictService', () => {
       });
 
       // Mock the generator to throw an error
-      const mppCore = await import('@autodev/mpp-core');
+      const mppCore = await import('@xiuper/mpp-core');
       const mockGenerator = vi.mocked(mppCore.default.cc.unitmesh.llm.JsDomainDictGenerator);
       mockGenerator.mockImplementation(() => ({
         generateAndSave: vi.fn().mockResolvedValue({
@@ -258,7 +258,7 @@ describe('Project Path Utils', () => {
       });
 
       // Mock the generator for successful generation
-      const mppCore = await import('@autodev/mpp-core');
+      const mppCore = await import('@xiuper/mpp-core');
       const mockGenerator = vi.mocked(mppCore.default.cc.unitmesh.llm.JsDomainDictGenerator);
       mockGenerator.mockImplementation(() => ({
         generateAndSave: vi.fn().mockResolvedValue({
@@ -287,7 +287,7 @@ describe('Project Path Utils', () => {
       });
 
       // Mock the generator for force flag behavior
-      const mppCore = await import('@autodev/mpp-core');
+      const mppCore = await import('@xiuper/mpp-core');
       const mockGenerator = vi.mocked(mppCore.default.cc.unitmesh.llm.JsDomainDictGenerator);
       mockGenerator.mockImplementation(() => ({
         generateAndSave: vi.fn().mockResolvedValue({

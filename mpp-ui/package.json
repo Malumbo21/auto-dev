@@ -1,6 +1,6 @@
 {
   "name": "@xiuper/cli",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "AutoDev Xiuper CLI - Terminal UI for AI-powered development assistant",
   "type": "module",
   "bin": {
@@ -8,7 +8,7 @@
     "autodev": "./dist/jsMain/typescript/index.js"
   },
   "scripts": {
-    "build:kotlin": "cd .. && ./gradlew :mpp-core:jsNodeProductionLibraryDistribution",
+    "build:kotlin": "cd .. && ./gradlew :mpp-core:jsNodeProductionLibraryDistribution && cd mpp-core && node scripts/fix-package-json.js",
     "build:kotlin-deps": "cd ../mpp-core/build/dist/js/productionLibrary && npm install --ignore-scripts",
     "build:ts": "cd .. && ./gradlew :mpp-ui:compileKotlinJs && cd mpp-ui && tsc && chmod +x dist/jsMain/typescript/index.js",
     "build": "npm run build:kotlin && npm run build:kotlin-deps && npm run build:ts",
