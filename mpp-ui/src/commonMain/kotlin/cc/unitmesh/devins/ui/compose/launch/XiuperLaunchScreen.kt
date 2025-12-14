@@ -400,10 +400,10 @@ fun XiuperLaunchScreen(
             Spacer(modifier = Modifier.height(10.dp))
 
             Text(
-                text = "X => Super open, Xiuper build.",
+                text = "One Platform. All Phases. Every Device.",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium,
-                letterSpacing = 3.sp,
+                letterSpacing = 1.sp,
                 color = AutoDevColors.Xiuper.textSecondary.copy(alpha = textAlpha)
             )
         }
