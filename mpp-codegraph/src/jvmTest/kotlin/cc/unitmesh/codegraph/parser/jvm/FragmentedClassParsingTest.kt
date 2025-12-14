@@ -91,9 +91,16 @@ class FragmentedClassParsingTest {
     @Test
     fun `should parse actual DocQLExecutor file from project`() = runBlocking {
         // Read actual file from project to test real-world scenario
-        val file = java.io.File("/Volumes/source/ai/autocrud/mpp-core/src/commonMain/kotlin/cc/unitmesh/devins/document/docql/DocQLExecutor.kt")
-        if (!file.exists()) {
-            println("Skipping test: DocQLExecutor.kt not found at expected path")
+        // Try multiple possible paths
+        val possiblePaths = listOf(
+            "../mpp-core/src/commonMain/kotlin/cc/unitmesh/devins/document/docql/DocQLExecutor.kt",
+            "../../mpp-core/src/commonMain/kotlin/cc/unitmesh/devins/document/docql/DocQLExecutor.kt",
+            "/Volumes/source/ai/autocrud/mpp-core/src/commonMain/kotlin/cc/unitmesh/devins/document/docql/DocQLExecutor.kt"
+        )
+        
+        val file = possiblePaths.map { java.io.File(it) }.firstOrNull { it.exists() }
+        if (file == null) {
+            println("Skipping test: DocQLExecutor.kt not found at any expected path")
             return@runBlocking
         }
         
@@ -102,18 +109,25 @@ class FragmentedClassParsingTest {
         
         val classes = nodes.filter { it.type == CodeElementType.CLASS }
         
-        // Should find at least these classes
-        val expectedClasses = setOf("DocQLExecutor", "FileInfo", "CodeBlock", "TableBlock")
+        // Should find at least these classes that are currently in the file
+        val expectedClasses = setOf("DocQLExecutor", "FileInfo")
         val actualClassNames = classes.map { it.name }.toSet()
         
         println("Found classes: $actualClassNames")
         
+        // Check that we found at least the expected classes
         for (expected in expectedClasses) {
             assertTrue(
                 actualClassNames.contains(expected),
                 "Should find $expected class, but found: $actualClassNames"
             )
         }
+        
+        // Ensure we found at least some classes (not zero)
+        assertTrue(
+            classes.isNotEmpty(),
+            "Should find at least one class in DocQLExecutor.kt"
+        )
     }
     
     @Test
