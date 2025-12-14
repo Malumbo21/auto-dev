@@ -24,7 +24,7 @@ const rootDir = resolve(__dirname, '..');
 const packageJsonPath = resolve(rootDir, 'package.json');
 const packageJsonBackupPath = resolve(rootDir, 'package.json.backup');
 const mppCoreDir = resolve(rootDir, '../mpp-core');
-const mppCorePackageDir = resolve(mppCoreDir, 'build/packages/js');
+const mppCorePackageDir = resolve(mppCoreDir, 'build/dist/js/productionLibrary');
 
 // Utility to ask user confirmation
 function askConfirmation(question) {
