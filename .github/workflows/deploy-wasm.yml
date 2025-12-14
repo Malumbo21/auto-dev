@@ -61,14 +61,6 @@ jobs:
           echo "--- disk usage summary ---"
           du -sh .
 
-      - name: Fix HTML base path for GitHub Pages
-        run: |
-          cd mpp-ui/build/dist/wasmJs/productionExecutable/
-          # Add base tag to HTML for GitHub Pages subpath
-          sed -i 's|<head>|<head>\n    <base href="/auto-dev/">|' index.html
-          # Update script src to use absolute path
-          sed -i 's|src="mpp-ui.js"|src="/auto-dev/mpp-ui.js"|' index.html
-
       - name: Fix permissions
         run: |
           chmod -v -R +rX "mpp-ui/build/dist/wasmJs/productionExecutable/" | while read line; do
