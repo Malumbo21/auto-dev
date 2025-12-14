@@ -236,7 +236,7 @@ project(":") {
         projectName = basePluginArchiveName
         pluginConfiguration {
             id = "cc.unitmesh.devins.idea"
-            name = "AutoDev Xiuper"
+            name = "AutoDev Xiuper - One Platform. All Phases. Every Device."
             version = prop("pluginVersion")
 
             ideaVersion {
