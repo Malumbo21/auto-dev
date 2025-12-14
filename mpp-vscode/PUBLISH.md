@@ -1,24 +1,24 @@
-# AutoDev VSCode Extension - Publishing Guide
+# AutoDev Xiuper VSCode Extension - Publishing Guide
 
 ## 📦 Package Information
 
 - **Extension ID**: `Phodal.autodev`
-- **Version**: 0.5.3
-- **Package File**: `autodev-0.5.3.vsix` (3.11 MB)
+- **Version**: 0.6.0 (Xiuper Edition)
+- **Package File**: `autodev-0.6.0.vsix`
 - **Dependencies**: Uses published npm packages
-  - `@autodev/mpp-core@0.3.4`
-  - `@autodev/cli@0.3.4`
+  - `xiuper-mpp-core@0.0.1`
+  - `xiuper-cli@0.0.1` (optional)
 
 ## ✅ Pre-publish Checklist
 
-All steps completed:
-- [x] Version updated in `gradle.properties` (0.3.4)
-- [x] mpp-core built and published to npm
-- [x] mpp-ui (CLI) built and published to npm
-- [x] mpp-vscode updated to use published mpp-core
-- [x] Extension built successfully
-- [x] Extension packaged as VSIX (3.11 MB)
-- [x] Changes committed and pushed to GitHub
+Xiuper Edition (0.6.0):
+- [ ] Version updated to 0.6.0 in package.json
+- [ ] mpp-core (0.0.1) published to npm as `xiuper-mpp-core`
+- [ ] mpp-vscode updated to use published mpp-core
+- [ ] Extension built successfully
+- [ ] Extension packaged as VSIX
+- [ ] Changes committed and pushed to GitHub
+- [ ] Test installation locally
 
 ## 🚀 Publishing to VS Code Marketplace
 

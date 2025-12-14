@@ -1,7 +1,7 @@
 <p align="center">
   <img src="media/pluginIcon.png" width="160px" height="160px"  alt="logo" />
 </p>
-<h1 align="center">AutoDev for VSCode (KMP Edition)</h1>
+<h1 align="center">AutoDev Xiuper for VSCode</h1>
 <p align="center">
     <a href="https://marketplace.visualstudio.com/items?itemName=Phodal.autodev">
         <img src="https://img.shields.io/visual-studio-marketplace/v/Phodal.autodev" alt="Visual Studio Marketplace Version" />
@@ -11,9 +11,10 @@
     </a>
 </p>
 
+> **One Platform. All Phases. Every Device.**  
 > 🧙‍ AI-powered coding wizard with multilingual support 🌐, auto code generation 🏗️, and a helpful bug-slaying assistant 🐞! Built with **Kotlin Multiplatform** for cross-platform capabilities. 🚀
 
-This is the **Kotlin Multiplatform (KMP) edition** of AutoDev, rewritten from the ground up to leverage Kotlin's cross-platform capabilities for future iOS, Android, and Desktop support.
+This is the **Xiuper edition** of AutoDev, rewritten from the ground up with Kotlin Multiplatform to deliver a unified platform for all development phases across every device.
 
 ## 🌟 Key Features
 
@@ -29,7 +30,7 @@ This is the **Kotlin Multiplatform (KMP) edition** of AutoDev, rewritten from th
 
 ## 🚀 Quick Start
 
-1. **Install the Extension**: Search for "AutoDev" in VSCode Marketplace
+1. **Install the Extension**: Search for "AutoDev Xiuper" in VSCode Marketplace
 2. **Configure LLM Provider**: Open Settings → AutoDev → Set your API key and model
 3. **Start Coding**: Press `Cmd+Shift+A` (Mac) / `Ctrl+Shift+A` (Windows/Linux) to open chat
 

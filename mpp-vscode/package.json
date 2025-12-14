@@ -2,7 +2,7 @@
   "name": "autodev",
   "displayName": "AutoDev Xiuper - 🧙the AI-powered coding wizard (KMP Edition).",
   "description": "🧙‍ AutoDev Xiuper: One Platform. All Phases. Every Device. AI-powered coding wizard with multilingual support 🌐, auto code generation 🏗️, based on Kotlin Multiplatform. Provides CodeLens, Chat, and powerful agent features! 🚀",
-  "version": "0.5.3",
+  "version": "0.6.0",
   "publisher": "Phodal",
   "license": "Apache-2.0",
   "repository": {
@@ -33,6 +33,7 @@
     "ai",
     "coding assistant",
     "llm",
+    "xiuper",
     "autodev",
     "kotlin multiplatform",
     "kmp"
@@ -253,7 +254,7 @@
     "vitest": "^1.0.0"
   },
   "dependencies": {
-    "@xiuper/mpp-core": "0.0.1",
+    "xiuper-mpp-core": "0.0.1",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "@unit-mesh/treesitter-artifacts": "^1.7.7",
     "cors": "^2.8.5",

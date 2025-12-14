@@ -13,7 +13,7 @@ import * as vscode from 'vscode';
 import { ConfigManager, AutoDevConfigWrapper, LLMConfig } from '../services/config-manager';
 
 // @ts-ignore - Kotlin/JS generated module
-import MppCore from '@autodev/mpp-core';
+import MppCore from 'xiuper-mpp-core';
 
 // Access Kotlin/JS exports - same pattern as AgentMode.ts
 const KotlinCC = MppCore.cc.unitmesh;
