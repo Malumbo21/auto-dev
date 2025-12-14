@@ -22,7 +22,6 @@ import cc.unitmesh.indexer.DomainDictService
 import cc.unitmesh.llm.KoogLLMService
 import cc.unitmesh.llm.ModelConfig
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.collect
 import kotlinx.serialization.Serializable
 
 // ============= Schema =============

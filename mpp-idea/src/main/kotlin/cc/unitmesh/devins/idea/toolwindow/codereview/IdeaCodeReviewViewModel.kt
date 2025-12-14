@@ -808,7 +808,7 @@ class IdeaCodeReviewViewModel(
         }
 
         val localFileSystem = com.intellij.openapi.vfs.LocalFileSystem.getInstance()
-        com.intellij.openapi.application.ApplicationManager.getApplication().invokeLater {
+        ApplicationManager.getApplication().invokeLater {
             val virtualFile = localFileSystem.refreshAndFindFileByIoFile(file)
             if (virtualFile != null) {
                 com.intellij.openapi.fileEditor.FileEditorManager.getInstance(project).openFile(virtualFile, true)
