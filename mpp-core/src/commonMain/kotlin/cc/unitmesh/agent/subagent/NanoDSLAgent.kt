@@ -73,11 +73,13 @@ class NanoDSLAgent(
                     buildRetryPrompt(input, lastGeneratedCode, lastErrors)
                 }
 
-                onProgress(if (attempt == 1) {
-                    "Calling LLM for code generation..."
-                } else {
-                    "Retry attempt $attempt/$maxRetries - fixing validation errors..."
-                })
+                onProgress(
+                    if (attempt == 1) {
+                        "Calling LLM for code generation..."
+                    } else {
+                        "Retry attempt $attempt/$maxRetries - fixing validation errors..."
+                    }
+                )
 
                 val responseBuilder = StringBuilder()
                 llmService.streamPrompt(
@@ -101,47 +103,73 @@ class NanoDSLAgent(
 
                 // Validate the generated code
                 val validationResult = validator.validate(generatedCode)
-                
+
                 if (validationResult.isValid) {
                     // Try to parse and get IR JSON
                     val parseResult = validator.parse(generatedCode)
-                    if (parseResult is NanoDSLParseResult.Success) {
-                        irJson = parseResult.irJson
-                    }
 
-                    onProgress("✅ Generated ${generatedCode.lines().size} lines of valid NanoDSL code" +
-                        (if (attempt > 1) " (after $attempt attempts)" else ""))
+                    when (parseResult) {
+                        is NanoDSLParseResult.Success -> {
+                            irJson = parseResult.irJson
 
-                    // Log warnings if any
-                    if (validationResult.warnings.isNotEmpty()) {
-                        validationResult.warnings.forEach { warning ->
-                            onProgress("⚠️ $warning")
+                            onProgress(
+                                "✅ Generated ${generatedCode.lines().size} lines of valid NanoDSL code" +
+                                        (if (attempt > 1) " (after $attempt attempts)" else "")
+                            )
+
+                            // Log warnings if any
+                            if (validationResult.warnings.isNotEmpty()) {
+                                validationResult.warnings.forEach { warning ->
+                                    onProgress("⚠️ $warning")
+                                }
+                            }
+
+                            // Return formatted output with nanodsl code fence so LLM can display it to user
+                            val formattedContent = buildString {
+                                appendLine("I've generated the following NanoDSL UI code based on your description:")
+                                appendLine()
+                                appendLine("```nanodsl")
+                                appendLine(generatedCode)
+                                appendLine("```")
+                                appendLine()
+                                appendLine("This code can be rendered as an interactive UI component.")
+                            }
+
+                            return ToolResult.AgentResult(
+                                success = true,
+                                content = formattedContent,
+                                metadata = buildMetadata(input, generatedCode, attempt, irJson, validationResult)
+                            )
+                        }
+
+                        is NanoDSLParseResult.Failure -> {
+                            // Parse error - code is too complex, need to retry with simpler request
+                            val errorMessage = parseResult.errors.joinToString("; ") { it.message }
+                            lastErrors = listOf(
+                                ValidationError(
+                                    message = "Parse failed: $errorMessage. The generated code is too complex.",
+                                    line = 0,
+                                    suggestion = "Generate simpler code with fewer components and less nesting"
+                                )
+                            )
+
+                            if (attempt < maxRetries) {
+                                onProgress("⚠️ Parse error (code too complex), will retry with simpler approach: $errorMessage")
+                                logger.warn { "NanoDSL parse failed (attempt $attempt): $errorMessage" }
+                                continue // Continue to next retry
+                            } else {
+                                onProgress("❌ Parse failed after $maxRetries attempts: $errorMessage")
+                                logger.error { "NanoDSL parse failed after all retries: $errorMessage" }
+                            }
                         }
                     }
-
-                    // Return formatted output with nanodsl code fence so LLM can display it to user
-                    val formattedContent = buildString {
-                        appendLine("I've generated the following NanoDSL UI code based on your description:")
-                        appendLine()
-                        appendLine("```nanodsl")
-                        appendLine(generatedCode)
-                        appendLine("```")
-                        appendLine()
-                        appendLine("This code can be rendered as an interactive UI component.")
-                    }
-
-                    return ToolResult.AgentResult(
-                        success = true,
-                        content = formattedContent,
-                        metadata = buildMetadata(input, generatedCode, attempt, irJson, validationResult)
-                    )
                 } else {
                     // Validation failed, prepare for retry
                     lastErrors = validationResult.errors
-                    val errorMessages = validationResult.errors.joinToString("\n") { 
+                    val errorMessages = validationResult.errors.joinToString("\n") {
                         "Line ${it.line}: ${it.message}" + (it.suggestion?.let { s -> " ($s)" } ?: "")
                     }
-                    
+
                     if (attempt < maxRetries) {
                         onProgress("⚠️ Validation failed, will retry: $errorMessages")
                         logger.warn { "NanoDSL validation failed (attempt $attempt): $errorMessages" }
@@ -186,24 +214,52 @@ class NanoDSLAgent(
      * Build a retry prompt that includes previous errors for self-correction
      */
     private fun buildRetryPrompt(
-        input: NanoDSLContext, 
-        previousCode: String, 
+        input: NanoDSLContext,
+        previousCode: String,
         errors: List<ValidationError>
     ): String {
+        // Check if this is a parse error (code too complex)
+        val isParseError = errors.any { it.message.contains("Parse failed") || it.message.contains("too complex") }
+
         val errorFeedback = buildString {
             appendLine("## Previous Attempt (INVALID)")
             appendLine("```nanodsl")
             appendLine(previousCode)
             appendLine("```")
             appendLine()
-            appendLine("## Validation Errors to Fix:")
-            errors.forEach { error ->
-                appendLine("- Line ${error.line}: ${error.message}")
-                error.suggestion?.let { appendLine("  Suggestion: $it") }
+
+            if (isParseError) {
+                appendLine("## ⚠️ CRITICAL: Code Too Complex")
+                appendLine("The previous code was too complex and failed to parse.")
+                appendLine()
+                appendLine("## Requirements for Simpler Code:")
+                appendLine("1. Use FEWER components (aim for 5-8 components maximum)")
+                appendLine("2. Reduce nesting depth (maximum 2-3 levels)")
+                appendLine("3. Simplify state management (use only essential state variables)")
+                appendLine("4. Avoid complex expressions in bindings")
+                appendLine("5. Keep actions simple and straightforward")
+                appendLine()
+                appendLine("## Errors:")
+                errors.forEach { error ->
+                    appendLine("- ${error.message}")
+                    error.suggestion?.let { appendLine("  💡 $it") }
+                }
+            } else {
+                appendLine("## Validation Errors to Fix:")
+                errors.forEach { error ->
+                    appendLine("- Line ${error.line}: ${error.message}")
+                    error.suggestion?.let { appendLine("  Suggestion: $it") }
+                }
             }
+
             appendLine()
             appendLine("## Instructions:")
-            appendLine("Please fix the above errors and generate a corrected version.")
+            if (isParseError) {
+                appendLine("Generate a MUCH SIMPLER version that achieves the core functionality.")
+                appendLine("Prioritize simplicity over completeness.")
+            } else {
+                appendLine("Please fix the above errors and generate a corrected version.")
+            }
             appendLine("Output ONLY the corrected NanoDSL code, no explanations.")
         }
 
