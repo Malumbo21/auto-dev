@@ -267,6 +267,7 @@ kotlin {
         val androidMain by getting {
             dependencies {
                 implementation(project(":mpp-viewer-web"))
+                implementation(project(":xiuper-ui"))
 
                 implementation(libs.androidx.activity)
                 implementation(libs.androidx.appcompat)
