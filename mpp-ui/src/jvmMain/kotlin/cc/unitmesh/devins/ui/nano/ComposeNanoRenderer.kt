@@ -83,9 +83,11 @@ object ComposeNanoRenderer {
 
     @Composable
     fun RenderVStack(ir: NanoIR, modifier: Modifier = Modifier) {
-        val spacing = ir.props["spacing"]?.jsonPrimitive?.content?.toSpacing() ?: 8.dp
+        val spacing = ir.props["spacing"]?.jsonPrimitive?.content?.toSpacing() ?: 2.dp
+        val padding = ir.props["padding"]?.jsonPrimitive?.content?.toSpacing()
+        val finalModifier = if (padding != null) modifier.padding(padding) else modifier
         Column(
-            modifier = modifier,
+            modifier = finalModifier,
             verticalArrangement = Arrangement.spacedBy(spacing)
         ) {
             ir.children?.forEach { child ->
@@ -96,12 +98,14 @@ object ComposeNanoRenderer {
 
     @Composable
     fun RenderHStack(ir: NanoIR, modifier: Modifier = Modifier) {
-        val spacing = ir.props["spacing"]?.jsonPrimitive?.content?.toSpacing() ?: 8.dp
+        val spacing = ir.props["spacing"]?.jsonPrimitive?.content?.toSpacing() ?: 2.dp
+        val padding = ir.props["padding"]?.jsonPrimitive?.content?.toSpacing()
         val align = ir.props["align"]?.jsonPrimitive?.content?.toVerticalAlignment() ?: Alignment.CenterVertically
         val justify = ir.props["justify"]?.jsonPrimitive?.content?.toHorizontalArrangement() ?: Arrangement.Start
 
+        val finalModifier = if (padding != null) modifier.padding(padding) else modifier
         Row(
-            modifier = modifier,
+            modifier = finalModifier,
             horizontalArrangement = justify,
             verticalAlignment = align
         ) {
@@ -353,19 +357,20 @@ object ComposeNanoRenderer {
     // ============================================================================
 
     private fun String.toSpacing() = when (this) {
-        "xs" -> 4.dp
-        "sm" -> 8.dp
-        "md" -> 16.dp
-        "lg" -> 24.dp
-        "xl" -> 32.dp
-        else -> 8.dp
+        "xs" -> 1.dp
+        "sm" -> 1.5.dp
+        "md" -> 2.dp
+        "lg" -> 3.dp
+        "xl" -> 4.dp
+        "none" -> 0.5.dp
+        else -> 1.dp
     }
 
     private fun String.toElevation() = when (this) {
         "none" -> 0.dp
-        "sm" -> 2.dp
-        "md" -> 4.dp
-        "lg" -> 8.dp
+        "sm" -> 1.dp
+        "md" -> 2.dp
+        "lg" -> 4.dp
         else -> 2.dp
     }
 

@@ -137,7 +137,9 @@ object StatefulNanoRenderer {
         ir: NanoIR, state: Map<String, Any>, onAction: (NanoActionIR) -> Unit, modifier: Modifier
     ) {
         val spacing = ir.props["spacing"]?.jsonPrimitive?.content?.toSpacing() ?: 8.dp
-        Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(spacing)) {
+        val padding = ir.props["padding"]?.jsonPrimitive?.content?.toPadding()
+        val finalModifier = if (padding != null) modifier.padding(padding) else modifier
+        Column(modifier = finalModifier, verticalArrangement = Arrangement.spacedBy(spacing)) {
             ir.children?.forEach { child -> RenderNode(child, state, onAction) }
         }
     }
@@ -147,6 +149,7 @@ object StatefulNanoRenderer {
         ir: NanoIR, state: Map<String, Any>, onAction: (NanoActionIR) -> Unit, modifier: Modifier
     ) {
         val spacing = ir.props["spacing"]?.jsonPrimitive?.content?.toSpacing() ?: 8.dp
+        val padding = ir.props["padding"]?.jsonPrimitive?.content?.toPadding()
         val align = ir.props["align"]?.jsonPrimitive?.content
         val justify = ir.props["justify"]?.jsonPrimitive?.content
 
@@ -163,8 +166,9 @@ object StatefulNanoRenderer {
             else -> Arrangement.spacedBy(spacing)
         }
 
+        val finalModifier = if (padding != null) modifier.padding(padding) else modifier
         Row(
-            modifier = modifier,
+            modifier = finalModifier,
             horizontalArrangement = horizontalArrangement,
             verticalAlignment = verticalAlignment
         ) {
@@ -474,21 +478,23 @@ object StatefulNanoRenderer {
 
     // Utility extensions
     private fun String.toSpacing() = when (this) {
-        "xs" -> 4.dp
-        "sm" -> 8.dp
-        "md" -> 16.dp
-        "lg" -> 24.dp
-        "xl" -> 32.dp
-        else -> 8.dp
+        "xs" -> 1.dp
+        "sm" -> 2.dp
+        "md" -> 4.dp
+        "lg" -> 6.dp
+        "xl" -> 8.dp
+        "none" -> 0.dp
+        else -> 2.dp
     }
 
     private fun String.toPadding() = when (this) {
-        "xs" -> 4.dp
-        "sm" -> 8.dp
-        "md" -> 16.dp
-        "lg" -> 24.dp
-        "xl" -> 32.dp
-        else -> 16.dp
+        "xs" -> 1.dp
+        "sm" -> 2.dp
+        "md" -> 4.dp
+        "lg" -> 6.dp
+        "xl" -> 8.dp
+        "none" -> 0.dp
+        else -> 4.dp
     }
 }
 
