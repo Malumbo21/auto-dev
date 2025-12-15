@@ -75,13 +75,19 @@ data class ModelConfig(
     fun isValid(): Boolean {
         return when (provider) {
             LLMProviderType.OLLAMA ->
-                modelName.isNotEmpty() && baseUrl.isNotEmpty()
-            LLMProviderType.GLM, LLMProviderType.QWEN, LLMProviderType.KIMI, LLMProviderType.CUSTOM_OPENAI_BASE ->
+                // Ollama requires baseUrl (can use default if empty)
+                modelName.isNotEmpty()
+            LLMProviderType.GLM, LLMProviderType.QWEN, LLMProviderType.KIMI ->
+                // These providers have default baseUrl in ModelRegistry
+                apiKey.isNotEmpty() && modelName.isNotEmpty()
+            LLMProviderType.CUSTOM_OPENAI_BASE ->
+                // Custom OpenAI Base requires explicit baseUrl
                 apiKey.isNotEmpty() && modelName.isNotEmpty() && baseUrl.isNotEmpty()
             LLMProviderType.GITHUB_COPILOT ->
                 // GitHub Copilot uses OAuth token from local config file, no API key needed
                 modelName.isNotEmpty()
             else ->
+                // OpenAI, Anthropic, Google, DeepSeek, OpenRouter
                 apiKey.isNotEmpty() && modelName.isNotEmpty()
         }
     }
