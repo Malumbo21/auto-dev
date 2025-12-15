@@ -15,6 +15,7 @@ import cc.unitmesh.devins.ui.compose.agent.webedit.automation.runOneSentenceComm
 import cc.unitmesh.viewer.web.webedit.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.datetime.Clock
 
 /**
  * Chat message for WebEdit Q&A
@@ -440,6 +441,7 @@ fun WebEditPage(
                         chatHistory = chatHistory + ChatMessage(role = "assistant", content = "Planning actions...\n")
                         try {
                             var plannedSoFar = "Planning actions...\n"
+                            var lastUiUpdateMs = 0L
                             val run = runOneSentenceCommand(
                                 bridge = internalBridge,
                                 llmService = llmService,
@@ -447,9 +449,13 @@ fun WebEditPage(
                                 actionableElements = actionableElements,
                                 onPlanningChunk = { chunk ->
                                     plannedSoFar += chunk
-                                    // update streaming assistant message
-                                    chatHistory = chatHistory.mapIndexed { idx, m ->
-                                        if (idx == planningIndex) m.copy(content = plannedSoFar) else m
+                                    // Throttle UI updates to avoid excessive recompositions on Desktop.
+                                    val now = Clock.System.now().toEpochMilliseconds()
+                                    if (now - lastUiUpdateMs > 60 || chunk.contains("]")) {
+                                        lastUiUpdateMs = now
+                                        chatHistory = chatHistory.mapIndexed { idx, m ->
+                                            if (idx == planningIndex) m.copy(content = plannedSoFar) else m
+                                        }
                                     }
                                 }
                             )

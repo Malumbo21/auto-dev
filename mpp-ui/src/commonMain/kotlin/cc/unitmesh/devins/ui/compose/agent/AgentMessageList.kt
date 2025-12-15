@@ -38,6 +38,12 @@ fun AgentMessageList(
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
 
+    // Create a stable snapshot of the timeline to prevent IndexOutOfBoundsException
+    // when the list is modified during composition
+    val timelineSnapshot = remember(renderer.timeline.size) {
+        renderer.timeline.toList()
+    }
+
     // Track if user manually scrolled away from bottom
     var userScrolledAway by remember { mutableStateOf(false) }
 
@@ -67,8 +73,8 @@ fun AgentMessageList(
     }
 
     // Scroll when timeline changes (new messages, tool calls, etc.)
-    LaunchedEffect(renderer.timeline.size) {
-        if (renderer.timeline.isNotEmpty()) {
+    LaunchedEffect(timelineSnapshot.size) {
+        if (timelineSnapshot.isNotEmpty()) {
             userScrolledAway = false
             coroutineScope.launch {
                 delay(50)
@@ -118,7 +124,7 @@ fun AgentMessageList(
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         items(
-            items = renderer.timeline,
+            items = timelineSnapshot,
             key = { "${it.timestamp}_${it.hashCode()}" }
         ) { timelineItem ->
             RenderMessageItem(

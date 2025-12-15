@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
@@ -150,13 +151,32 @@ private fun ChatMessageItem(
                         color = contentColor
                     )
                 } else {
-                    // Render assistant messages as Markdown
-                    MarkdownSketchRenderer.RenderMarkdown(
-                        markdown = message.content,
-                        isComplete = true,
-                        isDarkTheme = false,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    // Markdown renderer can crash on Desktop when the content is updated very frequently
+                    // (e.g., streaming). Also, code fences are better rendered with monospace text.
+                    val isLikelyStreaming = remember(message.content) {
+                        message.content.startsWith("Planning actions...")
+                    }
+                    val hasCodeFence = remember(message.content) {
+                        message.content.contains("```")
+                    }
+
+                    if (isLikelyStreaming || hasCodeFence) {
+                        SelectionContainer {
+                            Text(
+                                text = message.content,
+                                style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                                color = contentColor
+                            )
+                        }
+                    } else {
+                        // Render assistant messages as Markdown for normal responses
+                        MarkdownSketchRenderer.RenderMarkdown(
+                            markdown = message.content,
+                            isComplete = true,
+                            isDarkTheme = false,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 }
             }
         }
