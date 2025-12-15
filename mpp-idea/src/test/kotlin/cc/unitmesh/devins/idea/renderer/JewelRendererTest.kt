@@ -32,7 +32,8 @@ class JewelRendererTest {
 
     @BeforeEach
     fun setUp() {
-        renderer = JewelRenderer()
+        // Disable debouncing for deterministic unit tests
+        renderer = JewelRenderer(streamingUpdateDebounceMs = 0L)
     }
 
     @Test
@@ -89,7 +90,7 @@ class JewelRendererTest {
 
         val currentToolCall = renderer.currentToolCall.first()
         assertNotNull(currentToolCall)
-        assertTrue(currentToolCall!!.toolName.contains("file.txt"))
+        assertTrue(currentToolCall!!.details?.contains("file.txt") == true)
 
         val timeline = renderer.timeline.first()
         assertEquals(1, timeline.size)

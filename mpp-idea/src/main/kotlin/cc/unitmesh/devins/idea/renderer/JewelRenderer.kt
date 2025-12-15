@@ -39,7 +39,9 @@ private val jewelRendererLogger = Logger.getInstance("JewelRenderer")
  * any Compose-based UI (Jewel, Material Design, etc.) as it only exposes
  * StateFlow-based state.
  */
-class JewelRenderer : BaseRenderer() {
+class JewelRenderer(
+    private val streamingUpdateDebounceMs: Long = 50L
+) : BaseRenderer() {
 
     // Timeline of all events (messages, tool calls, results)
     private val _timeline = MutableStateFlow<List<TimelineItem>>(emptyList())
@@ -51,7 +53,7 @@ class JewelRenderer : BaseRenderer() {
 
     // Debouncing mechanism for streaming updates to prevent EDT spam
     private var lastStreamingUpdateTime = 0L
-    private val streamingUpdateDebounceMs = 50L // Update UI at most every 50ms
+    // Update UI at most every streamingUpdateDebounceMs
     private var pendingStreamingContent: String? = null
 
     // Processing state

@@ -316,6 +316,9 @@ project(":") {
             testFramework(TestFrameworkType.Platform)
         }
 
+        // Required by IntelliJ's bundled JUnit 5 session listener (uses junit.framework.TestCase)
+        testImplementation("junit:junit:4.13.2")
+
         implementation(project(":mpp-idea-core"))
         implementation(project(":mpp-idea-lang:java"))
         implementation(project(":mpp-idea-lang:kotlin"))

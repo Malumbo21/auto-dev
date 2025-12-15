@@ -47,7 +47,7 @@ class IdeaRemoteAgentViewModelTest {
         // Create a mock project-free test by testing the renderer and state directly
         // We can't easily test the full ViewModel without IntelliJ Platform,
         // but we can test the renderer and state management
-        val renderer = JewelRenderer()
+        val renderer = JewelRenderer(streamingUpdateDebounceMs = 0L)
 
         // Verify initial renderer state
         val timeline = renderer.timeline.first()
@@ -62,7 +62,7 @@ class IdeaRemoteAgentViewModelTest {
 
     @Test
     fun testRendererHandlesIterationEvent() = runBlocking {
-        val renderer = JewelRenderer()
+        val renderer = JewelRenderer(streamingUpdateDebounceMs = 0L)
 
         // Simulate handling iteration event
         renderer.renderIterationHeader(3, 10)
@@ -76,7 +76,7 @@ class IdeaRemoteAgentViewModelTest {
 
     @Test
     fun testRendererHandlesLLMChunkEvent() = runBlocking {
-        val renderer = JewelRenderer()
+        val renderer = JewelRenderer(streamingUpdateDebounceMs = 0L)
 
         // Simulate LLM streaming
         renderer.renderLLMResponseStart()
@@ -95,7 +95,7 @@ class IdeaRemoteAgentViewModelTest {
 
     @Test
     fun testRendererHandlesToolCallEvent() = runBlocking {
-        val renderer = JewelRenderer()
+        val renderer = JewelRenderer(streamingUpdateDebounceMs = 0L)
 
         // Simulate tool call
         renderer.renderToolCall("read-file", "path=\"/test/file.txt\"")
@@ -110,7 +110,7 @@ class IdeaRemoteAgentViewModelTest {
 
     @Test
     fun testRendererHandlesToolResultEvent() = runBlocking {
-        val renderer = JewelRenderer()
+        val renderer = JewelRenderer(streamingUpdateDebounceMs = 0L)
 
         // Simulate tool call and result
         renderer.renderToolCall("read-file", "path=\"/test/file.txt\"")
@@ -134,7 +134,7 @@ class IdeaRemoteAgentViewModelTest {
 
     @Test
     fun testRendererHandlesErrorEvent() = runBlocking {
-        val renderer = JewelRenderer()
+        val renderer = JewelRenderer(streamingUpdateDebounceMs = 0L)
 
         renderer.renderError("Connection failed")
 
