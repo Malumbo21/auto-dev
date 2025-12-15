@@ -555,6 +555,19 @@ tasks.register<JavaExec>("runWebEditTest") {
     standardInput = System.`in`
 }
 
+// Task to run WebEdit Vision Preview (Screenshot + GLM-4.6V testing)
+tasks.register<JavaExec>("runVisionPreview") {
+    group = "application"
+    description = "Run WebEdit Vision Preview (Test screenshot capture + vision LLM fallback)"
+
+    val jvmCompilation = kotlin.jvm().compilations.getByName("main")
+    classpath(jvmCompilation.output, configurations["jvmRuntimeClasspath"])
+    mainClass.set("cc.unitmesh.devins.ui.webedit.WebEditVisionPreviewKt")
+
+    // Enable standard input
+    standardInput = System.`in`
+}
+
 // Task to run Document CLI
 tasks.register<JavaExec>("runDocumentCli") {
     group = "application"

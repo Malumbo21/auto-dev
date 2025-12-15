@@ -120,6 +120,20 @@ sealed class WebEditMessage {
         val message: String? = null,
         val id: String? = null
     ) : WebEditMessage()
+
+    /**
+     * Screenshot captured from the WebView (for Vision LLM fallback)
+     */
+    @Serializable
+    data class ScreenshotCaptured(
+        val base64: String? = null,
+        val mimeType: String? = null,
+        val width: Int? = null,
+        val height: Int? = null,
+        val url: String? = null,
+        val title: String? = null,
+        val error: String? = null
+    ) : WebEditMessage()
 }
 
 /**

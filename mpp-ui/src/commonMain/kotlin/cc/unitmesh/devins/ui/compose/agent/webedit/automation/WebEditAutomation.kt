@@ -16,8 +16,34 @@ import kotlinx.serialization.json.Json
 data class WebEditAutomationResult(
     val actions: List<WebEditAction>,
     val results: List<WebEditMessage.ActionResult>,
-    val rawModelOutput: String
+    val rawModelOutput: String,
+    val usedVisionFallback: Boolean = false
 )
+
+/**
+ * Interface for vision-based fallback when DOM automation fails.
+ * JVM implementations can use MultimodalLLMService + COS upload.
+ */
+interface VisionFallbackProvider {
+    /**
+     * Check if vision fallback is available (requires COS + GLM config).
+     */
+    fun isAvailable(): Boolean
+    
+    /**
+     * Use vision to suggest browser actions when DOM-based approach fails.
+     * 
+     * @param userIntent The user's command
+     * @param failedAction The action that failed (optional)
+     * @param actionableElements Current actionable elements from DOM
+     * @return List of suggested WebEditActions, or empty if vision fails
+     */
+    suspend fun suggestActionsWithVision(
+        userIntent: String,
+        failedAction: WebEditAction? = null,
+        actionableElements: List<AccessibilityNode> = emptyList()
+    ): List<WebEditAction>
+}
 
 private val automationJson = Json {
     ignoreUnknownKeys = true
@@ -31,8 +57,9 @@ private val automationJson = Json {
  * - ask LLM for JSON actions
  * - execute actions (click/type/select/pressKey)
  * - wait for ActionResult after each step
+ * - (optional) if actions fail, use vision fallback to re-plan
  *
- * Visual fallback is intentionally not implemented here yet; DOM + accessibility selectors are the primary path.
+ * @param visionFallback Optional vision provider for fallback when DOM actions fail repeatedly
  */
 suspend fun runOneSentenceCommand(
     bridge: WebEditBridge,
@@ -40,7 +67,8 @@ suspend fun runOneSentenceCommand(
     instruction: String,
     actionableElements: List<AccessibilityNode>,
     timeoutMsPerAction: Long = 6_000,
-    onPlanningChunk: ((String) -> Unit)? = null
+    onPlanningChunk: ((String) -> Unit)? = null,
+    visionFallback: VisionFallbackProvider? = null
 ): WebEditAutomationResult {
     // Ensure we operate on the latest page snapshot.
     bridge.refreshActionableElements()
@@ -115,6 +143,41 @@ suspend fun runOneSentenceCommand(
                         message = if (navigatedAfter) "Navigation detected after fallback click" else "No navigation detected after fallback click",
                         id = fallback.id
                     )
+                } else if (visionFallback != null && visionFallback.isAvailable()) {
+                    // Vision fallback: ask vision model to suggest actions
+                    onPlanningChunk?.invoke("\n📸 DOM fallback failed, trying vision...\n")
+                    val visionActions = visionFallback.suggestActionsWithVision(
+                        userIntent = instruction,
+                        failedAction = actWithId,
+                        actionableElements = elems
+                    )
+                    if (visionActions.isNotEmpty()) {
+                        for ((vIdx, vAction) in visionActions.withIndex()) {
+                            val vActWithId = vAction.copy(id = "vision-${vIdx + 1}")
+                            val vBeforeId = bridge.lastActionResult.value?.id
+                            bridge.performAction(vActWithId)
+                            val vResult = withTimeout(timeoutMsPerAction) {
+                                bridge.lastActionResult
+                                    .filterNotNull()
+                                    .first { it.id == vActWithId.id || (vBeforeId != null && it.id != vBeforeId) }
+                            }
+                            results += vResult
+                            delay(200)
+                        }
+                        results += WebEditMessage.ActionResult(
+                            action = "visionFallback",
+                            ok = true,
+                            message = "Executed ${visionActions.size} actions from vision fallback",
+                            id = actWithId.id
+                        )
+                    } else {
+                        results += WebEditMessage.ActionResult(
+                            action = "visionFallback",
+                            ok = false,
+                            message = "Vision fallback produced no actions",
+                            id = actWithId.id
+                        )
+                    }
                 } else {
                     results += WebEditMessage.ActionResult(
                         action = "observeNavigation",

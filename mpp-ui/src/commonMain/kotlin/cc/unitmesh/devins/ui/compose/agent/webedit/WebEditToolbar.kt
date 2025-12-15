@@ -39,6 +39,7 @@ fun WebEditToolbar(
     isLoading: Boolean,
     isSelectionMode: Boolean,
     showDOMSidebar: Boolean,
+    isReady: Boolean = true,
     onUrlChange: (String) -> Unit,
     onNavigate: (String) -> Unit,
     onBack: () -> Unit,
@@ -47,6 +48,7 @@ fun WebEditToolbar(
     onGoForward: () -> Unit = {},
     onToggleSelectionMode: () -> Unit,
     onToggleDOMSidebar: () -> Unit,
+    onScreenshot: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val urlFocusRequester = remember { FocusRequester() }
@@ -212,6 +214,19 @@ fun WebEditToolbar(
                 Icon(
                     imageVector = Icons.Default.AccountTree,
                     contentDescription = "Toggle DOM Sidebar",
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+            
+            // Screenshot button
+            IconButton(
+                onClick = onScreenshot,
+                modifier = Modifier.size(32.dp),
+                enabled = isReady && !isLoading
+            ) {
+                Icon(
+                    imageVector = Icons.Default.CameraAlt,
+                    contentDescription = "Capture Screenshot",
                     modifier = Modifier.size(18.dp)
                 )
             }

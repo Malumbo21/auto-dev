@@ -62,6 +62,11 @@ interface WebEditBridge {
     val lastActionResult: StateFlow<WebEditMessage.ActionResult?>
 
     /**
+     * Last captured screenshot from the WebView (for Vision LLM fallback)
+     */
+    val lastScreenshot: StateFlow<WebEditMessage.ScreenshotCaptured?>
+
+    /**
      * Perform a structured browser action. This is the preferred API for LLM-driven automation
      * because callers can attach a unique [WebEditAction.id] and reliably correlate results.
      */
@@ -184,6 +189,15 @@ interface WebEditBridge {
      * Press a key on the currently focused element (or optional target selector).
      */
     suspend fun pressKey(key: String, selector: String? = null)
+
+    /**
+     * Capture a screenshot of the current WebView viewport.
+     * The result will be available in [lastScreenshot] StateFlow.
+     * 
+     * @param maxWidth Maximum width of the screenshot (default 1280)
+     * @param quality JPEG quality 0.0-1.0 (default 0.8)
+     */
+    suspend fun captureScreenshot(maxWidth: Int = 1280, quality: Double = 0.8)
     
     /**
      * Mark bridge as ready
@@ -210,6 +224,7 @@ data class WebEditState(
     val accessibilityTree: AccessibilityNode? = null,
     val actionableElements: List<AccessibilityNode> = emptyList(),
     val lastActionResult: WebEditMessage.ActionResult? = null,
+    val lastScreenshot: WebEditMessage.ScreenshotCaptured? = null,
     val isSelectionMode: Boolean = false,
     val isReady: Boolean = false,
     val errorMessage: String? = null

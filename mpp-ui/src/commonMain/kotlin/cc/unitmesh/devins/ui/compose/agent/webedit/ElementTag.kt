@@ -198,6 +198,14 @@ data class ElementTag(
     }
 
     /**
+     * Generate DevIns command for this element (similar to SelectedFileItem.toDevInsCommand).
+     * Uses /element: selector format.
+     */
+    fun toDevInsCommand(): String {
+        return "/element:$selector"
+    }
+    
+    /**
      * Generate a structured prompt section for source code mapping
      */
     fun toSourceMappingPrompt(): String {

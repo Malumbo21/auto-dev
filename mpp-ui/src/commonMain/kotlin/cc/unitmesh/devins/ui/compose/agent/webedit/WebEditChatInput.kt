@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import cc.unitmesh.devins.ui.compose.editor.multimodal.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
 
@@ -373,7 +374,7 @@ fun ElementTagRow(
 
 /**
  * Chat input area for WebEdit Q&A functionality.
- * Now supports element tags for selected DOM elements.
+ * Now supports element tags for selected DOM elements and image attachments (screenshots).
  * Keyboard shortcuts:
  * - Enter: Send message
  * - Shift+Enter: New line
@@ -392,7 +393,15 @@ fun WebEditChatInput(
     onRemoveTag: (String) -> Unit = {},
     onClearTags: () -> Unit = {},
     onSendWithContext: ((String, ElementTagCollection) -> Unit)? = null,
-    onViewElementDetails: (ElementTag) -> Unit = {}
+    onViewElementDetails: (ElementTag) -> Unit = {},
+    // Multimodal support
+    multimodalState: MultimodalState? = null,
+    imageUploadManager: ImageUploadManager? = null,
+    previewingImage: AttachedImage? = null,
+    onPreviewImage: (AttachedImage) -> Unit = {},
+    onDismissPreview: () -> Unit = {},
+    visionHelper: Any? = null, // WebEditVisionHelper (using Any to avoid expect/actual issues)
+    onSendDirect: ((String) -> Unit)? = null // Direct send without multimodal (for backward compatibility)
 ) {
     val scope = rememberCoroutineScope()
     Surface(
@@ -419,6 +428,22 @@ fun WebEditChatInput(
                     )
                 )
             }
+            
+            // Image attachment bar (shown when screenshots are attached)
+            if (multimodalState != null && multimodalState.hasImages) {
+                ImageAttachmentBar(
+                    images = multimodalState.images,
+                    onRemoveImage = { image -> imageUploadManager?.removeImage(image.id) },
+                    onImageClick = { image -> onPreviewImage(image) },
+                    onRetryUpload = { image -> imageUploadManager?.retryUpload(image) },
+                    isAnalyzing = multimodalState.isAnalyzing,
+                    isUploading = multimodalState.isUploading,
+                    uploadedCount = multimodalState.uploadedCount,
+                    analysisProgress = multimodalState.analysisProgress,
+                    visionModel = multimodalState.visionModel,
+                    onVisionModelChange = null // TODO: Add vision model selector if needed
+                )
+            }
 
             Row(
                 modifier = Modifier
@@ -443,8 +468,13 @@ fun WebEditChatInput(
                                         // Defer send to avoid mutating state during the same AWT key event dispatch
                                         scope.launch {
                                             yield()
-                                            if (onSendWithContext != null && elementTags.isNotEmpty()) {
+                                            // Check if we should use multimodal send
+                                            if (multimodalState != null && multimodalState.allImagesUploaded) {
+                                                onSend(input) // This will trigger multimodal analysis
+                                            } else if (onSendWithContext != null && elementTags.isNotEmpty()) {
                                                 onSendWithContext(input, elementTags)
+                                            } else if (onSendDirect != null) {
+                                                onSendDirect(input)
                                             } else {
                                                 onSend(input)
                                             }
@@ -482,15 +512,20 @@ fun WebEditChatInput(
                 // Send button
                 FilledIconButton(
                     onClick = {
-                        if (input.isNotBlank() || elementTags.isNotEmpty()) {
-                            if (onSendWithContext != null && elementTags.isNotEmpty()) {
+                        if (input.isNotBlank() || elementTags.isNotEmpty() || (multimodalState?.allImagesUploaded == true)) {
+                            // Check if we should use multimodal send
+                            if (multimodalState != null && multimodalState.allImagesUploaded) {
+                                onSend(input) // This will trigger multimodal analysis
+                            } else if (onSendWithContext != null && elementTags.isNotEmpty()) {
                                 onSendWithContext(input, elementTags)
+                            } else if (onSendDirect != null) {
+                                onSendDirect(input)
                             } else if (input.isNotBlank()) {
                                 onSend(input)
                             }
                         }
                     },
-                    enabled = enabled && (input.isNotBlank() || elementTags.isNotEmpty()) && !isProcessing,
+                    enabled = enabled && (input.isNotBlank() || elementTags.isNotEmpty() || (multimodalState?.allImagesUploaded == true)) && !isProcessing && (multimodalState?.canSend != false),
                     modifier = Modifier.size(44.dp)
                 ) {
                     Icon(

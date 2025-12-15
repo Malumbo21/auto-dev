@@ -199,6 +199,12 @@ actual fun WebEditView(
                                 bridge.handleMessage(result)
                             }
                         }
+                        "ScreenshotCaptured" -> {
+                            val screenshot = parseScreenshotCaptured(data.toString())
+                            if (screenshot != null) {
+                                bridge.handleMessage(screenshot)
+                            }
+                        }
                         "Diagnostic" -> {
                             val payload = data["payload"]?.jsonPrimitive?.content ?: data.toString()
                             println("[WebEditView] 🔎 Diagnostic from JS: $payload")
@@ -423,6 +429,14 @@ private fun parseAccessibilityNodeList(jsonString: String): List<AccessibilityNo
 private fun parseActionResult(jsonString: String): WebEditMessage.ActionResult? {
     return try {
         json.decodeFromString<WebEditMessage.ActionResult>(jsonString)
+    } catch (_: Exception) {
+        null
+    }
+}
+
+private fun parseScreenshotCaptured(jsonString: String): WebEditMessage.ScreenshotCaptured? {
+    return try {
+        json.decodeFromString<WebEditMessage.ScreenshotCaptured>(jsonString)
     } catch (_: Exception) {
         null
     }

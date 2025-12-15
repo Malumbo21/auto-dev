@@ -939,6 +939,143 @@ fun getWebEditBridgeScript(): String = """
             return elements;
         },
 
+        // ========== Screenshot Capture (for Vision fallback) ==========
+        // Dynamically loads html2canvas and captures viewport screenshot as base64
+        html2canvasLoaded: false,
+        html2canvasLoading: false,
+
+        loadHtml2Canvas: function() {
+            const self = this;
+            return new Promise((resolve, reject) => {
+                if (self.html2canvasLoaded && window.html2canvas) {
+                    resolve(window.html2canvas);
+                    return;
+                }
+                if (self.html2canvasLoading) {
+                    // Wait for existing load
+                    const checkInterval = setInterval(() => {
+                        if (window.html2canvas) {
+                            clearInterval(checkInterval);
+                            resolve(window.html2canvas);
+                        }
+                    }, 100);
+                    setTimeout(() => {
+                        clearInterval(checkInterval);
+                        reject(new Error('html2canvas load timeout'));
+                    }, 10000);
+                    return;
+                }
+
+                self.html2canvasLoading = true;
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+                script.onload = function() {
+                    self.html2canvasLoaded = true;
+                    self.html2canvasLoading = false;
+                    console.log('[WebEditBridge] html2canvas loaded');
+                    resolve(window.html2canvas);
+                };
+                script.onerror = function(e) {
+                    self.html2canvasLoading = false;
+                    console.error('[WebEditBridge] Failed to load html2canvas:', e);
+                    reject(new Error('Failed to load html2canvas'));
+                };
+                document.head.appendChild(script);
+            });
+        },
+
+        // Capture screenshot and send to Kotlin as base64 PNG
+        captureScreenshot: async function(options) {
+            const self = this;
+            const opts = options || {};
+            const maxWidth = opts.maxWidth || 1280;
+            const quality = opts.quality || 0.8;
+
+            console.log('[WebEditBridge] captureScreenshot starting...');
+
+            try {
+                // Try html2canvas first (more accurate)
+                const html2canvas = await self.loadHtml2Canvas();
+                
+                // Hide our overlay before capture
+                const overlayHost = document.getElementById('webedit-inspect-overlay-host');
+                if (overlayHost) overlayHost.style.display = 'none';
+
+                const canvas = await html2canvas(document.body, {
+                    useCORS: true,
+                    allowTaint: true,
+                    scale: window.devicePixelRatio > 1 ? 1 : window.devicePixelRatio,
+                    windowWidth: document.documentElement.scrollWidth,
+                    windowHeight: document.documentElement.scrollHeight,
+                    x: window.scrollX,
+                    y: window.scrollY,
+                    width: Math.min(window.innerWidth, document.documentElement.scrollWidth),
+                    height: Math.min(window.innerHeight, document.documentElement.scrollHeight),
+                    logging: false
+                });
+
+                // Restore overlay
+                if (overlayHost) overlayHost.style.display = '';
+
+                // Scale down if too large
+                let finalCanvas = canvas;
+                if (canvas.width > maxWidth) {
+                    const ratio = maxWidth / canvas.width;
+                    const scaledCanvas = document.createElement('canvas');
+                    scaledCanvas.width = maxWidth;
+                    scaledCanvas.height = Math.floor(canvas.height * ratio);
+                    const ctx = scaledCanvas.getContext('2d');
+                    ctx.drawImage(canvas, 0, 0, scaledCanvas.width, scaledCanvas.height);
+                    finalCanvas = scaledCanvas;
+                }
+
+                // Convert to JPEG for smaller size (or PNG for transparency)
+                const dataUrl = finalCanvas.toDataURL('image/jpeg', quality);
+                const base64 = dataUrl.split(',')[1];
+
+                console.log('[WebEditBridge] Screenshot captured, size:', base64.length, 'chars');
+
+                self.sendToKotlin('ScreenshotCaptured', {
+                    base64: base64,
+                    mimeType: 'image/jpeg',
+                    width: finalCanvas.width,
+                    height: finalCanvas.height,
+                    url: window.location.href,
+                    title: document.title
+                });
+
+                return { success: true, width: finalCanvas.width, height: finalCanvas.height };
+
+            } catch (e) {
+                console.error('[WebEditBridge] captureScreenshot error:', e);
+                
+                // Fallback: try native canvas (less accurate but no dependency)
+                try {
+                    console.log('[WebEditBridge] Trying native canvas fallback...');
+                    const fallbackResult = await self.captureScreenshotNative(maxWidth, quality);
+                    return fallbackResult;
+                } catch (fallbackError) {
+                    console.error('[WebEditBridge] Native fallback also failed:', fallbackError);
+                    self.sendToKotlin('ScreenshotCaptured', {
+                        error: 'Screenshot capture failed: ' + (e.message || 'Unknown error')
+                    });
+                    return { success: false, error: e.message };
+                }
+            }
+        },
+
+        // Native canvas fallback (captures visible viewport only, may miss some content)
+        captureScreenshotNative: async function(maxWidth, quality) {
+            const self = this;
+            
+            // Use getDisplayMedia if available (requires user gesture)
+            // For now, we just report that native fallback is limited
+            self.sendToKotlin('ScreenshotCaptured', {
+                error: 'Native screenshot not supported - html2canvas load failed'
+            });
+            return { success: false, error: 'Native fallback limited' };
+        },
+
         // Send message to Kotlin
         sendToKotlin: function(type, data) {
             console.log('[WebEditBridge] sendToKotlin called:', type);

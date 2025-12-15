@@ -87,12 +87,15 @@ fun main() = application {
                     restartRequired -> {
                         RestartRequiredView()
                     }
+
                     !initialized -> {
                         LoadingView(downloading)
                     }
+
                     error != null -> {
                         ErrorView(error!!)
                     }
+
                     else -> {
                         println("[WebEditPreview] 🎨 Rendering WebEditPage...")
                         WebEditDebugContainer()
@@ -293,22 +296,22 @@ fun WebEditDebugContainer() {
                 println("═══════════════════════════════════════════════════════════")
 
                 bridge.navigateTo(url)
-                
+
                 // Wait for page to fully load (isLoading -> false and isReady -> true)
                 var waitCount = 0
                 while ((bridge.isLoading.value || !bridge.isReady.value) && waitCount < 60) {
                     delay(500)
                     waitCount++
                     if (waitCount % 4 == 0) {
-                        println("[WebEditDebugContainer] ⏳ Waiting for page to load... (${waitCount/2}s, loading=${bridge.isLoading.value}, ready=${bridge.isReady.value})")
+                        println("[WebEditDebugContainer] ⏳ Waiting for page to load... (${waitCount / 2}s, loading=${bridge.isLoading.value}, ready=${bridge.isReady.value})")
                     }
                 }
-                
+
                 if (waitCount >= 60) {
                     println("[WebEditDebugContainer] ⚠️ Page load timeout for $url, skipping LLM test")
                     continue
                 }
-                
+
                 println("[WebEditDebugContainer] ✅ Page loaded successfully: ${bridge.pageTitle.value}")
                 delay(1000) // Extra time for actionable elements to stabilize
 
@@ -327,7 +330,7 @@ fun WebEditDebugContainer() {
 
                 println("[WebEditDebugContainer] 📤 Sending prompt to LLM (${prompt.length} chars)...")
                 println("[WebEditDebugContainer] 📊 Context: ${bridge.actionableElements.value.size} actionable elements")
-                
+
                 try {
                     val response = service.sendPrompt(prompt)
                     println("[WebEditDebugContainer] ✅ LLM response for $url:")
@@ -338,10 +341,10 @@ fun WebEditDebugContainer() {
                     println("[WebEditDebugContainer] ❌ LLM call failed: ${e.message}")
                     e.printStackTrace()
                 }
-                
+
                 println() // blank line for readability
             }
-            
+
             println("═══════════════════════════════════════════════════════════")
             println("[WebEditDebugContainer] ✅ All LLM tests completed")
             println("═══════════════════════════════════════════════════════════")
