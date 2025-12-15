@@ -84,57 +84,32 @@ fun BottomToolbar(
                 }
             }
 
-//            if (!isMobile || selectedAgent != "Default") {
-//                Surface(
-//                    shape = MaterialTheme.shapes.small,
-//                    color = MaterialTheme.colorScheme.secondaryContainer,
-//                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-//                ) {
-//                    Row(
-//                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-//                        verticalAlignment = Alignment.CenterVertically,
-//                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-//                    ) {
-//                        Icon(
-//                            imageVector = AutoDevComposeIcons.SmartToy,
-//                            contentDescription = null,
-//                            modifier = Modifier.size(14.dp)
-//                        )
-//                        Text(
-//                            text = selectedAgent,
-//                            style = MaterialTheme.typography.labelSmall
-//                        )
-//                    }
-//                }
-//            }
-
             if (!isMobile) {
                 ModelSelector(
                     onConfigChange = onModelConfigChange
                 )
-            }
 
-            // Display total token usage
-            if (totalTokenInfo != null && totalTokenInfo.totalTokens > 0) {
-                Surface(
-                    shape = MaterialTheme.shapes.small,
-                    color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f),
-                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                if (totalTokenInfo != null && totalTokenInfo.totalTokens > 0) {
+                    Surface(
+                        shape = MaterialTheme.shapes.small,
+                        color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f),
+                        contentColor = MaterialTheme.colorScheme.onTertiaryContainer
                     ) {
-                        Text(
-                            text = "Token",
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                        Text(
-                            text = "${totalTokenInfo.totalTokens}",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
-                        )
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                text = "Token",
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                            Text(
+                                text = "${totalTokenInfo.totalTokens}",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                            )
+                        }
                     }
                 }
             }
@@ -173,7 +148,7 @@ fun BottomToolbar(
                         modifier = Modifier.size(20.dp)
                     )
                 }
-                
+
                 // Badge showing image count
                 if (hasImages && imageCount > 0) {
                     Surface(
