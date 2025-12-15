@@ -21,11 +21,12 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.key.*
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.yield
 
 /**
  * WebEdit Toolbar with URL input and navigation controls
@@ -49,6 +50,7 @@ fun WebEditToolbar(
     modifier: Modifier = Modifier
 ) {
     val urlFocusRequester = remember { FocusRequester() }
+    val scope = rememberCoroutineScope()
     
     Surface(
         modifier = modifier
@@ -131,7 +133,11 @@ fun WebEditToolbar(
                     .onPreviewKeyEvent { keyEvent ->
                         // Handle Enter key to navigate
                         if (keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.Enter) {
-                            onNavigate(inputUrl)
+                            // Defer navigation to avoid mutating state during the same AWT key event dispatch
+                            scope.launch {
+                                yield()
+                                onNavigate(inputUrl)
+                            }
                             true
                         } else {
                             false

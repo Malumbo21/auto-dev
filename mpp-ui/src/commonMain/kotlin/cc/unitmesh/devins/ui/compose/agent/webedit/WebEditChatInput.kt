@@ -23,6 +23,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.yield
 
 /**
  * A chip/tag component for displaying a selected DOM element.
@@ -392,6 +394,7 @@ fun WebEditChatInput(
     onSendWithContext: ((String, ElementTagCollection) -> Unit)? = null,
     onViewElementDetails: (ElementTag) -> Unit = {}
 ) {
+    val scope = rememberCoroutineScope()
     Surface(
         modifier = modifier,
         tonalElevation = 2.dp
@@ -437,10 +440,14 @@ fun WebEditChatInput(
                                 if (!keyEvent.isShiftPressed) {
                                     // Enter without Shift: send message
                                     if (input.isNotBlank() || elementTags.isNotEmpty()) {
-                                        if (onSendWithContext != null && elementTags.isNotEmpty()) {
-                                            onSendWithContext(input, elementTags)
-                                        } else {
-                                            onSend(input)
+                                        // Defer send to avoid mutating state during the same AWT key event dispatch
+                                        scope.launch {
+                                            yield()
+                                            if (onSendWithContext != null && elementTags.isNotEmpty()) {
+                                                onSendWithContext(input, elementTags)
+                                            } else {
+                                                onSend(input)
+                                            }
                                         }
                                     }
                                     true // consume event
