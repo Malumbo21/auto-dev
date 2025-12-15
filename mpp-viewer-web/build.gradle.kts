@@ -215,6 +215,14 @@ tasks.matching { it.name.contains("processResources", ignoreCase = true) }.confi
     dependsOn(downloadMermaid)
 }
 
+// Compose resources copy tasks (especially iOS test resource tasks) also read from src/commonMain/resources.
+// Ensure Mermaid download runs first to satisfy Gradle task dependency validation.
+tasks.matching {
+    it.name.startsWith("copyComposeResourcesFor") || it.name.startsWith("copyTestComposeResourcesFor")
+}.configureEach {
+    dependsOn(downloadMermaid)
+}
+
 android {
     namespace = "cc.unitmesh.viewer.web"
     compileSdk = 36

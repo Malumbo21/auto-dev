@@ -28,6 +28,18 @@ class JsWebEditBridge : WebEditBridge {
     private val _domTree = MutableStateFlow<DOMElement?>(null)
     override val domTree: StateFlow<DOMElement?> = _domTree
 
+    private val _d2SnapTree = MutableStateFlow<D2SnapElement?>(null)
+    override val d2SnapTree: StateFlow<D2SnapElement?> = _d2SnapTree
+
+    private val _accessibilityTree = MutableStateFlow<AccessibilityNode?>(null)
+    override val accessibilityTree: StateFlow<AccessibilityNode?> = _accessibilityTree
+
+    private val _actionableElements = MutableStateFlow<List<AccessibilityNode>>(emptyList())
+    override val actionableElements: StateFlow<List<AccessibilityNode>> = _actionableElements
+
+    private val _lastActionResult = MutableStateFlow<WebEditMessage.ActionResult?>(null)
+    override val lastActionResult: StateFlow<WebEditMessage.ActionResult?> = _lastActionResult
+
     private val _errorMessage = MutableStateFlow<String?>(null)
     override val errorMessage: StateFlow<String?> = _errorMessage
 
@@ -98,6 +110,22 @@ class JsWebEditBridge : WebEditBridge {
     override suspend fun getSelectedElementHtml(): String? {
         console.log("JsWebEditBridge: getSelectedElementHtml not supported in JS CLI")
         return null
+    }
+
+    override suspend fun click(selector: String) {
+        console.log("JsWebEditBridge: click not supported in JS CLI")
+    }
+
+    override suspend fun typeText(selector: String, text: String, clearFirst: Boolean) {
+        console.log("JsWebEditBridge: typeText not supported in JS CLI")
+    }
+
+    override suspend fun selectOption(selector: String, value: String) {
+        console.log("JsWebEditBridge: selectOption not supported in JS CLI")
+    }
+
+    override suspend fun pressKey(key: String, selector: String?) {
+        console.log("JsWebEditBridge: pressKey not supported in JS CLI")
     }
 
     override fun markReady() {

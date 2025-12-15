@@ -108,6 +108,18 @@ sealed class WebEditMessage {
      */
     @Serializable
     data class DOMChanged(val mutationCount: Int) : WebEditMessage()
+
+    /**
+     * Result of an action executed in the browser (click/type/select/etc.)
+     */
+    @Serializable
+    data class ActionResult(
+        val action: String,
+        val ok: Boolean,
+        val selector: String? = null,
+        val message: String? = null,
+        val id: String? = null
+    ) : WebEditMessage()
 }
 
 /**

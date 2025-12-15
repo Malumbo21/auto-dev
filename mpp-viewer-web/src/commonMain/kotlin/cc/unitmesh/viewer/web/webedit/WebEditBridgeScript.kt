@@ -301,6 +301,128 @@ fun getWebEditBridgeScript(): String = """
             }
         },
 
+        // ========== Browser Action Execution (for LLM automation) ==========
+        // Action schema matches Kotlin WebEditAction: { action, selector?, text?, clearFirst?, value?, key?, id? }
+        performAction: function(action) {
+            const self = this;
+            const act = (action && action.action) ? action.action : 'unknown';
+            const selector = action ? (action.selector || null) : null;
+            const id = action ? (action.id || null) : null;
+
+            function send(ok, message) {
+                self.sendToKotlin('ActionResult', {
+                    action: act,
+                    ok: !!ok,
+                    selector: selector,
+                    message: message || null,
+                    id: id
+                });
+            }
+
+            try {
+                if (!action || !action.action) {
+                    send(false, 'Missing action');
+                    return;
+                }
+
+                if (act === 'click') {
+                    const el = self.findElementBySelector(selector || '');
+                    if (!el) return send(false, 'Element not found');
+                    try { el.scrollIntoView({ behavior: 'auto', block: 'center' }); } catch(e) { /* ignore */ }
+                    try { if (el.focus) el.focus(); } catch(e) { /* ignore */ }
+                    try {
+                        const opts = { bubbles: true, cancelable: true, view: window };
+                        el.dispatchEvent(new MouseEvent('mouseover', opts));
+                        el.dispatchEvent(new MouseEvent('mousedown', opts));
+                        el.dispatchEvent(new MouseEvent('mouseup', opts));
+                    } catch(e) { /* ignore */ }
+                    try { el.click(); } catch(e) { /* ignore */ }
+                    return send(true, null);
+                }
+
+                if (act === 'type') {
+                    const el = self.findElementBySelector(selector || '');
+                    if (!el) return send(false, 'Element not found');
+                    const text = (action.text != null) ? String(action.text) : '';
+                    const clearFirst = (action.clearFirst !== false);
+                    try { if (el.focus) el.focus(); } catch(e) { /* ignore */ }
+
+                    const isContentEditable = !!el.isContentEditable;
+                    const hasValue = ('value' in el);
+
+                    if (!isContentEditable && !hasValue) {
+                        return send(false, 'Element is not typeable');
+                    }
+
+                    if (clearFirst) {
+                        if (hasValue) {
+                            try { el.value = ''; } catch(e) { /* ignore */ }
+                        } else if (isContentEditable) {
+                            try { el.textContent = ''; } catch(e) { /* ignore */ }
+                        }
+                    }
+
+                    if (hasValue) {
+                        try { el.value = String(el.value || '') + text; } catch(e) { /* ignore */ }
+                        try { el.dispatchEvent(new InputEvent('input', { bubbles: true })); } catch(e) {
+                            try { el.dispatchEvent(new Event('input', { bubbles: true })); } catch(_e) { /* ignore */ }
+                        }
+                        try { el.dispatchEvent(new Event('change', { bubbles: true })); } catch(e) { /* ignore */ }
+                    } else if (isContentEditable) {
+                        try { el.textContent = String(el.textContent || '') + text; } catch(e) { /* ignore */ }
+                        try { el.dispatchEvent(new Event('input', { bubbles: true })); } catch(e) { /* ignore */ }
+                    }
+
+                    return send(true, null);
+                }
+
+                if (act === 'select') {
+                    const el = self.findElementBySelector(selector || '');
+                    if (!el) return send(false, 'Element not found');
+                    if (!el.tagName || el.tagName.toLowerCase() !== 'select') return send(false, 'Element is not a select');
+
+                    const target = (action.value != null) ? String(action.value) : '';
+                    let found = false;
+                    const options = Array.from(el.options || []);
+                    for (let i = 0; i < options.length; i++) {
+                        const opt = options[i];
+                        const optValue = (opt.value != null) ? String(opt.value) : '';
+                        const optText = (opt.textContent != null) ? String(opt.textContent).trim() : '';
+                        if (optValue === target || optText === target) {
+                            el.value = optValue;
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) return send(false, 'Option not found');
+
+                    try { el.dispatchEvent(new Event('input', { bubbles: true })); } catch(e) { /* ignore */ }
+                    try { el.dispatchEvent(new Event('change', { bubbles: true })); } catch(e) { /* ignore */ }
+                    return send(true, null);
+                }
+
+                if (act === 'pressKey') {
+                    const key = (action.key != null) ? String(action.key) : '';
+                    const el = selector ? self.findElementBySelector(selector) : (document.activeElement || null);
+                    if (el && el.focus) {
+                        try { el.focus(); } catch(e) { /* ignore */ }
+                    }
+                    const target = el || document;
+                    try {
+                        const opts = { key: key, code: key, bubbles: true, cancelable: true };
+                        target.dispatchEvent(new KeyboardEvent('keydown', opts));
+                        target.dispatchEvent(new KeyboardEvent('keypress', opts));
+                        target.dispatchEvent(new KeyboardEvent('keyup', opts));
+                    } catch(e) { /* ignore */ }
+                    return send(true, null);
+                }
+
+                return send(false, 'Unsupported action: ' + act);
+            } catch (e) {
+                return send(false, e && e.message ? e.message : 'Action error');
+            }
+        },
+
         // Find element by selector - tries ID first, then CSS selector
         findElementBySelector: function(selector) {
             // If selector starts with #, try getElementById first (more reliable)

@@ -47,6 +47,19 @@ i18n4k {
 group = "cc.unitmesh"
 version = project.findProperty("mppVersion") as String? ?: "0.1.5"
 
+// Workaround for Kotlin/JS IR internal compiler error:
+// java.lang.IllegalArgumentException: List has more than one element (JsIntrinsics.getInternalFunction)
+// Typically caused by multiple Kotlin stdlib klibs on the compilation classpath.
+configurations.all {
+    resolutionStrategy {
+        force("org.jetbrains.kotlin:kotlin-stdlib:2.2.0")
+        force("org.jetbrains.kotlin:kotlin-stdlib-common:2.2.0")
+        force("org.jetbrains.kotlin:kotlin-stdlib-js:2.2.0")
+        force("org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.2.0")
+        force("org.jetbrains.kotlin:kotlin-reflect:2.2.0")
+    }
+}
+
 kotlin {
     jvm {
         compilerOptions {
@@ -338,6 +351,18 @@ kotlin {
 
                 // i18n4k - JS
                 implementation(libs.i18n4k.core.js)
+            }
+        }
+
+        // Needed by generated Karma/webpack test config (see build/js/**/karma.conf.js)
+        // so that jsBrowserTest can load the polyfill config.
+        val jsTest by getting {
+            dependencies {
+                implementation(devNpm("copy-webpack-plugin", "12.0.2"))
+                // Required by webpack config injected via webpack.config.d/node-polyfills.js
+                // (used by browser tests for codegraph + git + sql worker).
+                implementation(npm("wasm-git", "0.0.13"))
+                implementation(npm("sql.js", "1.8.0"))
             }
         }
 

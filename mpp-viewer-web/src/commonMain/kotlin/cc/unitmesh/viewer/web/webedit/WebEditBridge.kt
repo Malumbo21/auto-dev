@@ -40,6 +40,26 @@ interface WebEditBridge {
      * Currently selected element
      */
     val selectedElement: StateFlow<DOMElement?>
+
+    /**
+     * Last received D2Snap tree (compressed DOM snapshot for LLM consumption)
+     */
+    val d2SnapTree: StateFlow<D2SnapElement?>
+
+    /**
+     * Last received accessibility tree (semantic snapshot for LLM consumption)
+     */
+    val accessibilityTree: StateFlow<AccessibilityNode?>
+
+    /**
+     * Last received actionable elements list (from accessibility tree extraction)
+     */
+    val actionableElements: StateFlow<List<AccessibilityNode>>
+
+    /**
+     * Last action execution result from the browser
+     */
+    val lastActionResult: StateFlow<WebEditMessage.ActionResult?>
     
     /**
      * Whether selection mode is enabled
@@ -137,6 +157,27 @@ interface WebEditBridge {
      * Get the HTML content of the selected element
      */
     suspend fun getSelectedElementHtml(): String?
+
+    /**
+     * Click an element by selector (shadow DOM aware in injected script).
+     */
+    suspend fun click(selector: String)
+
+    /**
+     * Type text into an element by selector (input/textarea/contenteditable).
+     */
+    suspend fun typeText(selector: String, text: String, clearFirst: Boolean = true)
+
+    /**
+     * Select an option for a <select> element by selector.
+     * The value may be a visible text or option value depending on page.
+     */
+    suspend fun selectOption(selector: String, value: String)
+
+    /**
+     * Press a key on the currently focused element (or optional target selector).
+     */
+    suspend fun pressKey(key: String, selector: String? = null)
     
     /**
      * Mark bridge as ready
@@ -159,6 +200,10 @@ data class WebEditState(
     val loadProgress: Int = 0,
     val domTree: DOMElement? = null,
     val selectedElement: DOMElement? = null,
+    val d2SnapTree: D2SnapElement? = null,
+    val accessibilityTree: AccessibilityNode? = null,
+    val actionableElements: List<AccessibilityNode> = emptyList(),
+    val lastActionResult: WebEditMessage.ActionResult? = null,
     val isSelectionMode: Boolean = false,
     val isReady: Boolean = false,
     val errorMessage: String? = null

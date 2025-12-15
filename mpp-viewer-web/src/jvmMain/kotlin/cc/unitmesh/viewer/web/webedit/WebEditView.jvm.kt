@@ -166,6 +166,39 @@ actual fun WebEditView(
                                 }
                             }
                         }
+                        "D2SnapTreeUpdated" -> {
+                            val rootJson = data["root"]?.jsonObject
+                            if (rootJson != null) {
+                                val root = parseD2SnapElement(rootJson.toString())
+                                if (root != null) {
+                                    bridge.handleMessage(WebEditMessage.D2SnapTreeUpdated(root))
+                                }
+                            }
+                        }
+                        "AccessibilityTreeUpdated" -> {
+                            val rootJson = data["root"]?.jsonObject
+                            if (rootJson != null) {
+                                val root = parseAccessibilityNode(rootJson.toString())
+                                if (root != null) {
+                                    bridge.handleMessage(WebEditMessage.AccessibilityTreeUpdated(root))
+                                }
+                            }
+                        }
+                        "ActionableElementsUpdated" -> {
+                            val elementsJson = data["elements"]
+                            if (elementsJson != null) {
+                                val elements = parseAccessibilityNodeList(elementsJson.toString())
+                                if (elements != null) {
+                                    bridge.handleMessage(WebEditMessage.ActionableElementsUpdated(elements))
+                                }
+                            }
+                        }
+                        "ActionResult" -> {
+                            val result = parseActionResult(data.toString())
+                            if (result != null) {
+                                bridge.handleMessage(result)
+                            }
+                        }
                         "Diagnostic" -> {
                             val payload = data["payload"]?.jsonPrimitive?.content ?: data.toString()
                             println("[WebEditView] 🔎 Diagnostic from JS: $payload")
@@ -354,9 +387,43 @@ actual fun WebEditView(
  */
 private fun parseElement(jsonString: String): DOMElement? {
     return try {
-        Json.decodeFromString<DOMElement>(jsonString)
+        json.decodeFromString<DOMElement>(jsonString)
     } catch (e: Exception) {
         println("[WebEditView] Failed to parse element: ${e.message}")
+        null
+    }
+}
+
+private val json = Json { ignoreUnknownKeys = true }
+
+private fun parseD2SnapElement(jsonString: String): D2SnapElement? {
+    return try {
+        json.decodeFromString<D2SnapElement>(jsonString)
+    } catch (_: Exception) {
+        null
+    }
+}
+
+private fun parseAccessibilityNode(jsonString: String): AccessibilityNode? {
+    return try {
+        json.decodeFromString<AccessibilityNode>(jsonString)
+    } catch (_: Exception) {
+        null
+    }
+}
+
+private fun parseAccessibilityNodeList(jsonString: String): List<AccessibilityNode>? {
+    return try {
+        json.decodeFromString<List<AccessibilityNode>>(jsonString)
+    } catch (_: Exception) {
+        null
+    }
+}
+
+private fun parseActionResult(jsonString: String): WebEditMessage.ActionResult? {
+    return try {
+        json.decodeFromString<WebEditMessage.ActionResult>(jsonString)
+    } catch (_: Exception) {
         null
     }
 }

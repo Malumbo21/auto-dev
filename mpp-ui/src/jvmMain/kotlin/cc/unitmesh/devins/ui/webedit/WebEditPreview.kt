@@ -10,7 +10,10 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import cc.unitmesh.config.ConfigManager
+import cc.unitmesh.devins.ui.compose.agent.webedit.ElementTagCollection
 import cc.unitmesh.devins.ui.compose.agent.webedit.WebEditPage
+import cc.unitmesh.devins.ui.compose.agent.webedit.buildWebEditLLMPrompt
+import cc.unitmesh.llm.KoogLLMService
 import cc.unitmesh.viewer.web.webedit.*
 import dev.datlag.kcef.KCEF
 import kotlinx.coroutines.Dispatchers
@@ -123,8 +126,38 @@ fun WebEditDebugContainer() {
     val isSelectionMode by bridge.isSelectionMode.collectAsState()
     val selectedElement by bridge.selectedElement.collectAsState()
     val domTree by bridge.domTree.collectAsState()
+    val actionableElements by bridge.actionableElements.collectAsState()
     val errorMessage by bridge.errorMessage.collectAsState()
     val isReady by bridge.isReady.collectAsState()
+
+    var llmService by remember { mutableStateOf<KoogLLMService?>(null) }
+    var llmInitError by remember { mutableStateOf<String?>(null) }
+    var hasRunAutoTest by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        try {
+            if (!ConfigManager.exists()) {
+                llmInitError = "Config file not found: ${ConfigManager.getConfigPath()}"
+                println("[WebEditDebugContainer] ⚠️ $llmInitError")
+                return@LaunchedEffect
+            }
+
+            val wrapper = ConfigManager.load()
+            val activeConfig = wrapper.getActiveModelConfig()
+            if (activeConfig == null || !activeConfig.isValid()) {
+                llmInitError = "No valid LLM config found in ${ConfigManager.getConfigPath()}"
+                println("[WebEditDebugContainer] ⚠️ $llmInitError")
+                return@LaunchedEffect
+            }
+
+            llmService = KoogLLMService.create(activeConfig)
+            println("[WebEditDebugContainer] ✅ LLM initialized: ${activeConfig.provider.displayName} / ${activeConfig.modelName}")
+        } catch (e: Exception) {
+            llmInitError = e.message ?: "Failed to init LLM"
+            println("[WebEditDebugContainer] ❌ LLM init failed: $llmInitError")
+            e.printStackTrace()
+        }
+    }
 
     // Log state changes
     LaunchedEffect(currentUrl) {
@@ -216,12 +249,18 @@ fun WebEditDebugContainer() {
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSecondaryContainer
                 )
+                Text(
+                    "🤖 LLM: ${if (llmService != null) "✅ Ready" else "❌ Not Ready"}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
             }
         }
 
         // Main WebEdit Page
         WebEditPage(
-            llmService = null, // No LLM for debug
+            llmService = llmService,
+            bridge = bridge,
             modifier = Modifier.weight(1f),
             onBack = {
                 println("[WebEditDebugContainer] 🔙 Back button clicked")
@@ -232,17 +271,46 @@ fun WebEditDebugContainer() {
         )
     }
 
-    // Auto-test: Load a page after 2 seconds
-    LaunchedEffect(Unit) {
-        delay(2000)
-        println("[WebEditDebugContainer] 🧪 Auto-loading test page...")
+    // Auto-test: open Google + GitHub and call LLM with WebEditPage-style prompt.
+    LaunchedEffect(llmService, isReady, currentUrl, pageTitle, actionableElements) {
+        val service = llmService ?: return@LaunchedEffect
+        if (hasRunAutoTest) return@LaunchedEffect
+        if (llmInitError != null) return@LaunchedEffect
+
+        // Start once the first page is ready (WebEditPage will auto-load an initial URL).
+        if (!isReady || currentUrl.isBlank() || currentUrl == "about:blank") return@LaunchedEffect
+
+        hasRunAutoTest = true
         scope.launch {
-            try {
-                bridge.navigateTo("https://ide.unitmesh.cc")
-                println("[WebEditDebugContainer] ✅ Navigation initiated to ide.unitmesh.cc")
-            } catch (e: Exception) {
-                println("[WebEditDebugContainer] ❌ Navigation failed: ${e.message}")
-                e.printStackTrace()
+            val testUrls = listOf(
+                "https://www.google.com",
+                "https://github.com"
+            )
+
+            for (url in testUrls) {
+                println("═══════════════════════════════════════════════════════════")
+                println("[WebEditDebugContainer] 🧪 LLM test starting for: $url")
+                println("═══════════════════════════════════════════════════════════")
+
+                bridge.navigateTo(url)
+                delay(2500) // let the page settle a bit
+
+                // Ask WebView to refresh actionable elements again for this page.
+                bridge.refreshActionableElements()
+                delay(1200)
+
+                val prompt = buildWebEditLLMPrompt(
+                    message = "请用中文总结当前页面，并从 Actionable elements 里挑选 5 个你认为最重要的交互点（带 selector）。",
+                    currentUrl = bridge.currentUrl.value,
+                    pageTitle = bridge.pageTitle.value,
+                    selectedElement = bridge.selectedElement.value,
+                    elementTags = ElementTagCollection(),
+                    actionableElements = bridge.actionableElements.value
+                )
+
+                val response = service.sendPrompt(prompt)
+                println("[WebEditDebugContainer] ✅ LLM response for $url:")
+                println(response)
             }
         }
     }

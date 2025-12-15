@@ -33,6 +33,7 @@ private suspend fun handleChatMessage(
     pageTitle: String,
     selectedElement: DOMElement?,
     elementTags: ElementTagCollection,
+    actionableElements: List<AccessibilityNode>,
     onResponse: (String) -> Unit,
     onError: (String) -> Unit,
     onProcessingChange: (Boolean) -> Unit
@@ -45,34 +46,14 @@ private suspend fun handleChatMessage(
     onProcessingChange(true)
 
     try {
-        // Build context prompt
-        val contextBuilder = StringBuilder()
-        contextBuilder.append("You are helping analyze a web page.\\n\\n")
-        contextBuilder.append("Current page: $pageTitle ($currentUrl)\\n\\n")
-
-        // Add element tags context if available
-        if (elementTags.isNotEmpty()) {
-            contextBuilder.append(elementTags.toLLMContext())
-            contextBuilder.append("\\n")
-        } else if (selectedElement != null) {
-            // Fallback to single selected element
-            contextBuilder.append("Selected element:\\n")
-            contextBuilder.append("- Tag: ${selectedElement.tagName}\\n")
-            contextBuilder.append("- Selector: ${selectedElement.selector}\\n")
-            if (selectedElement.textContent?.isNotEmpty() == true) {
-                contextBuilder.append("- Text: ${selectedElement.textContent}\\n")
-            }
-            if (selectedElement.attributes.isNotEmpty()) {
-                contextBuilder.append("- Attributes: ${selectedElement.attributes}\\n")
-            }
-            contextBuilder.append("\\n")
-        }
-
-        contextBuilder.append("User question: $message\\n\\n")
-        contextBuilder.append("Please provide a helpful and concise answer.")
-
-        // Call LLM service using sendPrompt
-        val prompt = contextBuilder.toString()
+        val prompt = buildWebEditLLMPrompt(
+            message = message,
+            currentUrl = currentUrl,
+            pageTitle = pageTitle,
+            selectedElement = selectedElement,
+            elementTags = elementTags,
+            actionableElements = actionableElements
+        )
         val response = llmService.sendPrompt(prompt)
 
         onResponse(response)
@@ -172,6 +153,7 @@ private suspend fun handleChatWithCodingAgent(
 @Composable
 fun WebEditPage(
     llmService: KoogLLMService?,
+    bridge: WebEditBridge? = null,
     modifier: Modifier = Modifier,
     codingAgent: CodingAgent? = null,
     projectPath: String = "",
@@ -181,17 +163,18 @@ fun WebEditPage(
     val scope = rememberCoroutineScope()
 
     // Create the WebEdit bridge
-    val bridge = remember { createWebEditBridge() }
+    val internalBridge = remember { bridge ?: createWebEditBridge() }
 
     // Collect state from bridge
-    val currentUrl by bridge.currentUrl.collectAsState()
-    val pageTitle by bridge.pageTitle.collectAsState()
-    val isLoading by bridge.isLoading.collectAsState()
-    val isSelectionMode by bridge.isSelectionMode.collectAsState()
-    val selectedElement by bridge.selectedElement.collectAsState()
-    val domTree by bridge.domTree.collectAsState()
-    val errorMessage by bridge.errorMessage.collectAsState()
-    val isReady by bridge.isReady.collectAsState()
+    val currentUrl by internalBridge.currentUrl.collectAsState()
+    val pageTitle by internalBridge.pageTitle.collectAsState()
+    val isLoading by internalBridge.isLoading.collectAsState()
+    val isSelectionMode by internalBridge.isSelectionMode.collectAsState()
+    val selectedElement by internalBridge.selectedElement.collectAsState()
+    val domTree by internalBridge.domTree.collectAsState()
+    val actionableElements by internalBridge.actionableElements.collectAsState()
+    val errorMessage by internalBridge.errorMessage.collectAsState()
+    val isReady by internalBridge.isReady.collectAsState()
 
     // Local UI state
     var inputUrl by remember { mutableStateOf("https://ide.unitmesh.cc") }
@@ -217,7 +200,7 @@ fun WebEditPage(
         if (currentUrl.isEmpty() && inputUrl.isNotEmpty()) {
             scope.launch {
                 delay(1000)
-                bridge.navigateTo(inputUrl)
+                internalBridge.navigateTo(inputUrl)
             }
         }
     }
@@ -227,7 +210,9 @@ fun WebEditPage(
         if (!isReady) return@LaunchedEffect
         if (currentUrl.isBlank() || currentUrl == "about:blank") return@LaunchedEffect
         delay(400)
-        bridge.refreshDOMTree()
+        internalBridge.refreshDOMTree()
+        // Provide LLM-friendly "eyes"
+        internalBridge.refreshActionableElements()
     }
 
     Column(modifier = modifier.fillMaxSize()) {
@@ -240,10 +225,10 @@ fun WebEditPage(
             showDOMSidebar = showDOMSidebar,
             onUrlChange = { inputUrl = it },
             onGoBack = {
-                scope.launch { bridge.goBack() }
+                scope.launch { internalBridge.goBack() }
             },
             onGoForward = {
-                scope.launch { bridge.goForward() }
+                scope.launch { internalBridge.goForward() }
             },
             onNavigate = { url ->
                 val trimmed = url.trim()
@@ -261,15 +246,15 @@ fun WebEditPage(
 
                 inputUrl = normalizedUrl
                 scope.launch {
-                    bridge.navigateTo(normalizedUrl)
+                    internalBridge.navigateTo(normalizedUrl)
                 }
             },
             onBack = onBack,
             onReload = {
-                scope.launch { bridge.reload() }
+                scope.launch { internalBridge.reload() }
             },
             onToggleSelectionMode = {
-                scope.launch { bridge.setSelectionMode(!isSelectionMode) }
+                scope.launch { internalBridge.setSelectionMode(!isSelectionMode) }
             },
             onToggleDOMSidebar = { showDOMSidebar = !showDOMSidebar }
         )
@@ -291,7 +276,7 @@ fun WebEditPage(
                     .background(MaterialTheme.colorScheme.surface)
             ) {
                 WebEditView(
-                    bridge = bridge,
+                    bridge = internalBridge,
                     modifier = Modifier.fillMaxSize(),
                     onPageLoaded = { url, title ->
                         inputUrl = url
@@ -382,15 +367,15 @@ fun WebEditPage(
                     selectedElement = selectedElement,
                     onElementClick = { selector ->
                         scope.launch {
-                            bridge.highlightElement(selector)
-                            bridge.scrollToElement(selector)
+                            internalBridge.highlightElement(selector)
+                            internalBridge.scrollToElement(selector)
                         }
                     },
                     onElementHover = { selector ->
                         if (selector != null) {
-                            scope.launch { bridge.highlightElement(selector) }
+                            scope.launch { internalBridge.highlightElement(selector) }
                         } else {
-                            scope.launch { bridge.clearHighlights() }
+                            scope.launch { internalBridge.clearHighlights() }
                         }
                     },
                     modifier = Modifier.width(280.dp).fillMaxHeight()
@@ -425,6 +410,7 @@ fun WebEditPage(
                         pageTitle = pageTitle,
                         selectedElement = selectedElement,
                         elementTags = elementTags,
+                        actionableElements = actionableElements,
                         onResponse = { response ->
                             chatHistory = chatHistory + ChatMessage(role = "assistant", content = response)
                         },
@@ -500,6 +486,7 @@ fun WebEditPage(
                             pageTitle = pageTitle,
                             selectedElement = selectedElement,
                             elementTags = tags,
+                            actionableElements = actionableElements,
                             onResponse = { response ->
                                 chatHistory = chatHistory + ChatMessage(role = "assistant", content = response)
                             },

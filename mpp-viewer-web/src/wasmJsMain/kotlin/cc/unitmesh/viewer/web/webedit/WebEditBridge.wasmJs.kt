@@ -3,6 +3,8 @@ package cc.unitmesh.viewer.web.webedit
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 /**
  * WASM JS implementation of WebEditBridge
@@ -25,6 +27,18 @@ class WasmWebEditBridge : WebEditBridge {
     
     private val _selectedElement = MutableStateFlow<DOMElement?>(null)
     override val selectedElement: StateFlow<DOMElement?> = _selectedElement.asStateFlow()
+
+    private val _d2SnapTree = MutableStateFlow<D2SnapElement?>(null)
+    override val d2SnapTree: StateFlow<D2SnapElement?> = _d2SnapTree.asStateFlow()
+
+    private val _accessibilityTree = MutableStateFlow<AccessibilityNode?>(null)
+    override val accessibilityTree: StateFlow<AccessibilityNode?> = _accessibilityTree.asStateFlow()
+
+    private val _actionableElements = MutableStateFlow<List<AccessibilityNode>>(emptyList())
+    override val actionableElements: StateFlow<List<AccessibilityNode>> = _actionableElements.asStateFlow()
+
+    private val _lastActionResult = MutableStateFlow<WebEditMessage.ActionResult?>(null)
+    override val lastActionResult: StateFlow<WebEditMessage.ActionResult?> = _lastActionResult.asStateFlow()
     
     private val _isSelectionMode = MutableStateFlow(false)
     override val isSelectionMode: StateFlow<Boolean> = _isSelectionMode.asStateFlow()
@@ -34,6 +48,8 @@ class WasmWebEditBridge : WebEditBridge {
     
     private val _errorMessage = MutableStateFlow<String?>(null)
     override val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+
+    private val json = Json { encodeDefaults = true; ignoreUnknownKeys = true }
 
     var executeJavaScript: ((String) -> Unit)? = null
     var navigateCallback: ((String) -> Unit)? = null
@@ -147,6 +163,26 @@ class WasmWebEditBridge : WebEditBridge {
         return null
     }
 
+    override suspend fun click(selector: String) {
+        val payload = json.encodeToString(WebEditAction(action = "click", selector = selector))
+        executeJavaScript?.invoke("window.webEditBridge?.performAction($payload);")
+    }
+
+    override suspend fun typeText(selector: String, text: String, clearFirst: Boolean) {
+        val payload = json.encodeToString(WebEditAction(action = "type", selector = selector, text = text, clearFirst = clearFirst))
+        executeJavaScript?.invoke("window.webEditBridge?.performAction($payload);")
+    }
+
+    override suspend fun selectOption(selector: String, value: String) {
+        val payload = json.encodeToString(WebEditAction(action = "select", selector = selector, value = value))
+        executeJavaScript?.invoke("window.webEditBridge?.performAction($payload);")
+    }
+
+    override suspend fun pressKey(key: String, selector: String?) {
+        val payload = json.encodeToString(WebEditAction(action = "pressKey", selector = selector, key = key))
+        executeJavaScript?.invoke("window.webEditBridge?.performAction($payload);")
+    }
+
     override fun markReady() {
         _isReady.value = true
     }
@@ -158,13 +194,13 @@ class WasmWebEditBridge : WebEditBridge {
                 _errorMessage.value = null // Clear error on successful update
             }
             is WebEditMessage.D2SnapTreeUpdated -> {
-                // D2Snap tree is for LLM consumption, not stored in bridge state
+                _d2SnapTree.value = message.root
             }
             is WebEditMessage.AccessibilityTreeUpdated -> {
-                // Accessibility tree is for LLM consumption, not stored in bridge state
+                _accessibilityTree.value = message.root
             }
             is WebEditMessage.ActionableElementsUpdated -> {
-                // Actionable elements are for LLM consumption, not stored in bridge state
+                _actionableElements.value = message.elements
             }
             is WebEditMessage.ElementSelected -> {
                 _selectedElement.value = message.element
@@ -185,6 +221,10 @@ class WasmWebEditBridge : WebEditBridge {
             }
             is WebEditMessage.DOMChanged -> {
                 // DOM changes trigger automatic refresh via MutationObserver
+            }
+            is WebEditMessage.ActionResult -> {
+                _lastActionResult.value = message
+                if (!message.ok) _errorMessage.value = message.message ?: "Action failed: ${message.action}"
             }
         }
     }
