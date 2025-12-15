@@ -267,11 +267,19 @@ kotlin {
         val androidMain by getting {
             dependencies {
                 implementation(project(":mpp-viewer-web"))
-                implementation(project(":xiuper-ui"))
+                implementation(project(":xiuper-ui")) {
+                    exclude(group = "io.github.oshai", module = "kotlin-logging-jvm")
+                }
+
+                // Kotlin Logging for Android (use Android version instead of JVM version)
+                implementation("io.github.oshai:kotlin-logging-android-debug:${libs.versions.kotlinLogging.get()}")
 
                 implementation(libs.androidx.activity)
                 implementation(libs.androidx.appcompat)
                 implementation(libs.androidx.core)
+
+                // SLF4J Android backend (compatible with Android, replaces logback)
+                implementation("com.github.tony19:logback-android:3.0.0")
 
                 // ComposeCharts - Cross-platform chart library (Android)
                 implementation(libs.compose.charts)
@@ -444,6 +452,14 @@ android {
 
     sourceSets["main"].manifest.srcFile("src/androidMain/AndroidManifest.xml")
     sourceSets["main"].res.srcDirs("src/androidMain/res")
+}
+
+// Exclude logback from Android - it uses Java 9 module APIs not available on Android
+configurations.all {
+    if (name.contains("android", ignoreCase = true)) {
+        exclude(group = "ch.qos.logback", module = "logback-classic")
+        exclude(group = "ch.qos.logback", module = "logback-core")
+    }
 }
 
 dependencies {
