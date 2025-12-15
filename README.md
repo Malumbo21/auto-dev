@@ -5,6 +5,8 @@
 
 **AutoDev Xiuper** is the AI-native development platform built on Kotlin Multiplatform, covering all 7 phases of SDLC (Requirements → Development → Review → Testing → Data → Deployment → Operations) and supporting 8+ platforms (IDEA, VSCode, CLI, Web, Desktop, Android, iOS, Server).
 
+![ScreenShot](https://xiuper.com/screenshot.png)
+
 ## 🚀 Get Started
 
 ### Download AutoDev Xiuper
