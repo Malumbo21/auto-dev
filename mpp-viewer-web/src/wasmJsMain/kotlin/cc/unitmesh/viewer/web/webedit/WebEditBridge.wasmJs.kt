@@ -40,6 +40,9 @@ class WasmWebEditBridge : WebEditBridge {
     private val _lastActionResult = MutableStateFlow<WebEditMessage.ActionResult?>(null)
     override val lastActionResult: StateFlow<WebEditMessage.ActionResult?> = _lastActionResult.asStateFlow()
     
+    private val _lastScreenshot = MutableStateFlow<WebEditMessage.ScreenshotCaptured?>(null)
+    override val lastScreenshot: StateFlow<WebEditMessage.ScreenshotCaptured?> = _lastScreenshot.asStateFlow()
+    
     private val _isSelectionMode = MutableStateFlow(false)
     override val isSelectionMode: StateFlow<Boolean> = _isSelectionMode.asStateFlow()
     
@@ -184,6 +187,11 @@ class WasmWebEditBridge : WebEditBridge {
         performAction(WebEditAction(action = "pressKey", selector = selector, key = key))
     }
 
+    override suspend fun captureScreenshot(maxWidth: Int, quality: Double) {
+        val script = "window.webEditBridge?.captureScreenshot($maxWidth, $quality);"
+        executeJavaScript?.invoke(script)
+    }
+
     override fun markReady() {
         _isReady.value = true
     }
@@ -226,6 +234,12 @@ class WasmWebEditBridge : WebEditBridge {
             is WebEditMessage.ActionResult -> {
                 _lastActionResult.value = message
                 if (!message.ok) _errorMessage.value = message.message ?: "Action failed: ${message.action}"
+            }
+            is WebEditMessage.ScreenshotCaptured -> {
+                _lastScreenshot.value = message
+                if (message.error != null) {
+                    _errorMessage.value = "Screenshot capture failed: ${message.error}"
+                }
             }
         }
     }

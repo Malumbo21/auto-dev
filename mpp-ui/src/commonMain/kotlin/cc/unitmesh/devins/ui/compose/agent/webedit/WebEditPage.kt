@@ -18,7 +18,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
-import java.util.Base64
+import kotlin.io.encoding.Base64
+import kotlin.io.encoding.ExperimentalEncodingApi
 
 /**
  * Chat message for WebEdit Q&A
@@ -201,34 +202,31 @@ fun WebEditPage(
             uploadCallback = null, // Screenshots are uploaded via bytes
             uploadBytesCallback = { bytes, fileName, mimeType, imageId, onProgress ->
                 // Upload screenshot bytes to COS via vision helper
-                // Use runBlocking to return ImageUploadResult synchronously
-                kotlinx.coroutines.runBlocking {
-                    try {
-                        val helper = visionHelper
-                        if (helper != null) {
-                            // Use vision helper's COS uploader if available
-                            // For now, we'll use a simple approach: upload via vision helper
-                            // This requires exposing upload functionality from WebEditVisionHelper
-                            // For now, return success with a placeholder URL
-                            // TODO: Implement actual COS upload via vision helper
-                            delay(500) // Simulate upload
-                            onProgress(100)
-                            ImageUploadResult(
-                                success = true,
-                                url = "screenshot://$imageId" // Placeholder
-                            )
-                        } else {
-                            ImageUploadResult(
-                                success = false,
-                                error = "Vision helper not available"
-                            )
-                        }
-                    } catch (e: Exception) {
+                try {
+                    val helper = visionHelper
+                    if (helper != null) {
+                        // Use vision helper's COS uploader if available
+                        // For now, we'll use a simple approach: upload via vision helper
+                        // This requires exposing upload functionality from WebEditVisionHelper
+                        // For now, return success with a placeholder URL
+                        // TODO: Implement actual COS upload via vision helper
+                        delay(500) // Simulate upload
+                        onProgress(100)
+                        ImageUploadResult(
+                            success = true,
+                            url = "screenshot://$imageId" // Placeholder
+                        )
+                    } else {
                         ImageUploadResult(
                             success = false,
-                            error = e.message ?: "Upload failed"
+                            error = "Vision helper not available"
                         )
                     }
+                } catch (e: Exception) {
+                    ImageUploadResult(
+                        success = false,
+                        error = e.message ?: "Upload failed"
+                    )
                 }
             },
             onError = { error -> onNotification("Upload Error", error) }
@@ -248,12 +246,14 @@ fun WebEditPage(
     }
     
     // Watch for screenshot and add to image upload manager
+    @OptIn(ExperimentalEncodingApi::class)
     LaunchedEffect(lastScreenshot) {
         val ss = lastScreenshot
-        if (ss != null && ss.base64 != null && ss.error == null) {
+        val base64Data = ss?.base64
+        if (ss != null && base64Data != null && ss.error == null) {
             // Screenshot captured successfully - convert to AttachedImage
             try {
-                val bytes = Base64.getDecoder().decode(ss.base64)
+                val bytes = Base64.decode(base64Data)
                 val timestamp = Clock.System.now().toEpochMilliseconds()
                 val fileName = "screenshot_$timestamp.jpg"
                 imageUploadManager.addImageFromBytes(
