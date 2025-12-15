@@ -60,6 +60,12 @@ interface WebEditBridge {
      * Last action execution result from the browser
      */
     val lastActionResult: StateFlow<WebEditMessage.ActionResult?>
+
+    /**
+     * Perform a structured browser action. This is the preferred API for LLM-driven automation
+     * because callers can attach a unique [WebEditAction.id] and reliably correlate results.
+     */
+    suspend fun performAction(action: WebEditAction)
     
     /**
      * Whether selection mode is enabled

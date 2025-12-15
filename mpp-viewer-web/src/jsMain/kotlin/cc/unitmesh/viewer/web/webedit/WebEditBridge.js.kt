@@ -112,6 +112,10 @@ class JsWebEditBridge : WebEditBridge {
         return null
     }
 
+    override suspend fun performAction(action: WebEditAction) {
+        console.log("JsWebEditBridge: performAction not supported in JS CLI")
+    }
+
     override suspend fun click(selector: String) {
         console.log("JsWebEditBridge: click not supported in JS CLI")
     }

@@ -328,6 +328,10 @@ fun getWebEditBridgeScript(): String = """
                 if (act === 'click') {
                     const el = self.findElementBySelector(selector || '');
                     if (!el) return send(false, 'Element not found');
+                    try {
+                        const rect = el.getBoundingClientRect();
+                        if (!rect || rect.width <= 1 || rect.height <= 1) return send(false, 'Element not visible');
+                    } catch(e) { /* ignore */ }
                     try { el.scrollIntoView({ behavior: 'auto', block: 'center' }); } catch(e) { /* ignore */ }
                     try { if (el.focus) el.focus(); } catch(e) { /* ignore */ }
                     try {
@@ -343,6 +347,10 @@ fun getWebEditBridgeScript(): String = """
                 if (act === 'type') {
                     const el = self.findElementBySelector(selector || '');
                     if (!el) return send(false, 'Element not found');
+                    try {
+                        const rect = el.getBoundingClientRect();
+                        if (!rect || rect.width <= 1 || rect.height <= 1) return send(false, 'Element not visible');
+                    } catch(e) { /* ignore */ }
                     const text = (action.text != null) ? String(action.text) : '';
                     const clearFirst = (action.clearFirst !== false);
                     try { if (el.focus) el.focus(); } catch(e) { /* ignore */ }
@@ -414,6 +422,21 @@ fun getWebEditBridgeScript(): String = """
                         target.dispatchEvent(new KeyboardEvent('keypress', opts));
                         target.dispatchEvent(new KeyboardEvent('keyup', opts));
                     } catch(e) { /* ignore */ }
+
+                    // Many real sites (e.g., Google) may not react to synthetic Enter key events.
+                    // As a pragmatic fallback, if Enter is requested, attempt to submit the nearest form.
+                    if (key === 'Enter' && el) {
+                        try {
+                            const form = el.form || (el.closest ? el.closest('form') : null);
+                            if (form) {
+                                if (form.requestSubmit) {
+                                    form.requestSubmit();
+                                } else if (form.submit) {
+                                    form.submit();
+                                }
+                            }
+                        } catch(e) { /* ignore */ }
+                    }
                     return send(true, null);
                 }
 

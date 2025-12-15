@@ -16,7 +16,9 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.key.*
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -370,7 +372,11 @@ fun ElementTagRow(
 /**
  * Chat input area for WebEdit Q&A functionality.
  * Now supports element tags for selected DOM elements.
+ * Keyboard shortcuts:
+ * - Enter: Send message
+ * - Shift+Enter: New line
  */
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun WebEditChatInput(
     input: String,
@@ -422,31 +428,44 @@ fun WebEditChatInput(
                 OutlinedTextField(
                     value = input,
                     onValueChange = onInputChange,
-                    modifier = Modifier.weight(1f).heightIn(min = 44.dp, max = 120.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 44.dp, max = 120.dp)
+                        .onPreviewKeyEvent { keyEvent ->
+                            // Handle Enter key: send message (unless Shift is pressed)
+                            if (keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.Enter) {
+                                if (!keyEvent.isShiftPressed) {
+                                    // Enter without Shift: send message
+                                    if (input.isNotBlank() || elementTags.isNotEmpty()) {
+                                        if (onSendWithContext != null && elementTags.isNotEmpty()) {
+                                            onSendWithContext(input, elementTags)
+                                        } else {
+                                            onSend(input)
+                                        }
+                                    }
+                                    true // consume event
+                                } else {
+                                    // Shift+Enter: insert newline (default behavior)
+                                    false // don't consume, let TextField handle it
+                                }
+                            } else {
+                                false
+                            }
+                        },
                     placeholder = {
                         Text(
                             text = if (elementTags.isNotEmpty()) {
-                                "Ask about selected elements..."
+                                "Ask about selected elements... (Enter to send, Shift+Enter for new line)"
                             } else {
-                                placeholder
+                                "$placeholder (Enter to send, Shift+Enter for new line)"
                             },
                             style = MaterialTheme.typography.bodyMedium
                         )
                     },
                     enabled = enabled,
+                    maxLines = 5,
                     shape = RoundedCornerShape(12.dp),
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                    keyboardActions = KeyboardActions(
-                        onSend = {
-                            if (input.isNotBlank() || elementTags.isNotEmpty()) {
-                                if (onSendWithContext != null && elementTags.isNotEmpty()) {
-                                    onSendWithContext(input, elementTags)
-                                } else {
-                                    onSend(input)
-                                }
-                            }
-                        }
-                    ),
+                    keyboardOptions = KeyboardOptions.Default,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = MaterialTheme.colorScheme.primary,
                         unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)

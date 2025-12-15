@@ -175,24 +175,25 @@ class JvmWebEditBridge : WebEditBridge {
         return null
     }
 
-    override suspend fun click(selector: String) {
-        val payload = json.encodeToString(WebEditAction(action = "click", selector = selector))
+    override suspend fun performAction(action: WebEditAction) {
+        val payload = json.encodeToString(action)
         executeJavaScript?.invoke("window.webEditBridge?.performAction($payload);")
+    }
+
+    override suspend fun click(selector: String) {
+        performAction(WebEditAction(action = "click", selector = selector))
     }
 
     override suspend fun typeText(selector: String, text: String, clearFirst: Boolean) {
-        val payload = json.encodeToString(WebEditAction(action = "type", selector = selector, text = text, clearFirst = clearFirst))
-        executeJavaScript?.invoke("window.webEditBridge?.performAction($payload);")
+        performAction(WebEditAction(action = "type", selector = selector, text = text, clearFirst = clearFirst))
     }
 
     override suspend fun selectOption(selector: String, value: String) {
-        val payload = json.encodeToString(WebEditAction(action = "select", selector = selector, value = value))
-        executeJavaScript?.invoke("window.webEditBridge?.performAction($payload);")
+        performAction(WebEditAction(action = "select", selector = selector, value = value))
     }
 
     override suspend fun pressKey(key: String, selector: String?) {
-        val payload = json.encodeToString(WebEditAction(action = "pressKey", selector = selector, key = key))
-        executeJavaScript?.invoke("window.webEditBridge?.performAction($payload);")
+        performAction(WebEditAction(action = "pressKey", selector = selector, key = key))
     }
 
     override fun markReady() {

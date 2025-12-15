@@ -11,6 +11,7 @@ import androidx.compose.ui.unit.dp
 import cc.unitmesh.agent.CodingAgent
 import cc.unitmesh.agent.AgentTask
 import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.devins.ui.compose.agent.webedit.automation.runOneSentenceCommand
 import cc.unitmesh.viewer.web.webedit.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -183,6 +184,7 @@ fun WebEditPage(
     var isProcessingQuery by remember { mutableStateOf(false) }
     var chatHistory by remember { mutableStateOf<List<ChatMessage>>(emptyList()) }
     var showChatHistory by remember { mutableStateOf(false) }
+    var automationMode by remember { mutableStateOf(true) }
     
     // Element tags state - stores selected elements as tags
     var elementTags by remember { mutableStateOf(ElementTagCollection()) }
@@ -383,11 +385,40 @@ fun WebEditPage(
             }
         }
 
+        // Automation toggle (default ON)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                text = if (automationMode) "Auto-run: ON" else "Auto-run: OFF",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Switch(
+                checked = automationMode,
+                onCheckedChange = { automationMode = it },
+                enabled = llmService != null && !isProcessingQuery
+            )
+            Text(
+                text = "When ON, your message will be converted into actions and executed in the page.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
         WebEditChatInput(
             input = chatInput,
             onInputChange = { chatInput = it },
             onSend = { message ->
                 scope.launch {
+                    // Refresh actionable elements to ensure we have the latest context for current page
+                    internalBridge.refreshActionableElements()
+                    delay(300) // Give it time to update
+                    
                     // Build user message with element context
                     val userMessage = buildString {
                         append(message)
@@ -402,26 +433,94 @@ fun WebEditPage(
                     // Add user message to history
                     chatHistory = chatHistory + ChatMessage(role = "user", content = userMessage)
                     showChatHistory = true
-                    
-                    handleChatMessage(
-                        message = message,
-                        llmService = llmService,
-                        currentUrl = currentUrl,
-                        pageTitle = pageTitle,
-                        selectedElement = selectedElement,
-                        elementTags = elementTags,
-                        actionableElements = actionableElements,
-                        onResponse = { response ->
-                            chatHistory = chatHistory + ChatMessage(role = "assistant", content = response)
-                        },
-                        onError = { error ->
-                            onNotification("Error", error)
-                            chatHistory = chatHistory + ChatMessage(role = "assistant", content = "❌ Error: $error")
-                        },
-                        onProcessingChange = { processing ->
-                            isProcessingQuery = processing
+
+                    if (automationMode && llmService != null) {
+                        isProcessingQuery = true
+                        val planningIndex = chatHistory.size
+                        chatHistory = chatHistory + ChatMessage(role = "assistant", content = "Planning actions...\n")
+                        try {
+                            var plannedSoFar = "Planning actions...\n"
+                            val run = runOneSentenceCommand(
+                                bridge = internalBridge,
+                                llmService = llmService,
+                                instruction = message,
+                                actionableElements = actionableElements,
+                                onPlanningChunk = { chunk ->
+                                    plannedSoFar += chunk
+                                    // update streaming assistant message
+                                    chatHistory = chatHistory.mapIndexed { idx, m ->
+                                        if (idx == planningIndex) m.copy(content = plannedSoFar) else m
+                                    }
+                                }
+                            )
+
+                            val summary = buildString {
+                                appendLine("Executed actions:")
+                                appendLine("```json")
+                                appendLine(
+                                    kotlinx.serialization.json.Json {
+                                        prettyPrint = true
+                                        encodeDefaults = true
+                                    }.encodeToString(
+                                        kotlinx.serialization.builtins.ListSerializer(WebEditAction.serializer()),
+                                        run.actions
+                                    )
+                                )
+                                appendLine("```")
+                                appendLine()
+                                appendLine("Results:")
+                                appendLine("```json")
+                                appendLine(
+                                    kotlinx.serialization.json.Json {
+                                        prettyPrint = true
+                                        encodeDefaults = true
+                                    }.encodeToString(
+                                        kotlinx.serialization.builtins.ListSerializer(WebEditMessage.ActionResult.serializer()),
+                                        run.results
+                                    )
+                                )
+                                appendLine("```")
+                                val anyFail = run.results.any { !it.ok }
+                                if (anyFail) {
+                                    appendLine()
+                                    appendLine("Raw model output (for debugging):")
+                                    appendLine(run.rawModelOutput)
+                                }
+                            }
+
+                            // Replace the streaming planning message with the final execution summary
+                            chatHistory = chatHistory.mapIndexed { idx, m ->
+                                if (idx == planningIndex) m.copy(content = summary) else m
+                            }
+                        } catch (e: Exception) {
+                            onNotification("Automation Error", e.message ?: "Unknown error")
+                            chatHistory = chatHistory.mapIndexed { idx, m ->
+                                if (idx == planningIndex) m.copy(content = "❌ Automation failed: ${e.message}") else m
+                            }
+                        } finally {
+                            isProcessingQuery = false
                         }
-                    )
+                    } else {
+                        handleChatMessage(
+                            message = message,
+                            llmService = llmService,
+                            currentUrl = currentUrl,
+                            pageTitle = pageTitle,
+                            selectedElement = selectedElement,
+                            elementTags = elementTags,
+                            actionableElements = actionableElements,
+                            onResponse = { response ->
+                                chatHistory = chatHistory + ChatMessage(role = "assistant", content = response)
+                            },
+                            onError = { error ->
+                                onNotification("Error", error)
+                                chatHistory = chatHistory + ChatMessage(role = "assistant", content = "❌ Error: $error")
+                            },
+                            onProcessingChange = { processing ->
+                                isProcessingQuery = processing
+                            }
+                        )
+                    }
                     chatInput = ""
                 }
             },
@@ -437,6 +536,10 @@ fun WebEditPage(
             },
             onSendWithContext = { message, tags ->
                 scope.launch {
+                    // Refresh actionable elements to ensure we have the latest context for current page
+                    internalBridge.refreshActionableElements()
+                    delay(300) // Give it time to update
+                    
                     // Build user message with element context
                     val userMessage = buildString {
                         append(message)

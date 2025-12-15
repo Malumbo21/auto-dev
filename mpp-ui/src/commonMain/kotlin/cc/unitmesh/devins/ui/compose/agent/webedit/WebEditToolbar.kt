@@ -2,6 +2,7 @@ package cc.unitmesh.devins.ui.compose.agent.webedit
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -14,8 +15,13 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.key.*
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -24,6 +30,7 @@ import androidx.compose.ui.unit.sp
 /**
  * WebEdit Toolbar with URL input and navigation controls
  */
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun WebEditToolbar(
     currentUrl: String,
@@ -41,8 +48,23 @@ fun WebEditToolbar(
     onToggleDOMSidebar: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val urlFocusRequester = remember { FocusRequester() }
+    
     Surface(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .onPreviewKeyEvent { keyEvent ->
+                // Command+L (Mac) or Ctrl+L (Windows/Linux) to focus URL bar
+                if (keyEvent.type == KeyEventType.KeyDown &&
+                    keyEvent.key == Key.L &&
+                    (keyEvent.isMetaPressed || keyEvent.isCtrlPressed)
+                ) {
+                    urlFocusRequester.requestFocus()
+                    true
+                } else {
+                    false
+                }
+            },
         tonalElevation = 2.dp
     ) {
         Row(
@@ -105,6 +127,16 @@ fun WebEditToolbar(
                 modifier = Modifier
                     .weight(1f)
                     .height(28.dp)
+                    .focusRequester(urlFocusRequester)
+                    .onPreviewKeyEvent { keyEvent ->
+                        // Handle Enter key to navigate
+                        if (keyEvent.type == KeyEventType.KeyDown && keyEvent.key == Key.Enter) {
+                            onNavigate(inputUrl)
+                            true
+                        } else {
+                            false
+                        }
+                    }
                     .background(
                         MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                         RoundedCornerShape(6.dp)
@@ -130,7 +162,7 @@ fun WebEditToolbar(
                     ) {
                         if (inputUrl.isEmpty()) {
                             Text(
-                                "Enter URL (e.g., https://www.xuiper.com)",
+                                "Enter URL (e.g., https://www.xuiper.com) • Cmd/Ctrl+L to focus",
                                 style = TextStyle(fontSize = 13.sp),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                             )
