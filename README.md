@@ -54,6 +54,22 @@
 - **Code Intelligence**: TreeSitter-based parsing for Java, Kotlin, Python, JS, TS, Go, Rust, C#
 - **Global Ready**: Full internationalization (Chinese/English)
 
+## 🤖 Builtin Agents
+
+AutoDev Xiuper includes 7 specialized AI agents mapped to the complete Software Development Lifecycle (SDLC):
+
+| Agent         | SDLC Phase   | Description                                                                                        | Capabilities                      | Status    |
+|---------------|--------------|----------------------------------------------------------------------------------------------------|-----------------------------------|-----------|
+| **Knowledge** | Requirements | Requirements understanding and knowledge construction with AI-native document reading and analysis | DocQL / Context Engineering       | ✅ Stable  |
+| **Coding**    | Development  | Autonomous coding agent with complete file system, shell, and tool access capabilities             | MCP / SubAgents / DevIns DSL      | ✅ Stable  |
+| **Review**    | Code Review  | Professional code review analyzing code quality, security, performance, and best practices         | Linter / Summary / AutoFix        | ✅ Stable  |
+| **Testing**   | Testing      | Automated testing agent that generates test cases, executes tests, and analyzes coverage           | E2E / Self-healing / Coverage     | 🚧 Coming |
+| **ChatDB**    | Data         | Database conversation agent supporting Text-to-SQL and natural language data queries               | Schema Linking / Multi-DB / Query | ✅ Stable  |
+| **WebEdit**   | Deployment   | Web editing agent for browsing pages, selecting DOM elements, and interacting with web content     | Inspect / Chat / Mapping          | 🔄 Beta   |
+| **Ops**       | Operations   | Operations monitoring agent for log analysis, performance monitoring, and alert handling           | Logs / Metrics / Alerts           | 🚧 Coming |
+
+Each agent is designed to handle specific phases of the development lifecycle, providing comprehensive AI assistance from requirements gathering to production operations.
+
 ## License
 
 This code is distributed under the MPL 2.0 license. See `LICENSE` in this directory.
