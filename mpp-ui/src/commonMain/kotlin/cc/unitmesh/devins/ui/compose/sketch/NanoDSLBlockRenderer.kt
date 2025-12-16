@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.unit.dp
 import cc.unitmesh.agent.Platform
 import cc.unitmesh.devins.ui.nano.StatefulNanoRenderer
@@ -149,6 +150,17 @@ fun NanoDSLBlockRenderer(
 
             // Toggle buttons (only show if we have valid IR or parse error)
             if (nanoIR != null || parseError != null) {
+                val clipboardManager = LocalClipboardManager.current
+                var showCopied by remember { mutableStateOf(false) }
+
+                // Auto-hide "Copied!" message after 2 seconds
+                LaunchedEffect(showCopied) {
+                    if (showCopied) {
+                        kotlinx.coroutines.delay(2000)
+                        showCopied = false
+                    }
+                }
+
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -172,6 +184,16 @@ fun NanoDSLBlockRenderer(
                         text = if (showPreview && nanoIR != null) "</>" else "Preview",
                         isActive = showPreview && nanoIR != null,
                         onClick = { showPreview = !showPreview }
+                    )
+
+                    // Copy button
+                    NanoDSLToggleButton(
+                        text = if (showCopied) "✓" else "📋",
+                        isActive = showCopied,
+                        onClick = {
+                            clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(nanodslCode))
+                            showCopied = true
+                        }
                     )
                 }
             }
