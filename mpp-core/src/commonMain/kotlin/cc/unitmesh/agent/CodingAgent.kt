@@ -33,6 +33,7 @@ import cc.unitmesh.agent.logging.getLogger
 import cc.unitmesh.agent.tool.schema.ToolCategory
 import cc.unitmesh.llm.KoogLLMService
 import cc.unitmesh.llm.ModelConfig
+import cc.unitmesh.llm.image.ImageGenerationService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -47,7 +48,7 @@ class CodingAgent(
     private val shellExecutor: ShellExecutor? = null,
     private val mcpServers: Map<String, McpServerConfig>? = null,
     private val mcpToolConfigService: McpToolConfigService,
-    private val enableLLMStreaming: Boolean = true  // 新增：控制 LLM 流式响应
+    private val enableLLMStreaming: Boolean = true,
 ) : MainAgent<AgentTask, ToolResult.AgentResult>(
     AgentDefinition(
         name = "CodingAgent",
@@ -98,7 +99,9 @@ class CodingAgent(
 
     private val errorRecoveryAgent = ErrorRecoveryAgent(projectPath, llmService)
     private val analysisAgent = AnalysisAgent(llmService, contentThreshold = 15000)
-    private val nanoDSLAgent = NanoDSLAgent(llmService)
+    private val nanoDSLAgent = NanoDSLAgent(llmService, imageGenerationService =
+        ImageGenerationService.create(llmService.activeConfig)
+    )
     private val chartAgent = ChartAgent(llmService)
     private val plotDSLAgent = PlotDSLAgent(llmService)
     private val mcpToolsInitializer = McpToolsInitializer()

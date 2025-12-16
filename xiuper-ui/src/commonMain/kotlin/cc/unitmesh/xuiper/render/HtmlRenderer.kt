@@ -348,6 +348,16 @@ class HtmlRenderer(
         .nano-hstack > .flex-auto { flex: 1 1 auto; }
         .nano-hstack > .flex-none { flex: none; }
 
+        /* VStack children should take full width by default */
+        .nano-vstack > * { width: 100%; }
+
+        /* But in HStack, children should NOT take full width - let them size naturally */
+        /* Only VStack children should flex, other elements (Text, Button) should size to content */
+        .nano-hstack > .nano-vstack { flex: 1 1 0; min-width: 0; }
+        .nano-hstack > .nano-text { flex: 0 0 auto; width: auto; }
+        .nano-hstack > .nano-button { flex: 0 0 auto; width: auto; }
+        .nano-hstack > .nano-input { flex: 1 1 0; min-width: 0; }
+
         .spacing-xs { gap: 4px; }
         .spacing-sm { gap: 8px; }
         .spacing-md { gap: 16px; }
@@ -433,6 +443,7 @@ class HtmlRenderer(
             border-radius: 4px;
             font-size: 1rem;
             width: 100%;
+            min-width: 0; /* Allow input to shrink in flex containers */
         }
 
         .nano-textarea {

@@ -204,7 +204,7 @@ fun NanoDSLBlockRenderer(
             // Live UI Preview with theme and layout control
             val previewModifier = if (isMobileLayout) {
                 Modifier
-                    .width(400.dp)  // Fixed mobile width
+                    .width(600.dp)  // Fixed mobile width
                     .padding(16.dp)
             } else {
                 Modifier

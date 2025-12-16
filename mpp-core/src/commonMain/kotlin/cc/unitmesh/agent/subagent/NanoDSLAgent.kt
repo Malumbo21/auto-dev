@@ -15,6 +15,8 @@ import cc.unitmesh.agent.tool.schema.SchemaPropertyBuilder.string
 import cc.unitmesh.devins.parser.CodeFence
 import cc.unitmesh.llm.KoogLLMService
 import cc.unitmesh.llm.ModelConfig
+import cc.unitmesh.llm.image.ImageGenerationResult
+import cc.unitmesh.llm.image.ImageGenerationService
 import kotlinx.coroutines.flow.toList
 import kotlinx.serialization.Serializable
 
@@ -37,12 +39,34 @@ import kotlinx.serialization.Serializable
 class NanoDSLAgent(
     private val llmService: KoogLLMService,
     private val promptTemplate: String = DEFAULT_PROMPT,
-    private val maxRetries: Int = 3
+    private val maxRetries: Int = 3,
+    private val imageGenerationService: ImageGenerationService? = null
 ) : SubAgent<NanoDSLContext, ToolResult.AgentResult>(
     definition = createDefinition()
 ) {
     private val logger = getLogger("NanoDSLAgent")
     private val validator = NanoDSLValidator()
+
+    /**
+     * Regex pattern to match Image components in NanoDSL code.
+     * Matches multiline Image(src="...", ...) or Image(src=..., ...)
+     * Uses [\s\S] instead of . to match any character including newlines (JS compatible).
+     */
+    private val imagePattern = Regex(
+        """Image\s*\([\s\S]*?src\s*=\s*["']([^"']+)["']"""
+    )
+
+    /**
+     * Check if a src value should be replaced with AI-generated image.
+     * Since LLM often generates fake/hallucinated URLs, we replace all src values
+     * except for data: URLs (which are actual embedded images).
+     */
+    private fun shouldGenerateImage(src: String): Boolean {
+        val trimmed = src.trim()
+        // Only skip data: URLs (actual embedded image data)
+        // All other URLs (including http/https) should be replaced since they're usually fake
+        return !trimmed.startsWith("data:")
+    }
 
     override val priority: Int = 50 // Higher priority for UI generation tasks
 
@@ -124,12 +148,19 @@ class NanoDSLAgent(
                                 }
                             }
 
+                            // Generate images for Image components if ImageGenerationService is available
+                            val finalCode = if (imageGenerationService != null) {
+                                generateImagesForCode(generatedCode, onProgress)
+                            } else {
+                                generatedCode
+                            }
+
                             // Return formatted output with nanodsl code fence so LLM can display it to user
                             val formattedContent = buildString {
                                 appendLine("I've generated the following NanoDSL UI code based on your description:")
                                 appendLine()
                                 appendLine("```nanodsl")
-                                appendLine(generatedCode)
+                                appendLine(finalCode)
                                 appendLine("```")
                                 appendLine()
                                 appendLine("This code can be rendered as an interactive UI component.")
@@ -138,7 +169,7 @@ class NanoDSLAgent(
                             return ToolResult.AgentResult(
                                 success = true,
                                 content = formattedContent,
-                                metadata = buildMetadata(input, generatedCode, attempt, irJson, validationResult)
+                                metadata = buildMetadata(input, finalCode, attempt, irJson, validationResult)
                             )
                         }
 
@@ -208,6 +239,134 @@ class NanoDSLAgent(
                 "isValid" to "false"
             )
         )
+    }
+
+    /**
+     * Generate images for Image components.
+     * Replaces all src values (including fake URLs) with actual AI-generated image URLs.
+     */
+    private suspend fun generateImagesForCode(
+        code: String,
+        onProgress: (String) -> Unit
+    ): String {
+        val service = imageGenerationService ?: return code
+
+        // Find all Image components
+        val matches = imagePattern.findAll(code).toList()
+        val imagesToGenerate = matches.filter { shouldGenerateImage(it.groupValues[1]) }
+
+        if (imagesToGenerate.isEmpty()) {
+            return code
+        }
+
+        onProgress("🖼️ Generating ${imagesToGenerate.size} image(s)...")
+
+        var resultCode = code
+        for (match in imagesToGenerate) {
+            val originalSrc = match.groupValues[1]
+
+            // Extract surrounding context for better prompt generation
+            // Get ~100 characters before and after the match
+            val matchStart = match.range.first
+            val matchEnd = match.range.last
+            val contextStart = maxOf(0, matchStart - 200)
+            val contextEnd = minOf(code.length, matchEnd + 200)
+            val surroundingContext = code.substring(contextStart, contextEnd)
+
+            val prompt = extractImagePrompt(originalSrc, surroundingContext)
+
+            onProgress("  Generating image: $prompt")
+
+            when (val result = service.generateImage(prompt)) {
+                is ImageGenerationResult.Success -> {
+                    // Replace the placeholder src with the generated image URL
+                    val originalMatch = match.value
+                    val newMatch = originalMatch.replace(originalSrc, result.imageUrl)
+                    resultCode = resultCode.replace(originalMatch, newMatch)
+                    onProgress("  ✅ Image generated successfully")
+                }
+                is ImageGenerationResult.Error -> {
+                    logger.warn { "Failed to generate image for '$prompt': ${result.message}" }
+                    onProgress("  ⚠️ Failed to generate image: ${result.message}")
+                    // Keep the original placeholder
+                }
+            }
+        }
+
+        return resultCode
+    }
+
+    /**
+     * Extract a meaningful prompt from the src value and surrounding context.
+     * Works with URLs (including fake Unsplash links), paths, and placeholders.
+     */
+    private fun extractImagePrompt(src: String, surroundingContext: String = ""): String {
+        // First, try to extract meaningful text from the surrounding context
+        // Look for nearby Text components that might describe the image
+        val contextPrompt = extractContextPrompt(surroundingContext)
+        if (contextPrompt.isNotEmpty()) {
+            return contextPrompt
+        }
+
+        // Handle URLs - try to extract meaningful parts
+        val urlCleaned = if (src.startsWith("http://") || src.startsWith("https://")) {
+            // For URLs, try to extract path segments that might be meaningful
+            val pathPart = src
+                .replace(Regex("^https?://[^/]+/"), "") // Remove domain
+                .replace(Regex("\\?.*$"), "") // Remove query string
+                .replace(Regex("photo-[0-9a-f-]+"), "") // Remove Unsplash photo IDs
+                .replace(Regex("[0-9]+x[0-9]+"), "") // Remove dimensions
+            pathPart
+        } else {
+            src
+        }
+
+        // Clean up the path/URL
+        val cleaned = urlCleaned
+            .replace(Regex("^[./]+"), "")
+            .replace(Regex("\\.(jpg|jpeg|png|gif|webp|svg)$", RegexOption.IGNORE_CASE), "")
+            .replace("/", " ")
+            .replace("_", " ")
+            .replace("-", " ")
+            .replace(Regex("\\s+"), " ")
+            .trim()
+
+        // If it looks like a variable reference (e.g., item.image), extract the meaningful part
+        if (cleaned.contains(".")) {
+            val parts = cleaned.split(".")
+            val extracted = parts.lastOrNull()?.replace(Regex("[^a-zA-Z0-9 ]"), " ")?.trim() ?: cleaned
+            if (extracted.isNotEmpty()) return extracted
+        }
+
+        // If we got a meaningful string, use it
+        if (cleaned.length > 3 && cleaned.any { it.isLetter() }) {
+            return cleaned
+        }
+
+        // Fallback: return a generic prompt based on context or default
+        return "high quality image"
+    }
+
+    /**
+     * Extract a prompt from surrounding NanoDSL context.
+     * Looks for nearby Text components that might describe the image.
+     */
+    private fun extractContextPrompt(context: String): String {
+        if (context.isEmpty()) return ""
+
+        // Look for Text components with meaningful content
+        val textPattern = Regex("""Text\s*\(\s*["']([^"']+)["']""")
+        val textMatches = textPattern.findAll(context).toList()
+
+        // Filter out common UI labels and get meaningful descriptions
+        val meaningfulTexts = textMatches
+            .map { it.groupValues[1] }
+            .filter { text ->
+                text.length > 3 &&
+                !text.matches(Regex("^(Click|Submit|Cancel|OK|Yes|No|Close|Open|Edit|Delete|Save|Back|Next|Previous)$", RegexOption.IGNORE_CASE))
+            }
+
+        return meaningfulTexts.firstOrNull() ?: ""
     }
 
     /**

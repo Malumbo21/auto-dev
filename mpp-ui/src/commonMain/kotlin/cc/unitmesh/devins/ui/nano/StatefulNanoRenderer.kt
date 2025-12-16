@@ -1,5 +1,6 @@
 package cc.unitmesh.devins.ui.nano
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -12,14 +13,24 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
+import cc.unitmesh.llm.image.ImageGenerationResult
+import cc.unitmesh.llm.image.ImageGenerationService
 import cc.unitmesh.xuiper.ir.NanoActionIR
 import cc.unitmesh.xuiper.ir.NanoIR
 import cc.unitmesh.xuiper.ir.NanoStateIR
+import io.ktor.client.request.get
+import io.ktor.client.statement.readBytes
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
@@ -35,15 +46,22 @@ import kotlinx.serialization.json.jsonPrimitive
  * 1. Initializes state from NanoIR state definitions
  * 2. Passes state values to components via bindings
  * 3. Updates state when actions are triggered
+ * 4. Generates images for Image components if ImageGenerationService is provided
  */
 object StatefulNanoRenderer {
 
     /**
      * Render a NanoIR tree with state management.
      * Automatically initializes state from the IR and provides action handlers.
+     *
+     * @param ir The NanoIR tree to render
+     * @param modifier Modifier for the root component
      */
     @Composable
-    fun Render(ir: NanoIR, modifier: Modifier = Modifier) {
+    fun Render(
+        ir: NanoIR,
+        modifier: Modifier = Modifier
+    ) {
         // Initialize state from IR
         val stateMap = remember { mutableStateMapOf<String, Any>() }
 
@@ -138,7 +156,10 @@ object StatefulNanoRenderer {
 
     @Composable
     private fun RenderVStack(
-        ir: NanoIR, state: Map<String, Any>, onAction: (NanoActionIR) -> Unit, modifier: Modifier
+        ir: NanoIR,
+        state: Map<String, Any>,
+        onAction: (NanoActionIR) -> Unit,
+        modifier: Modifier
     ) {
         val spacing = ir.props["spacing"]?.jsonPrimitive?.content?.toSpacing() ?: 8.dp
         val padding = ir.props["padding"]?.jsonPrimitive?.content?.toPadding()
@@ -150,7 +171,10 @@ object StatefulNanoRenderer {
 
     @Composable
     private fun RenderHStack(
-        ir: NanoIR, state: Map<String, Any>, onAction: (NanoActionIR) -> Unit, modifier: Modifier
+        ir: NanoIR,
+        state: Map<String, Any>,
+        onAction: (NanoActionIR) -> Unit,
+        modifier: Modifier
     ) {
         val spacing = ir.props["spacing"]?.jsonPrimitive?.content?.toSpacing() ?: 8.dp
         val padding = ir.props["padding"]?.jsonPrimitive?.content?.toPadding()
@@ -181,28 +205,24 @@ object StatefulNanoRenderer {
             horizontalArrangement = horizontalArrangement,
             verticalAlignment = verticalAlignment
         ) {
-            val childCount = ir.children?.size ?: 0
-            ir.children?.forEachIndexed { index, child ->
-                // Check if child has flex/weight property for space distribution
+            ir.children?.forEach { child ->
+                // Check if child has explicit flex/weight property
                 val childFlex = child.props["flex"]?.jsonPrimitive?.content?.toFloatOrNull()
                 val childWeight = child.props["weight"]?.jsonPrimitive?.content?.toFloatOrNull()
                 val weight = childFlex ?: childWeight
 
                 if (weight != null && weight > 0f) {
-                    // Use wrapContentHeight to prevent vertical stretching
+                    // Explicit weight specified
                     Box(modifier = Modifier.weight(weight).wrapContentHeight(unbounded = true)) {
                         RenderNode(child, state, onAction)
                     }
-                } else if (justify == "between" && childCount == 2) {
-                    // For justify=between with 2 children, first child takes available space
-                    if (index == 0) {
-                        Box(modifier = Modifier.weight(1f).wrapContentHeight(unbounded = true)) {
-                            RenderNode(child, state, onAction)
-                        }
-                    } else {
+                } else if (child.type == "VStack" && justify == "between") {
+                    // VStack in HStack with justify=between should share space equally
+                    Box(modifier = Modifier.weight(1f).wrapContentHeight(unbounded = true)) {
                         RenderNode(child, state, onAction)
                     }
                 } else {
+                    // Default: size to content
                     RenderNode(child, state, onAction)
                 }
             }
@@ -211,7 +231,10 @@ object StatefulNanoRenderer {
 
     @Composable
     private fun RenderCard(
-        ir: NanoIR, state: Map<String, Any>, onAction: (NanoActionIR) -> Unit, modifier: Modifier
+        ir: NanoIR,
+        state: Map<String, Any>,
+        onAction: (NanoActionIR) -> Unit,
+        modifier: Modifier
     ) {
         val padding = ir.props["padding"]?.jsonPrimitive?.content?.toPadding() ?: 16.dp
         val shadow = ir.props["shadow"]?.jsonPrimitive?.content
@@ -232,7 +255,10 @@ object StatefulNanoRenderer {
 
     @Composable
     private fun RenderForm(
-        ir: NanoIR, state: Map<String, Any>, onAction: (NanoActionIR) -> Unit, modifier: Modifier
+        ir: NanoIR,
+        state: Map<String, Any>,
+        onAction: (NanoActionIR) -> Unit,
+        modifier: Modifier
     ) {
         Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             ir.children?.forEach { child -> RenderNode(child, state, onAction) }
@@ -241,7 +267,10 @@ object StatefulNanoRenderer {
 
     @Composable
     private fun RenderComponent(
-        ir: NanoIR, state: Map<String, Any>, onAction: (NanoActionIR) -> Unit, modifier: Modifier
+        ir: NanoIR,
+        state: Map<String, Any>,
+        onAction: (NanoActionIR) -> Unit,
+        modifier: Modifier
     ) {
         Column(modifier = modifier) {
             ir.children?.forEach { child -> RenderNode(child, state, onAction) }
@@ -280,8 +309,74 @@ object StatefulNanoRenderer {
     }
 
     @Composable
-    private fun RenderImage(ir: NanoIR, modifier: Modifier) {
-        val src = ir.props["src"]?.jsonPrimitive?.content ?: ""
+    private fun RenderImage(
+        ir: NanoIR,
+        modifier: Modifier
+    ) {
+        val originalSrc = ir.props["src"]?.jsonPrimitive?.content ?: ""
+        val scope = rememberCoroutineScope()
+
+        // State to hold the generated image URL and loaded bitmap
+        var generatedImageUrl by remember(originalSrc) { mutableStateOf<String?>(null) }
+        var isGenerating by remember(originalSrc) { mutableStateOf(false) }
+        var errorMessage by remember(originalSrc) { mutableStateOf<String?>(null) }
+        var imageGenerationService by remember { mutableStateOf<ImageGenerationService?>(null) }
+        var loadedImageBitmap by remember(originalSrc) { mutableStateOf<ImageBitmap?>(null) }
+        var isLoadingImage by remember(originalSrc) { mutableStateOf(false) }
+
+        // Initialize ImageGenerationService from ConfigManager
+        LaunchedEffect(Unit) {
+            try {
+                val configWrapper = ConfigManager.load()
+                val glmConfig = configWrapper.getModelConfigByProvider("glm")
+                imageGenerationService = glmConfig?.let { ImageGenerationService.create(it) }
+            } catch (e: Exception) {
+                // Failed to load config, imageGenerationService remains null
+            }
+        }
+
+        // Generate image when service is ready
+        LaunchedEffect(originalSrc, imageGenerationService) {
+            if (imageGenerationService != null &&
+                !originalSrc.startsWith("data:") &&
+                generatedImageUrl == null &&
+                !isGenerating) {
+
+                isGenerating = true
+                errorMessage = null
+
+                // Extract prompt from surrounding context or URL
+                val prompt = extractImagePrompt(originalSrc)
+
+                when (val result = imageGenerationService!!.generateImage(prompt)) {
+                    is ImageGenerationResult.Success -> {
+                        generatedImageUrl = result.imageUrl
+                        isGenerating = false
+                    }
+                    is ImageGenerationResult.Error -> {
+                        errorMessage = result.message
+                        isGenerating = false
+                    }
+                }
+            }
+        }
+
+        // Load image from URL when generatedImageUrl is available
+        LaunchedEffect(generatedImageUrl) {
+            if (generatedImageUrl != null && loadedImageBitmap == null && !isLoadingImage) {
+                isLoadingImage = true
+                try {
+                    val bitmap = loadImageFromUrl(generatedImageUrl!!)
+                    loadedImageBitmap = bitmap
+                } catch (e: Exception) {
+                    errorMessage = "Failed to load image: ${e.message}"
+                } finally {
+                    isLoadingImage = false
+                }
+            }
+        }
+
+        // Display the image
         Box(
             modifier = modifier
                 .fillMaxWidth()
@@ -290,8 +385,77 @@ object StatefulNanoRenderer {
                 .background(MaterialTheme.colorScheme.surfaceVariant),
             contentAlignment = Alignment.Center
         ) {
-            Text("Image: $src", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            when {
+                isGenerating -> {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        CircularProgressIndicator(modifier = Modifier.size(32.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("Generating image...", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+                isLoadingImage -> {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        CircularProgressIndicator(modifier = Modifier.size(32.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("Loading image...", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+                errorMessage != null -> {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("⚠️ Error", color = MaterialTheme.colorScheme.error)
+                        Text(errorMessage!!, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+                loadedImageBitmap != null -> {
+                    Image(
+                        bitmap = loadedImageBitmap!!,
+                        contentDescription = originalSrc,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+                else -> {
+                    Text("Image: $originalSrc", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
         }
+    }
+
+    /**
+     * Load an image from a URL and decode it to ImageBitmap.
+     * This is a suspend function that uses Ktor to download the image.
+     */
+    private suspend fun loadImageFromUrl(url: String): ImageBitmap = withContext(Dispatchers.IO) {
+        val client = cc.unitmesh.agent.tool.impl.http.HttpClientFactory.create()
+        try {
+            val response: io.ktor.client.statement.HttpResponse = client.get(url)
+            val bytes = response.readBytes()
+            decodeImageBytesToBitmap(bytes)
+        } finally {
+            client.close()
+        }
+    }
+
+    /**
+     * Extract a meaningful prompt from the image src URL or path.
+     * This is a simplified version of NanoDSLAgent.extractImagePrompt.
+     */
+    private fun extractImagePrompt(src: String): String {
+        // Clean up the URL
+        val cleaned = src
+            .replace(Regex("https?://[^/]+/"), "") // Remove domain
+            .replace(Regex("[?#].*"), "") // Remove query params
+            .replace(Regex("[-_/.]"), " ") // Replace separators with spaces
+            .replace(Regex("\\d+"), "") // Remove numbers
+            .trim()
+
+        // If we got a meaningful string, use it
+        if (cleaned.length > 3 && cleaned.any { it.isLetter() }) {
+            return cleaned.take(100) // Limit length
+        }
+
+        // Fallback
+        return "high quality image"
     }
 
     @Composable
@@ -603,3 +767,8 @@ object StatefulNanoRenderer {
     }
 }
 
+/**
+ * Decode image bytes to ImageBitmap.
+ * Platform-specific implementation.
+ */
+internal expect fun decodeImageBytesToBitmap(bytes: ByteArray): ImageBitmap

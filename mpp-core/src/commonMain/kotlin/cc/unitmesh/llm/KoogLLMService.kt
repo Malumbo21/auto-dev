@@ -31,6 +31,7 @@ class KoogLLMService(
     private val compressionConfig: CompressionConfig = CompressionConfig(),
     private val compilerService: DevInsCompilerService? = null
 ) {
+    val activeConfig: ModelConfig = config
     private val logger = getLogger("KoogLLMService")
 
     private val executor: SingleLLMPromptExecutor by lazy {

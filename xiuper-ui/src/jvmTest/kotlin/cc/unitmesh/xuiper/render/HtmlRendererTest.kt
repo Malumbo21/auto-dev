@@ -268,5 +268,42 @@ component GreetingCard:
         assertContains(html, "justify-between")
         assertContains(html, "Budget Calculator")
     }
+
+    @Test
+    fun `should render HStack with VStack children containing Text and Input`() {
+        // Regression test for the "From" text being displayed vertically (F-R-O-M)
+        // This was caused by HStack > * { flex: 1 1 0 } squeezing all children
+        val ir = NanoIR.hstack(
+            align = "center",
+            justify = "between",
+            children = listOf(
+                NanoIR.vstack(
+                    children = listOf(
+                        NanoIR.text("From", "body"),
+                        NanoIR(type = "Input")
+                    )
+                ),
+                NanoIR.vstack(
+                    children = listOf(
+                        NanoIR.text("To", "body"),
+                        NanoIR(type = "Input")
+                    )
+                )
+            )
+        )
+
+        val html = renderer.render(ir)
+
+        // Check that CSS rules are correct
+        assertContains(html, ".nano-hstack > .nano-vstack { flex: 1 1 0; min-width: 0; }")
+        assertContains(html, ".nano-hstack > .nano-text { flex: 0 0 auto; width: auto; }")
+        assertContains(html, ".nano-hstack > .nano-input { flex: 1 1 0; min-width: 0; }")
+
+        // Check that structure is correct
+        assertContains(html, "nano-hstack")
+        assertContains(html, "nano-vstack")
+        assertContains(html, "From")
+        assertContains(html, "To")
+    }
 }
 
