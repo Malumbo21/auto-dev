@@ -45,6 +45,25 @@ class HtmlRenderer(
             "Checkbox" -> renderCheckbox(ir)
             "TextArea" -> renderTextArea(ir)
             "Select" -> renderSelect(ir)
+            // P0: Core Form Input Components
+            "DatePicker" -> renderDatePicker(ir)
+            "Radio" -> renderRadio(ir)
+            "RadioGroup" -> renderRadioGroup(ir)
+            "Switch" -> renderSwitch(ir)
+            "NumberInput" -> renderNumberInput(ir)
+            // P0: Feedback Components
+            "Modal" -> renderModal(ir)
+            "Alert" -> renderAlert(ir)
+            "Progress" -> renderProgress(ir)
+            "Spinner" -> renderSpinner(ir)
+            // Tier 1-3: GenUI Components
+            "GenCanvas" -> renderGenCanvas(ir)
+            "SplitView" -> renderSplitView(ir)
+            "SmartTextField" -> renderSmartTextField(ir)
+            "Slider" -> renderSlider(ir)
+            "DateRangePicker" -> renderDateRangePicker(ir)
+            "DataChart" -> renderDataChart(ir)
+            "DataTable" -> renderDataTable(ir)
             "Conditional" -> renderConditional(ir)
             "ForLoop" -> renderForLoop(ir)
             else -> renderUnknown(ir)
@@ -271,6 +290,215 @@ class HtmlRenderer(
 
     override fun renderUnknown(ir: NanoIR): String {
         return "<!-- Unknown component: ${ir.type} -->\n"
+    }
+
+    // ============================================================================
+    // P0: Core Form Input Components
+    // ============================================================================
+
+    fun renderDatePicker(ir: NanoIR): String {
+        val format = ir.props["format"]?.jsonPrimitive?.content ?: "YYYY-MM-DD"
+        val placeholder = ir.props["placeholder"]?.jsonPrimitive?.content ?: ""
+        val bindingAttr = renderBindingAttribute(ir)
+        val actionAttr = renderActionAttribute(ir)
+        return "<input type=\"date\" class=\"nano-datepicker\" placeholder=\"$placeholder\" format=\"$format\"$bindingAttr$actionAttr>\n"
+    }
+
+    fun renderRadio(ir: NanoIR): String {
+        val option = ir.props["option"]?.jsonPrimitive?.content ?: ""
+        val label = ir.props["label"]?.jsonPrimitive?.content
+        val name = ir.props["name"]?.jsonPrimitive?.content ?: ""
+        val bindingAttr = renderBindingAttribute(ir)
+        return buildString {
+            append("<label class=\"nano-radio-wrapper\">")
+            append("<input type=\"radio\" class=\"nano-radio\" name=\"$name\" value=\"$option\"$bindingAttr>")
+            if (label != null) append("<span>$label</span>")
+            append("</label>\n")
+        }
+    }
+
+    fun renderRadioGroup(ir: NanoIR): String {
+        val name = ir.props["name"]?.jsonPrimitive?.content ?: ""
+        val bindingAttr = renderBindingAttribute(ir)
+        return buildString {
+            append("<div class=\"nano-radiogroup\"$bindingAttr>\n")
+            ir.children?.forEach { append(renderNode(it)) }
+            append("</div>\n")
+        }
+    }
+
+    fun renderSwitch(ir: NanoIR): String {
+        val label = ir.props["label"]?.jsonPrimitive?.content
+        val bindingAttr = renderBindingAttribute(ir)
+        val actionAttr = renderActionAttribute(ir)
+        return buildString {
+            append("<label class=\"nano-switch-wrapper\">")
+            append("<input type=\"checkbox\" class=\"nano-switch\" role=\"switch\"$bindingAttr$actionAttr>")
+            if (label != null) append("<span>$label</span>")
+            append("</label>\n")
+        }
+    }
+
+    fun renderNumberInput(ir: NanoIR): String {
+        val min = ir.props["min"]?.jsonPrimitive?.content
+        val max = ir.props["max"]?.jsonPrimitive?.content
+        val step = ir.props["step"]?.jsonPrimitive?.content ?: "1"
+        val placeholder = ir.props["placeholder"]?.jsonPrimitive?.content ?: ""
+        val bindingAttr = renderBindingAttribute(ir)
+        val actionAttr = renderActionAttribute(ir)
+        return buildString {
+            append("<div class=\"nano-numberinput\">")
+            append("<button class=\"nano-numberinput-decrement\">-</button>")
+            append("<input type=\"number\" class=\"nano-numberinput-input\"")
+            if (min != null) append(" min=\"$min\"")
+            if (max != null) append(" max=\"$max\"")
+            append(" step=\"$step\" placeholder=\"$placeholder\"$bindingAttr$actionAttr>")
+            append("<button class=\"nano-numberinput-increment\">+</button>")
+            append("</div>\n")
+        }
+    }
+
+    // ============================================================================
+    // P0: Feedback Components
+    // ============================================================================
+
+    fun renderModal(ir: NanoIR): String {
+        val title = ir.props["title"]?.jsonPrimitive?.content
+        val size = ir.props["size"]?.jsonPrimitive?.content ?: "md"
+        val closable = ir.props["closable"]?.jsonPrimitive?.content?.toBoolean() ?: true
+        val bindingAttr = renderBindingAttribute(ir)
+        val actionAttr = renderActionAttribute(ir)
+        return buildString {
+            append("<div class=\"nano-modal size-$size\"$bindingAttr$actionAttr>\n")
+            append("  <div class=\"nano-modal-backdrop\"></div>\n")
+            append("  <div class=\"nano-modal-content\">\n")
+            if (title != null) append("    <div class=\"nano-modal-header\"><h3>$title</h3>")
+            if (closable) append("<button class=\"nano-modal-close\">×</button>")
+            if (title != null) append("</div>\n")
+            append("    <div class=\"nano-modal-body\">\n")
+            ir.children?.forEach { append("      ${renderNode(it).replace("\n", "\n      ")}") }
+            append("    </div>\n")
+            append("  </div>\n")
+            append("</div>\n")
+        }
+    }
+
+    fun renderAlert(ir: NanoIR): String {
+        val type = ir.props["type"]?.jsonPrimitive?.content ?: "info"
+        val message = ir.props["message"]?.jsonPrimitive?.content
+        val closable = ir.props["closable"]?.jsonPrimitive?.content?.toBoolean() ?: false
+        val actionAttr = renderActionAttribute(ir)
+        return buildString {
+            append("<div class=\"nano-alert type-$type\"$actionAttr>\n")
+            if (message != null) append("  <span class=\"nano-alert-message\">$message</span>\n")
+            ir.children?.forEach { append("  ${renderNode(it).replace("\n", "\n  ")}") }
+            if (closable) append("  <button class=\"nano-alert-close\">×</button>\n")
+            append("</div>\n")
+        }
+    }
+
+    fun renderProgress(ir: NanoIR): String {
+        val value = ir.props["value"]?.jsonPrimitive?.content?.toFloatOrNull() ?: 0f
+        val max = ir.props["max"]?.jsonPrimitive?.content?.toFloatOrNull() ?: 100f
+        val showText = ir.props["showText"]?.jsonPrimitive?.content?.toBoolean() ?: true
+        val status = ir.props["status"]?.jsonPrimitive?.content ?: "normal"
+        val percentage = ((value / max) * 100).toInt().coerceIn(0, 100)
+        return buildString {
+            append("<div class=\"nano-progress status-$status\">\n")
+            append("  <div class=\"nano-progress-bar\" style=\"width: $percentage%\"></div>\n")
+            if (showText) append("  <span class=\"nano-progress-text\">$percentage%</span>\n")
+            append("</div>\n")
+        }
+    }
+
+    fun renderSpinner(ir: NanoIR): String {
+        val size = ir.props["size"]?.jsonPrimitive?.content ?: "md"
+        val text = ir.props["text"]?.jsonPrimitive?.content
+        return buildString {
+            append("<div class=\"nano-spinner size-$size\">\n")
+            append("  <div class=\"nano-spinner-circle\"></div>\n")
+            if (text != null) append("  <span class=\"nano-spinner-text\">$text</span>\n")
+            append("</div>\n")
+        }
+    }
+
+    // ============================================================================
+    // Tier 1-3: GenUI Components
+    // ============================================================================
+
+    fun renderGenCanvas(ir: NanoIR): String {
+        val layout = ir.props["layout"]?.jsonPrimitive?.content ?: "SingleView"
+        return buildString {
+            append("<div class=\"nano-gencanvas layout-$layout\">\n")
+            ir.children?.forEach { append(renderNode(it)) }
+            append("</div>\n")
+        }
+    }
+
+    fun renderSplitView(ir: NanoIR): String {
+        val ratio = ir.props["ratio"]?.jsonPrimitive?.content?.toFloatOrNull() ?: 0.5f
+        val leftWidth = (ratio * 100).toInt()
+        val rightWidth = 100 - leftWidth
+        return buildString {
+            append("<div class=\"nano-splitview\">\n")
+            append("  <div class=\"nano-splitview-left\" style=\"width: ${leftWidth}%\">\n")
+            if (ir.children?.isNotEmpty() == true) append("    ${renderNode(ir.children[0]).replace("\n", "\n    ")}")
+            append("  </div>\n")
+            append("  <div class=\"nano-splitview-right\" style=\"width: ${rightWidth}%\">\n")
+            if (ir.children?.size ?: 0 > 1) append("    ${renderNode(ir.children!![1]).replace("\n", "\n    ")}")
+            append("  </div>\n")
+            append("</div>\n")
+        }
+    }
+
+    fun renderSmartTextField(ir: NanoIR): String {
+        val label = ir.props["label"]?.jsonPrimitive?.content
+        val placeholder = ir.props["placeholder"]?.jsonPrimitive?.content ?: ""
+        val validation = ir.props["validation"]?.jsonPrimitive?.content
+        val bindingAttr = renderBindingAttribute(ir)
+        return buildString {
+            if (label != null) append("<label class=\"nano-smarttextfield-label\">$label</label>\n")
+            append("<input type=\"text\" class=\"nano-smarttextfield\" placeholder=\"$placeholder\"")
+            if (validation != null) append(" pattern=\"$validation\"")
+            append("$bindingAttr>\n")
+        }
+    }
+
+    fun renderSlider(ir: NanoIR): String {
+        val label = ir.props["label"]?.jsonPrimitive?.content
+        val min = ir.props["min"]?.jsonPrimitive?.content?.toFloatOrNull() ?: 0f
+        val max = ir.props["max"]?.jsonPrimitive?.content?.toFloatOrNull() ?: 100f
+        val step = ir.props["step"]?.jsonPrimitive?.content?.toFloatOrNull() ?: 1f
+        val bindingAttr = renderBindingAttribute(ir)
+        val actionAttr = renderActionAttribute(ir)
+        return buildString {
+            if (label != null) append("<label class=\"nano-slider-label\">$label</label>\n")
+            append("<input type=\"range\" class=\"nano-slider\" min=\"$min\" max=\"$max\" step=\"$step\"$bindingAttr$actionAttr>\n")
+        }
+    }
+
+    fun renderDateRangePicker(ir: NanoIR): String {
+        val bindingAttr = renderBindingAttribute(ir)
+        val actionAttr = renderActionAttribute(ir)
+        return "<div class=\"nano-daterangepicker\"$bindingAttr$actionAttr><input type=\"date\" class=\"nano-daterangepicker-start\"><input type=\"date\" class=\"nano-daterangepicker-end\"></div>\n"
+    }
+
+    fun renderDataChart(ir: NanoIR): String {
+        val type = ir.props["type"]?.jsonPrimitive?.content ?: "line"
+        val data = ir.props["data"]?.jsonPrimitive?.content
+        return "<div class=\"nano-datachart type-$type\" data-data=\"$data\"><!-- Chart will be rendered by client-side library --></div>\n"
+    }
+
+    fun renderDataTable(ir: NanoIR): String {
+        val columns = ir.props["columns"]?.jsonPrimitive?.content
+        val data = ir.props["data"]?.jsonPrimitive?.content
+        val actionAttr = renderActionAttribute(ir)
+        return buildString {
+            append("<table class=\"nano-datatable\" data-columns=\"$columns\" data-data=\"$data\"$actionAttr>\n")
+            append("  <thead><tr><!-- Columns will be populated dynamically --></tr></thead>\n")
+            append("  <tbody><!-- Rows will be populated dynamically --></tbody>\n")
+            append("</table>\n")
+        }
     }
 
     // ============================================================================

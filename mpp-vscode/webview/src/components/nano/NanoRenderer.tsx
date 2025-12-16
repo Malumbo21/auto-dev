@@ -66,6 +66,25 @@ const RenderNode: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir, 
     case 'Checkbox': return <RenderCheckbox ir={ir} context={context} />;
     case 'TextArea': return <RenderTextArea ir={ir} context={context} />;
     case 'Select': return <RenderSelect ir={ir} context={context} />;
+    // P0: Core Form Input Components
+    case 'DatePicker': return <RenderDatePicker ir={ir} context={context} />;
+    case 'Radio': return <RenderRadio ir={ir} context={context} />;
+    case 'RadioGroup': return <RenderRadioGroup ir={ir} context={context} />;
+    case 'Switch': return <RenderSwitch ir={ir} context={context} />;
+    case 'NumberInput': return <RenderNumberInput ir={ir} context={context} />;
+    // P0: Feedback Components
+    case 'Modal': return <RenderModal ir={ir} context={context} />;
+    case 'Alert': return <RenderAlert ir={ir} context={context} />;
+    case 'Progress': return <RenderProgress ir={ir} context={context} />;
+    case 'Spinner': return <RenderSpinner ir={ir} context={context} />;
+    // Tier 1-3: GenUI Components
+    case 'GenCanvas': return <RenderGenCanvas ir={ir} context={context} />;
+    case 'SplitView': return <RenderSplitView ir={ir} context={context} />;
+    case 'SmartTextField': return <RenderSmartTextField ir={ir} context={context} />;
+    case 'Slider': return <RenderSlider ir={ir} context={context} />;
+    case 'DateRangePicker': return <RenderDateRangePicker ir={ir} context={context} />;
+    case 'DataChart': return <RenderDataChart ir={ir} context={context} />;
+    case 'DataTable': return <RenderDataTable ir={ir} context={context} />;
     // Control Flow
     case 'Conditional': return <RenderConditional ir={ir} context={context} />;
     case 'ForLoop': return <RenderForLoop ir={ir} context={context} />;
@@ -318,6 +337,209 @@ const RenderComponent: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({
         <RenderNode key={i} ir={child} context={context} />
       ))}
     </div>
+  );
+};
+
+// ============================================================================
+// P0: Core Form Input Components
+// ============================================================================
+
+const RenderDatePicker: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir, context }) => {
+  const placeholder = ir.props.placeholder || 'Select date';
+  return <input type="date" className="nano-datepicker" placeholder={placeholder} />;
+};
+
+const RenderRadio: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir, context }) => {
+  const label = ir.props.label || '';
+  const option = ir.props.option || '';
+  const name = ir.props.name || '';
+  return (
+    <label className="nano-radio-wrapper">
+      <input type="radio" className="nano-radio" name={name} value={option} />
+      <span>{label}</span>
+    </label>
+  );
+};
+
+const RenderRadioGroup: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir, context }) => {
+  return (
+    <div className="nano-radiogroup">
+      {ir.children?.map((child, i) => (
+        <RenderNode key={i} ir={child} context={context} />
+      ))}
+    </div>
+  );
+};
+
+const RenderSwitch: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir, context }) => {
+  const label = ir.props.label;
+  return (
+    <label className="nano-switch-wrapper">
+      <input type="checkbox" className="nano-switch" role="switch" />
+      {label && <span>{label}</span>}
+    </label>
+  );
+};
+
+const RenderNumberInput: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir, context }) => {
+  const placeholder = ir.props.placeholder || '';
+  const min = ir.props.min || 0;
+  const max = ir.props.max || 100;
+  const step = ir.props.step || 1;
+  return (
+    <div className="nano-numberinput">
+      <button className="nano-numberinput-decrement">-</button>
+      <input type="number" className="nano-numberinput-input" min={min} max={max} step={step} placeholder={placeholder} />
+      <button className="nano-numberinput-increment">+</button>
+    </div>
+  );
+};
+
+// ============================================================================
+// P0: Feedback Components
+// ============================================================================
+
+const RenderModal: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir, context }) => {
+  const title = ir.props.title;
+  const size = ir.props.size || 'md';
+  return (
+    <div className={`nano-modal size-${size}`}>
+      <div className="nano-modal-backdrop"></div>
+      <div className="nano-modal-content">
+        {title && <div className="nano-modal-header"><h3>{title}</h3><button className="nano-modal-close">×</button></div>}
+        <div className="nano-modal-body">
+          {ir.children?.map((child, i) => (
+            <RenderNode key={i} ir={child} context={context} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const RenderAlert: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir, context }) => {
+  const type = ir.props.type || 'info';
+  const message = ir.props.message;
+  const closable = ir.props.closable || false;
+  return (
+    <div className={`nano-alert type-${type}`}>
+      {message && <span className="nano-alert-message">{message}</span>}
+      {ir.children?.map((child, i) => (
+        <RenderNode key={i} ir={child} context={context} />
+      ))}
+      {closable && <button className="nano-alert-close">×</button>}
+    </div>
+  );
+};
+
+const RenderProgress: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir, context }) => {
+  const value = ir.props.value || 0;
+  const max = ir.props.max || 100;
+  const showText = ir.props.showText !== false;
+  const status = ir.props.status || 'normal';
+  const percentage = Math.round((value / max) * 100);
+  return (
+    <div className={`nano-progress status-${status}`}>
+      <div className="nano-progress-bar" style={{ width: `${percentage}%` }}></div>
+      {showText && <span className="nano-progress-text">{percentage}%</span>}
+    </div>
+  );
+};
+
+const RenderSpinner: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir, context }) => {
+  const size = ir.props.size || 'md';
+  const text = ir.props.text;
+  return (
+    <div className={`nano-spinner size-${size}`}>
+      <div className="nano-spinner-circle"></div>
+      {text && <span className="nano-spinner-text">{text}</span>}
+    </div>
+  );
+};
+
+// ============================================================================
+// Tier 1-3: GenUI Components
+// ============================================================================
+
+const RenderGenCanvas: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir, context }) => {
+  const layout = ir.props.layout || 'SingleView';
+  return (
+    <div className={`nano-gencanvas layout-${layout}`}>
+      {ir.children?.map((child, i) => (
+        <RenderNode key={i} ir={child} context={context} />
+      ))}
+    </div>
+  );
+};
+
+const RenderSplitView: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir, context }) => {
+  const ratio = ir.props.ratio || 0.5;
+  const leftWidth = ratio * 100;
+  const rightWidth = 100 - leftWidth;
+  return (
+    <div className="nano-splitview">
+      <div className="nano-splitview-left" style={{ width: `${leftWidth}%` }}>
+        {ir.children?.[0] && <RenderNode ir={ir.children[0]} context={context} />}
+      </div>
+      <div className="nano-splitview-right" style={{ width: `${rightWidth}%` }}>
+        {ir.children?.[1] && <RenderNode ir={ir.children[1]} context={context} />}
+      </div>
+    </div>
+  );
+};
+
+const RenderSmartTextField: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir, context }) => {
+  const label = ir.props.label;
+  const placeholder = ir.props.placeholder || '';
+  const validation = ir.props.validation;
+  return (
+    <div className="nano-smarttextfield">
+      {label && <label className="nano-smarttextfield-label">{label}</label>}
+      <input type="text" className="nano-smarttextfield-input" placeholder={placeholder} pattern={validation} />
+    </div>
+  );
+};
+
+const RenderSlider: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir, context }) => {
+  const label = ir.props.label;
+  const min = ir.props.min || 0;
+  const max = ir.props.max || 100;
+  const step = ir.props.step || 1;
+  return (
+    <div className="nano-slider">
+      {label && <label className="nano-slider-label">{label}</label>}
+      <input type="range" className="nano-slider-input" min={min} max={max} step={step} />
+    </div>
+  );
+};
+
+const RenderDateRangePicker: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir, context }) => {
+  return (
+    <div className="nano-daterangepicker">
+      <input type="date" className="nano-daterangepicker-start" />
+      <input type="date" className="nano-daterangepicker-end" />
+    </div>
+  );
+};
+
+const RenderDataChart: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir, context }) => {
+  const type = ir.props.type || 'line';
+  const data = ir.props.data;
+  return (
+    <div className={`nano-datachart type-${type}`} data-data={data}>
+      Chart: {type}
+    </div>
+  );
+};
+
+const RenderDataTable: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir, context }) => {
+  const columns = ir.props.columns;
+  const data = ir.props.data;
+  return (
+    <table className="nano-datatable" data-columns={columns} data-data={data}>
+      <thead><tr>{/* Columns will be populated dynamically */}</tr></thead>
+      <tbody>{/* Rows will be populated dynamically */}</tbody>
+    </table>
   );
 };
 

@@ -425,7 +425,7 @@ object StatefulNanoRenderer {
      * Load an image from a URL and decode it to ImageBitmap.
      * This is a suspend function that uses Ktor to download the image.
      */
-    private suspend fun loadImageFromUrl(url: String): ImageBitmap = withContext(Dispatchers.IO) {
+    private suspend fun loadImageFromUrl(url: String): ImageBitmap = withContext(Dispatchers.Default) {
         val client = cc.unitmesh.agent.tool.impl.http.HttpClientFactory.create()
         try {
             val response: io.ktor.client.statement.HttpResponse = client.get(url)

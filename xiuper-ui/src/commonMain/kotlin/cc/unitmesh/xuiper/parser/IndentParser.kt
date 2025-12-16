@@ -846,6 +846,7 @@ class IndentParser(
                     label = label,
                     intent = args["intent"] ?: props["intent"],
                     icon = args["icon"] ?: props["icon"],
+                    disabledIf = args["disabled_if"] ?: props["disabled_if"],
                     onClick = onClick
                 )
             }
@@ -901,6 +902,162 @@ class IndentParser(
                 NanoNode.Form(
                     onSubmit = args["onSubmit"],
                     children = children
+                )
+            }
+            // ============ P0: Core Form Input Components ============
+            "DatePicker" -> {
+                val valueArg = args["value"] ?: props["value"] ?: props["bind"]
+                NanoNode.DatePicker(
+                    value = valueArg?.let { Binding.parse(it) },
+                    format = args["format"] ?: props["format"],
+                    minDate = args["minDate"] ?: props["minDate"],
+                    maxDate = args["maxDate"] ?: props["maxDate"],
+                    placeholder = args["placeholder"] ?: props["placeholder"],
+                    onChange = onClick
+                )
+            }
+            "Radio" -> {
+                val valueArg = args["value"] ?: props["value"]
+                NanoNode.Radio(
+                    value = valueArg?.let { Binding.parse(it) },
+                    option = args["option"] ?: props["option"],
+                    label = args["label"] ?: props["label"],
+                    name = args["name"] ?: props["name"]
+                )
+            }
+            "RadioGroup" -> {
+                val valueArg = args["value"] ?: props["value"]
+                NanoNode.RadioGroup(
+                    value = valueArg?.let { Binding.parse(it) },
+                    options = args["options"] ?: props["options"],
+                    name = args["name"] ?: props["name"],
+                    children = children
+                )
+            }
+            "Switch" -> {
+                val checkedArg = args["checked"] ?: props["checked"]
+                NanoNode.Switch(
+                    checked = checkedArg?.let { Binding.parse(it) },
+                    label = args["label"] ?: props["label"],
+                    size = args["size"] ?: props["size"],
+                    onChange = onClick
+                )
+            }
+            "NumberInput" -> {
+                val valueArg = args["value"] ?: props["value"] ?: props["bind"]
+                NanoNode.NumberInput(
+                    value = valueArg?.let { Binding.parse(it) },
+                    min = args["min"]?.toFloatOrNull() ?: props["min"]?.toFloatOrNull(),
+                    max = args["max"]?.toFloatOrNull() ?: props["max"]?.toFloatOrNull(),
+                    step = args["step"]?.toFloatOrNull() ?: props["step"]?.toFloatOrNull(),
+                    precision = args["precision"]?.toIntOrNull() ?: props["precision"]?.toIntOrNull(),
+                    placeholder = args["placeholder"] ?: props["placeholder"],
+                    onChange = onClick
+                )
+            }
+            // ============ P0: Feedback Components ============
+            "Modal" -> {
+                val openArg = args["open"] ?: props["open"]
+                NanoNode.Modal(
+                    open = openArg?.let { Binding.parse(it) },
+                    title = args["title"] ?: props["title"],
+                    size = args["size"] ?: props["size"],
+                    closable = args["closable"]?.toBoolean() ?: props["closable"]?.toBoolean(),
+                    onClose = onClick,
+                    children = children
+                )
+            }
+            "Alert" -> {
+                NanoNode.Alert(
+                    type = args["type"] ?: props["type"],
+                    message = args["message"] ?: props["message"],
+                    closable = args["closable"]?.toBoolean() ?: props["closable"]?.toBoolean(),
+                    icon = args["icon"] ?: props["icon"],
+                    onClose = onClick,
+                    children = children
+                )
+            }
+            "Progress" -> {
+                NanoNode.Progress(
+                    value = args["value"]?.toFloatOrNull() ?: props["value"]?.toFloatOrNull(),
+                    max = args["max"]?.toFloatOrNull() ?: props["max"]?.toFloatOrNull() ?: 100f,
+                    showText = args["showText"]?.toBoolean() ?: props["showText"]?.toBoolean(),
+                    status = args["status"] ?: props["status"]
+                )
+            }
+            "Spinner" -> {
+                NanoNode.Spinner(
+                    size = args["size"] ?: props["size"],
+                    color = args["color"] ?: props["color"],
+                    text = args["text"] ?: props["text"]
+                )
+            }
+            // ============ Tier 1-3: GenUI Components (already added) ============
+            "GenCanvas" -> {
+                val nameArg = extractFirstArg(argsStr)
+                NanoNode.GenCanvas(
+                    name = nameArg ?: props["name"],
+                    layout = args["layout"] ?: props["layout"],
+                    children = children
+                )
+            }
+            "SplitView" -> {
+                NanoNode.SplitView(
+                    ratio = args["ratio"]?.toFloatOrNull() ?: props["ratio"]?.toFloatOrNull(),
+                    children = children
+                )
+            }
+            "SmartTextField" -> {
+                val nameArg = extractFirstArg(argsStr)
+                val bindArg = args["bind"] ?: props["bind"] ?: args["value"] ?: props["value"]
+                NanoNode.SmartTextField(
+                    name = nameArg ?: props["name"],
+                    label = args["label"] ?: props["label"],
+                    bind = bindArg?.let { Binding.parse(it) },
+                    validation = args["validation"] ?: props["validation"],
+                    placeholder = args["placeholder"] ?: props["placeholder"]
+                )
+            }
+            "Slider" -> {
+                val nameArg = extractFirstArg(argsStr)
+                val bindArg = args["bind"] ?: props["bind"] ?: args["value"] ?: props["value"]
+                NanoNode.Slider(
+                    name = nameArg ?: props["name"],
+                    label = args["label"] ?: props["label"],
+                    bind = bindArg?.let { Binding.parse(it) },
+                    min = args["min"]?.toFloatOrNull() ?: props["min"]?.toFloatOrNull(),
+                    max = args["max"]?.toFloatOrNull() ?: props["max"]?.toFloatOrNull(),
+                    step = args["step"]?.toFloatOrNull() ?: props["step"]?.toFloatOrNull(),
+                    onChange = onClick
+                )
+            }
+            "DateRangePicker" -> {
+                val nameArg = extractFirstArg(argsStr)
+                val bindArg = args["bind"] ?: props["bind"] ?: args["value"] ?: props["value"]
+                NanoNode.DateRangePicker(
+                    name = nameArg ?: props["name"],
+                    bind = bindArg?.let { Binding.parse(it) },
+                    onChange = onClick
+                )
+            }
+            "DataChart" -> {
+                val nameArg = extractFirstArg(argsStr)
+                NanoNode.DataChart(
+                    name = nameArg ?: props["name"],
+                    type = args["type"] ?: props["type"],
+                    data = args["data"] ?: props["data"],
+                    xAxis = args["x_axis"] ?: props["x_axis"],
+                    yAxis = args["y_axis"] ?: props["y_axis"],
+                    color = args["color"] ?: props["color"]
+                )
+            }
+            "DataTable" -> {
+                val nameArg = extractFirstArg(argsStr)
+                NanoNode.DataTable(
+                    name = nameArg ?: props["name"],
+                    columns = args["columns"] ?: props["columns"],
+                    data = args["data"] ?: props["data"],
+                    onRowClick = onClick
                 )
             }
             else -> null

@@ -140,6 +140,7 @@ sealed class NanoNode {
         val label: String,
         val intent: String? = null,
         val icon: String? = null,
+        val disabledIf: String? = null,
         val onClick: NanoAction? = null
     ) : NanoNode()
 
@@ -308,5 +309,201 @@ sealed class NanoNode {
 
         /** Placeholder text */
         val placeholder: String? = null
+    ) : NanoNode()
+
+    // ============ Tier 1: GenUI Foundation Components ============
+
+    /**
+     * GenCanvas - Dynamic UI container for GenUI
+     * Example: `GenCanvas("TripPlanner"): layout: SplitView`
+     */
+    data class GenCanvas(
+        val name: String? = null,
+        val layout: String? = null,
+        val children: List<NanoNode> = emptyList()
+    ) : NanoNode()
+
+    /**
+     * SplitView - Split layout (left chat, right canvas)
+     * Example: `SplitView(ratio=0.3): ...`
+     */
+    data class SplitView(
+        val ratio: Float? = null,
+        val children: List<NanoNode> = emptyList()
+    ) : NanoNode()
+
+    // ============ Tier 2: Structured Input Components ============
+
+    /**
+     * SmartTextField - Text input with validation
+     * Example: `SmartTextField("Destination"): label: "Where to go?" bind: state.destination validation: r"^[a-zA-Z\s]+$"`
+     */
+    data class SmartTextField(
+        val name: String? = null,
+        val label: String? = null,
+        val bind: Binding? = null,
+        val validation: String? = null,
+        val placeholder: String? = null
+    ) : NanoNode()
+
+    /**
+     * Slider - Range slider input
+     * Example: `Slider("Budget"): label: "Max Budget ($)" bind: state.budget min: 500 max: 10000 step: 100`
+     */
+    data class Slider(
+        val name: String? = null,
+        val label: String? = null,
+        val bind: Binding? = null,
+        val min: Float? = null,
+        val max: Float? = null,
+        val step: Float? = null,
+        val onChange: NanoAction? = null
+    ) : NanoNode()
+
+    /**
+     * DateRangePicker - Date range picker
+     * Example: `DateRangePicker("Dates"): bind: state.dates`
+     */
+    data class DateRangePicker(
+        val name: String? = null,
+        val bind: Binding? = null,
+        val onChange: NanoAction? = null
+    ) : NanoNode()
+
+    // ============ Tier 3: Data Artifacts ============
+
+    /**
+     * DataChart - Data visualization chart
+     * Example: `DataChart("PriceHistory"): type: "line" data: state.flight_prices_history x_axis: "date" y_axis: "price"`
+     */
+    data class DataChart(
+        val name: String? = null,
+        val type: String? = null,
+        val data: String? = null,
+        val xAxis: String? = null,
+        val yAxis: String? = null,
+        val color: String? = null
+    ) : NanoNode()
+
+    /**
+     * DataTable - Interactive data table
+     * Example: `DataTable("Flights"): columns: ["Airline", "Time", "Price"] data: state.available_flights`
+     */
+    data class DataTable(
+        val name: String? = null,
+        val columns: String? = null,
+        val data: String? = null,
+        val onRowClick: NanoAction? = null
+    ) : NanoNode()
+
+    // ============ P0: Core Form Input Components ============
+
+    /**
+     * DatePicker - Single date picker
+     * Example: `DatePicker(bind := state.birthday, format="YYYY-MM-DD")`
+     */
+    data class DatePicker(
+        val value: Binding? = null,
+        val format: String? = null,
+        val minDate: String? = null,
+        val maxDate: String? = null,
+        val placeholder: String? = null,
+        val onChange: NanoAction? = null
+    ) : NanoNode()
+
+    /**
+     * Radio - Single radio button
+     * Example: `Radio(bind := state.gender, option="male", label="Male")`
+     */
+    data class Radio(
+        val value: Binding? = null,
+        val option: String? = null,
+        val label: String? = null,
+        val name: String? = null
+    ) : NanoNode()
+
+    /**
+     * RadioGroup - Radio button group
+     * Example: `RadioGroup(bind := state.payment, options=["card", "cash", "paypal"])`
+     */
+    data class RadioGroup(
+        val value: Binding? = null,
+        val options: String? = null,
+        val name: String? = null,
+        val children: List<NanoNode> = emptyList()
+    ) : NanoNode()
+
+    /**
+     * Switch - Toggle switch
+     * Example: `Switch(checked := state.enabled, label="Enable notifications")`
+     */
+    data class Switch(
+        val checked: Binding? = null,
+        val label: String? = null,
+        val size: String? = null,
+        val onChange: NanoAction? = null
+    ) : NanoNode()
+
+    /**
+     * NumberInput - Number input with increment/decrement
+     * Example: `NumberInput(bind := state.quantity, min=0, max=100, step=1)`
+     */
+    data class NumberInput(
+        val value: Binding? = null,
+        val min: Float? = null,
+        val max: Float? = null,
+        val step: Float? = null,
+        val precision: Int? = null,
+        val placeholder: String? = null,
+        val onChange: NanoAction? = null
+    ) : NanoNode()
+
+    // ============ P0: Feedback Components ============
+
+    /**
+     * Modal - Modal dialog
+     * Example: `Modal(open := state.showModal, title="Confirm"): ...`
+     */
+    data class Modal(
+        val open: Binding? = null,
+        val title: String? = null,
+        val size: String? = null,
+        val closable: Boolean? = null,
+        val onClose: NanoAction? = null,
+        val children: List<NanoNode> = emptyList()
+    ) : NanoNode()
+
+    /**
+     * Alert - Alert notification
+     * Example: `Alert(type="warning", message="Please check your input")`
+     */
+    data class Alert(
+        val type: String? = null,
+        val message: String? = null,
+        val closable: Boolean? = null,
+        val icon: String? = null,
+        val onClose: NanoAction? = null,
+        val children: List<NanoNode> = emptyList()
+    ) : NanoNode()
+
+    /**
+     * Progress - Progress bar
+     * Example: `Progress(value=state.progress, max=100)`
+     */
+    data class Progress(
+        val value: Float? = null,
+        val max: Float? = null,
+        val showText: Boolean? = null,
+        val status: String? = null
+    ) : NanoNode()
+
+    /**
+     * Spinner - Loading spinner
+     * Example: `Spinner(size="md", text="Loading...")`
+     */
+    data class Spinner(
+        val size: String? = null,
+        val color: String? = null,
+        val text: String? = null
     ) : NanoNode()
 }

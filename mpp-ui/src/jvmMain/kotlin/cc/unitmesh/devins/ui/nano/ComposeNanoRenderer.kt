@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material3.Slider as MaterialSlider
 import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
 import cc.unitmesh.xuiper.ir.NanoIR
 import kotlinx.serialization.json.jsonPrimitive
@@ -68,6 +69,25 @@ object ComposeNanoRenderer {
             "Checkbox" -> RenderCheckbox(ir, modifier)
             "TextArea" -> RenderTextArea(ir, modifier)
             "Select" -> RenderSelect(ir, modifier)
+            // P0: Core Form Input Components
+            "DatePicker" -> RenderDatePicker(ir, modifier)
+            "Radio" -> RenderRadio(ir, modifier)
+            "RadioGroup" -> RenderRadioGroup(ir, modifier)
+            "Switch" -> RenderSwitch(ir, modifier)
+            "NumberInput" -> RenderNumberInput(ir, modifier)
+            // P0: Feedback Components
+            "Modal" -> RenderModal(ir, modifier)
+            "Alert" -> RenderAlert(ir, modifier)
+            "Progress" -> RenderProgress(ir, modifier)
+            "Spinner" -> RenderSpinner(ir, modifier)
+            // Tier 1-3: GenUI Components
+            "GenCanvas" -> RenderGenCanvas(ir, modifier)
+            "SplitView" -> RenderSplitView(ir, modifier)
+            "SmartTextField" -> RenderSmartTextField(ir, modifier)
+            "Slider" -> RenderSlider(ir, modifier)
+            "DateRangePicker" -> RenderDateRangePicker(ir, modifier)
+            "DataChart" -> RenderDataChart(ir, modifier)
+            "DataTable" -> RenderDataTable(ir, modifier)
             // Control Flow
             "Conditional" -> RenderConditional(ir, modifier)
             "ForLoop" -> RenderForLoop(ir, modifier)
@@ -353,6 +373,274 @@ object ComposeNanoRenderer {
             ir.children?.forEach { child ->
                 RenderNode(child)
             }
+        }
+    }
+
+    // ============================================================================
+    // P0: Core Form Input Components
+    // ============================================================================
+
+    @Composable
+    fun RenderDatePicker(ir: NanoIR, modifier: Modifier = Modifier) {
+        val placeholder = ir.props["placeholder"]?.jsonPrimitive?.content ?: "Select date"
+        Box(
+            modifier = modifier
+                .fillMaxWidth()
+                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(4.dp))
+                .padding(horizontal = 12.dp, vertical = 16.dp)
+        ) {
+            Text(
+                text = placeholder,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+
+    @Composable
+    fun RenderRadio(ir: NanoIR, modifier: Modifier = Modifier) {
+        val label = ir.props["label"]?.jsonPrimitive?.content ?: ""
+        val option = ir.props["option"]?.jsonPrimitive?.content ?: ""
+        Row(
+            modifier = modifier,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            RadioButton(selected = false, onClick = {})
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(text = label)
+        }
+    }
+
+    @Composable
+    fun RenderRadioGroup(ir: NanoIR, modifier: Modifier = Modifier) {
+        Column(modifier = modifier) {
+            ir.children?.forEach { child ->
+                RenderNode(child)
+            }
+        }
+    }
+
+    @Composable
+    fun RenderSwitch(ir: NanoIR, modifier: Modifier = Modifier) {
+        val label = ir.props["label"]?.jsonPrimitive?.content
+        Row(
+            modifier = modifier,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Switch(checked = false, onCheckedChange = {})
+            if (label != null) {
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(text = label)
+            }
+        }
+    }
+
+    @Composable
+    fun RenderNumberInput(ir: NanoIR, modifier: Modifier = Modifier) {
+        val placeholder = ir.props["placeholder"]?.jsonPrimitive?.content ?: ""
+        Row(
+            modifier = modifier,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = {}) {
+                Text("-", style = MaterialTheme.typography.bodyLarge)
+            }
+            OutlinedTextField(
+                value = "",
+                onValueChange = {},
+                placeholder = { Text(placeholder) },
+                modifier = Modifier.width(100.dp),
+                singleLine = true
+            )
+            IconButton(onClick = {}) {
+                Text("+", style = MaterialTheme.typography.bodyLarge)
+            }
+        }
+    }
+
+    // ============================================================================
+    // P0: Feedback Components
+    // ============================================================================
+
+    @Composable
+    fun RenderModal(ir: NanoIR, modifier: Modifier = Modifier) {
+        val title = ir.props["title"]?.jsonPrimitive?.content
+        AlertDialog(
+            onDismissRequest = {},
+            title = if (title != null) { { Text(title) } } else null,
+            text = {
+                Column {
+                    ir.children?.forEach { child ->
+                        RenderNode(child)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {}) {
+                    Text("OK")
+                }
+            }
+        )
+    }
+
+    @Composable
+    fun RenderAlert(ir: NanoIR, modifier: Modifier = Modifier) {
+        val type = ir.props["type"]?.jsonPrimitive?.content ?: "info"
+        val message = ir.props["message"]?.jsonPrimitive?.content ?: ""
+        val backgroundColor = when (type) {
+            "success" -> Color(0xFF4CAF50)
+            "error" -> Color(0xFFF44336)
+            "warning" -> Color(0xFFFF9800)
+            else -> MaterialTheme.colorScheme.primaryContainer
+        }
+        Card(
+            modifier = modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = backgroundColor)
+        ) {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = message, modifier = Modifier.weight(1f))
+            }
+        }
+    }
+
+    @Composable
+    fun RenderProgress(ir: NanoIR, modifier: Modifier = Modifier) {
+        val value = ir.props["value"]?.jsonPrimitive?.content?.toFloatOrNull() ?: 0f
+        val max = ir.props["max"]?.jsonPrimitive?.content?.toFloatOrNull() ?: 100f
+        val showText = ir.props["showText"]?.jsonPrimitive?.content?.toBoolean() ?: true
+        val progress = (value / max).coerceIn(0f, 1f)
+        Column(modifier = modifier) {
+            LinearProgressIndicator(
+                progress = progress,
+                modifier = Modifier.fillMaxWidth()
+            )
+            if (showText) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "${(progress * 100).toInt()}%",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
+    }
+
+    @Composable
+    fun RenderSpinner(ir: NanoIR, modifier: Modifier = Modifier) {
+        val text = ir.props["text"]?.jsonPrimitive?.content
+        Column(
+            modifier = modifier,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            CircularProgressIndicator()
+            if (text != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(text = text, style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
+
+    // ============================================================================
+    // Tier 1-3: GenUI Components
+    // ============================================================================
+
+    @Composable
+    fun RenderGenCanvas(ir: NanoIR, modifier: Modifier = Modifier) {
+        Column(modifier = modifier) {
+            ir.children?.forEach { child ->
+                RenderNode(child)
+            }
+        }
+    }
+
+    @Composable
+    fun RenderSplitView(ir: NanoIR, modifier: Modifier = Modifier) {
+        val ratio = ir.props["ratio"]?.jsonPrimitive?.content?.toFloatOrNull() ?: 0.5f
+        Row(modifier = modifier.fillMaxWidth()) {
+            Box(modifier = Modifier.weight(ratio)) {
+                ir.children?.firstOrNull()?.let { RenderNode(it) }
+            }
+            Box(modifier = Modifier.weight(1f - ratio)) {
+                ir.children?.getOrNull(1)?.let { RenderNode(it) }
+            }
+        }
+    }
+
+    @Composable
+    fun RenderSmartTextField(ir: NanoIR, modifier: Modifier = Modifier) {
+        val label = ir.props["label"]?.jsonPrimitive?.content
+        val placeholder = ir.props["placeholder"]?.jsonPrimitive?.content ?: ""
+        Column(modifier = modifier) {
+            if (label != null) {
+                Text(text = label, style = MaterialTheme.typography.labelMedium)
+                Spacer(modifier = Modifier.height(4.dp))
+            }
+            OutlinedTextField(
+                value = "",
+                onValueChange = {},
+                placeholder = { Text(placeholder) },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+
+    @Composable
+    fun RenderSlider(ir: NanoIR, modifier: Modifier = Modifier) {
+        val label = ir.props["label"]?.jsonPrimitive?.content
+        val min = ir.props["min"]?.jsonPrimitive?.content?.toFloatOrNull() ?: 0f
+        val max = ir.props["max"]?.jsonPrimitive?.content?.toFloatOrNull() ?: 100f
+        Column(modifier = modifier) {
+            if (label != null) {
+                Text(text = label, style = MaterialTheme.typography.labelMedium)
+                Spacer(modifier = Modifier.height(4.dp))
+            }
+            MaterialSlider(
+                value = min,
+                onValueChange = {},
+                valueRange = min..max,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+
+    @Composable
+    fun RenderDateRangePicker(ir: NanoIR, modifier: Modifier = Modifier) {
+        Row(
+            modifier = modifier,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            RenderDatePicker(ir, Modifier.weight(1f))
+            RenderDatePicker(ir, Modifier.weight(1f))
+        }
+    }
+
+    @Composable
+    fun RenderDataChart(ir: NanoIR, modifier: Modifier = Modifier) {
+        val type = ir.props["type"]?.jsonPrimitive?.content ?: "line"
+        Box(
+            modifier = modifier
+                .fillMaxWidth()
+                .height(200.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("Chart: $type", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+
+    @Composable
+    fun RenderDataTable(ir: NanoIR, modifier: Modifier = Modifier) {
+        Box(
+            modifier = modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .padding(16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("Data Table", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 

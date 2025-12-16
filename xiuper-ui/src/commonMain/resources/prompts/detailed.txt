@@ -38,11 +38,19 @@ component ComponentName(param: Type):
 ### 4. Interactive Components
 | Component | Props | Description |
 |-----------|-------|-------------|
-| Button | label, intent, icon, on_click | Clickable button |
+| Button | label, intent, icon, disabled_if, on_click | Clickable button |
 | Input | value, placeholder, type | Text input |
 | TextArea | value, placeholder, rows | Multi-line input |
 | Select | value, options, placeholder | Dropdown select |
 | Checkbox | checked | Checkbox input |
+| DatePicker | value, format, minDate, maxDate, placeholder | Single date picker |
+| Radio | value, option, label, name | Single radio button |
+| RadioGroup | value, options, name | Radio button group |
+| Switch | checked, label, size | Toggle switch |
+| NumberInput | value, min, max, step, precision, placeholder | Number input with +/- buttons |
+| SmartTextField | label, bind, validation, placeholder | Text input with validation |
+| Slider | label, bind, min, max, step | Range slider |
+| DateRangePicker | bind | Date range picker |
 
 ### 5. Form Components
 ```nanodsl
