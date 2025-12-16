@@ -52,8 +52,27 @@ class IndentParser(
     override fun parse(source: String): ParseResult {
         return try {
             val lines = source.lines()
-            val (component, _) = parseComponent(lines, 0)
-            ParseResult.Success(component)
+
+            // Check if source starts with 'component' keyword
+            val firstNonBlank = lines.indexOfFirst { it.isNotBlank() }
+            if (firstNonBlank >= 0) {
+                val firstLine = lines[firstNonBlank].trim()
+
+                // If it doesn't start with 'component', wrap it in an anonymous component
+                if (!COMPONENT_REGEX.matches(firstLine)) {
+                    // Prepend "component AnonymousComponent:" to the source
+                    val wrappedSource = "component AnonymousComponent:\n" +
+                        source.lines().joinToString("\n") { if (it.isNotBlank()) "    $it" else it }
+                    val wrappedLines = wrappedSource.lines()
+                    val (component, _) = parseComponent(wrappedLines, 0)
+                    ParseResult.Success(component)
+                } else {
+                    val (component, _) = parseComponent(lines, 0)
+                    ParseResult.Success(component)
+                }
+            } else {
+                ParseResult.Failure(listOf(ParseError("Empty source", 0)))
+            }
         } catch (e: Exception) {
             ParseResult.Failure(listOf(ParseError(e.message ?: "Unknown error", 0)))
         }
@@ -81,11 +100,8 @@ class IndentParser(
             if (!COMPONENT_REGEX.matches(firstLine)) {
                 // Check if it's a bare component without 'component' keyword
                 if (COMPONENT_CALL_REGEX.matches(firstLine)) {
-                    warnings.add(ParseWarning(
-                        "Missing 'component' keyword",
-                        firstNonBlank + 1,
-                        "Add 'component ComponentName:' at the start"
-                    ))
+                    // This is valid - bare components are now supported
+                    // No warning needed
                 } else {
                     errors.add(ParseError("Invalid component definition", firstNonBlank + 1))
                 }

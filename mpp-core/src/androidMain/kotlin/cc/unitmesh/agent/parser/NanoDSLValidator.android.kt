@@ -107,15 +107,23 @@ actual class NanoDSLValidator actual constructor() {
         val errors = mutableListOf<ValidationError>()
         val warnings = mutableListOf<String>()
         val lines = source.lines()
-        
-        // Check for component definition
+
+        // Check for component definition (now optional - bare components are supported)
         val hasComponentDef = lines.any { it.trim().startsWith("component ") && it.trim().endsWith(":") }
         if (!hasComponentDef) {
-            errors.add(ValidationError(
-                "Missing component definition. Expected 'component Name:'",
-                0,
-                "Add 'component YourComponentName:' at the start"
-            ))
+            // Check if it starts with a valid component (bare component)
+            val firstNonBlank = lines.indexOfFirst { it.isNotBlank() }
+            if (firstNonBlank >= 0) {
+                val firstLine = lines[firstNonBlank].trim()
+                val isBareComponent = Regex("""^(\w+)(?:\(.*\))?:\s*$""").matches(firstLine)
+                if (!isBareComponent) {
+                    errors.add(ValidationError(
+                        "Invalid syntax. Expected 'component Name:' or a bare component like 'VStack:'",
+                        0,
+                        "Add 'component YourComponentName:' at the start or start with a component like 'VStack:'"
+                    ))
+                }
+            }
         }
         
         // Check indentation
@@ -162,8 +170,8 @@ actual class NanoDSLValidator actual constructor() {
     
     private fun createMinimalIR(source: String): String {
         val componentNameMatch = Regex("""component\s+(\w+):""").find(source)
-        val componentName = componentNameMatch?.groupValues?.get(1) ?: "UnknownComponent"
-        
+        val componentName = componentNameMatch?.groupValues?.get(1) ?: "AnonymousComponent"
+
         // Escape the source for JSON
         val escapedSource = source
             .replace("\\", "\\\\")
