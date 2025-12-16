@@ -4,7 +4,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import cc.unitmesh.agent.Platform
 import cc.unitmesh.devins.ui.base.ResizableSplitPane
+import cc.unitmesh.devins.ui.compose.agent.AgentTopAppBar
+import cc.unitmesh.devins.ui.compose.agent.AgentTopAppBarActions
 import cc.unitmesh.devins.ui.compose.agent.chatdb.components.*
 import cc.unitmesh.devins.workspace.Workspace
 import cc.unitmesh.llm.KoogLLMService
@@ -42,7 +45,25 @@ fun ChatDBPage(
         }
     }
 
-    Scaffold(modifier = modifier) { paddingValues ->
+    val notMobile = (Platform.isAndroid || Platform.isIOS).not()
+    Scaffold(
+        modifier = modifier,
+        topBar = {
+            if (notMobile) {
+                AgentTopAppBar(
+                    title = "ChatDB",
+                    subtitle = workspace?.name,
+                    onBack = onBack,
+                    actions = {
+                        AgentTopAppBarActions.DeleteButton(
+                            onClick = { viewModel.newSession() },
+                            contentDescription = "New Session"
+                        )
+                    }
+                )
+            }
+        }
+    ) { paddingValues ->
         ResizableSplitPane(
             modifier = Modifier
                 .fillMaxSize()

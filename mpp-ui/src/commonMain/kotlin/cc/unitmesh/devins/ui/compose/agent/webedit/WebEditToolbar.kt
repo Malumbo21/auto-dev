@@ -25,6 +25,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import cc.unitmesh.agent.Platform
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
 
@@ -53,7 +54,7 @@ fun WebEditToolbar(
 ) {
     val urlFocusRequester = remember { FocusRequester() }
     val scope = rememberCoroutineScope()
-    
+
     Surface(
         modifier = modifier
             .fillMaxWidth()
@@ -78,16 +79,18 @@ fun WebEditToolbar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            // Back to main app button
-            IconButton(
-                onClick = onBack,
-                modifier = Modifier.size(32.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Close,
-                    contentDescription = "Close WebEdit",
-                    modifier = Modifier.size(18.dp)
-                )
+            // Back to main app button (only shown on WASM platform)
+            if (Platform.isWasm) {
+                IconButton(
+                    onClick = onBack,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
             }
 
             // Navigation buttons
@@ -217,7 +220,7 @@ fun WebEditToolbar(
                     modifier = Modifier.size(18.dp)
                 )
             }
-            
+
             // Screenshot button
             IconButton(
                 onClick = onScreenshot,
