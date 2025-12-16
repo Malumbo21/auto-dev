@@ -140,5 +140,133 @@ component GreetingCard:
             assertTrue(html.isNotEmpty(), "Should render $type")
         }
     }
+
+    // ============================================================================
+    // Layout Tests
+    // ============================================================================
+
+    @Test
+    fun `should render HStack with justify-between`() {
+        val ir = NanoIR.hstack(
+            justify = "between",
+            children = listOf(
+                NanoIR.text("Label"),
+                NanoIR.button("Action")
+            )
+        )
+
+        val html = renderer.renderNode(ir)
+
+        assertContains(html, "nano-hstack")
+        assertContains(html, "justify-between")
+        // HStack should have width: 100% for justify to work
+        // This is now in the CSS
+    }
+
+    @Test
+    fun `should render HStack with justify-around`() {
+        val ir = NanoIR.hstack(
+            justify = "around",
+            children = listOf(
+                NanoIR.text("A"),
+                NanoIR.text("B"),
+                NanoIR.text("C")
+            )
+        )
+
+        val html = renderer.renderNode(ir)
+
+        assertContains(html, "justify-around")
+    }
+
+    @Test
+    fun `should render nested HStack inside VStack`() {
+        val ir = NanoIR.vstack(
+            spacing = "md",
+            children = listOf(
+                NanoIR.hstack(
+                    justify = "between",
+                    children = listOf(
+                        NanoIR.text("Left"),
+                        NanoIR.text("Right")
+                    )
+                )
+            )
+        )
+
+        val html = renderer.renderNode(ir)
+
+        assertContains(html, "nano-vstack")
+        assertContains(html, "nano-hstack")
+        assertContains(html, "justify-between")
+        assertContains(html, "Left")
+        assertContains(html, "Right")
+    }
+
+    @Test
+    fun `should render VStack with full width`() {
+        val ir = NanoIR.vstack(
+            children = listOf(
+                NanoIR.text("Item 1"),
+                NanoIR.text("Item 2")
+            )
+        )
+
+        val html = renderer.render(ir)
+
+        // VStack should have width: 100% in the CSS
+        assertContains(html, "nano-vstack { display: flex; flex-direction: column; width: 100%; }")
+    }
+
+    @Test
+    fun `should render HStack with full width`() {
+        val ir = NanoIR.hstack(
+            children = listOf(
+                NanoIR.text("A"),
+                NanoIR.text("B")
+            )
+        )
+
+        val html = renderer.render(ir)
+
+        // HStack should have width: 100% in the CSS
+        assertContains(html, "nano-hstack { display: flex; flex-direction: row; align-items: center; width: 100%; }")
+    }
+
+    @Test
+    fun `should render complex trip planner layout`() {
+        // This test simulates the Singapore Trip Planner layout issue
+        val ir = NanoIR.vstack(
+            spacing = "lg",
+            children = listOf(
+                NanoIR.card(
+                    padding = "md",
+                    children = listOf(
+                        NanoIR.vstack(
+                            spacing = "md",
+                            children = listOf(
+                                NanoIR.text("Budget Calculator", "h2"),
+                                NanoIR.hstack(
+                                    justify = "between",
+                                    children = listOf(
+                                        NanoIR.text("Total Budget (\$)"),
+                                        NanoIR(type = "Input")
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        )
+
+        val html = renderer.renderNode(ir)
+
+        assertContains(html, "nano-card")
+        assertContains(html, "nano-vstack")
+        assertContains(html, "nano-hstack")
+        assertContains(html, "justify-between")
+        assertContains(html, "Budget Calculator")
+    }
 }
 

@@ -96,12 +96,26 @@ const RenderHStack: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir
   const spacing = ir.props.spacing || 'md';
   const align = ir.props.align || 'center';
   const justify = ir.props.justify || 'start';
-  
+  const childCount = ir.children?.length || 0;
+
   return (
     <div className={`nano-hstack spacing-${spacing} align-${align} justify-${justify}`}>
-      {ir.children?.map((child, i) => (
-        <RenderNode key={i} ir={child} context={context} />
-      ))}
+      {ir.children?.map((child, i) => {
+        // Support flex/weight property for space distribution
+        const childFlex = child.props?.flex;
+        const childWeight = child.props?.weight;
+        const flex = childFlex || childWeight;
+
+        // For justify=between with 2 children, first child gets flex-1
+        const shouldApplyFlex = flex || (justify === 'between' && childCount === 2 && i === 0);
+        const flexClass = shouldApplyFlex ? `flex-${flex || '1'}` : '';
+
+        return (
+          <div key={i} className={flexClass} style={flex ? { flex: Number(flex) || 1 } : undefined}>
+            <RenderNode ir={child} context={context} />
+          </div>
+        );
+      })}
     </div>
   );
 };

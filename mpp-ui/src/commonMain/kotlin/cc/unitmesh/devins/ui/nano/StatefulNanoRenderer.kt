@@ -166,17 +166,45 @@ object StatefulNanoRenderer {
         val horizontalArrangement = when (justify) {
             "center" -> Arrangement.Center
             "between" -> Arrangement.SpaceBetween
+            "around" -> Arrangement.SpaceAround
+            "evenly" -> Arrangement.SpaceEvenly
             "end" -> Arrangement.End
             else -> Arrangement.spacedBy(spacing)
         }
 
-        val finalModifier = if (padding != null) modifier.padding(padding) else modifier
+        // Apply fillMaxWidth when justify is specified to make space distribution work
+        val baseModifier = if (justify != null) modifier.fillMaxWidth() else modifier
+        val finalModifier = if (padding != null) baseModifier.padding(padding) else baseModifier
+
         Row(
             modifier = finalModifier,
             horizontalArrangement = horizontalArrangement,
             verticalAlignment = verticalAlignment
         ) {
-            ir.children?.forEach { child -> RenderNode(child, state, onAction) }
+            val childCount = ir.children?.size ?: 0
+            ir.children?.forEachIndexed { index, child ->
+                // Check if child has flex/weight property for space distribution
+                val childFlex = child.props["flex"]?.jsonPrimitive?.content?.toFloatOrNull()
+                val childWeight = child.props["weight"]?.jsonPrimitive?.content?.toFloatOrNull()
+                val weight = childFlex ?: childWeight
+
+                if (weight != null && weight > 0f) {
+                    Box(modifier = Modifier.weight(weight)) {
+                        RenderNode(child, state, onAction)
+                    }
+                } else if (justify == "between" && childCount == 2) {
+                    // For justify=between with 2 children, first child takes available space
+                    if (index == 0) {
+                        Box(modifier = Modifier.weight(1f)) {
+                            RenderNode(child, state, onAction)
+                        }
+                    } else {
+                        RenderNode(child, state, onAction)
+                    }
+                } else {
+                    RenderNode(child, state, onAction)
+                }
+            }
         }
     }
 
@@ -554,23 +582,23 @@ object StatefulNanoRenderer {
 
     // Utility extensions
     private fun String.toSpacing() = when (this) {
-        "xs" -> 1.dp
-        "sm" -> 2.dp
-        "md" -> 4.dp
-        "lg" -> 6.dp
-        "xl" -> 8.dp
+        "xs" -> 4.dp
+        "sm" -> 8.dp
+        "md" -> 16.dp
+        "lg" -> 24.dp
+        "xl" -> 32.dp
         "none" -> 0.dp
-        else -> 2.dp
+        else -> 8.dp
     }
 
     private fun String.toPadding() = when (this) {
-        "xs" -> 1.dp
-        "sm" -> 2.dp
-        "md" -> 4.dp
-        "lg" -> 6.dp
-        "xl" -> 8.dp
+        "xs" -> 4.dp
+        "sm" -> 8.dp
+        "md" -> 16.dp
+        "lg" -> 24.dp
+        "xl" -> 32.dp
         "none" -> 0.dp
-        else -> 4.dp
+        else -> 16.dp
     }
 }
 

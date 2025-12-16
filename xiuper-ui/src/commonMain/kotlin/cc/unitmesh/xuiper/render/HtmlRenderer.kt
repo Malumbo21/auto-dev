@@ -338,8 +338,15 @@ class HtmlRenderer(
 
         .nano-component { width: 100%; }
 
-        .nano-vstack { display: flex; flex-direction: column; }
-        .nano-hstack { display: flex; flex-direction: row; align-items: center; }
+        .nano-vstack { display: flex; flex-direction: column; width: 100%; }
+        .nano-hstack { display: flex; flex-direction: row; align-items: center; width: 100%; }
+
+        /* HStack child flex support */
+        .nano-hstack > .flex-1 { flex: 1; }
+        .nano-hstack > .flex-2 { flex: 2; }
+        .nano-hstack > .flex-3 { flex: 3; }
+        .nano-hstack > .flex-auto { flex: 1 1 auto; }
+        .nano-hstack > .flex-none { flex: none; }
 
         .spacing-xs { gap: 4px; }
         .spacing-sm { gap: 8px; }
@@ -356,6 +363,8 @@ class HtmlRenderer(
         .justify-center { justify-content: center; }
         .justify-end { justify-content: flex-end; }
         .justify-between { justify-content: space-between; }
+        .justify-around { justify-content: space-around; }
+        .justify-evenly { justify-content: space-evenly; }
 
         .nano-card {
             background: white;
