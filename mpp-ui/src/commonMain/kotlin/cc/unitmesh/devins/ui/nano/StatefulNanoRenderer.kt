@@ -200,6 +200,12 @@ object StatefulNanoRenderer {
         val baseModifier = if (justify != null) modifier.fillMaxWidth() else modifier
         val finalModifier = if (padding != null) baseModifier.padding(padding) else baseModifier
 
+        // Count VStack/Card children to determine if we should auto-distribute space
+        val vstackOrCardChildren = ir.children?.count {
+            it.type == "VStack" || it.type == "Card"
+        } ?: 0
+        val shouldAutoDistribute = vstackOrCardChildren >= 2
+
         Row(
             modifier = finalModifier,
             horizontalArrangement = horizontalArrangement,
@@ -216,8 +222,8 @@ object StatefulNanoRenderer {
                     Box(modifier = Modifier.weight(weight).wrapContentHeight(unbounded = true)) {
                         RenderNode(child, state, onAction)
                     }
-                } else if (child.type == "VStack" && justify == "between") {
-                    // VStack in HStack with justify=between should share space equally
+                } else if (shouldAutoDistribute && (child.type == "VStack" || child.type == "Card")) {
+                    // VStack/Card in HStack with multiple siblings should share space equally
                     Box(modifier = Modifier.weight(1f).wrapContentHeight(unbounded = true)) {
                         RenderNode(child, state, onAction)
                     }

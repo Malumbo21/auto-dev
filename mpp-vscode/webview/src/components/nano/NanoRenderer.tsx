@@ -115,7 +115,12 @@ const RenderHStack: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir
   const spacing = ir.props.spacing || 'md';
   const align = ir.props.align || 'center';
   const justify = ir.props.justify || 'start';
-  const childCount = ir.children?.length || 0;
+
+  // Count VStack/Card children to determine if we should auto-distribute space
+  const vstackOrCardChildren = ir.children?.filter(
+    child => child.type === 'VStack' || child.type === 'Card'
+  ).length || 0;
+  const shouldAutoDistribute = vstackOrCardChildren >= 2;
 
   return (
     <div className={`nano-hstack spacing-${spacing} align-${align} justify-${justify}`}>
@@ -125,8 +130,9 @@ const RenderHStack: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir
         const childWeight = child.props?.weight;
         const flex = childFlex || childWeight;
 
-        // For justify=between with 2 children, first child gets flex-1
-        const shouldApplyFlex = flex || (justify === 'between' && childCount === 2 && i === 0);
+        // Check if child should get auto flex
+        const isVStackOrCard = child.type === 'VStack' || child.type === 'Card';
+        const shouldApplyFlex = flex || (shouldAutoDistribute && isVStackOrCard);
         const flexValue = shouldApplyFlex ? (Number(flex) || 1) : undefined;
 
         // Avoid unnecessary wrapper div when no flex is needed
