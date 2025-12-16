@@ -40,6 +40,9 @@ class JsWebEditBridge : WebEditBridge {
     private val _lastActionResult = MutableStateFlow<WebEditMessage.ActionResult?>(null)
     override val lastActionResult: StateFlow<WebEditMessage.ActionResult?> = _lastActionResult
 
+    private val _lastScreenshot = MutableStateFlow<WebEditMessage.ScreenshotCaptured?>(null)
+    override val lastScreenshot: StateFlow<WebEditMessage.ScreenshotCaptured?> = _lastScreenshot
+
     private val _errorMessage = MutableStateFlow<String?>(null)
     override val errorMessage: StateFlow<String?> = _errorMessage
 
@@ -130,6 +133,10 @@ class JsWebEditBridge : WebEditBridge {
 
     override suspend fun pressKey(key: String, selector: String?) {
         console.log("JsWebEditBridge: pressKey not supported in JS CLI")
+    }
+
+    override suspend fun captureScreenshot(maxWidth: Int, quality: Double) {
+        console.log("JsWebEditBridge: captureScreenshot not supported in JS CLI")
     }
 
     override fun markReady() {

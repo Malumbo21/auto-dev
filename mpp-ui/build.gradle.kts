@@ -272,7 +272,7 @@ kotlin {
                 }
 
                 // Kotlin Logging for Android (use Android version instead of JVM version)
-                implementation("io.github.oshai:kotlin-logging-android-debug:${libs.versions.kotlinLogging.get()}")
+                implementation("io.github.oshai:kotlin-logging-android:${libs.versions.kotlinLogging.get()}")
 
                 implementation(libs.androidx.activity)
                 implementation(libs.androidx.appcompat)
