@@ -58,6 +58,8 @@ configurations.all {
         force("org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.2.0")
         force("org.jetbrains.kotlin:kotlin-reflect:2.2.0")
     }
+    // Exclude kotlin-logging-android-debug to prevent duplicate classes with kotlin-logging-android
+    exclude(group = "io.github.oshai", module = "kotlin-logging-android-debug")
 }
 
 kotlin {
@@ -269,10 +271,13 @@ kotlin {
                 implementation(project(":mpp-viewer-web"))
                 implementation(project(":xiuper-ui")) {
                     exclude(group = "io.github.oshai", module = "kotlin-logging-jvm")
+                    exclude(group = "io.github.oshai", module = "kotlin-logging-android-debug")
                 }
 
                 // Kotlin Logging for Android (use Android version instead of JVM version)
-                implementation("io.github.oshai:kotlin-logging-android:${libs.versions.kotlinLogging.get()}")
+                implementation("io.github.oshai:kotlin-logging-android:${libs.versions.kotlinLogging.get()}") {
+                    exclude(group = "io.github.oshai", module = "kotlin-logging-android-debug")
+                }
 
                 implementation(libs.androidx.activity)
                 implementation(libs.androidx.appcompat)
