@@ -108,10 +108,15 @@ const RenderHStack: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir
 
         // For justify=between with 2 children, first child gets flex-1
         const shouldApplyFlex = flex || (justify === 'between' && childCount === 2 && i === 0);
-        const flexClass = shouldApplyFlex ? `flex-${flex || '1'}` : '';
+        const flexValue = shouldApplyFlex ? (Number(flex) || 1) : undefined;
+
+        // Avoid unnecessary wrapper div when no flex is needed
+        if (!flexValue) {
+          return <RenderNode key={i} ir={child} context={context} />;
+        }
 
         return (
-          <div key={i} className={flexClass} style={flex ? { flex: Number(flex) || 1 } : undefined}>
+          <div key={i} style={{ flex: flexValue }}>
             <RenderNode ir={child} context={context} />
           </div>
         );

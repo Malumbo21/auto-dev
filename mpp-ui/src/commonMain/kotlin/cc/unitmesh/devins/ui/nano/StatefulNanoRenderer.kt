@@ -159,8 +159,8 @@ object StatefulNanoRenderer {
 
         val verticalAlignment = when (align) {
             "center" -> Alignment.CenterVertically
-            "top" -> Alignment.Top
-            "bottom" -> Alignment.Bottom
+            "start", "top" -> Alignment.Top
+            "end", "bottom" -> Alignment.Bottom
             else -> Alignment.CenterVertically
         }
         val horizontalArrangement = when (justify) {
@@ -189,13 +189,14 @@ object StatefulNanoRenderer {
                 val weight = childFlex ?: childWeight
 
                 if (weight != null && weight > 0f) {
-                    Box(modifier = Modifier.weight(weight)) {
+                    // Use wrapContentHeight to prevent vertical stretching
+                    Box(modifier = Modifier.weight(weight).wrapContentHeight(unbounded = true)) {
                         RenderNode(child, state, onAction)
                     }
                 } else if (justify == "between" && childCount == 2) {
                     // For justify=between with 2 children, first child takes available space
                     if (index == 0) {
-                        Box(modifier = Modifier.weight(1f)) {
+                        Box(modifier = Modifier.weight(1f).wrapContentHeight(unbounded = true)) {
                             RenderNode(child, state, onAction)
                         }
                     } else {

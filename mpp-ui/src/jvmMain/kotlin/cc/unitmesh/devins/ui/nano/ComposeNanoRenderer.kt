@@ -121,13 +121,14 @@ object ComposeNanoRenderer {
                 val weight = childFlex ?: childWeight
 
                 if (weight != null && weight > 0f) {
-                    Box(modifier = Modifier.weight(weight)) {
+                    // Use wrapContentHeight to prevent vertical stretching
+                    Box(modifier = Modifier.weight(weight).wrapContentHeight(unbounded = true)) {
                         RenderNode(child)
                     }
                 } else if (justifyStr == "between" && childCount == 2) {
                     // For justify=between with 2 children, first child takes available space
                     if (index == 0) {
-                        Box(modifier = Modifier.weight(1f)) {
+                        Box(modifier = Modifier.weight(1f).wrapContentHeight(unbounded = true)) {
                             RenderNode(child)
                         }
                     } else {

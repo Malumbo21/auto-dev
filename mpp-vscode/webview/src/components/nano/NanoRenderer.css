@@ -45,11 +45,19 @@
 .spacing-lg { gap: 24px; }
 .spacing-xl { gap: 32px; }
 
-/* Alignment */
+/* Alignment - for HStack (row), align controls vertical alignment of children */
 .align-start { align-items: flex-start; }
 .align-center { align-items: center; }
 .align-end { align-items: flex-end; }
 .align-stretch { align-items: stretch; }
+
+/* Prevent flex children from stretching height in HStack when align is not stretch */
+.nano-hstack.align-start > div,
+.nano-hstack.align-center > div,
+.nano-hstack.align-end > div {
+  align-self: inherit;
+  height: fit-content;
+}
 
 /* Justify */
 .justify-start { justify-content: flex-start; }

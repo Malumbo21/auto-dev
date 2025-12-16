@@ -359,6 +359,14 @@ class HtmlRenderer(
         .align-end { align-items: flex-end; }
         .align-stretch { align-items: stretch; }
 
+        /* Prevent flex children from stretching height in HStack when align is not stretch */
+        .nano-hstack.align-start > div,
+        .nano-hstack.align-center > div,
+        .nano-hstack.align-end > div {
+            align-self: inherit;
+            height: fit-content;
+        }
+
         .justify-start { justify-content: flex-start; }
         .justify-center { justify-content: center; }
         .justify-end { justify-content: flex-end; }
