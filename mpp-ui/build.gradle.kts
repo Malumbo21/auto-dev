@@ -333,6 +333,7 @@ kotlin {
 
                 // Implementation dependencies
                 implementation(project(":mpp-viewer-web"))
+                implementation(project(":xiuper-ui"))
 
                 // ComposeCharts - Cross-platform chart library (iOS)
                 implementation(libs.compose.charts)
@@ -353,6 +354,7 @@ kotlin {
             dependencies {
                 // Node.js CLI dependencies
                 implementation(compose.html.core)
+                implementation(project(":xiuper-ui"))
 
                 // Note: mpp-viewer-web is not included for JS as WebView is not supported in Node.js CLI
                 // WebEdit features are only available on JVM/Desktop platforms

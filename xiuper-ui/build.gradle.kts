@@ -18,11 +18,29 @@ kotlin {
     // JVM target
     jvm()
 
+    // JS target (Node.js)
+    js(IR) {
+        nodejs()
+        binaries.library()
+    }
+
     // WasmJs target
     @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
     wasmJs {
         browser()
         nodejs()
+    }
+
+    // iOS targets
+    listOf(
+        iosX64(),
+        iosArm64(),
+        iosSimulatorArm64()
+    ).forEach { iosTarget ->
+        iosTarget.binaries.framework {
+            baseName = "XiuperUI"
+            isStatic = true
+        }
     }
 
     sourceSets {
@@ -56,9 +74,28 @@ kotlin {
             }
         }
 
+        val jsMain by getting {
+            dependencies {
+                // JS-specific dependencies (if any)
+            }
+        }
+
         val wasmJsMain by getting {
             dependencies {
                 // WasmJs-specific dependencies (if any)
+            }
+        }
+
+        val iosX64Main by getting
+        val iosArm64Main by getting
+        val iosSimulatorArm64Main by getting
+        val iosMain by creating {
+            dependsOn(commonMain)
+            iosX64Main.dependsOn(this)
+            iosArm64Main.dependsOn(this)
+            iosSimulatorArm64Main.dependsOn(this)
+            dependencies {
+                // iOS-specific dependencies (if any)
             }
         }
     }
