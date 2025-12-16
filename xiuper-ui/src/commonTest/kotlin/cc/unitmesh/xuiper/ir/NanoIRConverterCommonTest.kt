@@ -43,7 +43,7 @@ component GreetingCard:
     fun shouldConvertVStackToIR() {
         val source = """
 component LayoutTest:
-    VStack(spacing="md", padding="lg"):
+    VStack(spacing="md", align="center"):
         Text("First")
         Text("Second")
         """.trimIndent()
@@ -54,7 +54,7 @@ component LayoutTest:
         val vstack = ir.children!![0]
         assertEquals("VStack", vstack.type)
         assertEquals("md", vstack.props["spacing"]?.jsonPrimitive?.content)
-        assertEquals("lg", vstack.props["padding"]?.jsonPrimitive?.content)
+        assertEquals("center", vstack.props["align"]?.jsonPrimitive?.content)
         assertNotNull(vstack.children)
         assertEquals(2, vstack.children!!.size)
     }
