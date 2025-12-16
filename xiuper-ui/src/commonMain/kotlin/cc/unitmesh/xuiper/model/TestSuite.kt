@@ -1,5 +1,6 @@
 package cc.unitmesh.xuiper.model
 
+import kotlinx.datetime.Clock
 import kotlinx.serialization.Serializable
 
 /**
@@ -77,7 +78,7 @@ data class SuiteResult(
     val suiteId: String,
     val results: List<TestResult>,
     val summary: SuiteSummary,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = Clock.System.now().toEpochMilliseconds()
 )
 
 /**

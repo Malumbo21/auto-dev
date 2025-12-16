@@ -390,6 +390,7 @@ kotlin {
                 }
 
                 implementation(project(":mpp-viewer-web"))
+                implementation(project(":xiuper-ui"))
 
                 implementation(devNpm("copy-webpack-plugin", "12.0.2"))
 

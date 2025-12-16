@@ -109,11 +109,7 @@ object PromptTemplateRegistry {
     }
 
     private fun loadPromptResource(path: String): String {
-        return PromptTemplateRegistry::class.java.classLoader
-            ?.getResourceAsStream(path)
-            ?.bufferedReader()
-            ?.readText()
-            ?: throw IllegalStateException("Cannot load prompt resource: $path")
+        return ResourceLoader.loadResource(path)
     }
 
     fun register(template: PromptTemplate) {

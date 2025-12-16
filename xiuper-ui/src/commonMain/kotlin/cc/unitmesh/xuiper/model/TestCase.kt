@@ -1,5 +1,6 @@
 package cc.unitmesh.xuiper.model
 
+import kotlinx.datetime.Clock
 import kotlinx.serialization.Serializable
 
 /**
@@ -124,7 +125,7 @@ data class TestResult(
     val executionTimeMs: Long,
     val tokenUsage: TokenUsage? = null,
     val errors: List<String> = emptyList(),
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = Clock.System.now().toEpochMilliseconds()
 )
 
 /**
