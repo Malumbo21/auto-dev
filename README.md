@@ -3,7 +3,9 @@
 > **One Platform. All Phases. Every Device.**  
 > 统一平台·全开发阶段·跨全设备
 
-**AutoDev Xiuper** is the AI-native development platform built on Kotlin Multiplatform, covering all 7 phases of SDLC (Requirements → Development → Review → Testing → Data → Deployment → Operations) and supporting 8+ platforms (IDEA, VSCode, CLI, Web, Desktop, Android, iOS, Server).
+**AutoDev Xiuper** is the AI-native development platform built on Kotlin Multiplatform, covering all 7 phases of SDLC (
+Requirements → Development → Review → Testing → Data → Deployment → Operations) and supporting 8+ platforms (IDEA,
+VSCode, CLI, Web, Desktop, Android, iOS, Server).
 
 ![ScreenShot](https://xiuper.com/screenshot.png)
 
@@ -69,6 +71,23 @@ AutoDev Xiuper includes 7 specialized AI agents mapped to the complete Software 
 | **Ops**       | Operations   | Operations monitoring agent for log analysis, performance monitoring, and alert handling           | Logs / Metrics / Alerts           | 🚧 Coming |
 
 Each agent is designed to handle specific phases of the development lifecycle, providing comprehensive AI assistance from requirements gathering to production operations.
+
+### SubAgents
+
+SubAgents are specialized micro-agents that can be invoked by the main Coding Agent to handle specific tasks. They follow the "Agent as Tool" architecture pattern:
+
+| SubAgent                  | Purpose                                                                                  | Key Features                                                                          | Platform Support      |
+|---------------------------|------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------|-----------------------|
+| **NanoDSL Agent**         | Generate AI-native UI code from natural language descriptions                            | Token-efficient DSL / Component generation / State management / HTTP requests         | All platforms         |
+| **PlotDSL Agent**         | Generate statistical charts and data visualizations from natural language                | ggplot2-inspired syntax / Multiple chart types / Themes / Lets-Plot rendering         | JVM Desktop & Android |
+| **Chart Agent**           | Generate chart configurations for ComposeCharts library                                  | Pie/Line/Column/Row charts / Data analysis / Cross-platform rendering                 | All platforms         |
+| **Analysis Agent**        | Intelligently analyze and summarize any type of content (logs, errors, JSON, code, etc.) | Content type detection / Smart summarization / Metadata extraction                    | All platforms         |
+| **Codebase Investigator** | Investigate codebase structure, patterns, dependencies, and architectural issues         | Architecture analysis / Pattern detection / Dependency mapping / Issue identification | All platforms         |
+| **Domain Dict Agent**     | Generate domain dictionaries from codebase analysis for better context understanding     | Hot file detection / Class/method extraction / Domain term identification             | All platforms         |
+| **Error Recovery Agent**  | Analyze errors and suggest fixes with self-healing capabilities                          | Error pattern recognition / Fix suggestion / Auto-retry logic                         | All platforms         |
+| **SQL Revise Agent**      | Revise and optimize SQL queries based on schema and execution feedback                   | Schema-aware correction / Query optimization / Syntax validation                      | All platforms         |
+
+SubAgents enable modular, composable AI workflows where complex tasks are broken down into specialized sub-tasks, each handled by an expert agent.
 
 ## License
 
