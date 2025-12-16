@@ -13,7 +13,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
-import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
 import cc.unitmesh.devins.ui.nano.StatefulNanoRenderer
 import cc.unitmesh.xuiper.dsl.NanoDSL
 import cc.unitmesh.xuiper.ir.NanoIR
@@ -62,18 +61,18 @@ actual fun NanoDSLBlockRenderer(
             .border(
                 width = 1.dp,
                 color = if (parseError != null)
-                    AutoDevColors.Signal.error.copy(alpha = 0.3f)
+                    MaterialTheme.colorScheme.error.copy(alpha = 0.3f)
                 else
                     MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
                 shape = RoundedCornerShape(8.dp)
             )
-            .background(AutoDevColors.Void.surface1)
+            .background(MaterialTheme.colorScheme.surface)
     ) {
         // Header
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(AutoDevColors.Void.bg.copy(alpha = 0.5f))
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                 .padding(horizontal = 12.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
@@ -82,33 +81,33 @@ actual fun NanoDSLBlockRenderer(
                 Text(
                     text = "NanoDSL",
                     style = MaterialTheme.typography.labelMedium,
-                    color = AutoDevColors.Text.secondary
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 if (parseError != null) {
                     Spacer(Modifier.width(8.dp))
                     M3Surface(
                         shape = RoundedCornerShape(4.dp),
-                        color = AutoDevColors.Signal.error.copy(alpha = 0.15f)
+                        color = MaterialTheme.colorScheme.errorContainer
                     ) {
                         Text(
                             text = "Parse Error",
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                             style = MaterialTheme.typography.labelSmall,
-                            color = AutoDevColors.Signal.error
+                            color = MaterialTheme.colorScheme.error
                         )
                     }
                 } else if (nanoIR != null) {
                     Spacer(Modifier.width(8.dp))
                     M3Surface(
                         shape = RoundedCornerShape(4.dp),
-                        color = AutoDevColors.Signal.success.copy(alpha = 0.15f)
+                        color = MaterialTheme.colorScheme.tertiaryContainer
                     ) {
                         Text(
                             text = "Valid",
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                             style = MaterialTheme.typography.labelSmall,
-                            color = AutoDevColors.Signal.success
+                            color = MaterialTheme.colorScheme.tertiary
                         )
                     }
                 } else if (!isComplete) {
@@ -116,7 +115,7 @@ actual fun NanoDSLBlockRenderer(
                     CircularProgressIndicator(
                         modifier = Modifier.size(12.dp),
                         strokeWidth = 1.5.dp,
-                        color = AutoDevColors.Text.tertiary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -126,7 +125,7 @@ actual fun NanoDSLBlockRenderer(
                 Row(
                     modifier = Modifier
                         .clip(RoundedCornerShape(4.dp))
-                        .background(AutoDevColors.Void.bg)
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
                         .clickable { showPreview = !showPreview }
                         .padding(horizontal = 8.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -134,7 +133,7 @@ actual fun NanoDSLBlockRenderer(
                     Text(
                         text = if (showPreview && nanoIR != null) "</>" else "Preview",
                         style = MaterialTheme.typography.labelSmall,
-                        color = AutoDevColors.Text.secondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -165,14 +164,14 @@ actual fun NanoDSLBlockRenderer(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(8.dp),
-                color = AutoDevColors.Signal.error.copy(alpha = 0.1f),
+                color = MaterialTheme.colorScheme.errorContainer,
                 shape = RoundedCornerShape(4.dp)
             ) {
                 Text(
                     text = "Error: $parseError",
                     modifier = Modifier.padding(8.dp),
                     style = MaterialTheme.typography.bodySmall,
-                    color = AutoDevColors.Signal.error
+                    color = MaterialTheme.colorScheme.error
                 )
             }
         }

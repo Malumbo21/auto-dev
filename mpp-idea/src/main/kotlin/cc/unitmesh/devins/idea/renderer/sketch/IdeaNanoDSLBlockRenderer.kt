@@ -1,13 +1,10 @@
-package cc.unitmesh.devins.ui.compose.sketch
+package cc.unitmesh.devins.idea.renderer.sketch
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -16,22 +13,26 @@ import androidx.compose.ui.unit.dp
 import cc.unitmesh.devins.ui.nano.StatefulNanoRenderer
 import cc.unitmesh.xuiper.dsl.NanoDSL
 import cc.unitmesh.xuiper.ir.NanoIR
+import org.jetbrains.jewel.foundation.theme.JewelTheme
+import org.jetbrains.jewel.ui.component.CircularProgressIndicator
+import org.jetbrains.jewel.ui.component.Text
 import androidx.compose.material3.Surface as M3Surface
 
 /**
- * Android implementation of NanoDSLBlockRenderer with live UI preview.
+ * IntelliJ IDEA implementation of NanoDSLBlockRenderer with live UI preview.
  *
  * Features:
  * - Parses NanoDSL source code using xiuper-ui's NanoDSL parser
  * - Renders live UI preview using StatefulNanoRenderer
  * - Toggle between preview and source code view
  * - Shows parse errors with details
+ * - Uses Jewel theme colors for native IntelliJ look and feel
  */
 @Composable
-actual fun NanoDSLBlockRenderer(
+fun IdeaNanoDSLBlockRenderer(
     nanodslCode: String,
-    isComplete: Boolean,
-    modifier: Modifier
+    isComplete: Boolean = true,
+    modifier: Modifier = Modifier
 ) {
     var showPreview by remember { mutableStateOf(true) }
     var parseError by remember { mutableStateOf<String?>(null) }
@@ -61,18 +62,18 @@ actual fun NanoDSLBlockRenderer(
             .border(
                 width = 1.dp,
                 color = if (parseError != null)
-                    MaterialTheme.colorScheme.error.copy(alpha = 0.3f)
+                    JewelTheme.globalColors.borders.normal.copy(alpha = 0.5f)
                 else
-                    MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                    JewelTheme.globalColors.borders.normal.copy(alpha = 0.2f),
                 shape = RoundedCornerShape(8.dp)
             )
-            .background(MaterialTheme.colorScheme.surface)
+            .background(JewelTheme.globalColors.panelBackground)
     ) {
         // Header
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                .background(JewelTheme.globalColors.panelBackground.copy(alpha = 0.5f))
                 .padding(horizontal = 12.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
@@ -80,42 +81,37 @@ actual fun NanoDSLBlockRenderer(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = "NanoDSL",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = JewelTheme.globalColors.text.normal
                 )
 
                 if (parseError != null) {
                     Spacer(Modifier.width(8.dp))
                     M3Surface(
                         shape = RoundedCornerShape(4.dp),
-                        color = MaterialTheme.colorScheme.errorContainer
+                        color = JewelTheme.globalColors.borders.normal.copy(alpha = 0.15f)
                     ) {
                         Text(
                             text = "Parse Error",
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.error
+                            color = JewelTheme.globalColors.text.normal
                         )
                     }
                 } else if (nanoIR != null) {
                     Spacer(Modifier.width(8.dp))
                     M3Surface(
                         shape = RoundedCornerShape(4.dp),
-                        color = MaterialTheme.colorScheme.tertiaryContainer
+                        color = JewelTheme.globalColors.borders.normal.copy(alpha = 0.15f)
                     ) {
                         Text(
                             text = "Valid",
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.tertiary
+                            color = JewelTheme.globalColors.text.normal
                         )
                     }
                 } else if (!isComplete) {
                     Spacer(Modifier.width(8.dp))
                     CircularProgressIndicator(
-                        modifier = Modifier.size(12.dp),
-                        strokeWidth = 1.5.dp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        modifier = Modifier.size(12.dp)
                     )
                 }
             }
@@ -125,15 +121,14 @@ actual fun NanoDSLBlockRenderer(
                 Row(
                     modifier = Modifier
                         .clip(RoundedCornerShape(4.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .background(JewelTheme.globalColors.panelBackground)
                         .clickable { showPreview = !showPreview }
                         .padding(horizontal = 8.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         text = if (showPreview && nanoIR != null) "</>" else "Preview",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = JewelTheme.globalColors.text.normal
                     )
                 }
             }
@@ -151,10 +146,10 @@ actual fun NanoDSLBlockRenderer(
             }
         } else {
             // Source code view
-            CodeBlockRenderer(
+            IdeaCodeBlockRenderer(
                 code = nanodslCode,
                 language = "nanodsl",
-                displayName = "NanoDSL"
+                modifier = Modifier.fillMaxWidth()
             )
         }
 
@@ -164,14 +159,13 @@ actual fun NanoDSLBlockRenderer(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(8.dp),
-                color = MaterialTheme.colorScheme.errorContainer,
+                color = JewelTheme.globalColors.borders.normal.copy(alpha = 0.15f),
                 shape = RoundedCornerShape(4.dp)
             ) {
                 Text(
                     text = "Error: $parseError",
                     modifier = Modifier.padding(8.dp),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error
+                    color = JewelTheme.globalColors.text.normal
                 )
             }
         }

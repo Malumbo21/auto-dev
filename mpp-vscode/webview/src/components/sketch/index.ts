@@ -11,6 +11,7 @@
  * - TerminalRenderer: Terminal commands and output
  * - ToolCallRenderer: Tool call information
  * - DevInRenderer: DevIn tool call blocks
+ * - NanoDSLRenderer: NanoDSL live UI preview
  */
 
 export { SketchRenderer } from './SketchRenderer';
@@ -21,4 +22,5 @@ export { ThinkingRenderer } from './ThinkingRenderer';
 export { TerminalRenderer } from './TerminalRenderer';
 export { ToolCallRenderer } from './ToolCallRenderer';
 export { DevInRenderer } from './DevInRenderer';
+export { NanoDSLRenderer } from './NanoDSLRenderer';
 

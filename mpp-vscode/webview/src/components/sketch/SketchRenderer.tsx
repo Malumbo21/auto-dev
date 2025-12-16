@@ -1,6 +1,6 @@
 /**
  * SketchRenderer - Main content renderer
- * 
+ *
  * Parses LLM response content and dispatches to appropriate sub-renderers:
  * - Markdown/Text -> MarkdownRenderer
  * - Code -> CodeBlockRenderer
@@ -9,6 +9,7 @@
  * - Terminal -> TerminalRenderer
  * - Mermaid -> MermaidRenderer
  * - DevIn -> DevInRenderer
+ * - NanoDSL -> NanoDSLRenderer (live UI preview)
  */
 
 import React from 'react';
@@ -18,6 +19,7 @@ import { DiffRenderer } from './DiffRenderer';
 import { ThinkingRenderer } from './ThinkingRenderer';
 import { TerminalRenderer } from './TerminalRenderer';
 import { MarkdownRenderer } from './MarkdownRenderer';
+import { NanoDSLRenderer } from './NanoDSLRenderer';
 import './SketchRenderer.css';
 
 interface SketchRendererProps {
@@ -120,6 +122,16 @@ function renderBlock(
       // DevIn blocks are handled by ToolCallRenderer in timeline
       // Don't render them here to avoid duplication
       return null;
+
+    case 'nanodsl':
+    case 'nano':
+      return (
+        <NanoDSLRenderer
+          nanodslCode={block.text}
+          isComplete={isComplete}
+          onAction={onAction}
+        />
+      );
 
     case 'plan':
       // TODO: Implement PlanRenderer

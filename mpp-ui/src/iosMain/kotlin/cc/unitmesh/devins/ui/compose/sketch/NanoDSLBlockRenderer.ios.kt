@@ -10,7 +10,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
-import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
 
 /**
  * iOS implementation of NanoDSLBlockRenderer.
@@ -32,13 +31,13 @@ actual fun NanoDSLBlockRenderer(
                 color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
                 shape = RoundedCornerShape(8.dp)
             )
-            .background(AutoDevColors.Void.surface1)
+            .background(MaterialTheme.colorScheme.surface)
     ) {
         // Header
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(AutoDevColors.Void.bg.copy(alpha = 0.5f))
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                 .padding(horizontal = 12.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
@@ -46,14 +45,14 @@ actual fun NanoDSLBlockRenderer(
             Text(
                 text = "NanoDSL",
                 style = MaterialTheme.typography.labelMedium,
-                color = AutoDevColors.Text.secondary
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             if (!isComplete) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(12.dp),
                     strokeWidth = 1.5.dp,
-                    color = AutoDevColors.Text.tertiary
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }

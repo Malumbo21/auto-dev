@@ -25,6 +25,7 @@ import org.jetbrains.jewel.ui.component.CircularProgressIndicator
  * - Walkthrough -> IdeaWalkthroughBlockRenderer
  * - Mermaid -> MermaidDiagramView
  * - DevIn -> IdeaDevInBlockRenderer
+ * - NanoDSL -> IdeaNanoDSLBlockRenderer (live UI preview)
  *
  * Related GitHub Issue: https://github.com/phodal/auto-dev/issues/25
  */
@@ -150,6 +151,17 @@ object IdeaSketchRenderer {
                         if (fence.text.isNotBlank()) {
                             IdeaDevInBlockRenderer(
                                 devinContent = fence.text,
+                                isComplete = blockIsComplete,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+                    }
+
+                    "nanodsl", "nano" -> {
+                        if (fence.text.isNotBlank()) {
+                            IdeaNanoDSLBlockRenderer(
+                                nanodslCode = fence.text,
                                 isComplete = blockIsComplete,
                                 modifier = Modifier.fillMaxWidth()
                             )
