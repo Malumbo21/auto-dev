@@ -362,6 +362,7 @@ NanoDSL uses Python-style indentation (4 spaces) to represent hierarchy.
 - `Image(src=path, aspect=16/9, radius="md")` - Image display
 - `Input(value=binding, placeholder="...")` - Text input
 - `Badge("text", color="green|red|blue")` - Status badge
+- `Icon("name", size="sm|md|lg", color="primary|green|red|blue")` - Icon display
 
 ### Properties
 - `padding: "sm|md|lg"` - Padding size

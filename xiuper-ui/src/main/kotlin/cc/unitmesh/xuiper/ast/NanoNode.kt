@@ -116,6 +116,16 @@ sealed class NanoNode {
     ) : NanoNode()
 
     /**
+     * Icon component
+     * Example: `Icon("flight", size="md", color="blue")`
+     */
+    data class Icon(
+        val name: String,
+        val size: String? = null,
+        val color: String? = null
+    ) : NanoNode()
+
+    /**
      * Divider component
      */
     object Divider : NanoNode()

@@ -4,12 +4,15 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -119,6 +122,7 @@ object StatefulNanoRenderer {
             "Text" -> RenderText(ir, state, modifier)
             "Image" -> RenderImage(ir, modifier)
             "Badge" -> RenderBadge(ir, modifier)
+            "Icon" -> RenderIcon(ir, modifier)
             "Divider" -> RenderDivider(modifier)
             "Button" -> RenderButton(ir, onAction, modifier)
             "Input" -> RenderInput(ir, state, onAction, modifier)
@@ -285,6 +289,78 @@ object StatefulNanoRenderer {
                 fontSize = 12.sp
             )
         }
+    }
+
+    @Composable
+    private fun RenderIcon(ir: NanoIR, modifier: Modifier) {
+        val iconName = ir.props["name"]?.jsonPrimitive?.content ?: ""
+        val sizeName = ir.props["size"]?.jsonPrimitive?.content
+        val colorName = ir.props["color"]?.jsonPrimitive?.content
+
+        // Map icon names to Material Icons
+        val iconVector: ImageVector = when (iconName.lowercase()) {
+            "flight", "airplane", "plane" -> Icons.Default.Flight
+            "hotel", "bed" -> Icons.Default.Hotel
+            "restaurant", "food", "dining" -> Icons.Default.Restaurant
+            "attractions", "place", "location" -> Icons.Default.Place
+            "map" -> Icons.Default.Map
+            "calendar", "event" -> Icons.Default.Event
+            "time", "schedule" -> Icons.Default.Schedule
+            "check", "done" -> Icons.Default.Check
+            "star", "favorite" -> Icons.Default.Star
+            "info" -> Icons.Default.Info
+            "warning" -> Icons.Default.Warning
+            "error" -> Icons.Default.Error
+            "home" -> Icons.Default.Home
+            "person", "user" -> Icons.Default.Person
+            "settings" -> Icons.Default.Settings
+            "search" -> Icons.Default.Search
+            "menu" -> Icons.Default.Menu
+            "close" -> Icons.Default.Close
+            "add" -> Icons.Default.Add
+            "edit" -> Icons.Default.Edit
+            "delete" -> Icons.Default.Delete
+            "share" -> Icons.Default.Share
+            "send" -> Icons.Default.Send
+            "email", "mail" -> Icons.Default.Email
+            "phone" -> Icons.Default.Phone
+            "camera" -> Icons.Default.CameraAlt
+            "image", "photo" -> Icons.Default.Image
+            "attach", "attachment" -> Icons.Default.AttachFile
+            "download" -> Icons.Default.Download
+            "upload" -> Icons.Default.Upload
+            "refresh" -> Icons.Default.Refresh
+            "arrow_back", "back" -> Icons.Default.ArrowBack
+            "arrow_forward", "forward" -> Icons.Default.ArrowForward
+            else -> Icons.Default.Info // Default fallback
+        }
+
+        // Map size to dp
+        val iconSize = when (sizeName) {
+            "sm", "small" -> 16.dp
+            "md", "medium" -> 24.dp
+            "lg", "large" -> 32.dp
+            "xl" -> 48.dp
+            else -> 24.dp
+        }
+
+        // Map color name to Color
+        val iconColor = when (colorName) {
+            "primary" -> MaterialTheme.colorScheme.primary
+            "secondary" -> MaterialTheme.colorScheme.secondary
+            "green" -> AutoDevColors.Signal.success
+            "red" -> AutoDevColors.Signal.error
+            "blue" -> AutoDevColors.Signal.info
+            "yellow", "orange" -> AutoDevColors.Signal.warn
+            else -> MaterialTheme.colorScheme.onSurface
+        }
+
+        Icon(
+            imageVector = iconVector,
+            contentDescription = iconName,
+            modifier = modifier.size(iconSize),
+            tint = iconColor
+        )
     }
 
     @Composable

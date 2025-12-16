@@ -843,6 +843,14 @@ class IndentParser(
                 val text = extractFirstArg(argsStr) ?: ""
                 NanoNode.Badge(text = text, color = args["color"])
             }
+            "Icon" -> {
+                val name = extractFirstArg(argsStr) ?: ""
+                NanoNode.Icon(
+                    name = name,
+                    size = args["size"],
+                    color = args["color"]
+                )
+            }
             "Input" -> {
                 val valueArg = args["value"]
                 NanoNode.Input(

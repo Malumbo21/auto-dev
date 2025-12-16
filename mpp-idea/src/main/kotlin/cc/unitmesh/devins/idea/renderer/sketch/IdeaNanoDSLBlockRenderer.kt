@@ -9,24 +9,27 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import cc.unitmesh.devins.ui.nano.StatefulNanoRenderer
-import cc.unitmesh.xuiper.dsl.NanoDSL
-import cc.unitmesh.xuiper.ir.NanoIR
+import cc.unitmesh.agent.parser.NanoDSLValidator
+import cc.unitmesh.agent.parser.NanoDSLParseResult
 import org.jetbrains.jewel.foundation.theme.JewelTheme
 import org.jetbrains.jewel.ui.component.CircularProgressIndicator
 import org.jetbrains.jewel.ui.component.Text
-import androidx.compose.material3.Surface as M3Surface
+import org.jetbrains.jewel.ui.component.DefaultButton
 
 /**
- * IntelliJ IDEA implementation of NanoDSLBlockRenderer with live UI preview.
+ * IntelliJ IDEA implementation of NanoDSLBlockRenderer with validation.
  *
  * Features:
- * - Parses NanoDSL source code using xiuper-ui's NanoDSL parser
- * - Renders live UI preview using StatefulNanoRenderer
- * - Toggle between preview and source code view
- * - Shows parse errors with details
+ * - Validates NanoDSL source code using mpp-core's NanoDSLValidator
+ * - Shows validation status and errors
+ * - Displays formatted source code
  * - Uses Jewel theme colors for native IntelliJ look and feel
+ *
+ * Note: This version shows validation only. Full UI preview rendering requires
+ * mpp-ui dependency which is not available in mpp-idea to avoid ClassLoader conflicts.
+ * For full preview, use the Desktop app or web viewer.
  */
 @Composable
 fun IdeaNanoDSLBlockRenderer(
@@ -34,25 +37,36 @@ fun IdeaNanoDSLBlockRenderer(
     isComplete: Boolean = true,
     modifier: Modifier = Modifier
 ) {
-    var showPreview by remember { mutableStateOf(true) }
     var parseError by remember { mutableStateOf<String?>(null) }
-    var nanoIR by remember { mutableStateOf<NanoIR?>(null) }
+    var isValid by remember { mutableStateOf(false) }
 
-    // Parse NanoDSL to IR when code changes
+    // Validate NanoDSL when code changes
     LaunchedEffect(nanodslCode, isComplete) {
         if (isComplete && nanodslCode.isNotBlank()) {
             try {
-                val ir = NanoDSL.toIR(nanodslCode)
-                nanoIR = ir
-                parseError = null
+                val validator = NanoDSLValidator()
+                val result = validator.parse(nanodslCode)
+                when (result) {
+                    is NanoDSLParseResult.Success -> {
+                        isValid = true
+                        parseError = null
+                    }
+                    is NanoDSLParseResult.Failure -> {
+                        isValid = false
+                        parseError = result.errors.joinToString("\n") { error ->
+                            "Line ${error.line}: ${error.message}" +
+                                (error.suggestion?.let { "\n  💡 $it" } ?: "")
+                        }
+                    }
+                }
             } catch (e: Exception) {
-                parseError = e.message ?: "Unknown parse error"
-                nanoIR = null
+                isValid = false
+                parseError = e.message ?: "Unknown validation error"
             }
         } else if (!isComplete) {
             // Reset during streaming
             parseError = null
-            nanoIR = null
+            isValid = false
         }
     }
 
@@ -61,10 +75,11 @@ fun IdeaNanoDSLBlockRenderer(
             .clip(RoundedCornerShape(8.dp))
             .border(
                 width = 1.dp,
-                color = if (parseError != null)
-                    JewelTheme.globalColors.borders.normal.copy(alpha = 0.5f)
-                else
-                    JewelTheme.globalColors.borders.normal.copy(alpha = 0.2f),
+                color = when {
+                    parseError != null -> Color(0xFFE57373) // Red tint for errors
+                    isValid -> Color(0xFF81C784) // Green tint for valid
+                    else -> JewelTheme.globalColors.borders.normal.copy(alpha = 0.2f)
+                },
                 shape = RoundedCornerShape(8.dp)
             )
             .background(JewelTheme.globalColors.panelBackground)
@@ -86,25 +101,27 @@ fun IdeaNanoDSLBlockRenderer(
 
                 if (parseError != null) {
                     Spacer(Modifier.width(8.dp))
-                    M3Surface(
-                        shape = RoundedCornerShape(4.dp),
-                        color = JewelTheme.globalColors.borders.normal.copy(alpha = 0.15f)
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(Color(0xFFE57373).copy(alpha = 0.2f))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
                         Text(
-                            text = "Parse Error",
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            text = "❌ Invalid",
                             color = JewelTheme.globalColors.text.normal
                         )
                     }
-                } else if (nanoIR != null) {
+                } else if (isValid) {
                     Spacer(Modifier.width(8.dp))
-                    M3Surface(
-                        shape = RoundedCornerShape(4.dp),
-                        color = JewelTheme.globalColors.borders.normal.copy(alpha = 0.15f)
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(Color(0xFF81C784).copy(alpha = 0.2f))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
                         Text(
-                            text = "Valid",
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            text = "✓ Valid",
                             color = JewelTheme.globalColors.text.normal
                         )
                     }
@@ -115,56 +132,60 @@ fun IdeaNanoDSLBlockRenderer(
                     )
                 }
             }
+        }
 
-            // Toggle button (only show if we have valid IR or parse error)
-            if (nanoIR != null || parseError != null) {
-                Row(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(JewelTheme.globalColors.panelBackground)
-                        .clickable { showPreview = !showPreview }
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+        // Source code view
+        IdeaCodeBlockRenderer(
+            code = nanodslCode,
+            language = "nanodsl",
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        // Show validation error details
+        if (parseError != null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(Color(0xFFE57373).copy(alpha = 0.1f))
+                    .border(
+                        width = 1.dp,
+                        color = Color(0xFFE57373).copy(alpha = 0.3f),
+                        shape = RoundedCornerShape(4.dp)
+                    )
+                    .padding(12.dp)
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
-                        text = if (showPreview && nanoIR != null) "</>" else "Preview",
+                        text = "Validation Errors:",
                         color = JewelTheme.globalColors.text.normal
+                    )
+                    Text(
+                        text = parseError!!,
+                        color = JewelTheme.globalColors.text.normal.copy(alpha = 0.8f)
                     )
                 }
             }
         }
 
-        // Content
-        if (showPreview && nanoIR != null) {
-            // Live UI Preview
+        // Show success message for valid code
+        if (isValid && parseError == null) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp)
-            ) {
-                StatefulNanoRenderer.Render(nanoIR!!)
-            }
-        } else {
-            // Source code view
-            IdeaCodeBlockRenderer(
-                code = nanodslCode,
-                language = "nanodsl",
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-
-        // Show parse error details
-        if (parseError != null && !showPreview) {
-            M3Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(8.dp),
-                color = JewelTheme.globalColors.borders.normal.copy(alpha = 0.15f),
-                shape = RoundedCornerShape(4.dp)
+                    .padding(8.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(Color(0xFF81C784).copy(alpha = 0.1f))
+                    .border(
+                        width = 1.dp,
+                        color = Color(0xFF81C784).copy(alpha = 0.3f),
+                        shape = RoundedCornerShape(4.dp)
+                    )
+                    .padding(12.dp)
             ) {
                 Text(
-                    text = "Error: $parseError",
-                    modifier = Modifier.padding(8.dp),
+                    text = "✓ NanoDSL code is valid. Use Desktop app or web viewer for full UI preview.",
                     color = JewelTheme.globalColors.text.normal
                 )
             }

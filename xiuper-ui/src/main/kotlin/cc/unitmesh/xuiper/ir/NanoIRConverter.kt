@@ -25,6 +25,7 @@ object NanoIRConverter {
             is NanoNode.Text -> convertText(node)
             is NanoNode.Image -> convertImage(node)
             is NanoNode.Badge -> convertBadge(node)
+            is NanoNode.Icon -> convertIcon(node)
             is NanoNode.Button -> convertButton(node)
             is NanoNode.Input -> convertInput(node)
             is NanoNode.Checkbox -> convertCheckbox(node)
@@ -129,6 +130,16 @@ object NanoIRConverter {
         node.color?.let { props["color"] = JsonPrimitive(it) }
 
         return NanoIR(type = "Badge", props = props)
+    }
+
+    private fun convertIcon(node: NanoNode.Icon): NanoIR {
+        val props = mutableMapOf<String, JsonElement>(
+            "name" to JsonPrimitive(node.name)
+        )
+        node.size?.let { props["size"] = JsonPrimitive(it) }
+        node.color?.let { props["color"] = JsonPrimitive(it) }
+
+        return NanoIR(type = "Icon", props = props)
     }
 
     private fun convertButton(node: NanoNode.Button): NanoIR {
