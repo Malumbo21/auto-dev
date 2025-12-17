@@ -26,7 +26,26 @@ object NanoInputComponents {
 
     private fun resolveStatePathFromBinding(ir: NanoIR, vararg keys: String): String? {
         val binding = keys.firstNotNullOfOrNull { ir.bindings?.get(it) }
-        return binding?.expression?.removePrefix("state.")
+        val expr = binding?.expression?.trim() ?: return null
+        val normalized = if (expr.startsWith("state.")) expr.removePrefix("state.") else expr
+        // Only treat simple identifiers or dotted paths as a writable state path.
+        // This prevents expressions like '"x" in state.items' from being treated as a path.
+        return normalized.takeIf { it.matches(Regex("[A-Za-z_]\\w*(\\.[A-Za-z_]\\w*)*")) }
+    }
+
+    private data class InListExpression(val item: String, val listPath: String)
+
+    private fun parseInListExpression(expr: String): InListExpression? {
+        val trimmed = expr.trim()
+        // Support: "item" in state.list
+        val match = Regex("^(\"[^\"]+\"|'[^']+')\\s+in\\s+state\\.([A-Za-z_]\\w*(?:\\.[A-Za-z_]\\w*)*)$")
+            .matchEntire(trimmed)
+            ?: return null
+
+        val rawItem = match.groupValues[1]
+        val item = rawItem.removeSurrounding("\"", "\"").removeSurrounding("'", "'")
+        val listPath = match.groupValues[2]
+        return InListExpression(item = item, listPath = listPath)
     }
 
     @Composable
@@ -73,8 +92,8 @@ object NanoInputComponents {
         modifier: Modifier
     ) {
         val placeholder = ir.props["placeholder"]?.jsonPrimitive?.content ?: ""
-        val binding = ir.bindings?.get("value")
-        val statePath = binding?.expression?.removePrefix("state.")
+        val statePath = resolveStatePathFromBinding(ir, "value", "bind")
+        val onChange = ir.actions?.get("onChange")
 
         var value by remember(statePath, state[statePath]) {
             mutableStateOf(state[statePath]?.toString() ?: "")
@@ -94,6 +113,7 @@ object NanoInputComponents {
                         )
                     ))
                 }
+                onChange?.let { onAction(it) }
             },
             placeholder = { Text(placeholder) },
             modifier = modifier.widthIn(min = 120.dp, max = 300.dp),
@@ -108,10 +128,23 @@ object NanoInputComponents {
         onAction: (NanoActionIR) -> Unit,
         modifier: Modifier
     ) {
-        val binding = ir.bindings?.get("checked")
-        val statePath = binding?.expression?.removePrefix("state.")
-        val checked = (state[statePath] as? Boolean) ?: false
+        val checkedBindingExpr = ir.bindings?.get("checked")?.expression
+        val inList = checkedBindingExpr?.let { parseInListExpression(it) }
+
+        val statePath = resolveStatePathFromBinding(ir, "checked", "bind", "value")
+        val checkedFromState = statePath?.let { state[it] as? Boolean }
+
+        val checkedFromInList = inList?.let { parsed ->
+            val list = state[parsed.listPath] as? List<*>
+            list?.contains(parsed.item) == true
+        }
+
+        val checkedProp = ir.props["checked"]?.jsonPrimitive?.contentOrNull?.toBooleanStrictOrNull()
+        var uncontrolledChecked by remember(statePath, checkedProp) { mutableStateOf(checkedProp ?: false) }
+
+        val checked = checkedFromInList ?: checkedFromState ?: uncontrolledChecked
         val label = ir.props["label"]?.jsonPrimitive?.content
+        val onChange = ir.actions?.get("onChange")
 
         Row(
             modifier = modifier,
@@ -121,16 +154,34 @@ object NanoInputComponents {
             Checkbox(
                 checked = checked,
                 onCheckedChange = { newValue ->
-                    if (statePath != null) {
-                        onAction(NanoActionIR(
-                            type = "stateMutation",
-                            payload = mapOf(
-                                "path" to JsonPrimitive(statePath),
-                                "operation" to JsonPrimitive("SET"),
-                                "value" to JsonPrimitive(newValue.toString())
+                    when {
+                        inList != null -> {
+                            onAction(
+                                NanoActionIR(
+                                    type = "stateMutation",
+                                    payload = mapOf(
+                                        "path" to JsonPrimitive(inList.listPath),
+                                        "operation" to JsonPrimitive(if (newValue) "APPEND" else "REMOVE"),
+                                        "value" to JsonPrimitive(inList.item)
+                                    )
+                                )
                             )
-                        ))
+                        }
+                        statePath != null -> {
+                            onAction(
+                                NanoActionIR(
+                                    type = "stateMutation",
+                                    payload = mapOf(
+                                        "path" to JsonPrimitive(statePath),
+                                        "operation" to JsonPrimitive("SET"),
+                                        "value" to JsonPrimitive(newValue.toString())
+                                    )
+                                )
+                            )
+                        }
+                        else -> uncontrolledChecked = newValue
                     }
+                    onChange?.let { onAction(it) }
                 }
             )
             if (label != null) {
@@ -139,16 +190,35 @@ object NanoInputComponents {
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.clickable {
                         // Allow clicking label to toggle checkbox
-                        if (statePath != null) {
-                            onAction(NanoActionIR(
-                                type = "stateMutation",
-                                payload = mapOf(
-                                    "path" to JsonPrimitive(statePath),
-                                    "operation" to JsonPrimitive("SET"),
-                                    "value" to JsonPrimitive((!checked).toString())
+                        val toggled = !checked
+                        when {
+                            inList != null -> {
+                                onAction(
+                                    NanoActionIR(
+                                        type = "stateMutation",
+                                        payload = mapOf(
+                                            "path" to JsonPrimitive(inList.listPath),
+                                            "operation" to JsonPrimitive(if (toggled) "APPEND" else "REMOVE"),
+                                            "value" to JsonPrimitive(inList.item)
+                                        )
+                                    )
                                 )
-                            ))
+                            }
+                            statePath != null -> {
+                                onAction(
+                                    NanoActionIR(
+                                        type = "stateMutation",
+                                        payload = mapOf(
+                                            "path" to JsonPrimitive(statePath),
+                                            "operation" to JsonPrimitive("SET"),
+                                            "value" to JsonPrimitive(toggled.toString())
+                                        )
+                                    )
+                                )
+                            }
+                            else -> uncontrolledChecked = toggled
                         }
+                        onChange?.let { onAction(it) }
                     }
                 )
             }
@@ -164,8 +234,8 @@ object NanoInputComponents {
     ) {
         val placeholder = ir.props["placeholder"]?.jsonPrimitive?.content ?: ""
         val rows = ir.props["rows"]?.jsonPrimitive?.intOrNull ?: 4
-        val binding = ir.bindings?.get("value")
-        val statePath = binding?.expression?.removePrefix("state.")
+        val statePath = resolveStatePathFromBinding(ir, "value", "bind")
+        val onChange = ir.actions?.get("onChange")
 
         var value by remember(statePath, state[statePath]) {
             mutableStateOf(state[statePath]?.toString() ?: "")
@@ -185,6 +255,7 @@ object NanoInputComponents {
                         )
                     ))
                 }
+                onChange?.let { onAction(it) }
             },
             placeholder = { Text(placeholder) },
             modifier = modifier.fillMaxWidth().height((rows * 24).dp),
@@ -200,9 +271,12 @@ object NanoInputComponents {
         modifier: Modifier
     ) {
         val placeholder = ir.props["placeholder"]?.jsonPrimitive?.content ?: "Select..."
-        val binding = ir.bindings?.get("value")
-        val statePath = binding?.expression?.removePrefix("state.")
-        val selectedValue = state[statePath]?.toString() ?: ""
+        val statePath = resolveStatePathFromBinding(ir, "value", "bind")
+        val selectedFromState = statePath?.let { state[it]?.toString() }
+        val selectedProp = ir.props["value"]?.jsonPrimitive?.contentOrNull
+        var uncontrolledSelected by remember(statePath, selectedProp) { mutableStateOf(selectedProp ?: "") }
+        val selectedValue = selectedFromState ?: uncontrolledSelected
+        val onChange = ir.actions?.get("onChange")
         var expanded by remember { mutableStateOf(false) }
 
         // Read options from IR props
@@ -232,7 +306,10 @@ object NanoInputComponents {
                                         "value" to JsonPrimitive(option)
                                     )
                                 ))
+                            } else {
+                                uncontrolledSelected = option
                             }
+                            onChange?.let { onAction(it) }
                         }
                     )
                 }
@@ -249,9 +326,12 @@ object NanoInputComponents {
         modifier: Modifier
     ) {
         val placeholder = ir.props["placeholder"]?.jsonPrimitive?.content ?: "Select date"
-        val binding = ir.bindings?.get("value")
-        val statePath = binding?.expression?.removePrefix("state.")
-        val currentValue = state[statePath]?.toString() ?: ""
+        val statePath = resolveStatePathFromBinding(ir, "value", "bind")
+        val valueFromState = statePath?.let { state[it]?.toString() }
+        val valueProp = ir.props["value"]?.jsonPrimitive?.contentOrNull
+        var uncontrolledValue by remember(statePath, valueProp) { mutableStateOf(valueProp ?: "") }
+        val currentValue = valueFromState ?: uncontrolledValue
+        val onChange = ir.actions?.get("onChange")
 
         var showDialog by remember { mutableStateOf(false) }
         val datePickerState = rememberDatePickerState()
@@ -283,17 +363,21 @@ object NanoInputComponents {
                 confirmButton = {
                     TextButton(onClick = {
                         val selectedDate = datePickerState.selectedDateMillis
-                        if (selectedDate != null && statePath != null) {
+                        if (selectedDate != null) {
                             val dateStr = NanoRenderUtils.formatDateFromMillis(selectedDate)
-
-                            onAction(NanoActionIR(
-                                type = "stateMutation",
-                                payload = mapOf(
-                                    "path" to JsonPrimitive(statePath),
-                                    "operation" to JsonPrimitive("SET"),
-                                    "value" to JsonPrimitive(dateStr)
-                                )
-                            ))
+                            if (statePath != null) {
+                                onAction(NanoActionIR(
+                                    type = "stateMutation",
+                                    payload = mapOf(
+                                        "path" to JsonPrimitive(statePath),
+                                        "operation" to JsonPrimitive("SET"),
+                                        "value" to JsonPrimitive(dateStr)
+                                    )
+                                ))
+                            } else {
+                                uncontrolledValue = dateStr
+                            }
+                            onChange?.let { onAction(it) }
                         }
                         showDialog = false
                     }) {
@@ -320,9 +404,12 @@ object NanoInputComponents {
     ) {
         val option = ir.props["option"]?.jsonPrimitive?.content ?: ""
         val label = ir.props["label"]?.jsonPrimitive?.content ?: option
-        val binding = ir.bindings?.get("value")
-        val statePath = binding?.expression?.removePrefix("state.")
-        val selectedValue = state[statePath]?.toString() ?: ""
+        val statePath = resolveStatePathFromBinding(ir, "value", "bind")
+        val selectedFromState = statePath?.let { state[it]?.toString() }
+        val selectedProp = ir.props["value"]?.jsonPrimitive?.contentOrNull
+        var uncontrolledSelected by remember(statePath, selectedProp) { mutableStateOf(selectedProp ?: "") }
+        val selectedValue = selectedFromState ?: uncontrolledSelected
+        val onChange = ir.actions?.get("onChange")
         val isSelected = selectedValue == option
 
         Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
@@ -338,7 +425,10 @@ object NanoInputComponents {
                                 "value" to JsonPrimitive(option)
                             )
                         ))
+                    } else {
+                        uncontrolledSelected = option
                     }
+                    onChange?.let { onAction(it) }
                 }
             )
             Spacer(modifier = Modifier.width(8.dp))
@@ -367,9 +457,15 @@ object NanoInputComponents {
         modifier: Modifier
     ) {
         val label = ir.props["label"]?.jsonPrimitive?.content
-        val binding = ir.bindings?.get("value")
-        val statePath = binding?.expression?.removePrefix("state.")
-        val isChecked = state[statePath] as? Boolean ?: false
+        val statePath = resolveStatePathFromBinding(ir, "checked", "value", "bind")
+        val checkedFromState = statePath?.let { state[it] as? Boolean }
+        val checkedProp = (
+            ir.props["checked"]?.jsonPrimitive?.contentOrNull
+                ?: ir.props["value"]?.jsonPrimitive?.contentOrNull
+        )?.toBooleanStrictOrNull()
+        var uncontrolledChecked by remember(statePath, checkedProp) { mutableStateOf(checkedProp ?: false) }
+        val isChecked = checkedFromState ?: uncontrolledChecked
+        val onChange = ir.actions?.get("onChange")
 
         Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
             if (label != null) {
@@ -384,10 +480,13 @@ object NanoInputComponents {
                             payload = mapOf(
                                 "path" to JsonPrimitive(statePath),
                                 "operation" to JsonPrimitive("SET"),
-                                "value" to JsonPrimitive(newValue)
+                                "value" to JsonPrimitive(newValue.toString())
                             )
                         ))
+                    } else {
+                        uncontrolledChecked = newValue
                     }
+                    onChange?.let { onAction(it) }
                 }
             )
         }
@@ -401,23 +500,33 @@ object NanoInputComponents {
         modifier: Modifier
     ) {
         val placeholder = ir.props["placeholder"]?.jsonPrimitive?.content ?: ""
-        val binding = ir.bindings?.get("value")
-        val statePath = binding?.expression?.removePrefix("state.")
-        val currentValue = (state[statePath] as? Number)?.toString() ?: state[statePath]?.toString() ?: ""
+        val statePath = resolveStatePathFromBinding(ir, "value", "bind")
+        val valueFromState = statePath?.let { (state[it] as? Number)?.toString() ?: state[it]?.toString() }
+        val valueProp = ir.props["value"]?.jsonPrimitive?.contentOrNull
+        var uncontrolledValue by remember(statePath, valueProp) { mutableStateOf(valueProp ?: "") }
+        val currentValue = valueFromState ?: uncontrolledValue
+        val onChange = ir.actions?.get("onChange")
 
         OutlinedTextField(
             value = currentValue,
             onValueChange = { newValue ->
-                if (statePath != null && newValue.matches(Regex("-?\\d*\\.?\\d*"))) {
-                    onAction(NanoActionIR(
-                        type = "stateMutation",
-                        payload = mapOf(
-                            "path" to JsonPrimitive(statePath),
-                            "operation" to JsonPrimitive("SET"),
-                            "value" to JsonPrimitive(newValue.toDoubleOrNull() ?: 0)
+                if (!newValue.matches(Regex("-?\\d*\\.?\\d*"))) return@OutlinedTextField
+
+                if (statePath != null) {
+                    onAction(
+                        NanoActionIR(
+                            type = "stateMutation",
+                            payload = mapOf(
+                                "path" to JsonPrimitive(statePath),
+                                "operation" to JsonPrimitive("SET"),
+                                "value" to JsonPrimitive(newValue)
+                            )
                         )
-                    ))
+                    )
+                } else {
+                    uncontrolledValue = newValue
                 }
+                onChange?.let { onAction(it) }
             },
             placeholder = { Text(placeholder) },
             modifier = modifier.widthIn(min = 100.dp, max = 200.dp),

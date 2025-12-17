@@ -108,6 +108,24 @@ object StatefulNanoRenderer {
                                 else -> currentValue
                             }
                         }
+                        "APPEND" -> {
+                            when (currentValue) {
+                                is List<*> -> {
+                                    val trimmed = valueStr.trim().removeSurrounding("\"", "\"")
+                                    if (currentValue.contains(trimmed)) currentValue else currentValue + trimmed
+                                }
+                                else -> currentValue
+                            }
+                        }
+                        "REMOVE" -> {
+                            when (currentValue) {
+                                is List<*> -> {
+                                    val trimmed = valueStr.trim().removeSurrounding("\"", "\"")
+                                    currentValue.filterNot { it == trimmed }
+                                }
+                                else -> currentValue
+                            }
+                        }
                         "SET" -> {
                             when (currentValue) {
                                 is Int -> {

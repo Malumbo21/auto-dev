@@ -275,6 +275,7 @@ object NanoContentComponents {
             "calendar", "event" -> Icons.Default.Event
             "time", "schedule" -> Icons.Default.Schedule
             "check", "done" -> Icons.Default.Check
+            "check-circle", "check_circle", "checkcircle" -> Icons.Default.CheckCircle
             "star", "favorite" -> Icons.Default.Star
             "info" -> Icons.Default.Info
             "warning" -> Icons.Default.Warning

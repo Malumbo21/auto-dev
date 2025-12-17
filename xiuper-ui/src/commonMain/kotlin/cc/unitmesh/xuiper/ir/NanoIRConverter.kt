@@ -197,7 +197,11 @@ object NanoIRConverter {
             mapOf("checked" to convertBinding(it))
         }
 
-        return NanoIR(type = "Checkbox", props = props, bindings = bindings)
+        val actions = node.onChange?.let {
+            mapOf("onChange" to convertAction(it))
+        }
+
+        return NanoIR(type = "Checkbox", props = props, bindings = bindings, actions = actions)
     }
 
     private fun convertConditional(node: NanoNode.Conditional): NanoIR {

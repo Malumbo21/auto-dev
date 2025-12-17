@@ -24,7 +24,7 @@ import kotlinx.serialization.json.jsonPrimitive
 /**
  * Feedback components for NanoUI Compose renderer.
  * Includes: Modal, Alert, Progress, Spinner
- * 
+ *
  * Note: DataChart and DataTable have been moved to [NanoDataComponents]
  */
 object NanoFeedbackComponents {

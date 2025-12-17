@@ -160,7 +160,8 @@ sealed class NanoNode {
      */
     data class Checkbox(
         val checked: Binding? = null,
-        val label: String? = null
+        val label: String? = null,
+        val onChange: NanoAction? = null
     ) : NanoNode()
 
     // ============ Control Flow ============
