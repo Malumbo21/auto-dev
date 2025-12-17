@@ -101,43 +101,56 @@ object NanoContentComponents {
             else -> 8.dp
         }
 
-        val minHeight = 480.dp
+        // Keep the image visually present even when its parent gives it a narrow width
+        // (e.g., in HStack with a text column). We compute a single target height based on
+        // available width + aspect ratio, then enforce a minimum height reliably.
+        val minHeight = 240.dp
+        val fallbackHeight = 280.dp
 
-        val baseBoxModifier = run {
-            when {
-                widthPx != null -> {
-                    // Explicit width specified
-                    val width = widthPx.dp
-                    var height = when {
-                        aspectRatio != null && aspectRatio > 0f -> (width / aspectRatio).coerceAtLeast(minHeight)
-                        else -> 480.dp
-                    }
-                    if (height < minHeight) {
-                        height = minHeight
-                    }
-                    modifier
-                        .width(width)
+        val chromeModifier = Modifier
+            .clip(RoundedCornerShape(cornerRadius))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+
+        if (widthPx != null) {
+            val width = widthPx.dp
+            val height = when {
+                aspectRatio != null && aspectRatio > 0f -> (width / aspectRatio).coerceAtLeast(minHeight)
+                else -> fallbackHeight
+            }
+
+            Box(
+                modifier = modifier
+                    .width(width)
+                    .height(height)
+                    .then(chromeModifier),
+                contentAlignment = Alignment.Center
+            ) {
+                RenderImageContent(originalSrc)
+            }
+        } else {
+            BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+                val height = when {
+                    aspectRatio != null && aspectRatio > 0f -> (maxWidth / aspectRatio).coerceAtLeast(minHeight)
+                    else -> fallbackHeight
+                }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
                         .height(height)
-                }
-                aspectRatio != null && aspectRatio > 0f -> {
-                    // Use fillMaxWidth with aspectRatio and minimum height for responsive sizing
-                    modifier
-                        .fillMaxWidth()
-                        .heightIn(min = minHeight)  // Set minimum height
-                        .aspectRatio(aspectRatio)
-                }
-                else -> {
-                    // Fallback: fillMaxWidth with fixed height
-                    modifier
-                        .fillMaxWidth()
-                        .height(280.dp)
+                        .then(chromeModifier),
+                    contentAlignment = Alignment.Center
+                ) {
+                    RenderImageContent(originalSrc)
                 }
             }
-                .clip(RoundedCornerShape(cornerRadius))
-                .background(MaterialTheme.colorScheme.surfaceVariant)
         }
+    }
 
-        // State to hold the generated image URL and loaded bitmap
+    @Composable
+    private fun RenderImageContent(
+        originalSrc: String
+    ) {
         var generatedImageUrl by remember(originalSrc) { mutableStateOf<String?>(null) }
         var isGenerating by remember(originalSrc) { mutableStateOf(false) }
         var errorMessage by remember(originalSrc) { mutableStateOf<String?>(null) }
@@ -145,30 +158,26 @@ object NanoContentComponents {
         var loadedImageBitmap by remember(originalSrc) { mutableStateOf<ImageBitmap?>(null) }
         var isLoadingImage by remember(originalSrc) { mutableStateOf(false) }
 
-        // Initialize ImageGenerationService from ConfigManager
         LaunchedEffect(Unit) {
             try {
                 val configWrapper = ConfigManager.load()
                 val glmConfig = configWrapper.getModelConfigByProvider("glm")
                 imageGenerationService = glmConfig?.let { ImageGenerationService.create(it) }
             } catch (e: Exception) {
-                // Failed to load config, imageGenerationService remains null
+                // Ignore; fall back to showing placeholder text.
             }
         }
 
-        // Generate image when service is ready
         LaunchedEffect(originalSrc, imageGenerationService) {
             if (imageGenerationService != null &&
                 !originalSrc.startsWith("data:") &&
                 generatedImageUrl == null &&
-                !isGenerating) {
-
+                !isGenerating
+            ) {
                 isGenerating = true
                 errorMessage = null
 
-                // Extract prompt from surrounding context or URL
                 val prompt = NanoRenderUtils.extractImagePrompt(originalSrc)
-
                 when (val result = imageGenerationService!!.generateImage(prompt)) {
                     is ImageGenerationResult.Success -> {
                         generatedImageUrl = result.imageUrl
@@ -182,7 +191,6 @@ object NanoContentComponents {
             }
         }
 
-        // Load image from URL when generatedImageUrl is available
         LaunchedEffect(generatedImageUrl) {
             if (generatedImageUrl != null && loadedImageBitmap == null && !isLoadingImage) {
                 isLoadingImage = true
@@ -202,44 +210,37 @@ object NanoContentComponents {
             }
         }
 
-        // Display the image
-        Box(
-            modifier = baseBoxModifier,
-            contentAlignment = Alignment.Center
-        ) {
-            when {
-                isGenerating -> {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        CircularProgressIndicator(modifier = Modifier.size(32.dp))
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text("Generating image...", style = MaterialTheme.typography.bodySmall)
-                    }
+        when {
+            isGenerating -> {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    CircularProgressIndicator(modifier = Modifier.size(32.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Generating image...", style = MaterialTheme.typography.bodySmall)
                 }
-                isLoadingImage -> {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        CircularProgressIndicator(modifier = Modifier.size(32.dp))
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text("Loading image...", style = MaterialTheme.typography.bodySmall)
-                    }
+            }
+            isLoadingImage -> {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    CircularProgressIndicator(modifier = Modifier.size(32.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Loading image...", style = MaterialTheme.typography.bodySmall)
                 }
-                errorMessage != null -> {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("⚠️ Error", color = MaterialTheme.colorScheme.error)
-                        Text(errorMessage!!, style = MaterialTheme.typography.bodySmall)
-                    }
+            }
+            errorMessage != null -> {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("⚠️ Error", color = MaterialTheme.colorScheme.error)
+                    Text(errorMessage!!, style = MaterialTheme.typography.bodySmall)
                 }
-                loadedImageBitmap != null -> {
-                    Image(
-                        bitmap = loadedImageBitmap!!,
-                        contentDescription = originalSrc,
-                        modifier = Modifier.fillMaxSize()
-                            .heightIn(min = 480.dp),
-                        contentScale = ContentScale.Crop
-                    )
-                }
-                else -> {
-                    Text("Image: $originalSrc", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+            }
+            loadedImageBitmap != null -> {
+                Image(
+                    bitmap = loadedImageBitmap!!,
+                    contentDescription = originalSrc,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            }
+            else -> {
+                Text("Image: $originalSrc", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

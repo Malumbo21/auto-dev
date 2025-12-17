@@ -100,11 +100,6 @@ object NanoLayoutComponents {
         }
         val shouldAutoDistribute = vstackOrCardChildren >= 2
 
-        // Common header pattern: HStack(justify="between") { VStack(text...) ; Image(aspect=...) }
-        // In Row measure order, the VStack/Text can take nearly all maxWidth, leaving a tiny width for Image.
-        // Image height is derived from its width via aspectRatio, so it becomes very small.
-        // Balance widths automatically for this 2-child layout (unless author already provided explicit weight).
-        val shouldBalanceImageHeader = justify == "between" && children.size == 2 && containsImage && containsVStack
 
         // Types that should receive equal weight when in HStack with justify="between"
         val flexibleInputTypes = setOf(
@@ -156,12 +151,6 @@ object NanoLayoutComponents {
                     // Explicit weight specified
                     Box(modifier = Modifier.weight(weight).wrapContentHeight(unbounded = true)) {
                         renderNode(child, state, onAction, Modifier)
-                    }
-                } else if (shouldBalanceImageHeader && (child.type == "VStack" || child.type == "Image")) {
-                    // Balance the two columns to avoid Image being squeezed into a tiny width.
-                    Box(modifier = Modifier.weight(1f).wrapContentHeight(unbounded = true)) {
-                        val childModifier = if (child.type == "Image") Modifier.fillMaxWidth() else Modifier
-                        renderNode(child, state, onAction, childModifier)
                     }
                 } else if (shouldAutoDistribute && (child.type == "VStack" || child.type == "Card")) {
                     // VStack/Card in HStack with multiple siblings should share space equally

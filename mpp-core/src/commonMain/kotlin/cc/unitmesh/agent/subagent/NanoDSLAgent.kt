@@ -582,7 +582,7 @@ component Example:
         count: int = 0
         name: str = ""
         enabled: bool = false
-    
+
     Card:
         VStack:
             Text("Count: {count}")
