@@ -110,9 +110,12 @@ object NanoContentComponents {
                 widthPx != null -> {
                     // Explicit width specified
                     val width = widthPx.dp
-                    val height = when {
+                    var height = when {
                         aspectRatio != null && aspectRatio > 0f -> (width / aspectRatio).coerceAtLeast(minHeight)
                         else -> 240.dp
+                    }
+                    if (height < minHeight) {
+                        height = minHeight
                     }
                     modifier
                         .width(width)

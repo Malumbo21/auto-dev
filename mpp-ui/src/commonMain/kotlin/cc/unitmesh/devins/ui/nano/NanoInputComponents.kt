@@ -312,7 +312,7 @@ object NanoInputComponents {
                 onChange?.let { onAction(it) }
             },
             placeholder = { Text(placeholder) },
-            modifier = modifier.fillMaxWidth().height((rows * 24).dp),
+            modifier = modifier.widthIn(min = 200.dp).height((rows * 24).dp),
             minLines = rows
         )
     }
@@ -361,7 +361,7 @@ object NanoInputComponents {
             placeholder
         }
 
-        Box(modifier = modifier) {
+        Box(modifier = modifier.widthIn(min = 120.dp)) {
             OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) {
                 Text(displayText)
             }
@@ -681,7 +681,7 @@ object NanoInputComponents {
             },
             label = label?.let { { Text(it) } },
             placeholder = { Text(placeholder) },
-            modifier = modifier.fillMaxWidth()
+            modifier = modifier.widthIn(min = 200.dp)
         )
     }
 
@@ -717,7 +717,7 @@ object NanoInputComponents {
             else -> currentValue.toInt().toString()
         }
 
-        Column(modifier = modifier.fillMaxWidth()) {
+        Column(modifier = modifier.widthIn(min = 150.dp)) {
             // Display label and current value in a row
             if (label != null || statePath != null) {
                 Row(
