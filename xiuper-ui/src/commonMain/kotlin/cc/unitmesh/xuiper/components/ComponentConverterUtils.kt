@@ -5,6 +5,7 @@ import cc.unitmesh.xuiper.action.NanoAction
 import cc.unitmesh.xuiper.ast.Binding
 import cc.unitmesh.xuiper.ir.NanoActionIR
 import cc.unitmesh.xuiper.ir.NanoBindingIR
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -80,9 +81,20 @@ object ComponentConverterUtils {
                 payload = mapOf("message" to JsonPrimitive(action.message))
             )
             is NanoAction.Sequence -> NanoActionIR(
-                type = "sequence"
+                type = "sequence",
+                payload = mapOf(
+                    "actions" to JsonArray(action.actions.map { actionIrToJson(convertAction(it)) })
+                )
             )
         }
+    }
+
+    private fun actionIrToJson(action: NanoActionIR): JsonElement {
+        val obj = mutableMapOf<String, JsonElement>("type" to JsonPrimitive(action.type))
+        action.payload?.takeIf { it.isNotEmpty() }?.let { payload ->
+            obj["payload"] = JsonObject(payload)
+        }
+        return JsonObject(obj)
     }
     
     private fun convertBodyField(field: BodyField): JsonElement {

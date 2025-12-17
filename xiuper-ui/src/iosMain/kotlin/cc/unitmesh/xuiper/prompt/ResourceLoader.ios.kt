@@ -58,12 +58,12 @@ NanoDSL uses Python-style indentation (4 spaces) to represent hierarchy.
 ### Feedback Components
 - `Modal(open=binding, title="...", size="sm|md|lg", closable=true)` - Modal dialog
 - `Alert(type="info|success|error|warning", message="...", closable=true)` - Alert banner
-- `Progress(value=binding, max=100, showText=true, status="normal|success|error")` - Progress bar
+- `Progress(value=state.progress, max=100, showText=true, status="normal|success|exception|active")` - Progress bar
 - `Spinner(size="sm|md|lg", text="...")` - Loading spinner
 
 ### Data Components
-- `DataChart(type="line|bar|pie", data=binding)` - Data chart visualization
-- `DataTable(columns=[...], data=binding)` - Data table
+- `DataChart(type="line|bar|pie", data=state.series, x_axis="date", y_axis="value")` - Data chart visualization
+- `DataTable(columns=[...], data=state.rows)` - Data table
 
 ### Layout
 - `spacing`: "xs" | "sm" | "md" | "lg" | "xl"

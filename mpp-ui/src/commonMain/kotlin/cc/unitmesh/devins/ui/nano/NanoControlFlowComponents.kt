@@ -7,8 +7,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
 import cc.unitmesh.xuiper.ir.NanoActionIR
 import cc.unitmesh.xuiper.ir.NanoIR
 
@@ -64,13 +64,13 @@ object NanoControlFlowComponents {
     @Composable
     fun RenderUnknown(ir: NanoIR, modifier: Modifier) {
         Surface(
-            modifier = modifier.border(1.dp, Color.Red, RoundedCornerShape(4.dp)),
-            color = Color.Red.copy(alpha = 0.1f)
+            modifier = modifier.border(1.dp, AutoDevColors.Signal.error, RoundedCornerShape(4.dp)),
+            color = AutoDevColors.Signal.error.copy(alpha = 0.1f)
         ) {
             Text(
                 text = "Unknown: ${ir.type}",
                 modifier = Modifier.padding(8.dp),
-                color = Color.Red
+                color = AutoDevColors.Signal.error
             )
         }
     }

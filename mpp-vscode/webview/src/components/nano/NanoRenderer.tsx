@@ -147,6 +147,67 @@ function formatNumber(n: number): string {
   return Number.isInteger(n) ? String(n) : String(n);
 }
 
+function truthy(value: any): boolean {
+  if (value === null || value === undefined) return false;
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value !== 0;
+  if (typeof value === 'string') return value.trim().length > 0;
+  return true;
+}
+
+function evaluateCondition(expr: any, context: NanoRenderContext): boolean {
+  if (expr === null || expr === undefined) return true;
+  if (typeof expr !== 'string') return truthy(expr);
+  const trimmed = expr.trim();
+  if (!trimmed) return true;
+  if (trimmed === 'true') return true;
+  if (trimmed === 'false') return false;
+  if (trimmed.startsWith('!')) return !evaluateCondition(trimmed.slice(1).trim(), context);
+  if (trimmed.startsWith('not ')) return !evaluateCondition(trimmed.slice(4).trim(), context);
+
+  const match = trimmed.match(/^(.+?)\s*(==|!=|>=|<=|>|<)\s*(.+)$/);
+  if (match) {
+    const leftRaw = match[1].trim();
+    const op = match[2];
+    const rightRaw = match[3].trim();
+
+    const left = resolveValue(context, leftRaw);
+
+    let right: any;
+    if (rightRaw === 'true') right = true;
+    else if (rightRaw === 'false') right = false;
+    else if ((rightRaw.startsWith('"') && rightRaw.endsWith('"')) || (rightRaw.startsWith("'") && rightRaw.endsWith("'"))) {
+      right = rightRaw.slice(1, -1);
+    } else {
+      const asNumber = Number(rightRaw);
+      right = Number.isFinite(asNumber) && rightRaw.trim() !== '' ? asNumber : resolveValue(context, rightRaw);
+    }
+
+    const lNum = typeof left === 'number' ? left : Number(left);
+    const rNum = typeof right === 'number' ? right : Number(right);
+
+    switch (op) {
+      case '==':
+        return String(left) === String(right);
+      case '!=':
+        return String(left) !== String(right);
+      case '>':
+        return Number.isFinite(lNum) && Number.isFinite(rNum) ? lNum > rNum : false;
+      case '>=':
+        return Number.isFinite(lNum) && Number.isFinite(rNum) ? lNum >= rNum : false;
+      case '<':
+        return Number.isFinite(lNum) && Number.isFinite(rNum) ? lNum < rNum : false;
+      case '<=':
+        return Number.isFinite(lNum) && Number.isFinite(rNum) ? lNum <= rNum : false;
+      default:
+        return false;
+    }
+  }
+
+  const v = resolveValue(context, trimmed);
+  return truthy(v);
+}
+
 // Small safe arithmetic parser: + - * /, parentheses, identifiers, numbers.
 function evaluateNumericExpression(expr: string, state: any): number | null {
   try {
@@ -491,8 +552,13 @@ const RenderButton: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir
   const label = ir.props.label || 'Button';
   const intent = ir.props.intent || 'default';
   const icon = ir.props.icon;
+  const disabledIf = ir.props.disabled_if;
+  const isDisabled = typeof disabledIf === 'string' && disabledIf.trim() !== ''
+    ? evaluateCondition(disabledIf, context)
+    : false;
 
   const handleClick = () => {
+    if (isDisabled) return;
     if (ir.actions?.onClick && context.dispatch) {
       const action = ir.actions.onClick;
       if (action.type === 'Navigate' && action.payload?.to) {
@@ -506,7 +572,7 @@ const RenderButton: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir
   };
 
   return (
-    <button className={`nano-button intent-${intent}`} onClick={handleClick}>
+    <button className={`nano-button intent-${intent}`} onClick={handleClick} disabled={isDisabled}>
       {icon && <span className="icon">{icon}</span>}
       {label}
     </button>

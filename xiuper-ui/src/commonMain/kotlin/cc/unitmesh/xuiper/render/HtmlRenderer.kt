@@ -23,6 +23,21 @@ class HtmlRenderer(
         return " style=\"flex: $flex 1 0%; min-width: 0;\""
     }
 
+    private fun escapeHtmlAttr(value: String): String {
+        return buildString(value.length) {
+            for (c in value) {
+                when (c) {
+                    '&' -> append("&amp;")
+                    '"' -> append("&quot;")
+                    '\'' -> append("&#39;")
+                    '<' -> append("&lt;")
+                    '>' -> append("&gt;")
+                    else -> append(c)
+                }
+            }
+        }
+    }
+
     override fun render(ir: NanoIR): String {
         return buildString {
             append("<!DOCTYPE html>\n<html>\n<head>\n")
@@ -66,6 +81,7 @@ class HtmlRenderer(
             "Spinner" -> renderSpinner(ir)
             // Tier 1-3: GenUI Components
             "SplitView" -> renderSplitView(ir)
+            "GenCanvas" -> renderGenCanvas(ir)
             "SmartTextField" -> renderSmartTextField(ir)
             "Slider" -> renderSlider(ir)
             "DateRangePicker" -> renderDateRangePicker(ir)
@@ -182,13 +198,18 @@ class HtmlRenderer(
         val label = ir.props["label"]?.jsonPrimitive?.content ?: ""
         val intent = ir.props["intent"]?.jsonPrimitive?.content ?: "default"
         val icon = ir.props["icon"]?.jsonPrimitive?.content
+        val disabledIf = ir.props["disabled_if"]?.jsonPrimitive?.content
         val actionAttr = renderActionAttribute(ir)
         val bindingAttr = renderBindingAttribute(ir)
+        val disabledIfAttr = disabledIf?.takeIf { it.isNotBlank() }?.let {
+            " data-disabled-if=\"${escapeHtmlAttr(it)}\""
+        } ?: ""
 
         return buildString {
             append("<button class=\"nano-button intent-$intent\"")
             append(actionAttr)
             append(bindingAttr)
+            append(disabledIfAttr)
             append(">")
             if (icon != null) append("<span class=\"icon\">$icon</span> ")
             append(label)
@@ -468,6 +489,18 @@ class HtmlRenderer(
         }
     }
 
+    fun renderGenCanvas(ir: NanoIR): String {
+        val bindingAttr = renderBindingAttribute(ir)
+        return buildString {
+            append("<div class=\"nano-gencanvas\"")
+            append(renderFlexStyleAttribute(ir))
+            append(bindingAttr)
+            append(">")
+            append("<!-- Canvas/preview will be rendered by client-side renderer -->")
+            append("</div>\n")
+        }
+    }
+
     fun renderSmartTextField(ir: NanoIR): String {
         val label = ir.props["label"]?.jsonPrimitive?.content
         val placeholder = ir.props["placeholder"]?.jsonPrimitive?.content ?: ""
@@ -488,9 +521,30 @@ class HtmlRenderer(
         val step = ir.props["step"]?.jsonPrimitive?.content?.toFloatOrNull() ?: 1f
         val bindingAttr = renderBindingAttribute(ir)
         val actionAttr = renderActionAttribute(ir)
+        
+        // Get the binding expression to show the current value
+        val binding = ir.bindings?.get("bind")
+        val valueExpression = binding?.expression
+        
         return buildString {
-            if (label != null) append("<label class=\"nano-slider-label\">$label</label>\n")
-            append("<input type=\"range\" class=\"nano-slider\" min=\"$min\" max=\"$max\" step=\"$step\"$bindingAttr$actionAttr>\n")
+            append("<div class=\"nano-slider-container\">\n")
+            
+            // Render label and value in a row if label exists
+            if (label != null || valueExpression != null) {
+                append("  <div class=\"nano-slider-header\">\n")
+                if (label != null) {
+                    append("    <label class=\"nano-slider-label\">$label</label>\n")
+                }
+                if (valueExpression != null) {
+                    append("    <span class=\"nano-slider-value\" data-bind=\"$valueExpression\">")
+                    append("${min.toInt()}")  // Default value
+                    append("</span>\n")
+                }
+                append("  </div>\n")
+            }
+            
+            append("  <input type=\"range\" class=\"nano-slider\" min=\"$min\" max=\"$max\" step=\"$step\"$bindingAttr$actionAttr>\n")
+            append("</div>\n")
         }
     }
 
@@ -503,15 +557,18 @@ class HtmlRenderer(
     fun renderDataChart(ir: NanoIR): String {
         val type = ir.props["type"]?.jsonPrimitive?.content ?: "line"
         val data = ir.props["data"]?.jsonPrimitive?.content
-        return "<div class=\"nano-datachart type-$type\" data-data=\"$data\"><!-- Chart will be rendered by client-side library --></div>\n"
+        val dataAttr = data?.let { " data-data=\"${escapeHtmlAttr(it)}\"" } ?: ""
+        return "<div class=\"nano-datachart type-$type\"$dataAttr><!-- Chart will be rendered by client-side library --></div>\n"
     }
 
     fun renderDataTable(ir: NanoIR): String {
         val columns = ir.props["columns"]?.jsonPrimitive?.content
         val data = ir.props["data"]?.jsonPrimitive?.content
         val actionAttr = renderActionAttribute(ir)
+        val columnsAttr = columns?.let { " data-columns=\"${escapeHtmlAttr(it)}\"" } ?: ""
+        val dataAttr = data?.let { " data-data=\"${escapeHtmlAttr(it)}\"" } ?: ""
         return buildString {
-            append("<table class=\"nano-datatable\" data-columns=\"$columns\" data-data=\"$data\"$actionAttr>\n")
+            append("<table class=\"nano-datatable\"$columnsAttr$dataAttr$actionAttr>\n")
             append("  <thead><tr><!-- Columns will be populated dynamically --></tr></thead>\n")
             append("  <tbody><!-- Rows will be populated dynamically --></tbody>\n")
             append("</table>\n")
@@ -732,6 +789,84 @@ class HtmlRenderer(
         }
 
         .nano-divider { border: none; border-top: 1px solid #E0E0E0; margin: 16px 0; }
+        
+        .nano-slider-container {
+            width: 100%;
+        }
+        
+        .nano-slider-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .nano-slider-label {
+            font-size: 0.875rem;
+            color: #424242;
+            font-weight: 500;
+        }
+        
+        .nano-slider-value {
+            font-size: 0.875rem;
+            color: #1976D2;
+            font-weight: 600;
+        }
+        
+        .nano-slider {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #E0E0E0;
+            outline: none;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+        
+        .nano-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #1976D2;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .nano-slider::-webkit-slider-thumb:hover {
+            background: #1565C0;
+            transform: scale(1.1);
+        }
+        
+        .nano-slider::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #1976D2;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s ease;
+        }
+        
+        .nano-slider::-moz-range-thumb:hover {
+            background: #1565C0;
+            transform: scale(1.1);
+        }
+        
+        .nano-slider::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 6px;
+            background: linear-gradient(to right, #1976D2 0%, #1976D2 var(--value, 0%), #E0E0E0 var(--value, 0%), #E0E0E0 100%);
+            border-radius: 3px;
+        }
+        
+        .nano-slider::-moz-range-track {
+            width: 100%;
+            height: 6px;
+            background: #E0E0E0;
+            border-radius: 3px;
+        }
     """.trimIndent()
 }
 

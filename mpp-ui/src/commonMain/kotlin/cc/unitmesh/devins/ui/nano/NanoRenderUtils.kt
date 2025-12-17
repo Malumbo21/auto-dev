@@ -3,6 +3,7 @@ package cc.unitmesh.devins.ui.nano
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.datetime.Clock
+import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 
@@ -421,9 +422,59 @@ object NanoRenderUtils {
      */
     fun evaluateCondition(condition: String?, state: Map<String, Any>): Boolean {
         if (condition.isNullOrBlank()) return true
-        // Simple evaluation: check if state path exists and is truthy
-        val path = condition.removePrefix("state.")
-        val value = state[path]
+
+        val trimmed = condition.trim()
+        if (trimmed.startsWith("!")) return !evaluateCondition(trimmed.removePrefix("!").trim(), state)
+        if (trimmed.startsWith("not ")) return !evaluateCondition(trimmed.removePrefix("not ").trim(), state)
+        if (trimmed == "true") return true
+        if (trimmed == "false") return false
+
+        fun unquote(raw: String): String = raw
+            .trim()
+            .removeSurrounding("\"", "\"")
+            .removeSurrounding("'", "'")
+
+        fun resolveValue(expr: String): Any? {
+            val normalized = expr.trim().removePrefix("state.")
+            return state[normalized]
+        }
+
+        // Basic comparisons: ==, !=, >, >=, <, <=
+        val comparison = Regex("^(.+?)\\s*(==|!=|>=|<=|>|<)\\s*(.+)$").matchEntire(trimmed)
+        if (comparison != null) {
+            val leftRaw = comparison.groupValues[1].trim()
+            val op = comparison.groupValues[2]
+            val rightRaw = comparison.groupValues[3].trim()
+
+            val leftValue = resolveValue(leftRaw)
+
+            val rightValue: Any? = when {
+                rightRaw.equals("true", ignoreCase = true) -> true
+                rightRaw.equals("false", ignoreCase = true) -> false
+                rightRaw.startsWith("state.") || rightRaw.matches(Regex("[A-Za-z_]\\w*(\\.[A-Za-z_]\\w*)*")) -> resolveValue(rightRaw)
+                rightRaw.matches(Regex("-?\\d+(\\.\\d+)?")) -> rightRaw.toDoubleOrNull()
+                (rightRaw.startsWith("\"") && rightRaw.endsWith("\"")) || (rightRaw.startsWith("'") && rightRaw.endsWith("'")) -> unquote(rightRaw)
+                else -> rightRaw
+            }
+
+            fun asNumber(v: Any?): Double? = when (v) {
+                is Number -> v.toDouble()
+                is String -> v.toDoubleOrNull()
+                else -> null
+            }
+
+            when (op) {
+                "==" -> return leftValue?.toString() == rightValue?.toString()
+                "!=" -> return leftValue?.toString() != rightValue?.toString()
+                ">" -> return (asNumber(leftValue) ?: return false) > (asNumber(rightValue) ?: return false)
+                ">=" -> return (asNumber(leftValue) ?: return false) >= (asNumber(rightValue) ?: return false)
+                "<" -> return (asNumber(leftValue) ?: return false) < (asNumber(rightValue) ?: return false)
+                "<=" -> return (asNumber(leftValue) ?: return false) <= (asNumber(rightValue) ?: return false)
+            }
+        }
+
+        // Simple evaluation: treat it as a state path and check if it is truthy.
+        val value = resolveValue(trimmed)
         return when (value) {
             is Boolean -> value
             is String -> value.isNotBlank()
@@ -438,20 +489,14 @@ object NanoRenderUtils {
      * Material3 DatePicker returns UTC millis at midnight
      */
     fun formatDateFromMillis(millis: Long): String {
-        // Simple conversion: millis / 86400000 = days since epoch
-        val days = millis / 86400000L
-        // Approximate year (will be off by a few days due to leap years, but good enough for display)
-        val year = 1970 + (days / 365)
-        val remainingDays = days % 365
-        val month = (remainingDays / 30).coerceIn(0, 11) + 1
-        val day = (remainingDays % 30).coerceIn(0, 30) + 1
-
+        val instant = Instant.fromEpochMilliseconds(millis)
+        val localDate = instant.toLocalDateTime(TimeZone.UTC).date
         return buildString {
-            append(year.toString().padStart(4, '0'))
+            append(localDate.year.toString().padStart(4, '0'))
             append('-')
-            append(month.toString().padStart(2, '0'))
+            append(localDate.monthNumber.toString().padStart(2, '0'))
             append('-')
-            append(day.toString().padStart(2, '0'))
+            append(localDate.dayOfMonth.toString().padStart(2, '0'))
         }
     }
 

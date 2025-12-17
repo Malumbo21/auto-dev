@@ -32,6 +32,34 @@ import kotlin.math.round
  */
 object StatefulNanoRenderer {
 
+    private fun normalizeStatePath(raw: String): String {
+        val trimmed = raw.trim()
+        return if (trimmed.startsWith("state.")) trimmed.removePrefix("state.") else trimmed
+    }
+
+    private fun initStateFromIR(ir: NanoIR, stateMap: MutableMap<String, Any>) {
+        ir.state?.variables?.forEach { (name, varDef) ->
+            val defaultValue = varDef.defaultValue
+            stateMap[name] = when (varDef.type) {
+                "int" -> defaultValue?.jsonPrimitive?.intOrNull ?: 0
+                "float" -> defaultValue?.jsonPrimitive?.content?.toFloatOrNull() ?: 0f
+                "bool" -> defaultValue?.jsonPrimitive?.booleanOrNull ?: false
+                "str" -> defaultValue?.jsonPrimitive?.content ?: ""
+                "list" -> {
+                    val raw = defaultValue?.jsonPrimitive?.content ?: "[]"
+                    val parsed = parseStructuredDefault(raw)
+                    if (parsed is List<*>) parsed else emptyList<Any>()
+                }
+                "dict", "map", "object" -> {
+                    val raw = defaultValue?.jsonPrimitive?.content ?: "{}"
+                    val parsed = parseStructuredDefault(raw)
+                    if (parsed is Map<*, *>) parsed else emptyMap<String, Any>()
+                }
+                else -> defaultValue?.jsonPrimitive?.content ?: ""
+            }
+        }
+    }
+
     private fun parseStructuredDefault(raw: String): Any {
         val trimmed = raw.trim()
         if (trimmed.isEmpty()) return ""
@@ -56,30 +84,11 @@ object StatefulNanoRenderer {
         ir: NanoIR,
         modifier: Modifier = Modifier
     ) {
-        // Initialize state from IR
-        val stateMap = remember { mutableStateMapOf<String, Any>() }
-
-        // Initialize state values from IR state definitions
-        LaunchedEffect(ir) {
-            ir.state?.variables?.forEach { (name, varDef) ->
-                val defaultValue = varDef.defaultValue
-                stateMap[name] = when (varDef.type) {
-                    "int" -> defaultValue?.jsonPrimitive?.intOrNull ?: 0
-                    "float" -> defaultValue?.jsonPrimitive?.content?.toFloatOrNull() ?: 0f
-                    "bool" -> defaultValue?.jsonPrimitive?.booleanOrNull ?: false
-                    "str" -> defaultValue?.jsonPrimitive?.content ?: ""
-                    "list" -> {
-                        val raw = defaultValue?.jsonPrimitive?.content ?: "[]"
-                        val parsed = parseStructuredDefault(raw)
-                        if (parsed is List<*>) parsed else emptyList<Any>()
-                    }
-                    "dict", "map", "object" -> {
-                        val raw = defaultValue?.jsonPrimitive?.content ?: "{}"
-                        val parsed = parseStructuredDefault(raw)
-                        if (parsed is Map<*, *>) parsed else emptyMap<String, Any>()
-                    }
-                    else -> defaultValue?.jsonPrimitive?.content ?: ""
-                }
+        // Initialize state from IR synchronously so conditionals can render on the first frame.
+        // We reset state when IR changes (e.g. live preview re-parses NanoDSL).
+        val stateMap = remember(ir) {
+            mutableStateMapOf<String, Any>().apply {
+                initStateFromIR(ir, this)
             }
         }
 
@@ -88,7 +97,7 @@ object StatefulNanoRenderer {
             when (action.type) {
                 "stateMutation" -> {
                     val payload = action.payload ?: return@handleAction
-                    val path = payload["path"]?.jsonPrimitive?.content ?: return@handleAction
+                    val path = normalizeStatePath(payload["path"]?.jsonPrimitive?.content ?: return@handleAction)
                     val operation = payload["operation"]?.jsonPrimitive?.content ?: "SET"
                     val valueStr = payload["value"]?.jsonPrimitive?.content ?: ""
 

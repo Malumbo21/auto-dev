@@ -358,7 +358,7 @@ $bars
                     }
                 }
 
-                Divider()
+                HorizontalDivider()
 
                 // Data rows
                 rows.forEachIndexed { index, row ->

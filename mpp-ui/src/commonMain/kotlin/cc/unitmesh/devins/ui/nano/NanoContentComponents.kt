@@ -105,7 +105,7 @@ object NanoContentComponents {
             // Adaptive sizing: fillMaxWidth by default, but respect explicit width if provided.
             // For aspectRatio, use aspectRatio() modifier for better responsiveness.
             val minHeight = 240.dp  // Minimum height to ensure visibility
-            
+
             when {
                 widthPx != null -> {
                     // Explicit width specified
@@ -186,7 +186,8 @@ object NanoContentComponents {
             if (generatedImageUrl != null && loadedImageBitmap == null && !isLoadingImage) {
                 isLoadingImage = true
                 try {
-                    val bitmap = loadImageFromUrl(generatedImageUrl!!)
+                    val imageBytes = downloadImageBytes(generatedImageUrl!!)
+                    val bitmap = decodeImageBytesToBitmap(imageBytes)
                     loadedImageBitmap = bitmap
                 } catch (e: Exception) {
                     errorMessage = "Failed to load image: ${e.message}"
@@ -238,15 +239,13 @@ object NanoContentComponents {
     }
 
     /**
-     * Load an image from a URL and decode it to ImageBitmap.
-     * This is a suspend function that uses Ktor to download the image.
+     * Download image bytes from URL.
      */
-    private suspend fun loadImageFromUrl(url: String): ImageBitmap = withContext(Dispatchers.Default) {
+    private suspend fun downloadImageBytes(url: String): ByteArray = withContext(Dispatchers.Default) {
         val client = cc.unitmesh.agent.tool.impl.http.HttpClientFactory.create()
         try {
             val response: io.ktor.client.statement.HttpResponse = client.get(url)
-            val bytes = response.readBytes()
-            decodeImageBytesToBitmap(bytes)
+            response.readBytes()
         } finally {
             client.close()
         }

@@ -337,6 +337,16 @@ sealed class NanoNode {
         val children: List<NanoNode> = emptyList()
     ) : NanoNode()
 
+    /**
+     * GenCanvas - Canvas/preview region driven by state
+     * Example: `GenCanvas(bind=state.preview)`
+     */
+    data class GenCanvas(
+        val bind: Binding? = null,
+        /** Flex factor when this node is a child of HStack/SplitView etc. */
+        val flex: Float? = null
+    ) : NanoNode()
+
     // ============ Tier 2: Structured Input Components ============
 
     /**

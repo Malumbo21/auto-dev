@@ -27,6 +27,8 @@ component ComponentName(param: Type):
 | VStack | spacing, align | Vertical stack |
 | HStack | spacing, align, justify | Horizontal stack |
 | Card | padding, shadow, radius | Container card |
+| SplitView | ratio | Left/right split layout |
+| GenCanvas | bind | AI-generated canvas/preview area |
 
 ### 3. Display Components
 | Component | Props | Description |
@@ -53,19 +55,33 @@ component ComponentName(param: Type):
 | DateRangePicker | bind | Date range picker |
 
 ### 5. Feedback Components
-
 | Component | Props | Description |
 |-----------|-------|-------------|
-| Modal | open, title, on_close, size, content | Dialog overlay for critical information or actions |
-| Alert | type, message, on_close, dismissible | Inline alert for feedback messages |
-| Progress | value, max, label, indeterminate | Progress indicator (linear or circular) |
-| Spinner | size, color, label | Loading spinner for async operations |
+| Modal | open, title, size, closable, on_close | Modal dialog container |
+| Alert | type, message, closable, icon, on_close | Inline alert banner |
+| Progress | value, max, showText, status | Progress indicator |
+| Spinner | size, text | Loading spinner |
 
-### 6. Data Components
+Example:
+```nanodsl
+Modal(open := state.showHelp, title="Help", size="md"):
+    Text("Here are some tips...")
+```
+
+### 6. GenUI Components
 | Component | Props | Description |
 |-----------|-------|-------------|
-| DataChart | data, type, options, title | Visualize data as charts (bar, line, pie, etc.) |
-| DataTable | data, columns, pagination, selectable, on_row_click | Tabular data display with advanced features |
+| SplitView | ratio, flex | Split layout (two children) |
+| GenCanvas | bind | Canvas/preview region driven by state |
+| DataChart | data, type, x_axis, y_axis | Data visualization chart |
+| DataTable | data, columns, on_row_click | Tabular data display |
+
+Example:
+```nanodsl
+SplitView(ratio=0.35):
+    DataTable(columns=["name","role"], data=state.users)
+    GenCanvas(bind=state.preview)
+```
 
 ### 7. Form Components
 ```nanodsl
@@ -75,7 +91,7 @@ Form(onSubmit=request.login):
     Button("Submit", type="submit")
 ```
 
-### 6. State Management
+### 8. State Management
 ```nanodsl
 component Counter:
     state:
@@ -91,13 +107,13 @@ component Counter:
                     on_click: state.count += 1
 ```
 
-### 7. Conditional Rendering
+### 9. Conditional Rendering
 ```nanodsl
 if condition:
     Component()
 ```
 
-### 8. HTTP Request Actions
+### 10. HTTP Request Actions
 ```nanodsl
 # Simple GET request
 Button("Load"):
@@ -132,7 +148,7 @@ request login:
 HTTP Methods: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`
 Content Types: `JSON`, `FORM_URLENCODED`, `FORM_DATA`
 
-### 9. Routing & Navigation
+### 11. Routing & Navigation
 ```nanodsl
 # Simple navigation
 Button("Go Home"):

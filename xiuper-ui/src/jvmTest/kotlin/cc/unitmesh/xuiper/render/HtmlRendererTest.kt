@@ -87,6 +87,21 @@ class HtmlRendererTest {
     }
 
     @Test
+    fun `should render Button with disabled_if`() {
+        val ir = NanoIR(
+            type = "Button",
+            props = mapOf(
+                "label" to kotlinx.serialization.json.JsonPrimitive("Submit"),
+                "disabled_if" to kotlinx.serialization.json.JsonPrimitive("!state.name")
+            )
+        )
+
+        val html = renderer.renderNode(ir)
+
+        assertContains(html, "data-disabled-if=\"!state.name\"")
+    }
+
+    @Test
     fun `should render full HTML document`() {
         val ir = NanoIR.card(
             padding = "md",
@@ -304,6 +319,78 @@ component GreetingCard:
         assertContains(html, "nano-vstack")
         assertContains(html, "From")
         assertContains(html, "To")
+    }
+
+    // ============================================================================
+    // Slider Tests
+    // ============================================================================
+
+    @Test
+    fun `should render slider with value display`() {
+        val source = """
+component PriceSlider:
+    state:
+        max_price: 2000
+    VStack(spacing="sm"):
+        Text(f"Max Price: ${"\$"}{state.max_price}", style="caption")
+        Slider(
+            label="Price Range",
+            bind := state.max_price,
+            min=500,
+            max=5000,
+            step=100
+        )
+        """.trimIndent()
+
+        val ir = NanoDSL.toIR(source)
+        val html = renderer.renderNode(ir)
+
+        // Should have slider container
+        assertContains(html, "nano-slider-container")
+        
+        // Should have label
+        assertContains(html, "Price Range")
+        assertContains(html, "nano-slider-label")
+        
+        // Should have value display span
+        assertContains(html, "nano-slider-value")
+        assertContains(html, "data-bind=\"state.max_price\"")
+        
+        // Should have slider input with correct attributes
+        assertContains(html, "<input type=\"range\"")
+        assertContains(html, "class=\"nano-slider\"")
+        assertContains(html, "min=\"500.0\"")
+        assertContains(html, "max=\"5000.0\"")
+        assertContains(html, "step=\"100.0\"")
+        
+        // Should have binding attribute
+        assertContains(html, "data-bindings")
+    }
+
+    @Test
+    fun `should render slider without label but with value`() {
+        val source = """
+component SimpleSlider:
+    state:
+        volume: 50
+    Slider(
+        bind := state.volume,
+        min=0,
+        max=100,
+        step=1
+    )
+        """.trimIndent()
+
+        val ir = NanoDSL.toIR(source)
+        val html = renderer.renderNode(ir)
+
+        // Should have value display even without label
+        assertContains(html, "nano-slider-value")
+        assertContains(html, "data-bind=\"state.volume\"")
+        
+        // Should have slider with correct range
+        assertContains(html, "min=\"0.0\"")
+        assertContains(html, "max=\"100.0\"")
     }
 }
 

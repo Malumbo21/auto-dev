@@ -123,5 +123,27 @@ component FlexWrapDemo:
         assertEquals(1f, left.props["flex"]?.jsonPrimitive?.content?.toFloatOrNull())
         assertEquals(2f, right.props["flex"]?.jsonPrimitive?.content?.toFloatOrNull())
     }
+
+    @Test
+    fun shouldConvertGenCanvasToIR() {
+        val source = """
+component CanvasDemo:
+    SplitView(ratio=0.4):
+        Text("Left")
+        GenCanvas(bind=state.preview, flex=1)
+        """.trimIndent()
+
+        val ir = NanoDSL.toIR(source)
+
+        val split = ir.children!![0]
+        assertEquals("SplitView", split.type)
+        assertNotNull(split.children)
+        assertEquals(2, split.children!!.size)
+
+        val canvas = split.children!![1]
+        assertEquals("GenCanvas", canvas.type)
+        assertTrue(canvas.bindings?.containsKey("bind") == true)
+        assertEquals(1f, canvas.props["flex"]?.jsonPrimitive?.content?.toFloatOrNull())
+    }
 }
 

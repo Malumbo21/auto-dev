@@ -8,6 +8,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import cc.unitmesh.xuiper.ir.NanoActionIR
 import cc.unitmesh.xuiper.ir.NanoIR
@@ -19,6 +20,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonPrimitive
+import kotlin.math.round
 
 /**
  * Input components for NanoUI Compose renderer.
@@ -106,11 +108,14 @@ object NanoInputComponents {
         // Interpolate {state.xxx} expressions in button label
         val label = NanoRenderUtils.interpolateText(rawLabel, state)
         val intent = ir.props["intent"]?.jsonPrimitive?.content
+        val disabledIf = ir.props["disabled_if"]?.jsonPrimitive?.content
+        val isDisabled = !disabledIf.isNullOrBlank() && NanoRenderUtils.evaluateCondition(disabledIf, state)
         val onClick = ir.actions?.get("onClick")
 
         when (intent) {
             "secondary" -> OutlinedButton(
-                onClick = { onClick?.let { onAction(it) } },
+                onClick = { if (!isDisabled) onClick?.let { onAction(it) } },
+                enabled = !isDisabled,
                 modifier = modifier
             ) {
                 Text(label)
@@ -121,7 +126,8 @@ object NanoInputComponents {
                     else -> ButtonDefaults.buttonColors()
                 }
                 Button(
-                    onClick = { onClick?.let { onAction(it) } },
+                    onClick = { if (!isDisabled) onClick?.let { onAction(it) } },
+                    enabled = !isDisabled,
                     colors = colors,
                     modifier = modifier
                 ) {
@@ -405,24 +411,28 @@ object NanoInputComponents {
         val datePickerState = rememberDatePickerState()
 
         // Display field
-        OutlinedTextField(
-            value = currentValue,
-            onValueChange = { }, // Read-only, click to open dialog
-            placeholder = { Text(placeholder) },
-            leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = "Date") },
+        Box(
             modifier = modifier
                 .fillMaxWidth()
-                .clickable { showDialog = true },
-            singleLine = true,
-            readOnly = true,
-            enabled = false,
-            colors = OutlinedTextFieldDefaults.colors(
-                disabledTextColor = MaterialTheme.colorScheme.onSurface,
-                disabledBorderColor = MaterialTheme.colorScheme.outline,
-                disabledLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                disabledPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant
+                .clickable { showDialog = true }
+        ) {
+            OutlinedTextField(
+                value = currentValue,
+                onValueChange = { }, // Read-only, click to open dialog
+                placeholder = { Text(placeholder) },
+                leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = "Date") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                readOnly = true,
+                enabled = false,
+                colors = OutlinedTextFieldDefaults.colors(
+                    disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                    disabledBorderColor = MaterialTheme.colorScheme.outline,
+                    disabledLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    disabledPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             )
-        )
+        }
 
         // DatePicker Dialog
         if (showDialog) {
@@ -700,11 +710,38 @@ object NanoInputComponents {
             }
         }
 
+        // Format the display value based on the state type
+        val displayValue = when (rawStateValue) {
+            is Int -> currentValue.toInt().toString()
+            is Float, is Double -> (round(currentValue * 10f) / 10f).toString()
+            else -> currentValue.toInt().toString()
+        }
+
         Column(modifier = modifier.fillMaxWidth()) {
-            if (label != null) {
-                Text(label, style = MaterialTheme.typography.bodySmall)
-                Spacer(modifier = Modifier.height(4.dp))
+            // Display label and current value in a row
+            if (label != null || statePath != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (label != null) {
+                        Text(
+                            text = label,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                    // Display current value
+                    Text(
+                        text = displayValue,
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
             }
+
             Slider(
                 value = currentValue,
                 onValueChange = { newValue ->
@@ -777,24 +814,28 @@ object NanoInputComponents {
         var showDialog by remember { mutableStateOf(false) }
         val dateRangeState = rememberDateRangePickerState()
 
-        OutlinedTextField(
-            value = displayValue,
-            onValueChange = { },
-            placeholder = { Text("Select date range") },
-            leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = null) },
+        Box(
             modifier = modifier
                 .fillMaxWidth()
-                .clickable { showDialog = true },
-            singleLine = true,
-            readOnly = true,
-            enabled = false,
-            colors = OutlinedTextFieldDefaults.colors(
-                disabledTextColor = MaterialTheme.colorScheme.onSurface,
-                disabledBorderColor = MaterialTheme.colorScheme.outline,
-                disabledLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                disabledPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant
+                .clickable { showDialog = true }
+        ) {
+            OutlinedTextField(
+                value = displayValue,
+                onValueChange = { },
+                placeholder = { Text("Select date range") },
+                leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = null) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                readOnly = true,
+                enabled = false,
+                colors = OutlinedTextFieldDefaults.colors(
+                    disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                    disabledBorderColor = MaterialTheme.colorScheme.outline,
+                    disabledLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    disabledPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             )
-        )
+        }
 
         if (showDialog) {
             DatePickerDialog(

@@ -81,9 +81,10 @@ object NanoFeedbackComponents {
         }
 
         LaunchedEffect(isOpen, rawTitle, ir.children, llmService) {
-            if (isOpen && rawTitle.isNullOrBlank() && (ir.children.isNullOrEmpty()) && generatedTitle == null && llmService != null) {
+            val service = llmService
+            if (isOpen && rawTitle.isNullOrBlank() && (ir.children.isNullOrEmpty()) && generatedTitle == null && service != null) {
                 val prompt = "Generate a short modal dialog title and one-sentence body for a UI. Return as: Title: ...\\nBody: ..."
-                val response = llmService!!.sendPrompt(prompt)
+                val response = service.sendPrompt(prompt)
                 val titleLine = response.lineSequence().firstOrNull { it.trim().startsWith("Title:") }
                 val bodyLine = response.lineSequence().firstOrNull { it.trim().startsWith("Body:") }
                 generatedTitle = titleLine?.substringAfter("Title:")?.trim()?.takeIf { it.isNotEmpty() }
@@ -174,9 +175,10 @@ object NanoFeedbackComponents {
         }
 
         LaunchedEffect(rawMessage, type, llmService) {
-            if (rawMessage.isBlank() && generatedMessage == null && llmService != null) {
+            val service = llmService
+            if (rawMessage.isBlank() && generatedMessage == null && service != null) {
                 val prompt = "Generate a short ${type} alert message for a UI (<= 80 chars)."
-                val response = llmService!!.sendPrompt(prompt)
+                val response = service.sendPrompt(prompt)
                 generatedMessage = response.trim().lineSequence().firstOrNull()?.take(80)
             }
         }

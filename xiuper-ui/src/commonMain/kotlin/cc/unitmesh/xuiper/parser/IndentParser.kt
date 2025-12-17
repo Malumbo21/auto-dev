@@ -45,6 +45,8 @@ class IndentParser(
         private val FOR_REGEX = Regex("""^for\s+(\w+)\s+in\s+(.+?):\s*$""")
         private val ON_CLICK_REGEX = Regex("""^on_click:\s*(.+)$""")
         private val ON_CLICK_BLOCK_REGEX = Regex("""^on_click:\s*$""")
+        private val ON_EVENT_REGEX = Regex("""^on_([a-zA-Z_][\w_]*):\s*(.+)$""")
+        private val ON_EVENT_BLOCK_REGEX = Regex("""^on_([a-zA-Z_][\w_]*):\s*$""")
     }
 
     /**
@@ -372,7 +374,7 @@ class IndentParser(
         var index = startIndex + 1
         val children = mutableListOf<NanoNode>()
         val props = mutableMapOf<String, String>()
-        var onClick: NanoAction? = null
+        val actions = mutableMapOf<String, NanoAction>()
 
         while (index < lines.size) {
             val line = lines[index]
@@ -386,17 +388,34 @@ class IndentParser(
 
             val trimmed = line.trim()
 
+            // Check for on_* block (multi-line): on_click/on_change/on_row_click/on_close/on_submit
+            ON_EVENT_BLOCK_REGEX.matchEntire(trimmed)?.let { match ->
+                val event = match.groupValues[1]
+                val (action, newIndex) = parseActionBlock(lines, index)
+                actions[event] = action
+                index = newIndex
+                continue
+            }
+
+            // Check for on_* action (single-line)
+            ON_EVENT_REGEX.matchEntire(trimmed)?.let { match ->
+                val event = match.groupValues[1]
+                actions[event] = parseAction(match.groupValues[2])
+                index++
+                continue
+            }
+
             // Check for on_click block (multi-line)
             if (ON_CLICK_BLOCK_REGEX.matches(trimmed)) {
                 val (action, newIndex) = parseActionBlock(lines, index)
-                onClick = action
+                actions["click"] = action
                 index = newIndex
                 continue
             }
 
             // Check for on_click action (single-line)
             ON_CLICK_REGEX.matchEntire(trimmed)?.let { match ->
-                onClick = parseAction(match.groupValues[1])
+                actions["click"] = parseAction(match.groupValues[1])
                 index++
                 continue
             }
@@ -457,7 +476,7 @@ class IndentParser(
             index = newIndex
         }
 
-        val node = createNode(componentName, argsStr, children, props, onClick)
+        val node = createNode(componentName, argsStr, children, props, actions)
         return node to index
     }
 
@@ -894,9 +913,14 @@ class IndentParser(
         argsStr: String,
         children: List<NanoNode>,
         props: Map<String, String> = emptyMap(),
-        onClick: NanoAction? = null
+        actions: Map<String, NanoAction> = emptyMap()
     ): NanoNode? {
         val args = parseArgs(argsStr)
+        val onClick = actions["click"]
+        val onChange = actions["change"] ?: onClick
+        val onRowClick = actions["row_click"] ?: onClick
+        val onClose = actions["close"] ?: onClick
+        val onSubmitAction = actions["submit"]
 
         return when (name) {
             "VStack" -> NanoNode.VStack(
@@ -986,7 +1010,7 @@ class IndentParser(
                 NanoNode.Checkbox(
                     checked = checkedArg?.let { Binding.parse(it) },
                     label = args["label"] ?: props["label"],
-                    onChange = onClick
+                    onChange = onChange
                 )
             }
             "TextArea" -> {
@@ -1008,6 +1032,7 @@ class IndentParser(
             "Form" -> {
                 NanoNode.Form(
                     onSubmit = args["onSubmit"],
+                    onSubmitAction = onSubmitAction,
                     flex = (args["flex"] ?: props["flex"])?.toFloatOrNull(),
                     children = children
                 )
@@ -1021,7 +1046,7 @@ class IndentParser(
                     minDate = args["minDate"] ?: props["minDate"],
                     maxDate = args["maxDate"] ?: props["maxDate"],
                     placeholder = args["placeholder"] ?: props["placeholder"],
-                    onChange = onClick
+                    onChange = onChange
                 )
             }
             "Radio" -> {
@@ -1048,7 +1073,7 @@ class IndentParser(
                     checked = checkedArg?.let { Binding.parse(it) },
                     label = args["label"] ?: props["label"],
                     size = args["size"] ?: props["size"],
-                    onChange = onClick
+                    onChange = onChange
                 )
             }
             "NumberInput" -> {
@@ -1060,7 +1085,7 @@ class IndentParser(
                     step = args["step"]?.toFloatOrNull() ?: props["step"]?.toFloatOrNull(),
                     precision = args["precision"]?.toIntOrNull() ?: props["precision"]?.toIntOrNull(),
                     placeholder = args["placeholder"] ?: props["placeholder"],
-                    onChange = onClick
+                    onChange = onChange
                 )
             }
             // ============ P0: Feedback Components ============
@@ -1071,7 +1096,7 @@ class IndentParser(
                     title = args["title"] ?: props["title"],
                     size = args["size"] ?: props["size"],
                     closable = args["closable"]?.toBoolean() ?: props["closable"]?.toBoolean(),
-                    onClose = onClick,
+                    onClose = onClose,
                     children = children
                 )
             }
@@ -1081,7 +1106,7 @@ class IndentParser(
                     message = args["message"] ?: props["message"],
                     closable = args["closable"]?.toBoolean() ?: props["closable"]?.toBoolean(),
                     icon = args["icon"] ?: props["icon"],
-                    onClose = onClick,
+                    onClose = onClose,
                     children = children
                 )
             }
@@ -1108,6 +1133,13 @@ class IndentParser(
                     children = children
                 )
             }
+            "GenCanvas" -> {
+                val bindArg = args["bind"] ?: props["bind"] ?: args["value"] ?: props["value"]
+                NanoNode.GenCanvas(
+                    bind = bindArg?.let { Binding.parse(it) },
+                    flex = (args["flex"] ?: props["flex"])?.toFloatOrNull()
+                )
+            }
             "SmartTextField" -> {
                 val nameArg = extractFirstArg(argsStr)
                 val bindArg = args["bind"] ?: props["bind"] ?: args["value"] ?: props["value"]
@@ -1129,7 +1161,7 @@ class IndentParser(
                     min = args["min"]?.toFloatOrNull() ?: props["min"]?.toFloatOrNull(),
                     max = args["max"]?.toFloatOrNull() ?: props["max"]?.toFloatOrNull(),
                     step = args["step"]?.toFloatOrNull() ?: props["step"]?.toFloatOrNull(),
-                    onChange = onClick
+                    onChange = onChange
                 )
             }
             "DateRangePicker" -> {
@@ -1138,7 +1170,7 @@ class IndentParser(
                 NanoNode.DateRangePicker(
                     name = nameArg ?: props["name"],
                     bind = bindArg?.let { Binding.parse(it) },
-                    onChange = onClick
+                    onChange = onChange
                 )
             }
             "DataChart" -> {
@@ -1158,7 +1190,7 @@ class IndentParser(
                     name = nameArg ?: props["name"],
                     columns = args["columns"] ?: props["columns"],
                     data = args["data"] ?: props["data"],
-                    onRowClick = onClick
+                    onRowClick = onRowClick
                 )
             }
             else -> null

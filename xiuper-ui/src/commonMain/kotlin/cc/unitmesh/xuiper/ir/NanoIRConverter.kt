@@ -37,6 +37,7 @@ object NanoIRConverter {
             is NanoNode.TextArea -> convertTextArea(node)
             // Tier 1: GenUI Foundation
             is NanoNode.SplitView -> convertSplitView(node)
+            is NanoNode.GenCanvas -> convertGenCanvas(node)
             // Tier 2: Structured Input
             is NanoNode.SmartTextField -> convertSmartTextField(node)
             is NanoNode.Slider -> convertSlider(node)
@@ -411,6 +412,21 @@ object NanoIRConverter {
             type = "SplitView",
             props = props,
             children = node.children.map { convert(it) }
+        )
+    }
+
+    private fun convertGenCanvas(node: NanoNode.GenCanvas): NanoIR {
+        val props = mutableMapOf<String, JsonElement>()
+        node.flex?.let { props["flex"] = JsonPrimitive(it) }
+
+        val bindings = node.bind?.let {
+            mapOf("bind" to convertBinding(it))
+        }
+
+        return NanoIR(
+            type = "GenCanvas",
+            props = props,
+            bindings = bindings
         )
     }
 

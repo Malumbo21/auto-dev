@@ -24,6 +24,7 @@ object NanoSpecV1 : NanoSpec {
     private val RADIUS_VALUES = listOf("none", "sm", "md", "lg", "full")
     private val ALIGN_VALUES = listOf("start", "center", "end", "stretch")
     private val JUSTIFY_VALUES = listOf("start", "center", "end", "between", "around")
+    private val COMPONENT_SIZE_VALUES = listOf("sm", "md", "lg")
     private val CHART_TYPE_VALUES = listOf("line", "bar", "pie", "area", "scatter")
     private val ALERT_TYPE_VALUES = listOf("success", "info", "warning", "error")
     private val PROGRESS_STATUS_VALUES = listOf("normal", "success", "exception", "active")
@@ -191,7 +192,7 @@ object NanoSpecV1 : NanoSpec {
             optionalProps = listOf(
                 PropSpec("checked", PropType.BINDING, description = "Switch state binding"),
                 PropSpec("label", PropType.STRING, description = "Switch label"),
-                PropSpec("size", PropType.ENUM, "md", allowedValues = SPACING_VALUES)
+                PropSpec("size", PropType.ENUM, "md", allowedValues = COMPONENT_SIZE_VALUES)
             ),
             allowsActions = true,
             description = "Toggle switch component"
@@ -252,7 +253,7 @@ object NanoSpecV1 : NanoSpec {
             name = "Spinner",
             category = ComponentCategory.CONTENT,
             optionalProps = listOf(
-                PropSpec("size", PropType.ENUM, "md", allowedValues = SPACING_VALUES),
+                PropSpec("size", PropType.ENUM, "md", allowedValues = COMPONENT_SIZE_VALUES),
                 PropSpec("color", PropType.STRING, description = "Spinner color"),
                 PropSpec("text", PropType.STRING, description = "Loading text")
             ),
@@ -280,6 +281,15 @@ object NanoSpecV1 : NanoSpec {
             ),
             allowsChildren = true,
             description = "Split view layout (left chat, right canvas)"
+        ),
+        "GenCanvas" to ComponentSpec(
+            name = "GenCanvas",
+            category = ComponentCategory.LAYOUT,
+            optionalProps = listOf(
+                PropSpec("bind", PropType.BINDING, description = "State binding for preview payload"),
+                PropSpec("flex", PropType.FLOAT, description = "Flex factor when used inside HStack/SplitView")
+            ),
+            description = "Canvas/preview region driven by state"
         ),
         // ============ Tier 2: Structured Input Components ============
         "SmartTextField" to ComponentSpec(
@@ -320,10 +330,8 @@ object NanoSpecV1 : NanoSpec {
         "DataChart" to ComponentSpec(
             name = "DataChart",
             category = ComponentCategory.CONTENT,
-            requiredProps = listOf(
-                PropSpec("data", PropType.EXPRESSION, description = "Data source (state binding or literal)")
-            ),
             optionalProps = listOf(
+                PropSpec("data", PropType.EXPRESSION, description = "Data source (state binding or literal)"),
                 PropSpec("type", PropType.ENUM, "line", allowedValues = CHART_TYPE_VALUES),
                 PropSpec("x_axis", PropType.STRING, description = "X-axis field name"),
                 PropSpec("y_axis", PropType.STRING, description = "Y-axis field name"),
@@ -334,11 +342,9 @@ object NanoSpecV1 : NanoSpec {
         "DataTable" to ComponentSpec(
             name = "DataTable",
             category = ComponentCategory.CONTENT,
-            requiredProps = listOf(
-                PropSpec("data", PropType.EXPRESSION, description = "Data source (state binding or literal)"),
-                PropSpec("columns", PropType.STRING, description = "Column definitions (array or state binding)")
-            ),
             optionalProps = listOf(
+                PropSpec("data", PropType.EXPRESSION, description = "Data source (state binding or literal)"),
+                PropSpec("columns", PropType.STRING, description = "Column definitions (array or state binding)"),
                 PropSpec("on_row_click", PropType.EXPRESSION, description = "Action on row click")
             ),
             allowsActions = true,
@@ -346,7 +352,7 @@ object NanoSpecV1 : NanoSpec {
         )
     )
 
-    override val layoutComponents = setOf("VStack", "HStack", "SplitView")
+    override val layoutComponents = setOf("VStack", "HStack", "SplitView", "GenCanvas")
     override val containerComponents = setOf("Card", "Form", "Modal")
     override val contentComponents = setOf("Text", "Image", "Badge", "Divider", "DataChart", "DataTable", "Alert", "Progress", "Spinner")
     override val inputComponents = setOf("Button", "Input", "Checkbox", "TextArea", "Select", "SmartTextField", "Slider", "DateRangePicker", "DatePicker", "Radio", "RadioGroup", "Switch", "NumberInput")
