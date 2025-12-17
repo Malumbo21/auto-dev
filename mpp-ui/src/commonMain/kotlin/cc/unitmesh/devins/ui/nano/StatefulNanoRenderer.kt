@@ -78,7 +78,7 @@ object StatefulNanoRenderer {
             // Content
             "Text" -> NanoContentComponents.RenderText(ir, state, modifier)
             "Image" -> NanoContentComponents.RenderImage(ir, modifier)
-            "Badge" -> NanoContentComponents.RenderBadge(ir, modifier)
+            "Badge" -> NanoContentComponents.RenderBadge(ir, state, modifier)
             "Icon" -> NanoContentComponents.RenderIcon(ir, modifier)
             "Divider" -> NanoContentComponents.RenderDivider(modifier)
             // Input

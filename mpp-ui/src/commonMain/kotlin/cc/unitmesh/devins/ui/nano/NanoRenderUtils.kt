@@ -2,16 +2,34 @@ package cc.unitmesh.devins.ui.nano
 
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import cc.unitmesh.xuiper.ir.NanoIR
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * Utility functions for NanoUI rendering.
  * Contains text interpolation, expression evaluation, and styling helpers.
  */
 object NanoRenderUtils {
+
+    /**
+     * Resolve a string prop value from IR.
+     *
+     * If a binding exists for [propKey], it will read from [state]. Otherwise it reads from [ir.props].
+     * This returns the raw string value (no interpolation applied).
+     */
+    fun resolveStringProp(ir: NanoIR, propKey: String, state: Map<String, Any>): String {
+        val binding = ir.bindings?.get(propKey)
+        return if (binding != null) {
+            val expr = binding.expression.removePrefix("state.")
+            state[expr]?.toString() ?: ""
+        } else {
+            ir.props[propKey]?.jsonPrimitive?.content ?: ""
+        }
+    }
 
     /**
      * Built-in variables that are always available for text interpolation
@@ -62,6 +80,29 @@ object NanoRenderUtils {
     fun evaluateExpression(expr: String, state: Map<String, Any>): String {
         val trimmed = expr.trim()
         if (trimmed.isBlank()) return ""
+
+        // Built-in function: len(x)
+        Regex("^len\\((.+)\\)$").matchEntire(trimmed)?.let { match ->
+            val inner = match.groupValues[1].trim()
+            val value = resolveIdentifierAny(inner, state)
+            val length = when (value) {
+                null -> 0
+                is CharSequence -> value.length
+                is Map<*, *> -> value.size
+                is Collection<*> -> value.size
+                is Array<*> -> value.size
+                is IntArray -> value.size
+                is LongArray -> value.size
+                is ShortArray -> value.size
+                is ByteArray -> value.size
+                is DoubleArray -> value.size
+                is FloatArray -> value.size
+                is BooleanArray -> value.size
+                is Iterable<*> -> value.count()
+                else -> return ""
+            }
+            return length.toString()
+        }
 
         // Fast path: plain variable name
         resolveIdentifierAny(trimmed, state)?.let { return it.toString() }

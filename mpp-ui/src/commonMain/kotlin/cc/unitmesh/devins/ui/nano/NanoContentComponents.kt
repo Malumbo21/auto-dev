@@ -252,8 +252,9 @@ object NanoContentComponents {
     }
 
     @Composable
-    fun RenderBadge(ir: NanoIR, modifier: Modifier) {
-        val text = ir.props["text"]?.jsonPrimitive?.content ?: ""
+    fun RenderBadge(ir: NanoIR, state: Map<String, Any>, modifier: Modifier) {
+        val rawText = NanoRenderUtils.resolveStringProp(ir, "text", state)
+        val text = NanoRenderUtils.interpolateText(rawText, state)
         val colorName = ir.props["color"]?.jsonPrimitive?.content
 
         val bgColor = when (colorName) {
