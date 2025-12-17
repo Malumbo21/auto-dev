@@ -511,39 +511,79 @@ ${input.description}
 
 NanoDSL uses Python-style indentation (4 spaces) to represent hierarchy.
 
-### Components
-- `component Name:` - Define a component
-- `VStack(spacing="sm"):` - Vertical stack layout
-- `HStack(align="center", justify="between"):` - Horizontal stack layout
-- `Card:` - Container with padding/shadow
+### Layout Components
+- `VStack(spacing="sm", align="center")` - Vertical stack layout
+- `HStack(spacing="sm", align="center", justify="between")` - Horizontal stack layout
+- `Card(padding="md", shadow="sm")` - Container with padding/shadow
+- `GenCanvas(layout="SingleView|SplitView")` - Dynamic UI canvas
+- `SplitView(ratio=0.5)` - Split screen layout
+
+### Display Components
 - `Text("content", style="h1|h2|h3|body|caption")` - Text display
-- `Button("label", intent="primary|secondary")` - Clickable button
 - `Image(src=path, aspect=16/9, radius="md")` - Image display
-- `Input(value=binding, placeholder="...")` - Text input
-- `Badge("text", color="green|red|blue")` - Status badge
-- `Icon("name", size="sm|md|lg", color="primary|green|red|blue")` - Icon display
+- `Badge("text", color="green|red|blue")` - Status indicator
+- `Icon("name", size="sm|md|lg", color="primary")` - Icon display
+- `Divider` - Horizontal line separator
 
-### Properties
-- `padding: "sm|md|lg"` - Padding size
-- `shadow: "sm|md|lg"` - Shadow depth
-- `spacing: "sm|md|lg"` - Gap between items
+### Form Input Components
+- `Input(value=binding, placeholder="...", type="text|email|password")` - Text input
+- `TextArea(value=binding, placeholder="...", rows=4)` - Multi-line text input
+- `Select(value=binding, options=[...], placeholder="...")` - Dropdown select
+- `Checkbox(checked=binding, label="...")` - Checkbox input
+- `DatePicker(value=binding, format="YYYY-MM-DD", placeholder="...")` - Date picker
+- `Radio(option="value", label="...", name="group")` - Single radio button
+- `RadioGroup(value=binding, options=[...], name="group")` - Radio button group
+- `Switch(checked=binding, label="...", size="sm|md")` - Toggle switch
+- `NumberInput(value=binding, min=0, max=100, step=1, placeholder="...")` - Number input with +/- buttons
+- `SmartTextField(label="...", bind=binding, validation="...", placeholder="...")` - Text input with validation
+- `Slider(label="...", bind=binding, min=0, max=100, step=1)` - Range slider
+- `DateRangePicker(bind=binding)` - Date range picker
 
-### State (for interactive components)
+### Action Components
+- `Button("label", intent="primary|secondary|danger", icon="...", disabled_if="condition")` - Clickable button
+- `Form(onSubmit=action)` - Form container
+
+### Feedback Components
+- `Modal(open=binding, title="...", size="sm|md|lg", closable=true)` - Modal dialog
+- `Alert(type="info|success|error|warning", message="...", closable=true)` - Alert banner
+- `Progress(value=binding, max=100, showText=true, status="normal|success|error")` - Progress bar
+- `Spinner(size="sm|md|lg", text="...")` - Loading spinner
+
+### Data Components
+- `DataChart(type="line|bar|pie", data=binding)` - Data chart visualization
+- `DataTable(columns=[...], data=binding)` - Data table
+
+### State Management
 ```
-state:
-    count: int = 0
-    name: str = ""
+component Example:
+    state:
+        count: int = 0
+        name: str = ""
+        enabled: bool = false
+    
+    Card:
+        VStack:
+            Text("Count: {count}")
+            Button("Increment"):
+                on_click: state.count += 1
 ```
 
 ### Bindings
-- `<<` - One-way binding (subscribe)
-- `:=` - Two-way binding
+- `<<` - One-way binding (subscribe to state)
+- `:=` - Two-way binding (for inputs)
+
+Examples:
+```
+Text(content << f"{state.count}")
+Input(value := state.name)
+Button("Submit", disabled_if="!state.name")
+```
 
 ### Actions
 - `on_click: state.var += 1` - State mutation
-- `Navigate(to="/path")` - Navigation
+- `Navigate(to="/path", params={...}, query={...}, replace=false)` - Navigation
 - `ShowToast("message")` - Show notification
-- `Fetch(url="/api/...", method="POST", body={...})` - HTTP request
+- `Fetch(url="/api/...", method="POST", body={...}, on_success=..., on_error=...)` - HTTP request
 
 ### HTTP Requests
 ```
@@ -553,16 +593,33 @@ Button("Submit"):
             url="/api/login",
             method="POST",
             body={"email": state.email, "password": state.password},
+            headers={"Content-Type": "application/json"},
             on_success: Navigate(to="/dashboard"),
-            on_error: ShowToast("Failed")
+            on_error: ShowToast("Login failed")
         )
 ```
+
+HTTP Methods: GET, POST, PUT, PATCH, DELETE
+Content Types: JSON, FORM_URLENCODED, FORM_DATA
+
+### Conditional Rendering
+```
+if state.isLoggedIn:
+    Text("Welcome back!")
+```
+
+### Size Tokens
+- Sizes: "xs", "sm", "md", "lg", "xl"
+- Text styles: "h1", "h2", "h3", "body", "caption"
+- Intents: "primary", "secondary", "danger", "success"
+- Colors: "green", "red", "blue", "yellow", "gray"
 
 ## Output Rules
 1. Output ONLY NanoDSL code, no explanations
 2. Use 4 spaces for indentation
 3. Keep it minimal - no redundant components
-4. Wrap output in ```nanodsl code fence"""
+4. Wrap output in ```nanodsl code fence
+5. Use appropriate components: DatePicker for dates, Switch for toggles, Modal for dialogs, etc."""
     }
 }
 
