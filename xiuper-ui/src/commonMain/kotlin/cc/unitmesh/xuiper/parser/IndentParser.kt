@@ -993,14 +993,6 @@ class IndentParser(
                 )
             }
             // ============ Tier 1-3: GenUI Components (already added) ============
-            "GenCanvas" -> {
-                val nameArg = extractFirstArg(argsStr)
-                NanoNode.GenCanvas(
-                    name = nameArg ?: props["name"],
-                    layout = args["layout"] ?: props["layout"],
-                    children = children
-                )
-            }
             "SplitView" -> {
                 NanoNode.SplitView(
                     ratio = args["ratio"]?.toFloatOrNull() ?: props["ratio"]?.toFloatOrNull(),

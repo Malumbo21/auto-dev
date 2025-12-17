@@ -81,7 +81,6 @@ object ComposeNanoRenderer {
             "Progress" -> RenderProgress(ir, modifier)
             "Spinner" -> RenderSpinner(ir, modifier)
             // Tier 1-3: GenUI Components
-            "GenCanvas" -> RenderGenCanvas(ir, modifier)
             "SplitView" -> RenderSplitView(ir, modifier)
             "SmartTextField" -> RenderSmartTextField(ir, modifier)
             "Slider" -> RenderSlider(ir, modifier)
@@ -544,15 +543,6 @@ object ComposeNanoRenderer {
     // ============================================================================
     // Tier 1-3: GenUI Components
     // ============================================================================
-
-    @Composable
-    fun RenderGenCanvas(ir: NanoIR, modifier: Modifier = Modifier) {
-        Column(modifier = modifier) {
-            ir.children?.forEach { child ->
-                RenderNode(child)
-            }
-        }
-    }
 
     @Composable
     fun RenderSplitView(ir: NanoIR, modifier: Modifier = Modifier) {

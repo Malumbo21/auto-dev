@@ -25,7 +25,6 @@ object NanoSpecV1 : NanoSpec {
     private val ALIGN_VALUES = listOf("start", "center", "end", "stretch")
     private val JUSTIFY_VALUES = listOf("start", "center", "end", "between", "around")
     private val CHART_TYPE_VALUES = listOf("line", "bar", "pie", "area", "scatter")
-    private val LAYOUT_VALUES = listOf("SplitView", "SingleView")
     private val ALERT_TYPE_VALUES = listOf("success", "info", "warning", "error")
     private val PROGRESS_STATUS_VALUES = listOf("normal", "success", "exception", "active")
     private val MODAL_SIZE_VALUES = listOf("sm", "md", "lg", "xl")
@@ -267,15 +266,6 @@ object NanoSpecV1 : NanoSpec {
             description = "Form container with submit handling"
         ),
         // ============ Tier 1: GenUI Foundation Components ============
-        "GenCanvas" to ComponentSpec(
-            name = "GenCanvas",
-            category = ComponentCategory.CONTAINER,
-            optionalProps = listOf(
-                PropSpec("layout", PropType.ENUM, "SingleView", allowedValues = LAYOUT_VALUES, description = "Layout type: SplitView or SingleView")
-            ),
-            allowsChildren = true,
-            description = "Dynamic UI container for GenUI, supports streaming rendering"
-        ),
         "SplitView" to ComponentSpec(
             name = "SplitView",
             category = ComponentCategory.LAYOUT,
@@ -351,7 +341,7 @@ object NanoSpecV1 : NanoSpec {
     )
 
     override val layoutComponents = setOf("VStack", "HStack", "SplitView")
-    override val containerComponents = setOf("Card", "Form", "GenCanvas", "Modal")
+    override val containerComponents = setOf("Card", "Form", "Modal")
     override val contentComponents = setOf("Text", "Image", "Badge", "Divider", "DataChart", "DataTable", "Alert", "Progress", "Spinner")
     override val inputComponents = setOf("Button", "Input", "Checkbox", "TextArea", "Select", "SmartTextField", "Slider", "DateRangePicker", "DatePicker", "Radio", "RadioGroup", "Switch", "NumberInput")
     override val controlFlowKeywords = setOf("if", "for", "state", "component", "request")

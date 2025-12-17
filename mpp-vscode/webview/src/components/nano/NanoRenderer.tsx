@@ -78,7 +78,6 @@ const RenderNode: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir, 
     case 'Progress': return <RenderProgress ir={ir} context={context} />;
     case 'Spinner': return <RenderSpinner ir={ir} context={context} />;
     // Tier 1-3: GenUI Components
-    case 'GenCanvas': return <RenderGenCanvas ir={ir} context={context} />;
     case 'SplitView': return <RenderSplitView ir={ir} context={context} />;
     case 'SmartTextField': return <RenderSmartTextField ir={ir} context={context} />;
     case 'Slider': return <RenderSlider ir={ir} context={context} />;
@@ -466,17 +465,6 @@ const RenderSpinner: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ i
 // ============================================================================
 // Tier 1-3: GenUI Components
 // ============================================================================
-
-const RenderGenCanvas: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir, context }) => {
-  const layout = ir.props.layout || 'SingleView';
-  return (
-    <div className={`nano-gencanvas layout-${layout}`}>
-      {ir.children?.map((child, i) => (
-        <RenderNode key={i} ir={child} context={context} />
-      ))}
-    </div>
-  );
-};
 
 const RenderSplitView: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir, context }) => {
   const ratio = ir.props.ratio || 0.5;

@@ -314,17 +314,7 @@ sealed class NanoNode {
     // ============ Tier 1: GenUI Foundation Components ============
 
     /**
-     * GenCanvas - Dynamic UI container for GenUI
-     * Example: `GenCanvas("TripPlanner"): layout: SplitView`
-     */
-    data class GenCanvas(
-        val name: String? = null,
-        val layout: String? = null,
-        val children: List<NanoNode> = emptyList()
-    ) : NanoNode()
-
-    /**
-     * SplitView - Split layout (left chat, right canvas)
+     * SplitView - Split layout (left/right panels)
      * Example: `SplitView(ratio=0.3): ...`
      */
     data class SplitView(

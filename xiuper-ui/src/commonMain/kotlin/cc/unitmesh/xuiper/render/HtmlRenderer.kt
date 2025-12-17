@@ -57,7 +57,6 @@ class HtmlRenderer(
             "Progress" -> renderProgress(ir)
             "Spinner" -> renderSpinner(ir)
             // Tier 1-3: GenUI Components
-            "GenCanvas" -> renderGenCanvas(ir)
             "SplitView" -> renderSplitView(ir)
             "SmartTextField" -> renderSmartTextField(ir)
             "Slider" -> renderSlider(ir)
@@ -425,15 +424,6 @@ class HtmlRenderer(
     // ============================================================================
     // Tier 1-3: GenUI Components
     // ============================================================================
-
-    fun renderGenCanvas(ir: NanoIR): String {
-        val layout = ir.props["layout"]?.jsonPrimitive?.content ?: "SingleView"
-        return buildString {
-            append("<div class=\"nano-gencanvas layout-$layout\">\n")
-            ir.children?.forEach { append(renderNode(it)) }
-            append("</div>\n")
-        }
-    }
 
     fun renderSplitView(ir: NanoIR): String {
         val ratio = ir.props["ratio"]?.jsonPrimitive?.content?.toFloatOrNull() ?: 0.5f

@@ -515,8 +515,7 @@ NanoDSL uses Python-style indentation (4 spaces) to represent hierarchy.
 - `VStack(spacing="sm", align="center")` - Vertical stack layout
 - `HStack(spacing="sm", align="center", justify="between")` - Horizontal stack layout
 - `Card(padding="md", shadow="sm")` - Container with padding/shadow
-- `GenCanvas(layout="SingleView|SplitView")` - Dynamic UI canvas
-- `SplitView(ratio=0.5)` - Split screen layout
+- `SplitView(ratio=0.5)` - Split screen layout (left/right panels)
 
 ### Display Components
 - `Text("content", style="h1|h2|h3|body|caption")` - Text display
