@@ -19,7 +19,9 @@ import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * Feedback components for NanoUI Compose renderer.
- * Includes: Modal, Alert, Progress, Spinner, DataChart, DataTable
+ * Includes: Modal, Alert, Progress, Spinner
+ * 
+ * Note: DataChart and DataTable have been moved to [NanoDataComponents]
  */
 object NanoFeedbackComponents {
 
@@ -143,29 +145,25 @@ object NanoFeedbackComponents {
         }
     }
 
+    /**
+     * @deprecated Moved to [NanoDataComponents.RenderDataChart]
+     */
+    @Deprecated(
+        message = "Use NanoDataComponents.RenderDataChart instead",
+        replaceWith = ReplaceWith("NanoDataComponents.RenderDataChart(ir, state, modifier)", "cc.unitmesh.devins.ui.nano.NanoDataComponents")
+    )
     @Composable
     fun RenderDataChart(ir: NanoIR, state: Map<String, Any>, modifier: Modifier) {
-        val chartType = ir.props["type"]?.jsonPrimitive?.content ?: "line"
-        val data = ir.props["data"]?.jsonPrimitive?.content
-
-        Surface(
-            modifier = modifier.fillMaxWidth().height(200.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant,
-            shape = RoundedCornerShape(8.dp)
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(32.dp))
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("Chart: $chartType", style = MaterialTheme.typography.bodyMedium)
-                    if (data != null) {
-                        Text("Data: $data", style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-            }
-        }
+        NanoDataComponents.RenderDataChart(ir, state, modifier)
     }
 
+    /**
+     * @deprecated Moved to [NanoDataComponents.RenderDataTable]
+     */
+    @Deprecated(
+        message = "Use NanoDataComponents.RenderDataTable instead",
+        replaceWith = ReplaceWith("NanoDataComponents.RenderDataTable(ir, state, onAction, modifier)", "cc.unitmesh.devins.ui.nano.NanoDataComponents")
+    )
     @Composable
     fun RenderDataTable(
         ir: NanoIR,
@@ -173,19 +171,6 @@ object NanoFeedbackComponents {
         onAction: (NanoActionIR) -> Unit,
         modifier: Modifier
     ) {
-        val columns = ir.props["columns"]?.jsonPrimitive?.content
-        val data = ir.props["data"]?.jsonPrimitive?.content
-
-        Surface(
-            modifier = modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.surfaceVariant,
-            shape = RoundedCornerShape(8.dp)
-        ) {
-            Column(modifier = Modifier.padding(12.dp)) {
-                Text("DataTable", style = MaterialTheme.typography.titleSmall)
-                if (columns != null) Text("Columns: $columns", style = MaterialTheme.typography.bodySmall)
-                if (data != null) Text("Data: $data", style = MaterialTheme.typography.bodySmall)
-            }
-        }
+        NanoDataComponents.RenderDataTable(ir, state, onAction, modifier)
     }
 }

@@ -22,8 +22,9 @@ import kotlinx.serialization.json.jsonPrimitive
  * Components are organized into separate files:
  * - [NanoLayoutComponents] - VStack, HStack, Card, Form, Component, SplitView
  * - [NanoContentComponents] - Text, Image, Badge, Icon, Divider
- * - [NanoInputComponents] - Button, Input, Checkbox, TextArea, Select, etc.
- * - [NanoFeedbackComponents] - Modal, Alert, Progress, Spinner, DataChart, DataTable
+ * - [NanoInputComponents] - Button, Input, Checkbox, TextArea, Select, DatePicker, Radio, Switch, etc.
+ * - [NanoFeedbackComponents] - Modal, Alert, Progress, Spinner
+ * - [NanoDataComponents] - DataChart, DataTable
  * - [NanoControlFlowComponents] - Conditional, ForLoop
  * - [NanoRenderUtils] - Helper functions and utilities
  */
@@ -152,8 +153,8 @@ object StatefulNanoRenderer {
             "SmartTextField" -> NanoInputComponents.RenderSmartTextField(ir, state, onAction, modifier)
             "Slider" -> NanoInputComponents.RenderSlider(ir, state, onAction, modifier)
             "DateRangePicker" -> NanoInputComponents.RenderDateRangePicker(ir, state, onAction, modifier)
-            "DataChart" -> NanoFeedbackComponents.RenderDataChart(ir, state, modifier)
-            "DataTable" -> NanoFeedbackComponents.RenderDataTable(ir, state, onAction, modifier)
+            "DataChart" -> NanoDataComponents.RenderDataChart(ir, state, modifier)
+            "DataTable" -> NanoDataComponents.RenderDataTable(ir, state, onAction, modifier)
             // Control Flow
             "Conditional" -> NanoControlFlowComponents.RenderConditional(ir, state, onAction, modifier, renderNode)
             "ForLoop" -> NanoControlFlowComponents.RenderForLoop(ir, state, onAction, modifier, renderNode)
