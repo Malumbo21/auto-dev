@@ -23,18 +23,47 @@ actual object ResourceLoader {
 
 NanoDSL uses Python-style indentation (4 spaces) to represent hierarchy.
 
-### Components
+### Layout Components
 - `component Name:` - Define a component
-- `VStack(spacing="sm"):` - Vertical stack layout
+- `VStack(spacing="sm", align="center"):` - Vertical stack layout
 - `HStack(align="center", justify="between"):` - Horizontal stack layout
-- `Card:` - Container with padding/shadow
+- `Card(padding="md", shadow="sm"):` - Container with padding/shadow
+- `SplitView(ratio=0.5):` - Split screen layout (left/right panels)
+
+### Display Components
 - `Text("content", style="h1|h2|h3|body|caption")` - Text display
-- `Button("label", intent="primary|secondary")` - Clickable button
 - `Image(src=path, aspect=16/9, radius="md")` - Image display
-- `Input(value=binding, placeholder="...")` - Text input
 - `Badge("text", color="green|red|blue")` - Status badge
 - `Icon(name="check|x|info|warning")` - Icon display
 - `Divider` - Horizontal line separator
+
+### Form Input Components
+- `Input(value=binding, placeholder="...", type="text|email|password")` - Text input
+- `TextArea(value=binding, placeholder="...", rows=4)` - Multi-line text input
+- `Select(value=binding, options=[...], placeholder="...")` - Dropdown select
+- `Checkbox(checked=binding, label="...")` - Checkbox input
+- `DatePicker(value=binding, format="YYYY-MM-DD", placeholder="...")` - Date picker
+- `Radio(option="value", label="...", name="group")` - Single radio button
+- `RadioGroup(value=binding, options=[...], name="group")` - Radio button group
+- `Switch(checked=binding, label="...", size="sm|md")` - Toggle switch
+- `NumberInput(value=binding, min=0, max=100, step=1, placeholder="...")` - Number input with +/- buttons
+- `SmartTextField(label="...", bind=binding, validation="...", placeholder="...")` - Text input with validation
+- `Slider(label="...", bind=binding, min=0, max=100, step=1)` - Range slider
+- `DateRangePicker(bind=binding)` - Date range picker
+
+### Action Components
+- `Button("label", intent="primary|secondary|danger", icon="...", disabled_if="condition")` - Clickable button
+- `Form(onSubmit=action)` - Form container
+
+### Feedback Components
+- `Modal(open=binding, title="...", size="sm|md|lg", closable=true)` - Modal dialog
+- `Alert(type="info|success|error|warning", message="...", closable=true)` - Alert banner
+- `Progress(value=state.progress, max=100, showText=true, status="normal|success|exception|active")` - Progress bar
+- `Spinner(size="sm|md|lg", text="...")` - Loading spinner
+
+### Data Components
+- `DataChart(type="line|bar|pie", data=state.series, x_axis="date", y_axis="value")` - Data chart visualization
+- `DataTable(columns=[...], data=state.rows)` - Data table
 
 ### Layout
 - `spacing`: "xs" | "sm" | "md" | "lg" | "xl"

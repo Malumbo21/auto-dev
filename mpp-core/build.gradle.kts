@@ -320,3 +320,13 @@ tasks.named("wasmJsBrowserTest") {
 tasks.named<Test>("jvmTest") {
     maxParallelForks = 1
 }
+
+// Local scenario-based NanoDSL harness (uses active LLM config)
+tasks.register<JavaExec>("runNanoDslScenarioHarness") {
+    group = "application"
+    description = "Generate scenarios -> NanoDSL -> validate -> save cases under docs/test-scripts/nanodsl-cases"
+    mainClass.set("cc.unitmesh.devins.test.NanoDslScenarioHarness")
+    dependsOn("jvmMainClasses")
+    classpath = kotlin.jvm().compilations.getByName("main").runtimeDependencyFiles +
+        files(kotlin.jvm().compilations.getByName("main").output.classesDirs)
+}

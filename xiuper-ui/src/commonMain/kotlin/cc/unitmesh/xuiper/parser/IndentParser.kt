@@ -39,11 +39,14 @@ class IndentParser(
         private val STATE_VAR_REGEX = Regex("""^\s*(\w+):\s*(\w+)\s*=\s*(.+)$""")
         private val COMPONENT_CALL_REGEX = Regex("""^(\w+)(?:\((.*?)\))?:\s*$""")
         private val COMPONENT_INLINE_REGEX = Regex("""^(\w+)(?:\((.*?)\))$""")
+        private val COMPONENT_MULTILINE_ARGS_START_REGEX = Regex("""^(\w+)\(\s*$""")
         private val PROP_REGEX = Regex("""^(\w+):\s*(.*)$""")
         private val IF_REGEX = Regex("""^if\s+(.+?):\s*$""")
         private val FOR_REGEX = Regex("""^for\s+(\w+)\s+in\s+(.+?):\s*$""")
         private val ON_CLICK_REGEX = Regex("""^on_click:\s*(.+)$""")
         private val ON_CLICK_BLOCK_REGEX = Regex("""^on_click:\s*$""")
+        private val ON_EVENT_REGEX = Regex("""^on_([a-zA-Z_][\w_]*):\s*(.+)$""")
+        private val ON_EVENT_BLOCK_REGEX = Regex("""^on_([a-zA-Z_][\w_]*):\s*$""")
     }
 
     /**
@@ -254,6 +257,15 @@ class IndentParser(
             return NanoNode.Divider to startIndex + 1
         }
 
+        // Handle multi-line inline component call, e.g.:
+        // DataTable(
+        //   columns="...",
+        //   data=state.users
+        // )
+        COMPONENT_MULTILINE_ARGS_START_REGEX.matchEntire(trimmed)?.let { match ->
+            return parseMultilineInlineComponentCall(lines, startIndex, match.groupValues[1])
+        }
+
         // Handle component with block
         COMPONENT_CALL_REGEX.matchEntire(trimmed)?.let { match ->
             return parseComponentCall(lines, startIndex, match.groupValues[1], match.groupValues[2])
@@ -268,6 +280,90 @@ class IndentParser(
         return null to startIndex + 1
     }
 
+    private fun parseMultilineInlineComponentCall(
+        lines: List<String>,
+        startIndex: Int,
+        componentName: String
+    ): Pair<NanoNode?, Int> {
+        val startLine = lines[startIndex]
+        val baseIndent = getIndent(startLine)
+
+        var parenDepth = 0
+        var inString = false
+        var escaped = false
+        var collecting = false
+        val argsBuilder = StringBuilder()
+
+        var index = startIndex
+        while (index < lines.size) {
+            val line = lines[index]
+
+            // For multi-line calls we expect the closing ')' to align with the opening indent.
+            // Still, we scan characters to be robust if there are nested parentheses.
+            if (index != startIndex && line.isNotBlank()) {
+                val currentIndent = getIndent(line)
+                if (parenDepth > 0 && currentIndent < baseIndent) {
+                    break
+                }
+            }
+
+            val text = if (index == startIndex) line.trim() else line
+            for (c in text) {
+                if (inString) {
+                    if (escaped) {
+                        escaped = false
+                        if (collecting) argsBuilder.append(c)
+                        continue
+                    }
+                    when (c) {
+                        '\\' -> {
+                            escaped = true
+                            if (collecting) argsBuilder.append(c)
+                        }
+                        '"' -> {
+                            inString = false
+                            if (collecting) argsBuilder.append(c)
+                        }
+                        else -> if (collecting) argsBuilder.append(c)
+                    }
+                    continue
+                }
+
+                when (c) {
+                    '"' -> {
+                        inString = true
+                        if (collecting) argsBuilder.append(c)
+                    }
+                    '(' -> {
+                        parenDepth++
+                        if (parenDepth == 1) {
+                            collecting = true
+                        } else if (collecting) {
+                            argsBuilder.append(c)
+                        }
+                    }
+                    ')' -> {
+                        if (parenDepth > 0) parenDepth--
+                        if (parenDepth == 0 && collecting) {
+                            collecting = false
+                            val argsStr = argsBuilder.toString().trim()
+                            val node = createNode(componentName, argsStr, emptyList())
+                            return node to (index + 1)
+                        }
+                        if (collecting) argsBuilder.append(c)
+                    }
+                    else -> if (collecting) argsBuilder.append(c)
+                }
+            }
+
+            if (collecting) argsBuilder.append("\n")
+            index++
+        }
+
+        // If we didn't find a closing ')', treat it as an unparseable node.
+        return null to (startIndex + 1)
+    }
+
     private fun parseComponentCall(
         lines: List<String>,
         startIndex: Int,
@@ -278,7 +374,7 @@ class IndentParser(
         var index = startIndex + 1
         val children = mutableListOf<NanoNode>()
         val props = mutableMapOf<String, String>()
-        var onClick: NanoAction? = null
+        val actions = mutableMapOf<String, NanoAction>()
 
         while (index < lines.size) {
             val line = lines[index]
@@ -292,17 +388,34 @@ class IndentParser(
 
             val trimmed = line.trim()
 
+            // Check for on_* block (multi-line): on_click/on_change/on_row_click/on_close/on_submit
+            ON_EVENT_BLOCK_REGEX.matchEntire(trimmed)?.let { match ->
+                val event = match.groupValues[1]
+                val (action, newIndex) = parseActionBlock(lines, index)
+                actions[event] = action
+                index = newIndex
+                continue
+            }
+
+            // Check for on_* action (single-line)
+            ON_EVENT_REGEX.matchEntire(trimmed)?.let { match ->
+                val event = match.groupValues[1]
+                actions[event] = parseAction(match.groupValues[2])
+                index++
+                continue
+            }
+
             // Check for on_click block (multi-line)
             if (ON_CLICK_BLOCK_REGEX.matches(trimmed)) {
                 val (action, newIndex) = parseActionBlock(lines, index)
-                onClick = action
+                actions["click"] = action
                 index = newIndex
                 continue
             }
 
             // Check for on_click action (single-line)
             ON_CLICK_REGEX.matchEntire(trimmed)?.let { match ->
-                onClick = parseAction(match.groupValues[1])
+                actions["click"] = parseAction(match.groupValues[1])
                 index++
                 continue
             }
@@ -363,7 +476,7 @@ class IndentParser(
             index = newIndex
         }
 
-        val node = createNode(componentName, argsStr, children, props, onClick)
+        val node = createNode(componentName, argsStr, children, props, actions)
         return node to index
     }
 
@@ -800,25 +913,41 @@ class IndentParser(
         argsStr: String,
         children: List<NanoNode>,
         props: Map<String, String> = emptyMap(),
-        onClick: NanoAction? = null
+        actions: Map<String, NanoAction> = emptyMap()
     ): NanoNode? {
         val args = parseArgs(argsStr)
+        val onClick = actions["click"]
+        val onChange = actions["change"] ?: onClick
+        val onRowClick = actions["row_click"] ?: onClick
+        val onClose = actions["close"] ?: onClick
+        val onSubmitAction = actions["submit"]
 
         return when (name) {
             "VStack" -> NanoNode.VStack(
                 spacing = args["spacing"] ?: props["spacing"],
                 align = args["align"] ?: props["align"],
+                flex = (args["flex"] ?: props["flex"])?.toFloatOrNull(),
                 children = children
             )
             "HStack" -> NanoNode.HStack(
                 spacing = args["spacing"] ?: props["spacing"],
                 align = args["align"] ?: props["align"],
                 justify = args["justify"] ?: props["justify"],
+                wrap = (args["wrap"] ?: props["wrap"])?.let { raw ->
+                    when (raw.trim().lowercase()) {
+                        "wrap" -> true
+                        "true" -> true
+                        "false" -> false
+                        else -> null
+                    }
+                },
+                flex = (args["flex"] ?: props["flex"])?.toFloatOrNull(),
                 children = children
             )
             "Card" -> NanoNode.Card(
                 padding = args["padding"] ?: props["padding"],
                 shadow = args["shadow"] ?: props["shadow"],
+                flex = (args["flex"] ?: props["flex"])?.toFloatOrNull(),
                 children = children
             )
             "Text" -> {
@@ -846,6 +975,7 @@ class IndentParser(
                     label = label,
                     intent = args["intent"] ?: props["intent"],
                     icon = args["icon"] ?: props["icon"],
+                    disabledIf = args["disabled_if"] ?: props["disabled_if"],
                     onClick = onClick
                 )
             }
@@ -878,7 +1008,9 @@ class IndentParser(
             "Checkbox" -> {
                 val checkedArg = args["checked"]
                 NanoNode.Checkbox(
-                    checked = checkedArg?.let { Binding.parse(it) }
+                    checked = checkedArg?.let { Binding.parse(it) },
+                    label = args["label"] ?: props["label"],
+                    onChange = onChange
                 )
             }
             "TextArea" -> {
@@ -900,7 +1032,165 @@ class IndentParser(
             "Form" -> {
                 NanoNode.Form(
                     onSubmit = args["onSubmit"],
+                    onSubmitAction = onSubmitAction,
+                    flex = (args["flex"] ?: props["flex"])?.toFloatOrNull(),
                     children = children
+                )
+            }
+            // ============ P0: Core Form Input Components ============
+            "DatePicker" -> {
+                val valueArg = args["value"] ?: props["value"] ?: props["bind"]
+                NanoNode.DatePicker(
+                    value = valueArg?.let { Binding.parse(it) },
+                    format = args["format"] ?: props["format"],
+                    minDate = args["minDate"] ?: props["minDate"],
+                    maxDate = args["maxDate"] ?: props["maxDate"],
+                    placeholder = args["placeholder"] ?: props["placeholder"],
+                    onChange = onChange
+                )
+            }
+            "Radio" -> {
+                val valueArg = args["value"] ?: props["value"]
+                NanoNode.Radio(
+                    value = valueArg?.let { Binding.parse(it) },
+                    option = args["option"] ?: props["option"],
+                    label = args["label"] ?: props["label"],
+                    name = args["name"] ?: props["name"]
+                )
+            }
+            "RadioGroup" -> {
+                val valueArg = args["value"] ?: props["value"]
+                NanoNode.RadioGroup(
+                    value = valueArg?.let { Binding.parse(it) },
+                    options = args["options"] ?: props["options"],
+                    name = args["name"] ?: props["name"],
+                    children = children
+                )
+            }
+            "Switch" -> {
+                val checkedArg = args["checked"] ?: props["checked"]
+                NanoNode.Switch(
+                    checked = checkedArg?.let { Binding.parse(it) },
+                    label = args["label"] ?: props["label"],
+                    size = args["size"] ?: props["size"],
+                    onChange = onChange
+                )
+            }
+            "NumberInput" -> {
+                val valueArg = args["value"] ?: props["value"] ?: props["bind"]
+                NanoNode.NumberInput(
+                    value = valueArg?.let { Binding.parse(it) },
+                    min = args["min"]?.toFloatOrNull() ?: props["min"]?.toFloatOrNull(),
+                    max = args["max"]?.toFloatOrNull() ?: props["max"]?.toFloatOrNull(),
+                    step = args["step"]?.toFloatOrNull() ?: props["step"]?.toFloatOrNull(),
+                    precision = args["precision"]?.toIntOrNull() ?: props["precision"]?.toIntOrNull(),
+                    placeholder = args["placeholder"] ?: props["placeholder"],
+                    onChange = onChange
+                )
+            }
+            // ============ P0: Feedback Components ============
+            "Modal" -> {
+                val openArg = args["open"] ?: props["open"]
+                NanoNode.Modal(
+                    open = openArg?.let { Binding.parse(it) },
+                    title = args["title"] ?: props["title"],
+                    size = args["size"] ?: props["size"],
+                    closable = args["closable"]?.toBoolean() ?: props["closable"]?.toBoolean(),
+                    onClose = onClose,
+                    children = children
+                )
+            }
+            "Alert" -> {
+                NanoNode.Alert(
+                    type = args["type"] ?: props["type"],
+                    message = args["message"] ?: props["message"],
+                    closable = args["closable"]?.toBoolean() ?: props["closable"]?.toBoolean(),
+                    icon = args["icon"] ?: props["icon"],
+                    onClose = onClose,
+                    children = children
+                )
+            }
+            "Progress" -> {
+                NanoNode.Progress(
+                    value = args["value"] ?: props["value"],
+                    max = args["max"] ?: props["max"],
+                    showText = args["showText"]?.toBoolean() ?: props["showText"]?.toBoolean(),
+                    status = args["status"] ?: props["status"]
+                )
+            }
+            "Spinner" -> {
+                NanoNode.Spinner(
+                    size = args["size"] ?: props["size"],
+                    color = args["color"] ?: props["color"],
+                    text = args["text"] ?: props["text"]
+                )
+            }
+            // ============ Tier 1-3: GenUI Components (already added) ============
+            "SplitView" -> {
+                NanoNode.SplitView(
+                    ratio = args["ratio"]?.toFloatOrNull() ?: props["ratio"]?.toFloatOrNull(),
+                    flex = (args["flex"] ?: props["flex"])?.toFloatOrNull(),
+                    children = children
+                )
+            }
+            "GenCanvas" -> {
+                val bindArg = args["bind"] ?: props["bind"] ?: args["value"] ?: props["value"]
+                NanoNode.GenCanvas(
+                    bind = bindArg?.let { Binding.parse(it) },
+                    flex = (args["flex"] ?: props["flex"])?.toFloatOrNull()
+                )
+            }
+            "SmartTextField" -> {
+                val nameArg = extractFirstArg(argsStr)
+                val bindArg = args["bind"] ?: props["bind"] ?: args["value"] ?: props["value"]
+                NanoNode.SmartTextField(
+                    name = nameArg ?: props["name"],
+                    label = args["label"] ?: props["label"],
+                    bind = bindArg?.let { Binding.parse(it) },
+                    validation = args["validation"] ?: props["validation"],
+                    placeholder = args["placeholder"] ?: props["placeholder"]
+                )
+            }
+            "Slider" -> {
+                val nameArg = extractFirstArg(argsStr)
+                val bindArg = args["bind"] ?: props["bind"] ?: args["value"] ?: props["value"]
+                NanoNode.Slider(
+                    name = nameArg ?: props["name"],
+                    label = args["label"] ?: props["label"],
+                    bind = bindArg?.let { Binding.parse(it) },
+                    min = args["min"]?.toFloatOrNull() ?: props["min"]?.toFloatOrNull(),
+                    max = args["max"]?.toFloatOrNull() ?: props["max"]?.toFloatOrNull(),
+                    step = args["step"]?.toFloatOrNull() ?: props["step"]?.toFloatOrNull(),
+                    onChange = onChange
+                )
+            }
+            "DateRangePicker" -> {
+                val nameArg = extractFirstArg(argsStr)
+                val bindArg = args["bind"] ?: props["bind"] ?: args["value"] ?: props["value"]
+                NanoNode.DateRangePicker(
+                    name = nameArg ?: props["name"],
+                    bind = bindArg?.let { Binding.parse(it) },
+                    onChange = onChange
+                )
+            }
+            "DataChart" -> {
+                val nameArg = extractFirstArg(argsStr)
+                NanoNode.DataChart(
+                    name = nameArg ?: props["name"],
+                    type = args["type"] ?: props["type"],
+                    data = args["data"] ?: props["data"],
+                    xAxis = args["x_axis"] ?: props["x_axis"],
+                    yAxis = args["y_axis"] ?: props["y_axis"],
+                    color = args["color"] ?: props["color"]
+                )
+            }
+            "DataTable" -> {
+                val nameArg = extractFirstArg(argsStr)
+                NanoNode.DataTable(
+                    name = nameArg ?: props["name"],
+                    columns = args["columns"] ?: props["columns"],
+                    data = args["data"] ?: props["data"],
+                    onRowClick = onRowClick
                 )
             }
             else -> null
@@ -912,12 +1202,147 @@ class IndentParser(
 
         val result = mutableMapOf<String, String>()
 
-        // First, handle << (subscribe binding) pattern: content << state.count
-        val subscribeRegex = Regex("""(\w+)\s*<<\s*([\w.]+)""")
-        subscribeRegex.findAll(argsStr).forEach { match ->
-            val key = match.groupValues[1]
-            val value = match.groupValues[2]
-            result[key] = "<< $value"
+        fun extractBracketLiteral(key: String): String? {
+            // Match: key = [ ... ]  or key: [ ... ]
+            val m = Regex("""\b${key}\s*(?::=|=|:)\s*""").find(argsStr) ?: return null
+            var i = m.range.last + 1
+            while (i < argsStr.length && argsStr[i].isWhitespace()) i++
+            if (i >= argsStr.length) return null
+            val open = argsStr[i]
+            val close = when (open) {
+                '[' -> ']'
+                '{' -> '}'
+                else -> return null
+            }
+
+            var depth = 0
+            var inString = false
+            var escaped = false
+            val start = i
+
+            while (i < argsStr.length) {
+                val c = argsStr[i]
+                if (inString) {
+                    if (escaped) {
+                        escaped = false
+                    } else if (c == '\\') {
+                        escaped = true
+                    } else if (c == '"') {
+                        inString = false
+                    }
+                } else {
+                    when (c) {
+                        '"' -> inString = true
+                        open -> depth++
+                        close -> {
+                            depth--
+                            if (depth == 0) {
+                                return argsStr.substring(start, i + 1).trim()
+                            }
+                        }
+                    }
+                }
+                i++
+            }
+
+            return null
+        }
+
+        // Capture complex literals that include commas/braces so regex parsing doesn't drop them.
+        extractBracketLiteral("columns")?.let { result["columns"] = it }
+
+        // First, handle << (subscribe binding) pattern at top-level args.
+        // Supports expressions like: value << (flightBudget + (accommodationBudget * 5))
+        run {
+            var i = 0
+            var inString = false
+            var quoteChar = '\u0000'
+            var escaped = false
+            var depthParen = 0
+            var depthBracket = 0
+            var depthBrace = 0
+
+            fun isIdentStart(c: Char): Boolean = c == '_' || c.isLetter()
+            fun isIdentPart(c: Char): Boolean = c == '_' || c.isLetterOrDigit()
+
+            while (i < argsStr.length) {
+                // Skip whitespace and commas
+                while (i < argsStr.length && (argsStr[i].isWhitespace() || argsStr[i] == ',')) i++
+                if (i >= argsStr.length) break
+
+                // Parse key identifier
+                if (!isIdentStart(argsStr[i])) {
+                    i++
+                    continue
+                }
+                val keyStart = i
+                i++
+                while (i < argsStr.length && isIdentPart(argsStr[i])) i++
+                val key = argsStr.substring(keyStart, i)
+
+                // Skip whitespace
+                while (i < argsStr.length && argsStr[i].isWhitespace()) i++
+
+                // Expect <<
+                if (i + 1 >= argsStr.length || argsStr[i] != '<' || argsStr[i + 1] != '<') {
+                    continue
+                }
+                i += 2
+
+                // Skip whitespace
+                while (i < argsStr.length && argsStr[i].isWhitespace()) i++
+
+                // Capture expression until next top-level comma
+                val exprStart = i
+                inString = false
+                quoteChar = '\u0000'
+                escaped = false
+                depthParen = 0
+                depthBracket = 0
+                depthBrace = 0
+                while (i < argsStr.length) {
+                    val c = argsStr[i]
+                    if (inString) {
+                        if (escaped) {
+                            escaped = false
+                        } else if (c == '\\') {
+                            escaped = true
+                        } else if (c == quoteChar) {
+                            inString = false
+                            quoteChar = '\u0000'
+                        }
+                        i++
+                        continue
+                    }
+
+                    when (c) {
+                        '\'', '"' -> {
+                            inString = true
+                            quoteChar = c
+                        }
+                        '(' -> depthParen++
+                        ')' -> if (depthParen > 0) depthParen--
+                        '[' -> depthBracket++
+                        ']' -> if (depthBracket > 0) depthBracket--
+                        '{' -> depthBrace++
+                        '}' -> if (depthBrace > 0) depthBrace--
+                        ',' -> {
+                            if (depthParen == 0 && depthBracket == 0 && depthBrace == 0) {
+                                break
+                            }
+                        }
+                    }
+                    i++
+                }
+
+                val expr = argsStr.substring(exprStart, i).trim()
+                if (expr.isNotBlank()) {
+                    result[key] = "<< $expr"
+                }
+
+                // If we stopped at a comma, skip it
+                if (i < argsStr.length && argsStr[i] == ',') i++
+            }
         }
 
         // Then handle := (two-way binding) and = (assignment) patterns

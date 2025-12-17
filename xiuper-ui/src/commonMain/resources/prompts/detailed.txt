@@ -27,6 +27,8 @@ component ComponentName(param: Type):
 | VStack | spacing, align | Vertical stack |
 | HStack | spacing, align, justify | Horizontal stack |
 | Card | padding, shadow, radius | Container card |
+| SplitView | ratio | Left/right split layout |
+| GenCanvas | bind | AI-generated canvas/preview area |
 
 ### 3. Display Components
 | Component | Props | Description |
@@ -38,13 +40,50 @@ component ComponentName(param: Type):
 ### 4. Interactive Components
 | Component | Props | Description |
 |-----------|-------|-------------|
-| Button | label, intent, icon, on_click | Clickable button |
+| Button | label, intent, icon, disabled_if, on_click | Clickable button |
 | Input | value, placeholder, type | Text input |
 | TextArea | value, placeholder, rows | Multi-line input |
 | Select | value, options, placeholder | Dropdown select |
 | Checkbox | checked | Checkbox input |
+| DatePicker | value, format, minDate, maxDate, placeholder | Single date picker |
+| Radio | value, option, label, name | Single radio button |
+| RadioGroup | value, options, name | Radio button group |
+| Switch | checked, label, size | Toggle switch |
+| NumberInput | value, min, max, step, precision, placeholder | Number input with +/- buttons |
+| SmartTextField | label, bind, validation, placeholder | Text input with validation |
+| Slider | label, bind, min, max, step | Range slider |
+| DateRangePicker | bind | Date range picker |
 
-### 5. Form Components
+### 5. Feedback Components
+| Component | Props | Description |
+|-----------|-------|-------------|
+| Modal | open, title, size, closable, on_close | Modal dialog container |
+| Alert | type, message, closable, icon, on_close | Inline alert banner |
+| Progress | value, max, showText, status | Progress indicator |
+| Spinner | size, text | Loading spinner |
+
+Example:
+```nanodsl
+Modal(open := state.showHelp, title="Help", size="md"):
+    Text("Here are some tips...")
+```
+
+### 6. GenUI Components
+| Component | Props | Description |
+|-----------|-------|-------------|
+| SplitView | ratio, flex | Split layout (two children) |
+| GenCanvas | bind | Canvas/preview region driven by state |
+| DataChart | data, type, x_axis, y_axis | Data visualization chart |
+| DataTable | data, columns, on_row_click | Tabular data display |
+
+Example:
+```nanodsl
+SplitView(ratio=0.35):
+    DataTable(columns=["name","role"], data=state.users)
+    GenCanvas(bind=state.preview)
+```
+
+### 7. Form Components
 ```nanodsl
 Form(onSubmit=request.login):
     Input(name="email", value := state.email)
@@ -52,7 +91,7 @@ Form(onSubmit=request.login):
     Button("Submit", type="submit")
 ```
 
-### 6. State Management
+### 8. State Management
 ```nanodsl
 component Counter:
     state:
@@ -68,13 +107,13 @@ component Counter:
                     on_click: state.count += 1
 ```
 
-### 7. Conditional Rendering
+### 9. Conditional Rendering
 ```nanodsl
 if condition:
     Component()
 ```
 
-### 8. HTTP Request Actions
+### 10. HTTP Request Actions
 ```nanodsl
 # Simple GET request
 Button("Load"):
@@ -109,7 +148,7 @@ request login:
 HTTP Methods: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`
 Content Types: `JSON`, `FORM_URLENCODED`, `FORM_DATA`
 
-### 9. Routing & Navigation
+### 11. Routing & Navigation
 ```nanodsl
 # Simple navigation
 Button("Go Home"):

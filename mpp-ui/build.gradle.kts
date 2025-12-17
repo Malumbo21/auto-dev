@@ -147,6 +147,7 @@ kotlin {
                 implementation(project(":mpp-codegraph"))
                 implementation(project(":mpp-viewer"))
                 implementation(project(":mpp-viewer-web"))
+                implementation(project(":xiuper-ui"))
 
                 implementation(compose.runtime)
                 implementation(compose.foundation)
@@ -970,6 +971,16 @@ afterEvaluate {
             jvmArgs("--add-opens", "java.desktop/sun.lwawt.macosx=ALL-UNNAMED")
         }
     }
+}
+
+// JVM CLI: Render/debug NanoDSL text interpolation for generated cases
+tasks.register<JavaExec>("runNanoDslTextRenderCli") {
+    group = "application"
+    description = "Parse NanoDSL -> init state -> print raw vs rendered string props (writes render-report.txt by default)"
+    mainClass.set("cc.unitmesh.devins.ui.nano.cli.NanoDslTextRenderCli")
+    dependsOn("jvmMainClasses")
+    classpath = kotlin.jvm().compilations.getByName("main").runtimeDependencyFiles +
+            files(kotlin.jvm().compilations.getByName("main").output.classesDirs)
 }
 
 // Task to run NanoDSL Demo preview

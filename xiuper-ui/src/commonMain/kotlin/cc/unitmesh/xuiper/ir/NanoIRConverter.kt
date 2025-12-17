@@ -35,6 +35,27 @@ object NanoIRConverter {
             is NanoNode.Form -> convertForm(node)
             is NanoNode.Select -> convertSelect(node)
             is NanoNode.TextArea -> convertTextArea(node)
+            // Tier 1: GenUI Foundation
+            is NanoNode.SplitView -> convertSplitView(node)
+            is NanoNode.GenCanvas -> convertGenCanvas(node)
+            // Tier 2: Structured Input
+            is NanoNode.SmartTextField -> convertSmartTextField(node)
+            is NanoNode.Slider -> convertSlider(node)
+            is NanoNode.DateRangePicker -> convertDateRangePicker(node)
+            // Tier 3: Data Artifacts
+            is NanoNode.DataChart -> convertDataChart(node)
+            is NanoNode.DataTable -> convertDataTable(node)
+            // P0: Core Form Input Components
+            is NanoNode.DatePicker -> convertDatePicker(node)
+            is NanoNode.Radio -> convertRadio(node)
+            is NanoNode.RadioGroup -> convertRadioGroup(node)
+            is NanoNode.Switch -> convertSwitch(node)
+            is NanoNode.NumberInput -> convertNumberInput(node)
+            // P0: Feedback Components
+            is NanoNode.Modal -> convertModal(node)
+            is NanoNode.Alert -> convertAlert(node)
+            is NanoNode.Progress -> convertProgress(node)
+            is NanoNode.Spinner -> convertSpinner(node)
             NanoNode.Divider -> NanoIR(type = "Divider")
         }
     }
@@ -66,6 +87,7 @@ object NanoIRConverter {
         val props = mutableMapOf<String, JsonElement>()
         node.spacing?.let { props["spacing"] = JsonPrimitive(it) }
         node.align?.let { props["align"] = JsonPrimitive(it) }
+        node.flex?.let { props["flex"] = JsonPrimitive(it) }
 
         return NanoIR(
             type = "VStack",
@@ -79,6 +101,8 @@ object NanoIRConverter {
         node.spacing?.let { props["spacing"] = JsonPrimitive(it) }
         node.align?.let { props["align"] = JsonPrimitive(it) }
         node.justify?.let { props["justify"] = JsonPrimitive(it) }
+        node.wrap?.let { props["wrap"] = JsonPrimitive(it) }
+        node.flex?.let { props["flex"] = JsonPrimitive(it) }
 
         return NanoIR(
             type = "HStack",
@@ -91,6 +115,7 @@ object NanoIRConverter {
         val props = mutableMapOf<String, JsonElement>()
         node.padding?.let { props["padding"] = JsonPrimitive(it) }
         node.shadow?.let { props["shadow"] = JsonPrimitive(it) }
+        node.flex?.let { props["flex"] = JsonPrimitive(it) }
 
         return NanoIR(
             type = "Card",
@@ -148,6 +173,7 @@ object NanoIRConverter {
         )
         node.intent?.let { props["intent"] = JsonPrimitive(it) }
         node.icon?.let { props["icon"] = JsonPrimitive(it) }
+        node.disabledIf?.let { props["disabled_if"] = JsonPrimitive(it) }
 
         val actions = node.onClick?.let {
             mapOf("onClick" to convertAction(it))
@@ -169,11 +195,18 @@ object NanoIRConverter {
     }
 
     private fun convertCheckbox(node: NanoNode.Checkbox): NanoIR {
+        val props = mutableMapOf<String, JsonElement>()
+        node.label?.let { props["label"] = JsonPrimitive(it) }
+
         val bindings = node.checked?.let {
             mapOf("checked" to convertBinding(it))
         }
 
-        return NanoIR(type = "Checkbox", bindings = bindings)
+        val actions = node.onChange?.let {
+            mapOf("onChange" to convertAction(it))
+        }
+
+        return NanoIR(type = "Checkbox", props = props, bindings = bindings, actions = actions)
     }
 
     private fun convertConditional(node: NanoNode.Conditional): NanoIR {
@@ -260,6 +293,7 @@ object NanoIRConverter {
     private fun convertForm(node: NanoNode.Form): NanoIR {
         val props = mutableMapOf<String, JsonElement>()
         node.onSubmit?.let { props["onSubmit"] = JsonPrimitive(it) }
+        node.flex?.let { props["flex"] = JsonPrimitive(it) }
 
         val actions = node.onSubmitAction?.let {
             mapOf("onSubmit" to convertAction(it))
@@ -365,6 +399,260 @@ object NanoIRConverter {
                 type = "sequence"
             )
         }
+    }
+
+    // ============ Tier 1: GenUI Foundation Components ============
+
+    private fun convertSplitView(node: NanoNode.SplitView): NanoIR {
+        val props = mutableMapOf<String, JsonElement>()
+        node.ratio?.let { props["ratio"] = JsonPrimitive(it) }
+        node.flex?.let { props["flex"] = JsonPrimitive(it) }
+
+        return NanoIR(
+            type = "SplitView",
+            props = props,
+            children = node.children.map { convert(it) }
+        )
+    }
+
+    private fun convertGenCanvas(node: NanoNode.GenCanvas): NanoIR {
+        val props = mutableMapOf<String, JsonElement>()
+        node.flex?.let { props["flex"] = JsonPrimitive(it) }
+
+        val bindings = node.bind?.let {
+            mapOf("bind" to convertBinding(it))
+        }
+
+        return NanoIR(
+            type = "GenCanvas",
+            props = props,
+            bindings = bindings
+        )
+    }
+
+    // ============ Tier 2: Structured Input Components ============
+
+    private fun convertSmartTextField(node: NanoNode.SmartTextField): NanoIR {
+        val props = mutableMapOf<String, JsonElement>()
+        node.name?.let { props["name"] = JsonPrimitive(it) }
+        node.label?.let { props["label"] = JsonPrimitive(it) }
+        node.validation?.let { props["validation"] = JsonPrimitive(it) }
+        node.placeholder?.let { props["placeholder"] = JsonPrimitive(it) }
+
+        val bindings = node.bind?.let {
+            mapOf("bind" to convertBinding(it))
+        }
+
+        return NanoIR(type = "SmartTextField", props = props, bindings = bindings)
+    }
+
+    private fun convertSlider(node: NanoNode.Slider): NanoIR {
+        val props = mutableMapOf<String, JsonElement>()
+        node.name?.let { props["name"] = JsonPrimitive(it) }
+        node.label?.let { props["label"] = JsonPrimitive(it) }
+        node.min?.let { props["min"] = JsonPrimitive(it) }
+        node.max?.let { props["max"] = JsonPrimitive(it) }
+        node.step?.let { props["step"] = JsonPrimitive(it) }
+
+        val bindings = node.bind?.let {
+            mapOf("bind" to convertBinding(it))
+        }
+
+        val actions = node.onChange?.let {
+            mapOf("onChange" to convertAction(it))
+        }
+
+        return NanoIR(type = "Slider", props = props, bindings = bindings, actions = actions)
+    }
+
+    private fun convertDateRangePicker(node: NanoNode.DateRangePicker): NanoIR {
+        val props = mutableMapOf<String, JsonElement>()
+        node.name?.let { props["name"] = JsonPrimitive(it) }
+
+        val bindings = node.bind?.let {
+            mapOf("bind" to convertBinding(it))
+        }
+
+        val actions = node.onChange?.let {
+            mapOf("onChange" to convertAction(it))
+        }
+
+        return NanoIR(type = "DateRangePicker", props = props, bindings = bindings, actions = actions)
+    }
+
+    // ============ Tier 3: Data Artifacts ============
+
+    private fun convertDataChart(node: NanoNode.DataChart): NanoIR {
+        val props = mutableMapOf<String, JsonElement>()
+        node.name?.let { props["name"] = JsonPrimitive(it) }
+        node.type?.let { props["type"] = JsonPrimitive(it) }
+        node.data?.let { props["data"] = JsonPrimitive(it) }
+        node.xAxis?.let { props["x_axis"] = JsonPrimitive(it) }
+        node.yAxis?.let { props["y_axis"] = JsonPrimitive(it) }
+        node.color?.let { props["color"] = JsonPrimitive(it) }
+
+        return NanoIR(type = "DataChart", props = props)
+    }
+
+    private fun convertDataTable(node: NanoNode.DataTable): NanoIR {
+        val props = mutableMapOf<String, JsonElement>()
+        node.name?.let { props["name"] = JsonPrimitive(it) }
+        node.columns?.let { props["columns"] = JsonPrimitive(it) }
+        node.data?.let { props["data"] = JsonPrimitive(it) }
+
+        val actions = node.onRowClick?.let {
+            mapOf("onRowClick" to convertAction(it))
+        }
+
+        return NanoIR(type = "DataTable", props = props, actions = actions)
+    }
+
+    // ============ P0: Core Form Input Components ============
+
+    private fun convertDatePicker(node: NanoNode.DatePicker): NanoIR {
+        val props = mutableMapOf<String, JsonElement>()
+        node.format?.let { props["format"] = JsonPrimitive(it) }
+        node.minDate?.let { props["minDate"] = JsonPrimitive(it) }
+        node.maxDate?.let { props["maxDate"] = JsonPrimitive(it) }
+        node.placeholder?.let { props["placeholder"] = JsonPrimitive(it) }
+
+        val bindings = node.value?.let {
+            mapOf("value" to convertBinding(it))
+        }
+
+        val actions = node.onChange?.let {
+            mapOf("onChange" to convertAction(it))
+        }
+
+        return NanoIR(type = "DatePicker", props = props, bindings = bindings, actions = actions)
+    }
+
+    private fun convertRadio(node: NanoNode.Radio): NanoIR {
+        val props = mutableMapOf<String, JsonElement>()
+        node.option?.let { props["option"] = JsonPrimitive(it) }
+        node.label?.let { props["label"] = JsonPrimitive(it) }
+        node.name?.let { props["name"] = JsonPrimitive(it) }
+
+        val bindings = node.value?.let {
+            mapOf("value" to convertBinding(it))
+        }
+
+        return NanoIR(type = "Radio", props = props, bindings = bindings)
+    }
+
+    private fun convertRadioGroup(node: NanoNode.RadioGroup): NanoIR {
+        val props = mutableMapOf<String, JsonElement>()
+        node.options?.let { props["options"] = JsonPrimitive(it) }
+        node.name?.let { props["name"] = JsonPrimitive(it) }
+
+        val bindings = node.value?.let {
+            mapOf("value" to convertBinding(it))
+        }
+
+        return NanoIR(
+            type = "RadioGroup",
+            props = props,
+            bindings = bindings,
+            children = node.children.map { convert(it) }
+        )
+    }
+
+    private fun convertSwitch(node: NanoNode.Switch): NanoIR {
+        val props = mutableMapOf<String, JsonElement>()
+        node.label?.let { props["label"] = JsonPrimitive(it) }
+        node.size?.let { props["size"] = JsonPrimitive(it) }
+
+        val bindings = node.checked?.let {
+            mapOf("checked" to convertBinding(it))
+        }
+
+        val actions = node.onChange?.let {
+            mapOf("onChange" to convertAction(it))
+        }
+
+        return NanoIR(type = "Switch", props = props, bindings = bindings, actions = actions)
+    }
+
+    private fun convertNumberInput(node: NanoNode.NumberInput): NanoIR {
+        val props = mutableMapOf<String, JsonElement>()
+        node.min?.let { props["min"] = JsonPrimitive(it) }
+        node.max?.let { props["max"] = JsonPrimitive(it) }
+        node.step?.let { props["step"] = JsonPrimitive(it) }
+        node.precision?.let { props["precision"] = JsonPrimitive(it) }
+        node.placeholder?.let { props["placeholder"] = JsonPrimitive(it) }
+
+        val bindings = node.value?.let {
+            mapOf("value" to convertBinding(it))
+        }
+
+        val actions = node.onChange?.let {
+            mapOf("onChange" to convertAction(it))
+        }
+
+        return NanoIR(type = "NumberInput", props = props, bindings = bindings, actions = actions)
+    }
+
+    // ============ P0: Feedback Components ============
+
+    private fun convertModal(node: NanoNode.Modal): NanoIR {
+        val props = mutableMapOf<String, JsonElement>()
+        node.title?.let { props["title"] = JsonPrimitive(it) }
+        node.size?.let { props["size"] = JsonPrimitive(it) }
+        node.closable?.let { props["closable"] = JsonPrimitive(it) }
+
+        val bindings = node.open?.let {
+            mapOf("open" to convertBinding(it))
+        }
+
+        val actions = node.onClose?.let {
+            mapOf("onClose" to convertAction(it))
+        }
+
+        return NanoIR(
+            type = "Modal",
+            props = props,
+            bindings = bindings,
+            actions = actions,
+            children = node.children.map { convert(it) }
+        )
+    }
+
+    private fun convertAlert(node: NanoNode.Alert): NanoIR {
+        val props = mutableMapOf<String, JsonElement>()
+        node.type?.let { props["type"] = JsonPrimitive(it) }
+        node.message?.let { props["message"] = JsonPrimitive(it) }
+        node.closable?.let { props["closable"] = JsonPrimitive(it) }
+        node.icon?.let { props["icon"] = JsonPrimitive(it) }
+
+        val actions = node.onClose?.let {
+            mapOf("onClose" to convertAction(it))
+        }
+
+        return NanoIR(
+            type = "Alert",
+            props = props,
+            actions = actions,
+            children = node.children.map { convert(it) }
+        )
+    }
+
+    private fun convertProgress(node: NanoNode.Progress): NanoIR {
+        val props = mutableMapOf<String, JsonElement>()
+        node.value?.let { props["value"] = JsonPrimitive(it) }
+        node.max?.let { props["max"] = JsonPrimitive(it) }
+        node.showText?.let { props["showText"] = JsonPrimitive(it) }
+        node.status?.let { props["status"] = JsonPrimitive(it) }
+
+        return NanoIR(type = "Progress", props = props)
+    }
+
+    private fun convertSpinner(node: NanoNode.Spinner): NanoIR {
+        val props = mutableMapOf<String, JsonElement>()
+        node.size?.let { props["size"] = JsonPrimitive(it) }
+        node.color?.let { props["color"] = JsonPrimitive(it) }
+        node.text?.let { props["text"] = JsonPrimitive(it) }
+
+        return NanoIR(type = "Spinner", props = props)
     }
 }
 

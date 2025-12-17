@@ -98,5 +98,52 @@ component NestedTest:
         assertNotNull(vstack.children)
         assertEquals(2, vstack.children!!.size)
     }
+
+    @Test
+    fun shouldConvertWrapAndFlexToIR() {
+        val source = """
+component FlexWrapDemo:
+    HStack(wrap=true):
+        Card(flex=1):
+            Text("A")
+        Card(flex=2):
+            Text("B")
+        """.trimIndent()
+
+        val ir = NanoDSL.toIR(source)
+
+        val hstack = ir.children!![0]
+        assertEquals("HStack", hstack.type)
+        assertEquals("true", hstack.props["wrap"]?.jsonPrimitive?.content)
+
+        val left = hstack.children!![0]
+        val right = hstack.children!![1]
+        assertEquals("Card", left.type)
+        assertEquals("Card", right.type)
+        assertEquals(1f, left.props["flex"]?.jsonPrimitive?.content?.toFloatOrNull())
+        assertEquals(2f, right.props["flex"]?.jsonPrimitive?.content?.toFloatOrNull())
+    }
+
+    @Test
+    fun shouldConvertGenCanvasToIR() {
+        val source = """
+component CanvasDemo:
+    SplitView(ratio=0.4):
+        Text("Left")
+        GenCanvas(bind=state.preview, flex=1)
+        """.trimIndent()
+
+        val ir = NanoDSL.toIR(source)
+
+        val split = ir.children!![0]
+        assertEquals("SplitView", split.type)
+        assertNotNull(split.children)
+        assertEquals(2, split.children!!.size)
+
+        val canvas = split.children!![1]
+        assertEquals("GenCanvas", canvas.type)
+        assertTrue(canvas.bindings?.containsKey("bind") == true)
+        assertEquals(1f, canvas.props["flex"]?.jsonPrimitive?.content?.toFloatOrNull())
+    }
 }
 
