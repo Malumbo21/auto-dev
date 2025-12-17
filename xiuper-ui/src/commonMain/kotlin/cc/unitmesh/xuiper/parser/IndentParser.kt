@@ -879,7 +879,8 @@ class IndentParser(
             "Checkbox" -> {
                 val checkedArg = args["checked"]
                 NanoNode.Checkbox(
-                    checked = checkedArg?.let { Binding.parse(it) }
+                    checked = checkedArg?.let { Binding.parse(it) },
+                    label = args["label"] ?: props["label"]
                 )
             }
             "TextArea" -> {

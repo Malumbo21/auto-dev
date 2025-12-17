@@ -156,10 +156,11 @@ sealed class NanoNode {
 
     /**
      * Checkbox component
-     * Example: `Checkbox(checked := task.done)`
+     * Example: `Checkbox(checked := task.done, label="Accept terms")`
      */
     data class Checkbox(
-        val checked: Binding? = null
+        val checked: Binding? = null,
+        val label: String? = null
     ) : NanoNode()
 
     // ============ Control Flow ============

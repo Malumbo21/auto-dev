@@ -190,11 +190,14 @@ object NanoIRConverter {
     }
 
     private fun convertCheckbox(node: NanoNode.Checkbox): NanoIR {
+        val props = mutableMapOf<String, JsonElement>()
+        node.label?.let { props["label"] = JsonPrimitive(it) }
+
         val bindings = node.checked?.let {
             mapOf("checked" to convertBinding(it))
         }
 
-        return NanoIR(type = "Checkbox", bindings = bindings)
+        return NanoIR(type = "Checkbox", props = props, bindings = bindings)
     }
 
     private fun convertConditional(node: NanoNode.Conditional): NanoIR {

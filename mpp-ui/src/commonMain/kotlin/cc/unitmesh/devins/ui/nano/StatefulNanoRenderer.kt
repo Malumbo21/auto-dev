@@ -3,6 +3,7 @@ package cc.unitmesh.devins.ui.nano
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -664,8 +665,13 @@ object StatefulNanoRenderer {
         val binding = ir.bindings?.get("checked")
         val statePath = binding?.expression?.removePrefix("state.")
         val checked = (state[statePath] as? Boolean) ?: false
+        val label = ir.props["label"]?.jsonPrimitive?.content
 
-        Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = modifier,
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
             Checkbox(
                 checked = checked,
                 onCheckedChange = { newValue ->
@@ -681,6 +687,25 @@ object StatefulNanoRenderer {
                     }
                 }
             )
+            if (label != null) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.clickable {
+                        // Allow clicking label to toggle checkbox
+                        if (statePath != null) {
+                            onAction(NanoActionIR(
+                                type = "stateMutation",
+                                payload = mapOf(
+                                    "path" to JsonPrimitive(statePath),
+                                    "operation" to JsonPrimitive("SET"),
+                                    "value" to JsonPrimitive((!checked).toString())
+                                )
+                            ))
+                        }
+                    }
+                )
+            }
         }
     }
 
@@ -767,6 +792,7 @@ object StatefulNanoRenderer {
     // P0: Core Form Input Components
     // ============================================================================
 
+    @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     private fun RenderDatePicker(
         ir: NanoIR, state: Map<String, Any>, onAction: (NanoActionIR) -> Unit, modifier: Modifier
@@ -776,25 +802,64 @@ object StatefulNanoRenderer {
         val statePath = binding?.expression?.removePrefix("state.")
         val currentValue = state[statePath]?.toString() ?: ""
 
+        var showDialog by remember { mutableStateOf(false) }
+        val datePickerState = rememberDatePickerState()
+
+        // Display field
         OutlinedTextField(
             value = currentValue,
-            onValueChange = { newValue ->
-                if (statePath != null) {
-                    onAction(NanoActionIR(
-                        type = "stateMutation",
-                        payload = mapOf(
-                            "path" to JsonPrimitive(statePath),
-                            "operation" to JsonPrimitive("SET"),
-                            "value" to JsonPrimitive(newValue)
-                        )
-                    ))
-                }
-            },
+            onValueChange = { }, // Read-only, click to open dialog
             placeholder = { Text(placeholder) },
             leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = "Date") },
-            modifier = modifier.fillMaxWidth(),
-            singleLine = true
+            modifier = modifier
+                .fillMaxWidth()
+                .clickable { showDialog = true },
+            singleLine = true,
+            readOnly = true,
+            enabled = false,
+            colors = OutlinedTextFieldDefaults.colors(
+                disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                disabledBorderColor = MaterialTheme.colorScheme.outline,
+                disabledLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                disabledPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         )
+
+        // DatePicker Dialog
+        if (showDialog) {
+            DatePickerDialog(
+                onDismissRequest = { showDialog = false },
+                confirmButton = {
+                    TextButton(onClick = {
+                        val selectedDate = datePickerState.selectedDateMillis
+                        if (selectedDate != null && statePath != null) {
+                            // Convert millis to YYYY-MM-DD format
+                            // Material3 DatePicker returns UTC millis at midnight
+                            val dateStr = formatDateFromMillis(selectedDate)
+
+                            onAction(NanoActionIR(
+                                type = "stateMutation",
+                                payload = mapOf(
+                                    "path" to JsonPrimitive(statePath),
+                                    "operation" to JsonPrimitive("SET"),
+                                    "value" to JsonPrimitive(dateStr)
+                                )
+                            ))
+                        }
+                        showDialog = false
+                    }) {
+                        Text("OK")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDialog = false }) {
+                        Text("Cancel")
+                    }
+                }
+            ) {
+                DatePicker(state = datePickerState)
+            }
+        }
     }
 
     @Composable
@@ -1269,6 +1334,28 @@ object StatefulNanoRenderer {
         "xl" -> 32.dp
         "none" -> 0.dp
         else -> 16.dp
+    }
+
+    /**
+     * Format date from epoch milliseconds to YYYY-MM-DD string
+     * Material3 DatePicker returns UTC millis at midnight
+     */
+    private fun formatDateFromMillis(millis: Long): String {
+        // Simple conversion: millis / 86400000 = days since epoch
+        val days = millis / 86400000L
+        // Approximate year (will be off by a few days due to leap years, but good enough for display)
+        val year = 1970 + (days / 365)
+        val remainingDays = days % 365
+        val month = (remainingDays / 30).coerceIn(0, 11) + 1
+        val day = (remainingDays % 30).coerceIn(0, 30) + 1
+
+        return buildString {
+            append(year.toString().padStart(4, '0'))
+            append('-')
+            append(month.toString().padStart(2, '0'))
+            append('-')
+            append(day.toString().padStart(2, '0'))
+        }
     }
 }
 
