@@ -207,6 +207,66 @@
   color: var(--vscode-input-placeholderForeground);
 }
 
+/* DataTable */
+.nano-datatable-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.nano-datatable {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+}
+
+.nano-datatable th,
+.nano-datatable td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.nano-datatable th {
+  background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+  color: var(--vscode-foreground);
+  font-weight: 600;
+}
+
+/* DataChart */
+.nano-datachart {
+  width: 100%;
+}
+
+.nano-datachart-empty {
+  color: var(--vscode-descriptionForeground);
+  font-size: 0.875rem;
+}
+
+.nano-datachart-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.nano-datachart-bar {
+  fill: var(--vscode-button-background);
+}
+
+.nano-datachart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 0.75rem;
+}
+
+.nano-datachart-legend-item {
+  white-space: nowrap;
+}
+
 /* TextArea */
 .nano-textarea {
   padding: 8px 12px;

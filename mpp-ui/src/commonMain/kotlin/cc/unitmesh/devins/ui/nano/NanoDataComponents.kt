@@ -17,7 +17,6 @@ import androidx.compose.ui.unit.dp
 import cc.unitmesh.devins.ui.compose.sketch.chart.ChartBlockRenderer
 import cc.unitmesh.devins.ui.compose.sketch.chart.ChartParser
 import cc.unitmesh.devins.ui.compose.sketch.chart.isChartAvailable
-import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
 import cc.unitmesh.xuiper.ir.NanoActionIR
 import cc.unitmesh.xuiper.ir.NanoIR
 import cc.unitmesh.yaml.YamlUtils
@@ -37,12 +36,14 @@ object NanoDataComponents {
     fun RenderDataChart(ir: NanoIR, state: Map<String, Any>, modifier: Modifier) {
         val chartType = ir.props["type"]?.jsonPrimitive?.content ?: "line"
         val dataStr = ir.props["data"]?.jsonPrimitive?.content
-        val xField = ir.props["xField"]?.jsonPrimitive?.content ?: ir.props["x_axis"]?.jsonPrimitive?.content
-        val yField = ir.props["yField"]?.jsonPrimitive?.content ?: ir.props["y_axis"]?.jsonPrimitive?.content
+        val xField = ir.props["xField"]?.jsonPrimitive?.content
+            ?: ir.props["x_axis"]?.jsonPrimitive?.content
+        val yField = ir.props["yField"]?.jsonPrimitive?.content
+            ?: ir.props["y_axis"]?.jsonPrimitive?.content
 
         // Try to resolve data from state if it's a binding
-        val resolvedData = NanoRenderUtils.resolveBindingValue(dataStr, state)
-        
+        val resolvedData = NanoRenderUtils.resolveBindingAny(dataStr, state).toString()
+
         // Build chart code in YAML format
         val chartCode = buildChartCode(chartType, resolvedData, dataStr, xField, yField, ir)
 
@@ -62,26 +63,27 @@ object NanoDataComponents {
      * Build chart code in YAML format for ChartBlockRenderer
      */
     private fun buildChartCode(
-        chartType: String, 
-        resolvedData: Any?, 
+        chartType: String,
+        resolvedData: Any?,
         dataStr: String?,
         xField: String?,
         yField: String?,
         ir: NanoIR
     ): String {
         val title = ir.props["title"]?.jsonPrimitive?.content ?: "Data Chart"
-        
+
         // If resolvedData is a list of objects, build chart from it
         if (resolvedData is List<*>) {
+            val inferred = inferXYFields(resolvedData)
             return buildChartCodeFromObjectList(
                 chartType = chartType,
                 title = title,
                 dataList = resolvedData,
-                xField = xField ?: "x",
-                yField = yField ?: "y"
+                xField = xField ?: inferred.first,
+                yField = yField ?: inferred.second
             )
         }
-        
+
         // If data is already in YAML/JSON format, try to use it directly
         if (dataStr != null && (dataStr.trim().startsWith("{") || dataStr.contains(":"))) {
             return try {
@@ -96,7 +98,7 @@ object NanoDataComponents {
                 buildDefaultChartCode(chartType, title, dataStr)
             }
         }
-        
+
         return buildDefaultChartCode(chartType, title, dataStr ?: "")
     }
 
@@ -119,7 +121,7 @@ object NanoDataComponents {
                         "    - label: \"$label\"\n      value: $value"
                     } else null
                 }.joinToString("\n")
-                
+
                 """
                 type: pie
                 title: $title
@@ -128,18 +130,18 @@ object NanoDataComponents {
 $items
                 """.trimIndent()
             }
-            
+
             "line" -> {
                 val labels = dataList.mapNotNull { item ->
                     if (item is Map<*, *>) item[xField]?.toString() else null
                 }.joinToString(", ") { "\"$it\"" }
-                
+
                 val values = dataList.mapNotNull { item ->
                     if (item is Map<*, *>) {
                         (item[yField])?.toString()?.toDoubleOrNull()
                     } else null
                 }.joinToString(", ")
-                
+
                 """
                 type: line
                 title: $title
@@ -149,7 +151,7 @@ $items
                       values: [$values]
                 """.trimIndent()
             }
-            
+
             "column", "bar" -> {
                 val bars = dataList.mapNotNull { item ->
                     if (item is Map<*, *>) {
@@ -158,7 +160,7 @@ $items
                         "        - label: \"$label\"\n          value: $value"
                     } else null
                 }.joinToString("\n")
-                
+
                 """
                 type: column
                 title: $title
@@ -169,8 +171,25 @@ $items
 $bars
                 """.trimIndent()
             }
-            
+
             else -> buildDefaultChartCode(chartType, title, "")
+        }
+    }
+
+    /**
+     * Infer x/y field names from a list of object rows.
+     * Minimal heuristics for common NanoDSL outputs.
+     */
+    private fun inferXYFields(dataList: List<*>): Pair<String, String> {
+        val first = dataList.firstOrNull() as? Map<*, *> ?: return "x" to "y"
+        val keys = first.keys.mapNotNull { it?.toString() }.toSet()
+
+        return when {
+            "name" in keys && "value" in keys -> "name" to "value"
+            "label" in keys && "value" in keys -> "label" to "value"
+            "month" in keys && "sales" in keys -> "month" to "sales"
+            "date" in keys && "sales" in keys -> "date" to "sales"
+            else -> "x" to "y"
         }
     }
 
@@ -191,7 +210,7 @@ $bars
                     - label: "Item 3"
                       value: 20
             """.trimIndent()
-            
+
             "line" -> """
                 type: line
                 title: $title
@@ -200,7 +219,7 @@ $bars
                     - label: "Series 1"
                       values: [10, 20, 15, 25, 30]
             """.trimIndent()
-            
+
             "column", "bar" -> """
                 type: column
                 title: $title
@@ -213,7 +232,7 @@ $bars
                         - label: "B"
                           value: 20
             """.trimIndent()
-            
+
             else -> """
                 type: line
                 title: $title
@@ -273,14 +292,21 @@ $bars
         val dataStr = ir.props["data"]?.jsonPrimitive?.content
 
         // Resolve bindings
-        val resolvedColumns = NanoRenderUtils.resolveBindingValue(columnsStr, state)
-        val resolvedData = NanoRenderUtils.resolveBindingValue(dataStr, state)
+        val resolvedColumns = NanoRenderUtils.resolveBindingAny(columnsStr, state)
+        val resolvedData = NanoRenderUtils.resolveBindingAny(dataStr, state)
 
         // Parse columns and data
         val columnDefs = parseColumnDefs(resolvedColumns ?: columnsStr)
-        val rows = parseRowsFromData(resolvedData, dataStr, columnDefs)
 
-        if (columnDefs.isEmpty() || rows.isEmpty()) {
+        val effectiveColumnDefs = if (columnDefs.isNotEmpty()) {
+            columnDefs
+        } else {
+            inferColumnsFromData(resolvedData)
+        }
+
+        val rows = parseRowsFromData(resolvedData, dataStr, effectiveColumnDefs)
+
+        if (effectiveColumnDefs.isEmpty() || rows.isEmpty()) {
             RenderTableFallback(columnsStr, dataStr, modifier)
             return
         }
@@ -304,7 +330,7 @@ $bars
                         .padding(8.dp)
                         .fillMaxWidth()
                 ) {
-                    columnDefs.forEach { column ->
+                    effectiveColumnDefs.forEach { column ->
                         Text(
                             text = column.title,
                             style = MaterialTheme.typography.labelMedium,
@@ -354,6 +380,14 @@ $bars
         val format: String? = null
     )
 
+    private fun inferColumnsFromData(resolvedData: Any?): List<ColumnDef> {
+        val first = (resolvedData as? List<*>)?.firstOrNull() as? Map<*, *> ?: return emptyList()
+        return first.keys
+            .mapNotNull { it?.toString() }
+            .filter { it.isNotBlank() }
+            .map { key -> ColumnDef(key = key, title = key) }
+    }
+
     /**
      * Parse column definitions from various formats
      * Supports:
@@ -390,7 +424,7 @@ $bars
                     // Fall through to simple format
                 }
                 // Simple comma-separated format
-                columnsData.split(",").map { 
+                columnsData.split(",").map {
                     val trimmed = it.trim()
                     ColumnDef(trimmed, trimmed)
                 }.filter { it.key.isNotEmpty() }
@@ -444,7 +478,7 @@ $bars
                 } else null
             }
         }
-        
+
         // Fall back to parsing from string
         return parseRows(dataStr, columnDefs.size)
     }
@@ -454,7 +488,7 @@ $bars
      */
     private fun formatCellValue(value: Any?, format: String?): String {
         if (value == null) return ""
-        
+
         return when (format?.lowercase()) {
             "currency" -> {
                 val num = value.toString().toDoubleOrNull()

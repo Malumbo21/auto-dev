@@ -8,6 +8,7 @@ import cc.unitmesh.xuiper.ir.NanoIR
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonPrimitive
+import cc.unitmesh.yaml.YamlUtils
 
 /**
  * Stateful NanoUI Compose Renderer
@@ -29,6 +30,18 @@ import kotlinx.serialization.json.jsonPrimitive
  * - [NanoRenderUtils] - Helper functions and utilities
  */
 object StatefulNanoRenderer {
+
+    private fun parseStructuredDefault(raw: String): Any {
+        val trimmed = raw.trim()
+        if (trimmed.isEmpty()) return ""
+
+        return try {
+            // JSON is valid YAML 1.2, so this handles both JSON/YAML list/map literals.
+            YamlUtils.load(trimmed) ?: raw
+        } catch (_: Exception) {
+            raw
+        }
+    }
 
     /**
      * Render a NanoIR tree with state management.
@@ -54,6 +67,16 @@ object StatefulNanoRenderer {
                     "float" -> defaultValue?.jsonPrimitive?.content?.toFloatOrNull() ?: 0f
                     "bool" -> defaultValue?.jsonPrimitive?.booleanOrNull ?: false
                     "str" -> defaultValue?.jsonPrimitive?.content ?: ""
+                    "list" -> {
+                        val raw = defaultValue?.jsonPrimitive?.content ?: "[]"
+                        val parsed = parseStructuredDefault(raw)
+                        if (parsed is List<*>) parsed else emptyList<Any>()
+                    }
+                    "dict", "map", "object" -> {
+                        val raw = defaultValue?.jsonPrimitive?.content ?: "{}"
+                        val parsed = parseStructuredDefault(raw)
+                        if (parsed is Map<*, *>) parsed else emptyMap<String, Any>()
+                    }
                     else -> defaultValue?.jsonPrimitive?.content ?: ""
                 }
             }

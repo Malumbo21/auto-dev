@@ -44,6 +44,88 @@ export const NanoRenderer: React.FC<NanoRendererProps> = ({
   );
 };
 
+function getByPath(obj: any, path: string): any {
+  if (!path) return undefined;
+  const normalized = path.startsWith('state.') ? path.slice('state.'.length) : path;
+  const parts = normalized.split('.').filter(Boolean);
+  let current: any = obj;
+  for (const part of parts) {
+    if (current == null) return undefined;
+    current = current[part];
+  }
+  return current;
+}
+
+function tryParseStructuredLiteral(value: string): any {
+  const trimmed = value.trim();
+  if (!trimmed) return value;
+
+  // Fast path: valid JSON
+  if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+    try {
+      return JSON.parse(trimmed);
+    } catch {
+      // Fall through to a permissive normalization.
+    }
+
+    // Permissive: convert JS-ish object literals to JSON.
+    // Example supported: [{key:"product", title:"Product"}, {key:"revenue"}]
+    const normalized = trimmed
+      .replace(/\b([A-Za-z_][A-Za-z0-9_]*)\s*:/g, '"$1":')
+      .replace(/'/g, '"')
+      .replace(/,\s*([\]}])/g, '$1');
+    try {
+      return JSON.parse(normalized);
+    } catch {
+      return value;
+    }
+  }
+
+  return value;
+}
+
+function resolveValue(context: NanoRenderContext, raw: any): any {
+  if (typeof raw !== 'string') return raw;
+  const trimmed = raw.trim();
+
+  // Handle binding prefixes from NanoDSL: "<< state.xxx" or ":= state.xxx"
+  const bindingPrefixMatch = trimmed.match(/^(<<|:=)\s+(.+)$/);
+  const expr = bindingPrefixMatch ? bindingPrefixMatch[2].trim() : trimmed;
+
+  if (expr.startsWith('state.')) {
+    return getByPath(context.state, expr);
+  }
+
+  // If it's a structured literal, parse it.
+  return tryParseStructuredLiteral(trimmed);
+}
+
+function inferChartFields(data: any[], xField?: string, yField?: string): { x: string; y: string } | null {
+  if (!Array.isArray(data) || data.length === 0) return null;
+  const sample = data.find(v => v && typeof v === 'object') as any;
+  if (!sample) return null;
+
+  const x = xField || (('name' in sample) ? 'name' : ('label' in sample) ? 'label' : ('x' in sample) ? 'x' : 'name');
+  const y = yField || (('value' in sample) ? 'value' : ('y' in sample) ? 'y' : ('count' in sample) ? 'count' : 'value');
+  return { x, y };
+}
+
+function formatCell(value: any, format?: string): string {
+  if (value == null) return '';
+  if (!format) return String(value);
+  const n = typeof value === 'number' ? value : Number(value);
+  if (Number.isNaN(n)) return String(value);
+
+  switch (format) {
+    case 'currency':
+      return `$${n.toFixed(2)}`;
+    case 'percent':
+      return `${n.toFixed(1)}%`;
+    default:
+      return String(value);
+  }
+}
+
 /**
  * Dispatch rendering based on component type
  */
@@ -336,10 +418,30 @@ const RenderForLoop: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ i
 const RenderComponent: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir, context }) => {
   const name = ir.props.name || 'Component';
 
+  // Initialize state defaults declared on the Component node.
+  const defaults: Record<string, any> = {};
+  if (ir.state?.variables) {
+    for (const [key, def] of Object.entries(ir.state.variables)) {
+      const type = (def as any)?.type;
+      const rawDefault = (def as any)?.defaultValue;
+      if (rawDefault === undefined) continue;
+
+      if (typeof rawDefault === 'string' && (type === 'list' || type === 'dict' || type === 'map' || type === 'object')) {
+        defaults[key] = tryParseStructuredLiteral(rawDefault);
+      } else {
+        defaults[key] = rawDefault;
+      }
+    }
+  }
+  const childContext: NanoRenderContext = {
+    ...context,
+    state: { ...defaults, ...context.state },
+  };
+
   return (
     <div className="nano-component" data-name={name}>
       {ir.children?.map((child, i) => (
-        <RenderNode key={i} ir={child} context={context} />
+        <RenderNode key={i} ir={child} context={childContext} />
       ))}
     </div>
   );
@@ -349,12 +451,12 @@ const RenderComponent: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({
 // P0: Core Form Input Components
 // ============================================================================
 
-const RenderDatePicker: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir, context }) => {
+const RenderDatePicker: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir }) => {
   const placeholder = ir.props.placeholder || 'Select date';
   return <input type="date" className="nano-datepicker" placeholder={placeholder} />;
 };
 
-const RenderRadio: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir, context }) => {
+const RenderRadio: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir }) => {
   const label = ir.props.label || '';
   const option = ir.props.option || '';
   const name = ir.props.name || '';
@@ -376,7 +478,7 @@ const RenderRadioGroup: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = (
   );
 };
 
-const RenderSwitch: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir, context }) => {
+const RenderSwitch: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir }) => {
   const label = ir.props.label;
   return (
     <label className="nano-switch-wrapper">
@@ -386,7 +488,7 @@ const RenderSwitch: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir
   );
 };
 
-const RenderNumberInput: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir, context }) => {
+const RenderNumberInput: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir }) => {
   const placeholder = ir.props.placeholder || '';
   const min = ir.props.min || 0;
   const max = ir.props.max || 100;
@@ -437,7 +539,7 @@ const RenderAlert: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir,
   );
 };
 
-const RenderProgress: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir, context }) => {
+const RenderProgress: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir }) => {
   const valueStr = ir.props.value;
   const maxStr = ir.props.max;
   const value = typeof valueStr === 'number' ? valueStr : (parseFloat(valueStr) || 0);
@@ -456,7 +558,7 @@ const RenderProgress: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ 
   );
 };
 
-const RenderSpinner: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir, context }) => {
+const RenderSpinner: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir }) => {
   const size = ir.props.size || 'md';
   const text = ir.props.text;
   return (
@@ -487,7 +589,7 @@ const RenderSplitView: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({
   );
 };
 
-const RenderSmartTextField: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir, context }) => {
+const RenderSmartTextField: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir }) => {
   const label = ir.props.label;
   const placeholder = ir.props.placeholder || '';
   const validation = ir.props.validation;
@@ -499,7 +601,7 @@ const RenderSmartTextField: React.FC<{ ir: NanoIR; context: NanoRenderContext }>
   );
 };
 
-const RenderSlider: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir, context }) => {
+const RenderSlider: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir }) => {
   const label = ir.props.label;
   const min = ir.props.min || 0;
   const max = ir.props.max || 100;
@@ -512,7 +614,7 @@ const RenderSlider: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir
   );
 };
 
-const RenderDateRangePicker: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir, context }) => {
+const RenderDateRangePicker: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = () => {
   return (
     <div className="nano-daterangepicker">
       <input type="date" className="nano-daterangepicker-start" />
@@ -522,23 +624,114 @@ const RenderDateRangePicker: React.FC<{ ir: NanoIR; context: NanoRenderContext }
 };
 
 const RenderDataChart: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir, context }) => {
-  const type = ir.props.type || 'line';
-  const data = ir.props.data;
+  const type = ir.props.type || 'bar';
+  const resolvedData = resolveValue(context, ir.props.data);
+  const dataArray = Array.isArray(resolvedData) ? resolvedData : (typeof resolvedData === 'string' ? tryParseStructuredLiteral(resolvedData) : resolvedData);
+  const data = Array.isArray(dataArray) ? dataArray : [];
+
+  const xField = ir.props.xField;
+  const yField = ir.props.yField;
+  const inferred = inferChartFields(data, xField, yField);
+
+  if (!inferred || data.length === 0) {
+    return <div className="nano-datachart nano-datachart-empty">(no chart data)</div>;
+  }
+
+  // Minimal bar chart (SVG). Uses VSCode theme vars for color.
+  const values = data.map((d: any) => Number(d?.[inferred.y]) || 0);
+  const max = Math.max(...values, 0);
+  const width = 420;
+  const height = 160;
+  const padding = 16;
+  const barGap = 6;
+  const barCount = Math.max(data.length, 1);
+  const barWidth = (width - padding * 2 - barGap * (barCount - 1)) / barCount;
+
   return (
-    <div className={`nano-datachart type-${type}`} data-data={data}>
-      Chart: {type}
+    <div className={`nano-datachart type-${type}`}>
+      <svg className="nano-datachart-svg" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="chart">
+        {data.map((d: any, i: number) => {
+          const v = Number(d?.[inferred.y]) || 0;
+          const ratio = max > 0 ? v / max : 0;
+          const h = Math.max(0, (height - padding * 2) * ratio);
+          const x = padding + i * (barWidth + barGap);
+          const y = height - padding - h;
+          return <rect key={i} className="nano-datachart-bar" x={x} y={y} width={barWidth} height={h} rx={2} />;
+        })}
+      </svg>
+      <div className="nano-datachart-legend">
+        {data.slice(0, 8).map((d: any, i: number) => (
+          <span key={i} className="nano-datachart-legend-item">
+            {String(d?.[inferred.x] ?? '')}: {String(d?.[inferred.y] ?? '')}
+          </span>
+        ))}
+      </div>
     </div>
   );
 };
 
 const RenderDataTable: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir, context }) => {
-  const columns = ir.props.columns;
-  const data = ir.props.data;
+  const resolvedColumns = resolveValue(context, ir.props.columns);
+  const resolvedData = resolveValue(context, ir.props.data);
+
+  const rows = Array.isArray(resolvedData)
+    ? resolvedData
+    : Array.isArray(tryParseStructuredLiteral(String(resolvedData ?? '')))
+      ? (tryParseStructuredLiteral(String(resolvedData ?? '')) as any[])
+      : [];
+
+  type ColumnDef = { key: string; title?: string; format?: string };
+  const parsedColumns: ColumnDef[] = (() => {
+    if (Array.isArray(resolvedColumns)) {
+      return resolvedColumns
+        .map((c: any) => ({
+          key: String(c?.key ?? c?.field ?? ''),
+          title: c?.title,
+          format: c?.format,
+        }))
+        .filter(c => c.key);
+    }
+    if (typeof resolvedColumns === 'string') {
+      const parsed = tryParseStructuredLiteral(resolvedColumns);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map((c: any) => ({
+            key: String(c?.key ?? c?.field ?? ''),
+            title: c?.title,
+            format: c?.format,
+          }))
+          .filter(c => c.key);
+      }
+      // Fallback: "a,b,c"
+      return resolvedColumns.split(',').map(s => s.trim()).filter(Boolean).map(k => ({ key: k, title: k }));
+    }
+    // Infer from first row
+    const first = rows.find(r => r && typeof r === 'object') as any;
+    if (!first) return [];
+    return Object.keys(first).map(k => ({ key: k, title: k }));
+  })();
+
   return (
-    <table className="nano-datatable" data-columns={columns} data-data={data}>
-      <thead><tr>{/* Columns will be populated dynamically */}</tr></thead>
-      <tbody>{/* Rows will be populated dynamically */}</tbody>
-    </table>
+    <div className="nano-datatable-wrap">
+      <table className="nano-datatable">
+        <thead>
+          <tr>
+            {parsedColumns.map((c) => (
+              <th key={c.key}>{c.title ?? c.key}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r: any, rowIndex: number) => (
+            <tr key={rowIndex}>
+              {parsedColumns.map((c) => (
+                <td key={c.key}>{formatCell(r?.[c.key], c.format)}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 };
 

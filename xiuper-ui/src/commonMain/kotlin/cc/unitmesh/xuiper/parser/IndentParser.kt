@@ -1062,6 +1062,55 @@ class IndentParser(
 
         val result = mutableMapOf<String, String>()
 
+        fun extractBracketLiteral(key: String): String? {
+            // Match: key = [ ... ]  or key: [ ... ]
+            val m = Regex("""\b${key}\s*(?::=|=|:)\s*""").find(argsStr) ?: return null
+            var i = m.range.last + 1
+            while (i < argsStr.length && argsStr[i].isWhitespace()) i++
+            if (i >= argsStr.length) return null
+            val open = argsStr[i]
+            val close = when (open) {
+                '[' -> ']'
+                '{' -> '}'
+                else -> return null
+            }
+
+            var depth = 0
+            var inString = false
+            var escaped = false
+            val start = i
+
+            while (i < argsStr.length) {
+                val c = argsStr[i]
+                if (inString) {
+                    if (escaped) {
+                        escaped = false
+                    } else if (c == '\\') {
+                        escaped = true
+                    } else if (c == '"') {
+                        inString = false
+                    }
+                } else {
+                    when (c) {
+                        '"' -> inString = true
+                        open -> depth++
+                        close -> {
+                            depth--
+                            if (depth == 0) {
+                                return argsStr.substring(start, i + 1).trim()
+                            }
+                        }
+                    }
+                }
+                i++
+            }
+
+            return null
+        }
+
+        // Capture complex literals that include commas/braces so regex parsing doesn't drop them.
+        extractBracketLiteral("columns")?.let { result["columns"] = it }
+
         // First, handle << (subscribe binding) pattern: content << state.count
         val subscribeRegex = Regex("""(\w+)\s*<<\s*([\w.]+)""")
         subscribeRegex.findAll(argsStr).forEach { match ->

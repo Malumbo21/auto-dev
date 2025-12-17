@@ -113,10 +113,31 @@ object NanoRenderUtils {
      */
     fun resolveBindingValue(value: String?, state: Map<String, Any>): String? {
         if (value == null) return null
-        if (value.startsWith("state.")) {
-            val path = value.removePrefix("state.")
+
+        val trimmed = value.trim()
+        val normalized = if (trimmed.startsWith("<<")) trimmed.removePrefix("<<").trim() else trimmed
+        if (normalized.startsWith("state.")) {
+            val path = normalized.removePrefix("state.")
             return state[path]?.toString()
         }
+
+        return value
+    }
+
+    /**
+     * Resolve a binding value from state, returning the underlying value (List/Map/Number/etc).
+     * Supports both `state.xxx` and subscribe form `<< state.xxx`.
+     */
+    fun resolveBindingAny(value: String?, state: Map<String, Any>): Any? {
+        if (value == null) return null
+
+        val trimmed = value.trim()
+        val normalized = if (trimmed.startsWith("<<")) trimmed.removePrefix("<<").trim() else trimmed
+        if (normalized.startsWith("state.")) {
+            val path = normalized.removePrefix("state.")
+            return state[path]
+        }
+
         return value
     }
 
