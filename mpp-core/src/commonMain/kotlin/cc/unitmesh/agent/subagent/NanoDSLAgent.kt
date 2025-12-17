@@ -13,8 +13,10 @@ import cc.unitmesh.agent.tool.ToolResult
 import cc.unitmesh.agent.tool.schema.DeclarativeToolSchema
 import cc.unitmesh.agent.tool.schema.SchemaPropertyBuilder.string
 import cc.unitmesh.devins.parser.CodeFence
-import cc.unitmesh.llm.KoogLLMService
 import cc.unitmesh.llm.ModelConfig
+import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.KoogPromptStreamingServiceAdapter
+import cc.unitmesh.llm.PromptStreamingService
 import cc.unitmesh.llm.image.ImageGenerationResult
 import cc.unitmesh.llm.image.ImageGenerationService
 import kotlinx.coroutines.flow.toList
@@ -37,13 +39,26 @@ import kotlinx.serialization.Serializable
  * - JS/WASM: Available via JsNanoDSLAgent wrapper
  */
 class NanoDSLAgent(
-    private val llmService: KoogLLMService,
+    private val llmService: PromptStreamingService,
     private val promptTemplate: String = DEFAULT_PROMPT,
     private val maxRetries: Int = 3,
     private val imageGenerationService: ImageGenerationService? = null
 ) : SubAgent<NanoDSLContext, ToolResult.AgentResult>(
     definition = createDefinition()
 ) {
+
+    constructor(
+        llmService: KoogLLMService,
+        promptTemplate: String = DEFAULT_PROMPT,
+        maxRetries: Int = 3,
+        imageGenerationService: ImageGenerationService? = null
+    ) : this(
+        llmService = KoogPromptStreamingServiceAdapter(llmService),
+        promptTemplate = promptTemplate,
+        maxRetries = maxRetries,
+        imageGenerationService = imageGenerationService
+    )
+
     private val logger = getLogger("NanoDSLAgent")
     private val validator = NanoDSLValidator()
 
