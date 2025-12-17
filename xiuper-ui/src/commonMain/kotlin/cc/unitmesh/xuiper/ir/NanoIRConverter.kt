@@ -86,6 +86,7 @@ object NanoIRConverter {
         val props = mutableMapOf<String, JsonElement>()
         node.spacing?.let { props["spacing"] = JsonPrimitive(it) }
         node.align?.let { props["align"] = JsonPrimitive(it) }
+        node.flex?.let { props["flex"] = JsonPrimitive(it) }
 
         return NanoIR(
             type = "VStack",
@@ -99,6 +100,8 @@ object NanoIRConverter {
         node.spacing?.let { props["spacing"] = JsonPrimitive(it) }
         node.align?.let { props["align"] = JsonPrimitive(it) }
         node.justify?.let { props["justify"] = JsonPrimitive(it) }
+        node.wrap?.let { props["wrap"] = JsonPrimitive(it) }
+        node.flex?.let { props["flex"] = JsonPrimitive(it) }
 
         return NanoIR(
             type = "HStack",
@@ -111,6 +114,7 @@ object NanoIRConverter {
         val props = mutableMapOf<String, JsonElement>()
         node.padding?.let { props["padding"] = JsonPrimitive(it) }
         node.shadow?.let { props["shadow"] = JsonPrimitive(it) }
+        node.flex?.let { props["flex"] = JsonPrimitive(it) }
 
         return NanoIR(
             type = "Card",
@@ -288,6 +292,7 @@ object NanoIRConverter {
     private fun convertForm(node: NanoNode.Form): NanoIR {
         val props = mutableMapOf<String, JsonElement>()
         node.onSubmit?.let { props["onSubmit"] = JsonPrimitive(it) }
+        node.flex?.let { props["flex"] = JsonPrimitive(it) }
 
         val actions = node.onSubmitAction?.let {
             mapOf("onSubmit" to convertAction(it))
@@ -400,6 +405,7 @@ object NanoIRConverter {
     private fun convertSplitView(node: NanoNode.SplitView): NanoIR {
         val props = mutableMapOf<String, JsonElement>()
         node.ratio?.let { props["ratio"] = JsonPrimitive(it) }
+        node.flex?.let { props["flex"] = JsonPrimitive(it) }
 
         return NanoIR(
             type = "SplitView",

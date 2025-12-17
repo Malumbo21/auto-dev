@@ -902,17 +902,28 @@ class IndentParser(
             "VStack" -> NanoNode.VStack(
                 spacing = args["spacing"] ?: props["spacing"],
                 align = args["align"] ?: props["align"],
+                flex = (args["flex"] ?: props["flex"])?.toFloatOrNull(),
                 children = children
             )
             "HStack" -> NanoNode.HStack(
                 spacing = args["spacing"] ?: props["spacing"],
                 align = args["align"] ?: props["align"],
                 justify = args["justify"] ?: props["justify"],
+                wrap = (args["wrap"] ?: props["wrap"])?.let { raw ->
+                    when (raw.trim().lowercase()) {
+                        "wrap" -> true
+                        "true" -> true
+                        "false" -> false
+                        else -> null
+                    }
+                },
+                flex = (args["flex"] ?: props["flex"])?.toFloatOrNull(),
                 children = children
             )
             "Card" -> NanoNode.Card(
                 padding = args["padding"] ?: props["padding"],
                 shadow = args["shadow"] ?: props["shadow"],
+                flex = (args["flex"] ?: props["flex"])?.toFloatOrNull(),
                 children = children
             )
             "Text" -> {
@@ -997,6 +1008,7 @@ class IndentParser(
             "Form" -> {
                 NanoNode.Form(
                     onSubmit = args["onSubmit"],
+                    flex = (args["flex"] ?: props["flex"])?.toFloatOrNull(),
                     children = children
                 )
             }
@@ -1092,6 +1104,7 @@ class IndentParser(
             "SplitView" -> {
                 NanoNode.SplitView(
                     ratio = args["ratio"]?.toFloatOrNull() ?: props["ratio"]?.toFloatOrNull(),
+                    flex = (args["flex"] ?: props["flex"])?.toFloatOrNull(),
                     children = children
                 )
             }

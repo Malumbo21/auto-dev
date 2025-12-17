@@ -15,6 +15,14 @@ class HtmlRenderer(
     private val context: RenderContext = RenderContext()
 ) : NanoRenderer<String> {
 
+    private fun renderFlexStyleAttribute(ir: NanoIR): String {
+        val raw = ir.props["flex"]?.jsonPrimitive?.content ?: return ""
+        val flex = raw.toFloatOrNull() ?: return ""
+        if (flex <= 0f) return ""
+        // min-width:0 prevents long text from overflowing in flex rows.
+        return " style=\"flex: $flex 1 0%; min-width: 0;\""
+    }
+
     override fun render(ir: NanoIR): String {
         return buildString {
             append("<!DOCTYPE html>\n<html>\n<head>\n")
@@ -77,7 +85,9 @@ class HtmlRenderer(
         val spacing = ir.props["spacing"]?.jsonPrimitive?.content ?: "md"
         val align = ir.props["align"]?.jsonPrimitive?.content ?: "stretch"
         return buildString {
-            append("<div class=\"nano-vstack spacing-$spacing align-$align\">\n")
+            append("<div class=\"nano-vstack spacing-$spacing align-$align\"")
+            append(renderFlexStyleAttribute(ir))
+            append(">\n")
             ir.children?.forEach { append(renderNode(it)) }
             append("</div>\n")
         }
@@ -87,8 +97,13 @@ class HtmlRenderer(
         val spacing = ir.props["spacing"]?.jsonPrimitive?.content ?: "md"
         val align = ir.props["align"]?.jsonPrimitive?.content ?: "center"
         val justify = ir.props["justify"]?.jsonPrimitive?.content ?: "start"
+        val wrapRaw = ir.props["wrap"]?.jsonPrimitive?.content
+        val wrapEnabled = wrapRaw == "wrap" || wrapRaw.equals("true", ignoreCase = true)
+        val wrapClass = if (wrapEnabled) " wrap" else ""
         return buildString {
-            append("<div class=\"nano-hstack spacing-$spacing align-$align justify-$justify\">\n")
+            append("<div class=\"nano-hstack spacing-$spacing align-$align justify-$justify$wrapClass\"")
+            append(renderFlexStyleAttribute(ir))
+            append(">\n")
             ir.children?.forEach { append(renderNode(it)) }
             append("</div>\n")
         }
@@ -102,7 +117,9 @@ class HtmlRenderer(
         val padding = ir.props["padding"]?.jsonPrimitive?.content ?: "md"
         val shadow = ir.props["shadow"]?.jsonPrimitive?.content ?: "sm"
         return buildString {
-            append("<div class=\"nano-card padding-$padding shadow-$shadow\">\n")
+            append("<div class=\"nano-card padding-$padding shadow-$shadow\"")
+            append(renderFlexStyleAttribute(ir))
+            append(">\n")
             ir.children?.forEach { append(renderNode(it)) }
             append("</div>\n")
         }
@@ -112,6 +129,7 @@ class HtmlRenderer(
         val onSubmit = ir.props["onSubmit"]?.jsonPrimitive?.content
         return buildString {
             append("<form class=\"nano-form\"")
+            append(renderFlexStyleAttribute(ir))
             if (onSubmit != null) append(" data-action=\"$onSubmit\"")
             append(">\n")
             ir.children?.forEach { append(renderNode(it)) }
@@ -437,7 +455,9 @@ class HtmlRenderer(
         val leftWidth = (ratio * 100).toInt()
         val rightWidth = 100 - leftWidth
         return buildString {
-            append("<div class=\"nano-splitview\">\n")
+            append("<div class=\"nano-splitview\"")
+            append(renderFlexStyleAttribute(ir))
+            append(">\n")
             append("  <div class=\"nano-splitview-left\" style=\"width: ${leftWidth}%\">\n")
             if (ir.children?.isNotEmpty() == true) append("    ${renderNode(ir.children[0]).replace("\n", "\n    ")}")
             append("  </div>\n")
@@ -565,6 +585,7 @@ class HtmlRenderer(
 
         .nano-vstack { display: flex; flex-direction: column; width: 100%; }
         .nano-hstack { display: flex; flex-direction: row; align-items: center; width: 100%; }
+        .nano-hstack.wrap { flex-wrap: wrap; }
 
         /* HStack child flex support */
         .nano-hstack > .flex-1 { flex: 1; }

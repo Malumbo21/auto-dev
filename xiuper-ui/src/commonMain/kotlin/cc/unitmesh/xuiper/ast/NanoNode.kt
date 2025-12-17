@@ -57,6 +57,8 @@ sealed class NanoNode {
     data class VStack(
         val spacing: String? = null,
         val align: String? = null,
+        /** Flex factor when this node is a child of HStack/SplitView etc. */
+        val flex: Float? = null,
         val children: List<NanoNode> = emptyList()
     ) : NanoNode()
 
@@ -68,6 +70,10 @@ sealed class NanoNode {
         val spacing: String? = null,
         val align: String? = null,
         val justify: String? = null,
+        /** When true, allow children to wrap to the next line on narrow widths. */
+        val wrap: Boolean? = null,
+        /** Flex factor when this node is a child of another flex container. */
+        val flex: Float? = null,
         val children: List<NanoNode> = emptyList()
     ) : NanoNode()
 
@@ -80,6 +86,8 @@ sealed class NanoNode {
     data class Card(
         val padding: String? = null,
         val shadow: String? = null,
+        /** Flex factor when this node is a child of HStack/SplitView etc. */
+        val flex: Float? = null,
         val children: List<NanoNode> = emptyList()
     ) : NanoNode()
 
@@ -279,6 +287,9 @@ sealed class NanoNode {
         /** Direct Fetch action on submit */
         val onSubmitAction: NanoAction? = null,
 
+        /** Flex factor when this node is a child of HStack/SplitView etc. */
+        val flex: Float? = null,
+
         /** Child components (inputs, buttons) */
         val children: List<NanoNode> = emptyList()
     ) : NanoNode()
@@ -321,6 +332,8 @@ sealed class NanoNode {
      */
     data class SplitView(
         val ratio: Float? = null,
+        /** Flex factor when this node is a child of HStack/SplitView etc. */
+        val flex: Float? = null,
         val children: List<NanoNode> = emptyList()
     ) : NanoNode()
 

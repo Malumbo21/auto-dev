@@ -36,7 +36,8 @@ object NanoSpecV1 : NanoSpec {
             category = ComponentCategory.LAYOUT,
             optionalProps = listOf(
                 PropSpec("spacing", PropType.ENUM, "md", allowedValues = SPACING_VALUES),
-                PropSpec("align", PropType.ENUM, "stretch", allowedValues = ALIGN_VALUES)
+                PropSpec("align", PropType.ENUM, "stretch", allowedValues = ALIGN_VALUES),
+                PropSpec("flex", PropType.FLOAT, description = "Flex factor when used inside HStack/SplitView")
             ),
             allowsChildren = true,
             description = "Vertical stack layout"
@@ -47,7 +48,9 @@ object NanoSpecV1 : NanoSpec {
             optionalProps = listOf(
                 PropSpec("spacing", PropType.ENUM, "md", allowedValues = SPACING_VALUES),
                 PropSpec("align", PropType.ENUM, "center", allowedValues = ALIGN_VALUES),
-                PropSpec("justify", PropType.ENUM, "start", allowedValues = JUSTIFY_VALUES)
+                PropSpec("justify", PropType.ENUM, "start", allowedValues = JUSTIFY_VALUES),
+                PropSpec("wrap", PropType.BOOLEAN, "false", description = "Allow children to wrap on narrow widths"),
+                PropSpec("flex", PropType.FLOAT, description = "Flex factor when used inside another flex container")
             ),
             allowsChildren = true,
             description = "Horizontal stack layout"
@@ -58,7 +61,8 @@ object NanoSpecV1 : NanoSpec {
             category = ComponentCategory.CONTAINER,
             optionalProps = listOf(
                 PropSpec("padding", PropType.ENUM, "md", allowedValues = SPACING_VALUES),
-                PropSpec("shadow", PropType.ENUM, "sm", allowedValues = SHADOW_VALUES)
+                PropSpec("shadow", PropType.ENUM, "sm", allowedValues = SHADOW_VALUES),
+                PropSpec("flex", PropType.FLOAT, description = "Flex factor when used inside HStack/SplitView")
             ),
             allowsChildren = true,
             description = "Card container with shadow"
@@ -259,7 +263,8 @@ object NanoSpecV1 : NanoSpec {
             name = "Form",
             category = ComponentCategory.CONTAINER,
             optionalProps = listOf(
-                PropSpec("onSubmit", PropType.STRING)
+                PropSpec("onSubmit", PropType.STRING),
+                PropSpec("flex", PropType.FLOAT, description = "Flex factor when used inside HStack/SplitView")
             ),
             allowsChildren = true,
             allowsActions = true,
@@ -270,7 +275,8 @@ object NanoSpecV1 : NanoSpec {
             name = "SplitView",
             category = ComponentCategory.LAYOUT,
             optionalProps = listOf(
-                PropSpec("ratio", PropType.FLOAT, "0.5", description = "Split ratio (0.0-1.0)")
+                PropSpec("ratio", PropType.FLOAT, "0.5", description = "Split ratio (0.0-1.0)"),
+                PropSpec("flex", PropType.FLOAT, description = "Flex factor when used inside HStack/SplitView")
             ),
             allowsChildren = true,
             description = "Split view layout (left chat, right canvas)"
