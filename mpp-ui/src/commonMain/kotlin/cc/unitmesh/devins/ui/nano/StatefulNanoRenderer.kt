@@ -5,11 +5,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import cc.unitmesh.xuiper.ir.NanoActionIR
 import cc.unitmesh.xuiper.ir.NanoIR
-import kotlinx.serialization.json.booleanOrNull
-import kotlinx.serialization.json.intOrNull
-import kotlinx.serialization.json.jsonPrimitive
-import cc.unitmesh.yaml.YamlUtils
-import kotlin.math.round
 
 /**
  * Stateful NanoUI Compose Renderer
@@ -32,46 +27,6 @@ import kotlin.math.round
  */
 object StatefulNanoRenderer {
 
-    private fun normalizeStatePath(raw: String): String {
-        val trimmed = raw.trim()
-        return if (trimmed.startsWith("state.")) trimmed.removePrefix("state.") else trimmed
-    }
-
-    private fun initStateFromIR(ir: NanoIR, stateMap: MutableMap<String, Any>) {
-        ir.state?.variables?.forEach { (name, varDef) ->
-            val defaultValue = varDef.defaultValue
-            stateMap[name] = when (varDef.type) {
-                "int" -> defaultValue?.jsonPrimitive?.intOrNull ?: 0
-                "float" -> defaultValue?.jsonPrimitive?.content?.toFloatOrNull() ?: 0f
-                "bool" -> defaultValue?.jsonPrimitive?.booleanOrNull ?: false
-                "str" -> defaultValue?.jsonPrimitive?.content ?: ""
-                "list" -> {
-                    val raw = defaultValue?.jsonPrimitive?.content ?: "[]"
-                    val parsed = parseStructuredDefault(raw)
-                    if (parsed is List<*>) parsed else emptyList<Any>()
-                }
-                "dict", "map", "object" -> {
-                    val raw = defaultValue?.jsonPrimitive?.content ?: "{}"
-                    val parsed = parseStructuredDefault(raw)
-                    if (parsed is Map<*, *>) parsed else emptyMap<String, Any>()
-                }
-                else -> defaultValue?.jsonPrimitive?.content ?: ""
-            }
-        }
-    }
-
-    private fun parseStructuredDefault(raw: String): Any {
-        val trimmed = raw.trim()
-        if (trimmed.isEmpty()) return ""
-
-        return try {
-            // JSON is valid YAML 1.2, so this handles both JSON/YAML list/map literals.
-            YamlUtils.load(trimmed) ?: raw
-        } catch (_: Exception) {
-            raw
-        }
-    }
-
     /**
      * Render a NanoIR tree with state management.
      * Automatically initializes state from the IR and provides action handlers.
@@ -84,88 +39,20 @@ object StatefulNanoRenderer {
         ir: NanoIR,
         modifier: Modifier = Modifier
     ) {
-        // Initialize state from IR synchronously so conditionals can render on the first frame.
-        // We reset state when IR changes (e.g. live preview re-parses NanoDSL).
-        val stateMap = remember(ir) {
-            mutableStateMapOf<String, Any>().apply {
-                initStateFromIR(ir, this)
-            }
+        // Runtime wraps NanoState + action application logic.
+        // Recreated when IR changes (e.g. live preview re-parses NanoDSL).
+        val runtime = remember(ir) { NanoStateRuntime(ir) }
+
+        // Subscribe to declared state keys so Compose recomposes when they change.
+        // We only track keys declared in the component's `state:` block.
+        runtime.declaredKeys.forEach { key ->
+            runtime.state.flow(key).collectAsState()
         }
 
-        // Create action handler
-        val handleAction: (NanoActionIR) -> Unit = handleAction@{ action ->
-            when (action.type) {
-                "stateMutation" -> {
-                    val payload = action.payload ?: return@handleAction
-                    val path = normalizeStatePath(payload["path"]?.jsonPrimitive?.content ?: return@handleAction)
-                    val operation = payload["operation"]?.jsonPrimitive?.content ?: "SET"
-                    val valueStr = payload["value"]?.jsonPrimitive?.content ?: ""
+        val snapshot = runtime.snapshot()
+        val handleAction: (NanoActionIR) -> Unit = { action -> runtime.apply(action) }
 
-                    val currentValue = stateMap[path]
-                    val newValue = when (operation) {
-                        "ADD" -> {
-                            when (currentValue) {
-                                is Int -> currentValue + (valueStr.toIntOrNull() ?: 1)
-                                is Float -> currentValue + (valueStr.toFloatOrNull() ?: 1f)
-                                else -> currentValue
-                            }
-                        }
-                        "SUBTRACT" -> {
-                            when (currentValue) {
-                                is Int -> currentValue - (valueStr.toIntOrNull() ?: 1)
-                                is Float -> currentValue - (valueStr.toFloatOrNull() ?: 1f)
-                                else -> currentValue
-                            }
-                        }
-                        "APPEND" -> {
-                            when (currentValue) {
-                                is List<*> -> {
-                                    val trimmed = valueStr.trim().removeSurrounding("\"", "\"")
-                                    if (currentValue.contains(trimmed)) currentValue else currentValue + trimmed
-                                }
-                                else -> currentValue
-                            }
-                        }
-                        "REMOVE" -> {
-                            when (currentValue) {
-                                is List<*> -> {
-                                    val trimmed = valueStr.trim().removeSurrounding("\"", "\"")
-                                    currentValue.filterNot { it == trimmed }
-                                }
-                                else -> currentValue
-                            }
-                        }
-                        "SET" -> {
-                            when (currentValue) {
-                                is Int -> {
-                                    valueStr.toIntOrNull()
-                                        ?: valueStr.toDoubleOrNull()?.let { round(it).toInt() }
-                                        ?: 0
-                                }
-                                is Float -> valueStr.toFloatOrNull() ?: 0f
-                                is Boolean -> valueStr.toBooleanStrictOrNull() ?: false
-                                is List<*> -> {
-                                    val parsed = parseStructuredDefault(valueStr)
-                                    if (parsed is List<*>) parsed else currentValue
-                                }
-                                is Map<*, *> -> {
-                                    val parsed = parseStructuredDefault(valueStr)
-                                    if (parsed is Map<*, *>) parsed else currentValue
-                                }
-                                else -> valueStr
-                            }
-                        }
-                        else -> valueStr
-                    }
-
-                    if (newValue != null) {
-                        stateMap[path] = newValue
-                    }
-                }
-            }
-        }
-
-        RenderNode(ir, stateMap, handleAction, modifier)
+        RenderNode(ir, snapshot, handleAction, modifier)
     }
 
     @Composable

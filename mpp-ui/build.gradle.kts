@@ -147,6 +147,7 @@ kotlin {
                 implementation(project(":mpp-codegraph"))
                 implementation(project(":mpp-viewer"))
                 implementation(project(":mpp-viewer-web"))
+                implementation(project(":xiuper-ui"))
 
                 implementation(compose.runtime)
                 implementation(compose.foundation)

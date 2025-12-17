@@ -463,9 +463,21 @@ object NanoRenderUtils {
                 else -> null
             }
 
+            fun equalsLoosely(left: Any?, right: Any?): Boolean {
+                // Prefer numeric equality if both sides are numeric-ish.
+                val ln = asNumber(left)
+                val rn = asNumber(right)
+                if (ln != null && rn != null) return ln == rn
+
+                // Prefer boolean equality if both sides are booleans.
+                if (left is Boolean && right is Boolean) return left == right
+
+                return left?.toString() == right?.toString()
+            }
+
             when (op) {
-                "==" -> return leftValue?.toString() == rightValue?.toString()
-                "!=" -> return leftValue?.toString() != rightValue?.toString()
+                "==" -> return equalsLoosely(leftValue, rightValue)
+                "!=" -> return !equalsLoosely(leftValue, rightValue)
                 ">" -> return (asNumber(leftValue) ?: return false) > (asNumber(rightValue) ?: return false)
                 ">=" -> return (asNumber(leftValue) ?: return false) >= (asNumber(rightValue) ?: return false)
                 "<" -> return (asNumber(leftValue) ?: return false) < (asNumber(rightValue) ?: return false)
