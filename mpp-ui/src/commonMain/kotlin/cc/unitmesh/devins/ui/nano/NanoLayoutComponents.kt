@@ -30,8 +30,22 @@ object NanoLayoutComponents {
     ) {
         val spacing = ir.props["spacing"]?.jsonPrimitive?.content?.toSpacing() ?: 8.dp
         val padding = ir.props["padding"]?.jsonPrimitive?.content?.toPadding()
+        val align = ir.props["align"]?.jsonPrimitive?.content
+
+        val horizontalAlignment = when (align) {
+            "center" -> Alignment.CenterHorizontally
+            "start" -> Alignment.Start
+            "end" -> Alignment.End
+            "stretch" -> Alignment.Start // Column doesn't have stretch, default to Start
+            else -> Alignment.Start
+        }
+
         val finalModifier = if (padding != null) modifier.padding(padding) else modifier
-        Column(modifier = finalModifier, verticalArrangement = Arrangement.spacedBy(spacing)) {
+        Column(
+            modifier = finalModifier,
+            verticalArrangement = Arrangement.spacedBy(spacing),
+            horizontalAlignment = horizontalAlignment
+        ) {
             ir.children?.forEach { child -> renderNode(child, state, onAction, Modifier) }
         }
     }
@@ -148,7 +162,10 @@ object NanoLayoutComponents {
         }
 
         Card(modifier = modifier.fillMaxWidth(), elevation = elevation) {
-            Column(modifier = Modifier.padding(padding)) {
+            Column(
+                modifier = Modifier.padding(padding),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 ir.children?.forEach { child -> renderNode(child, state, onAction, Modifier) }
             }
         }
