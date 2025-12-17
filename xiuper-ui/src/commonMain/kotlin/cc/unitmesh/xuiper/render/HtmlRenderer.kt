@@ -397,15 +397,22 @@ class HtmlRenderer(
     }
 
     fun renderProgress(ir: NanoIR): String {
-        val value = ir.props["value"]?.jsonPrimitive?.content?.toFloatOrNull() ?: 0f
-        val max = ir.props["max"]?.jsonPrimitive?.content?.toFloatOrNull() ?: 100f
+        val valueStr = ir.props["value"]?.jsonPrimitive?.content
+        val maxStr = ir.props["max"]?.jsonPrimitive?.content
+        val value = valueStr?.toFloatOrNull() ?: 0f
+        val max = maxStr?.toFloatOrNull() ?: 100f
         val showText = ir.props["showText"]?.jsonPrimitive?.content?.toBoolean() ?: true
         val status = ir.props["status"]?.jsonPrimitive?.content ?: "normal"
-        val percentage = ((value / max) * 100).toInt().coerceIn(0, 100)
+        val isBinding = (valueStr != null && valueStr.toFloatOrNull() == null) ||
+                       (maxStr != null && maxStr.toFloatOrNull() == null)
+        val percentage = if (max > 0f) ((value / max) * 100).toInt().coerceIn(0, 100) else 0
         return buildString {
-            append("<div class=\"nano-progress status-$status\">\n")
+            append("<div class=\"nano-progress status-$status\" data-value=\"${valueStr ?: "0"}\" data-max=\"${maxStr ?: "100"}\">\n")
             append("  <div class=\"nano-progress-bar\" style=\"width: $percentage%\"></div>\n")
-            if (showText) append("  <span class=\"nano-progress-text\">$percentage%</span>\n")
+            if (showText) {
+                val displayText = if (isBinding) "${valueStr ?: "0"} / ${maxStr ?: "100"}" else "$percentage%"
+                append("  <span class=\"nano-progress-text\">$displayText</span>\n")
+            }
             append("</div>\n")
         }
     }

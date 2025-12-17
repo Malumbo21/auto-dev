@@ -519,7 +519,7 @@ NanoDSL uses Python-style indentation (4 spaces) to represent hierarchy.
 
 ### Display Components
 - `Text("content", style="h1|h2|h3|body|caption")` - Text display
-- `Image(src=path, aspect=16/9, radius="md")` - Image display
+- `Image(src="/{scene}.jpg", aspect=16/9, radius="md")` - Image display. Use descriptive scene path like "/singapore-skyline.jpg", "/beach-sunset.jpg". The image will be AI-generated based on the scene name. Do NOT use external URLs.
 - `Badge("text", color="green|red|blue")` - Status indicator
 - `Icon("name", size="sm|md|lg", color="primary")` - Icon display
 - `Divider` - Horizontal line separator
@@ -618,7 +618,8 @@ if state.isLoggedIn:
 2. Use 4 spaces for indentation
 3. Keep it minimal - no redundant components
 4. Wrap output in ```nanodsl code fence
-5. Use appropriate components: DatePicker for dates, Switch for toggles, Modal for dialogs, etc."""
+5. Use appropriate components: DatePicker for dates, Switch for toggles, Modal for dialogs, etc.
+6. For Image components: Use descriptive scene paths like "/singapore-marina-bay.jpg", "/tropical-beach.jpg". Do NOT use external URLs - images will be AI-generated from the scene name."""
     }
 }
 

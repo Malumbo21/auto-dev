@@ -133,20 +133,46 @@ object StatefulNanoRenderer {
         modifier: Modifier = Modifier
     ) {
         when (ir.type) {
+            // Layout
             "VStack" -> RenderVStack(ir, state, onAction, modifier)
             "HStack" -> RenderHStack(ir, state, onAction, modifier)
+            // Container
             "Card" -> RenderCard(ir, state, onAction, modifier)
             "Form" -> RenderForm(ir, state, onAction, modifier)
+            // Content
             "Text" -> RenderText(ir, state, modifier)
             "Image" -> RenderImage(ir, modifier)
             "Badge" -> RenderBadge(ir, modifier)
             "Icon" -> RenderIcon(ir, modifier)
             "Divider" -> RenderDivider(modifier)
+            // Input
             "Button" -> RenderButton(ir, onAction, modifier)
             "Input" -> RenderInput(ir, state, onAction, modifier)
             "Checkbox" -> RenderCheckbox(ir, state, onAction, modifier)
             "TextArea" -> RenderTextArea(ir, state, onAction, modifier)
             "Select" -> RenderSelect(ir, state, onAction, modifier)
+            // P0: Core Form Input Components
+            "DatePicker" -> RenderDatePicker(ir, state, onAction, modifier)
+            "Radio" -> RenderRadio(ir, state, onAction, modifier)
+            "RadioGroup" -> RenderRadioGroup(ir, state, onAction, modifier)
+            "Switch" -> RenderSwitch(ir, state, onAction, modifier)
+            "NumberInput" -> RenderNumberInput(ir, state, onAction, modifier)
+            // P0: Feedback Components
+            "Modal" -> RenderModal(ir, state, onAction, modifier)
+            "Alert" -> RenderAlert(ir, modifier)
+            "Progress" -> RenderProgress(ir, state, modifier)
+            "Spinner" -> RenderSpinner(ir, modifier)
+            // Tier 1-3: GenUI Components
+            "SplitView" -> RenderSplitView(ir, state, onAction, modifier)
+            "SmartTextField" -> RenderSmartTextField(ir, state, onAction, modifier)
+            "Slider" -> RenderSlider(ir, state, onAction, modifier)
+            "DateRangePicker" -> RenderDateRangePicker(ir, state, onAction, modifier)
+            "DataChart" -> RenderDataChart(ir, state, modifier)
+            "DataTable" -> RenderDataTable(ir, state, onAction, modifier)
+            // Control Flow
+            "Conditional" -> RenderConditional(ir, state, onAction, modifier)
+            "ForLoop" -> RenderForLoop(ir, state, onAction, modifier)
+            // Meta
             "Component" -> RenderComponent(ir, state, onAction, modifier)
             else -> RenderUnknown(ir, modifier)
         }
@@ -734,6 +760,479 @@ object StatefulNanoRenderer {
                     )
                 }
             }
+        }
+    }
+
+    // ============================================================================
+    // P0: Core Form Input Components
+    // ============================================================================
+
+    @Composable
+    private fun RenderDatePicker(
+        ir: NanoIR, state: Map<String, Any>, onAction: (NanoActionIR) -> Unit, modifier: Modifier
+    ) {
+        val placeholder = ir.props["placeholder"]?.jsonPrimitive?.content ?: "Select date"
+        val binding = ir.bindings?.get("value")
+        val statePath = binding?.expression?.removePrefix("state.")
+        val currentValue = state[statePath]?.toString() ?: ""
+
+        OutlinedTextField(
+            value = currentValue,
+            onValueChange = { newValue ->
+                if (statePath != null) {
+                    onAction(NanoActionIR(
+                        type = "stateMutation",
+                        payload = mapOf(
+                            "path" to JsonPrimitive(statePath),
+                            "operation" to JsonPrimitive("SET"),
+                            "value" to JsonPrimitive(newValue)
+                        )
+                    ))
+                }
+            },
+            placeholder = { Text(placeholder) },
+            leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = "Date") },
+            modifier = modifier.fillMaxWidth(),
+            singleLine = true
+        )
+    }
+
+    @Composable
+    private fun RenderRadio(
+        ir: NanoIR, state: Map<String, Any>, onAction: (NanoActionIR) -> Unit, modifier: Modifier
+    ) {
+        val option = ir.props["option"]?.jsonPrimitive?.content ?: ""
+        val label = ir.props["label"]?.jsonPrimitive?.content ?: option
+        val binding = ir.bindings?.get("value")
+        val statePath = binding?.expression?.removePrefix("state.")
+        val selectedValue = state[statePath]?.toString() ?: ""
+        val isSelected = selectedValue == option
+
+        Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+            RadioButton(
+                selected = isSelected,
+                onClick = {
+                    if (statePath != null) {
+                        onAction(NanoActionIR(
+                            type = "stateMutation",
+                            payload = mapOf(
+                                "path" to JsonPrimitive(statePath),
+                                "operation" to JsonPrimitive("SET"),
+                                "value" to JsonPrimitive(option)
+                            )
+                        ))
+                    }
+                }
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(label)
+        }
+    }
+
+    @Composable
+    private fun RenderRadioGroup(
+        ir: NanoIR, state: Map<String, Any>, onAction: (NanoActionIR) -> Unit, modifier: Modifier
+    ) {
+        Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            ir.children?.forEach { child -> RenderNode(child, state, onAction) }
+        }
+    }
+
+    @Composable
+    private fun RenderSwitch(
+        ir: NanoIR, state: Map<String, Any>, onAction: (NanoActionIR) -> Unit, modifier: Modifier
+    ) {
+        val label = ir.props["label"]?.jsonPrimitive?.content
+        val binding = ir.bindings?.get("value")
+        val statePath = binding?.expression?.removePrefix("state.")
+        val isChecked = state[statePath] as? Boolean ?: false
+
+        Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+            if (label != null) {
+                Text(label, modifier = Modifier.weight(1f))
+            }
+            Switch(
+                checked = isChecked,
+                onCheckedChange = { newValue ->
+                    if (statePath != null) {
+                        onAction(NanoActionIR(
+                            type = "stateMutation",
+                            payload = mapOf(
+                                "path" to JsonPrimitive(statePath),
+                                "operation" to JsonPrimitive("SET"),
+                                "value" to JsonPrimitive(newValue)
+                            )
+                        ))
+                    }
+                }
+            )
+        }
+    }
+
+    @Composable
+    private fun RenderNumberInput(
+        ir: NanoIR, state: Map<String, Any>, onAction: (NanoActionIR) -> Unit, modifier: Modifier
+    ) {
+        val placeholder = ir.props["placeholder"]?.jsonPrimitive?.content ?: ""
+        val binding = ir.bindings?.get("value")
+        val statePath = binding?.expression?.removePrefix("state.")
+        val currentValue = (state[statePath] as? Number)?.toString() ?: state[statePath]?.toString() ?: ""
+
+        OutlinedTextField(
+            value = currentValue,
+            onValueChange = { newValue ->
+                if (statePath != null && newValue.matches(Regex("-?\\d*\\.?\\d*"))) {
+                    onAction(NanoActionIR(
+                        type = "stateMutation",
+                        payload = mapOf(
+                            "path" to JsonPrimitive(statePath),
+                            "operation" to JsonPrimitive("SET"),
+                            "value" to JsonPrimitive(newValue.toDoubleOrNull() ?: 0)
+                        )
+                    ))
+                }
+            },
+            placeholder = { Text(placeholder) },
+            modifier = modifier.fillMaxWidth(),
+            singleLine = true
+        )
+    }
+
+    // ============================================================================
+    // P0: Feedback Components
+    // ============================================================================
+
+    @Composable
+    private fun RenderModal(
+        ir: NanoIR, state: Map<String, Any>, onAction: (NanoActionIR) -> Unit, modifier: Modifier
+    ) {
+        val title = ir.props["title"]?.jsonPrimitive?.content
+        val binding = ir.bindings?.get("visible")
+        val statePath = binding?.expression?.removePrefix("state.")
+        val isVisible = state[statePath] as? Boolean ?: true
+
+        if (isVisible) {
+            Surface(
+                modifier = modifier
+                    .fillMaxWidth()
+                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp)),
+                shape = RoundedCornerShape(8.dp),
+                tonalElevation = 4.dp
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    if (title != null) {
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+                    ir.children?.forEach { child -> RenderNode(child, state, onAction) }
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun RenderAlert(ir: NanoIR, modifier: Modifier) {
+        val type = ir.props["type"]?.jsonPrimitive?.content ?: "info"
+        val message = ir.props["message"]?.jsonPrimitive?.content ?: ""
+
+        val backgroundColor = when (type) {
+            "success" -> AutoDevColors.Signal.success.copy(alpha = 0.15f)
+            "warning" -> AutoDevColors.Signal.warn.copy(alpha = 0.15f)
+            "error" -> AutoDevColors.Signal.error.copy(alpha = 0.15f)
+            else -> AutoDevColors.Signal.info.copy(alpha = 0.15f)
+        }
+        val borderColor = when (type) {
+            "success" -> AutoDevColors.Signal.success
+            "warning" -> AutoDevColors.Signal.warn
+            "error" -> AutoDevColors.Signal.error
+            else -> AutoDevColors.Signal.info
+        }
+        val icon = when (type) {
+            "success" -> Icons.Default.CheckCircle
+            "warning" -> Icons.Default.Warning
+            "error" -> Icons.Default.Error
+            else -> Icons.Default.Info
+        }
+
+        Surface(
+            modifier = modifier.fillMaxWidth().border(1.dp, borderColor, RoundedCornerShape(8.dp)),
+            color = backgroundColor,
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            Row(
+                modifier = Modifier.padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(icon, contentDescription = type, tint = borderColor, modifier = Modifier.size(20.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(message, color = borderColor)
+            }
+        }
+    }
+
+    @Composable
+    private fun RenderProgress(ir: NanoIR, state: Map<String, Any>, modifier: Modifier) {
+        val valueStr = ir.props["value"]?.jsonPrimitive?.content
+        val maxStr = ir.props["max"]?.jsonPrimitive?.content
+        val showText = ir.props["showText"]?.jsonPrimitive?.booleanOrNull ?: true
+
+        // Resolve binding expressions
+        val value = resolveBindingValue(valueStr, state)?.toFloatOrNull() ?: 0f
+        val max = resolveBindingValue(maxStr, state)?.toFloatOrNull() ?: 100f
+        val progress = if (max > 0f) (value / max).coerceIn(0f, 1f) else 0f
+
+        Column(modifier = modifier.fillMaxWidth()) {
+            LinearProgressIndicator(
+                progress = { progress },
+                modifier = Modifier.fillMaxWidth().height(8.dp),
+            )
+            if (showText) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "${(progress * 100).toInt()}%",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+
+    @Composable
+    private fun RenderSpinner(ir: NanoIR, modifier: Modifier) {
+        val text = ir.props["text"]?.jsonPrimitive?.content
+
+        Row(
+            modifier = modifier,
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            CircularProgressIndicator(modifier = Modifier.size(24.dp))
+            if (text != null) {
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(text)
+            }
+        }
+    }
+
+    // ============================================================================
+    // Tier 1-3: GenUI Components
+    // ============================================================================
+
+    @Composable
+    private fun RenderSplitView(
+        ir: NanoIR, state: Map<String, Any>, onAction: (NanoActionIR) -> Unit, modifier: Modifier
+    ) {
+        val ratio = ir.props["ratio"]?.jsonPrimitive?.content?.toFloatOrNull() ?: 0.5f
+        Row(modifier = modifier.fillMaxWidth()) {
+            Box(modifier = Modifier.weight(ratio)) {
+                ir.children?.firstOrNull()?.let { RenderNode(it, state, onAction) }
+            }
+            Box(modifier = Modifier.weight(1f - ratio)) {
+                ir.children?.getOrNull(1)?.let { RenderNode(it, state, onAction) }
+            }
+        }
+    }
+
+    @Composable
+    private fun RenderSmartTextField(
+        ir: NanoIR, state: Map<String, Any>, onAction: (NanoActionIR) -> Unit, modifier: Modifier
+    ) {
+        val label = ir.props["label"]?.jsonPrimitive?.content
+        val placeholder = ir.props["placeholder"]?.jsonPrimitive?.content ?: ""
+        val binding = ir.bindings?.get("value")
+        val statePath = binding?.expression?.removePrefix("state.")
+        val currentValue = state[statePath]?.toString() ?: ""
+
+        OutlinedTextField(
+            value = currentValue,
+            onValueChange = { newValue ->
+                if (statePath != null) {
+                    onAction(NanoActionIR(
+                        type = "stateMutation",
+                        payload = mapOf(
+                            "path" to JsonPrimitive(statePath),
+                            "operation" to JsonPrimitive("SET"),
+                            "value" to JsonPrimitive(newValue)
+                        )
+                    ))
+                }
+            },
+            label = label?.let { { Text(it) } },
+            placeholder = { Text(placeholder) },
+            modifier = modifier.fillMaxWidth()
+        )
+    }
+
+    @Composable
+    private fun RenderSlider(
+        ir: NanoIR, state: Map<String, Any>, onAction: (NanoActionIR) -> Unit, modifier: Modifier
+    ) {
+        val label = ir.props["label"]?.jsonPrimitive?.content
+        val min = ir.props["min"]?.jsonPrimitive?.content?.toFloatOrNull() ?: 0f
+        val max = ir.props["max"]?.jsonPrimitive?.content?.toFloatOrNull() ?: 100f
+        val binding = ir.bindings?.get("value")
+        val statePath = binding?.expression?.removePrefix("state.")
+        val currentValue = (state[statePath] as? Number)?.toFloat() ?: min
+
+        Column(modifier = modifier.fillMaxWidth()) {
+            if (label != null) {
+                Text(label, style = MaterialTheme.typography.bodySmall)
+                Spacer(modifier = Modifier.height(4.dp))
+            }
+            Slider(
+                value = currentValue,
+                onValueChange = { newValue ->
+                    if (statePath != null) {
+                        onAction(NanoActionIR(
+                            type = "stateMutation",
+                            payload = mapOf(
+                                "path" to JsonPrimitive(statePath),
+                                "operation" to JsonPrimitive("SET"),
+                                "value" to JsonPrimitive(newValue)
+                            )
+                        ))
+                    }
+                },
+                valueRange = min..max,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+
+    @Composable
+    private fun RenderDateRangePicker(
+        ir: NanoIR, state: Map<String, Any>, onAction: (NanoActionIR) -> Unit, modifier: Modifier
+    ) {
+        Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(
+                value = "",
+                onValueChange = {},
+                placeholder = { Text("Start date") },
+                leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = null) },
+                modifier = Modifier.weight(1f),
+                singleLine = true
+            )
+            OutlinedTextField(
+                value = "",
+                onValueChange = {},
+                placeholder = { Text("End date") },
+                leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = null) },
+                modifier = Modifier.weight(1f),
+                singleLine = true
+            )
+        }
+    }
+
+    @Composable
+    private fun RenderDataChart(ir: NanoIR, state: Map<String, Any>, modifier: Modifier) {
+        val chartType = ir.props["type"]?.jsonPrimitive?.content ?: "line"
+        val data = ir.props["data"]?.jsonPrimitive?.content
+
+        Surface(
+            modifier = modifier.fillMaxWidth().height(200.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(32.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Chart: $chartType", style = MaterialTheme.typography.bodyMedium)
+                    if (data != null) {
+                        Text("Data: $data", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun RenderDataTable(
+        ir: NanoIR, state: Map<String, Any>, onAction: (NanoActionIR) -> Unit, modifier: Modifier
+    ) {
+        val columns = ir.props["columns"]?.jsonPrimitive?.content
+        val data = ir.props["data"]?.jsonPrimitive?.content
+
+        Surface(
+            modifier = modifier.fillMaxWidth(),
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            Column(modifier = Modifier.padding(12.dp)) {
+                Text("DataTable", style = MaterialTheme.typography.titleSmall)
+                if (columns != null) Text("Columns: $columns", style = MaterialTheme.typography.bodySmall)
+                if (data != null) Text("Data: $data", style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
+
+    // ============================================================================
+    // Control Flow Components
+    // ============================================================================
+
+    @Composable
+    private fun RenderConditional(
+        ir: NanoIR, state: Map<String, Any>, onAction: (NanoActionIR) -> Unit, modifier: Modifier
+    ) {
+        val condition = ir.condition
+        val isVisible = evaluateCondition(condition, state)
+
+        if (isVisible) {
+            Column(modifier = modifier) {
+                ir.children?.forEach { child -> RenderNode(child, state, onAction) }
+            }
+        }
+    }
+
+    @Composable
+    private fun RenderForLoop(
+        ir: NanoIR, state: Map<String, Any>, onAction: (NanoActionIR) -> Unit, modifier: Modifier
+    ) {
+        val loop = ir.loop
+        val variable = loop?.variable
+        val iterable = loop?.iterable?.removePrefix("state.")
+        val items = state[iterable] as? List<*> ?: emptyList<Any>()
+
+        Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            items.forEachIndexed { index, item ->
+                val itemState = state.toMutableMap().apply {
+                    if (variable != null) {
+                        this[variable] = item ?: ""
+                    }
+                }
+                ir.children?.forEach { child -> RenderNode(child, itemState, onAction) }
+            }
+        }
+    }
+
+    // ============================================================================
+    // Helper Functions
+    // ============================================================================
+
+    private fun resolveBindingValue(value: String?, state: Map<String, Any>): String? {
+        if (value == null) return null
+        if (value.startsWith("state.")) {
+            val path = value.removePrefix("state.")
+            return state[path]?.toString()
+        }
+        return value
+    }
+
+    private fun evaluateCondition(condition: String?, state: Map<String, Any>): Boolean {
+        if (condition.isNullOrBlank()) return true
+        // Simple evaluation: check if state path exists and is truthy
+        val path = condition.removePrefix("state.")
+        val value = state[path]
+        return when (value) {
+            is Boolean -> value
+            is String -> value.isNotBlank()
+            is Number -> value.toDouble() != 0.0
+            null -> false
+            else -> true
         }
     }
 

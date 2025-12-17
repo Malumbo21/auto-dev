@@ -979,8 +979,8 @@ class IndentParser(
             }
             "Progress" -> {
                 NanoNode.Progress(
-                    value = args["value"]?.toFloatOrNull() ?: props["value"]?.toFloatOrNull(),
-                    max = args["max"]?.toFloatOrNull() ?: props["max"]?.toFloatOrNull() ?: 100f,
+                    value = args["value"] ?: props["value"],
+                    max = args["max"] ?: props["max"],
                     showText = args["showText"]?.toBoolean() ?: props["showText"]?.toBoolean(),
                     status = args["status"] ?: props["status"]
                 )

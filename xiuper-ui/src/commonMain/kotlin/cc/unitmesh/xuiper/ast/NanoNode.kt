@@ -479,10 +479,13 @@ sealed class NanoNode {
     /**
      * Progress - Progress bar
      * Example: `Progress(value=state.progress, max=100)`
+     *
+     * Note: value and max can be either literal numbers or state binding expressions
+     * like "state.budget.spent" or "100"
      */
     data class Progress(
-        val value: Float? = null,
-        val max: Float? = null,
+        val value: String? = null,
+        val max: String? = null,
         val showText: Boolean? = null,
         val status: String? = null
     ) : NanoNode()

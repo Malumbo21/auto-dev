@@ -1,14 +1,14 @@
 /**
  * NanoUI Renderer for VSCode Webview
- * 
+ *
  * Renders NanoIR components to React elements.
  * Follows the component-specific method pattern from the Kotlin NanoRenderer interface.
- * 
+ *
  * Each component type has its own render function, making it easy to identify
  * missing implementations when new components are added.
- * 
+ *
  * @see xiuper-ui/src/main/kotlin/cc/unitmesh/xuiper/render/NanoRenderer.kt
- * @see mpp-ui/src/jvmMain/kotlin/cc/unitmesh/devins/ui/nano/ComposeNanoRenderer.kt
+ * @see mpp-ui/src/commonMain/kotlin/cc/unitmesh/devins/ui/nano/StatefulNanoRenderer.kt
  */
 
 import React from 'react';
@@ -438,15 +438,20 @@ const RenderAlert: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir,
 };
 
 const RenderProgress: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir, context }) => {
-  const value = ir.props.value || 0;
-  const max = ir.props.max || 100;
+  const valueStr = ir.props.value;
+  const maxStr = ir.props.max;
+  const value = typeof valueStr === 'number' ? valueStr : (parseFloat(valueStr) || 0);
+  const max = typeof maxStr === 'number' ? maxStr : (parseFloat(maxStr) || 100);
   const showText = ir.props.showText !== false;
   const status = ir.props.status || 'normal';
-  const percentage = Math.round((value / max) * 100);
+  const isBinding = (valueStr && typeof valueStr === 'string' && isNaN(parseFloat(valueStr))) ||
+                   (maxStr && typeof maxStr === 'string' && isNaN(parseFloat(maxStr)));
+  const percentage = max > 0 ? Math.round((value / max) * 100) : 0;
+  const displayText = isBinding ? `${valueStr || '0'} / ${maxStr || '100'}` : `${percentage}%`;
   return (
-    <div className={`nano-progress status-${status}`}>
+    <div className={`nano-progress status-${status}`} data-value={valueStr} data-max={maxStr}>
       <div className="nano-progress-bar" style={{ width: `${percentage}%` }}></div>
-      {showText && <span className="nano-progress-text">{percentage}%</span>}
+      {showText && <span className="nano-progress-text">{displayText}</span>}
     </div>
   );
 };
