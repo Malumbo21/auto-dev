@@ -73,7 +73,7 @@ object NanoContentComponents {
         ir: NanoIR,
         modifier: Modifier
     ) {
-        val originalSrc = ir.props["src"]?.jsonPrimitive?.content ?: ""
+         val originalSrc = ir.props["src"]?.jsonPrimitive?.content ?: ""
 
         val widthPx = ir.props["width"]?.jsonPrimitive?.content?.toIntOrNull()
         val aspectStr = ir.props["aspect"]?.jsonPrimitive?.content
@@ -186,7 +186,11 @@ object NanoContentComponents {
             if (generatedImageUrl != null && loadedImageBitmap == null && !isLoadingImage) {
                 isLoadingImage = true
                 try {
-                    val imageBytes = downloadImageBytes(generatedImageUrl!!)
+                    val url = generatedImageUrl!!
+                    val cacheKey = nanoImageCacheKeyFromSrc(url)
+                    val imageBytes = NanoImageCache.getOrPut(cacheKey) {
+                        downloadImageBytes(url)
+                    }
                     val bitmap = decodeImageBytesToBitmap(imageBytes)
                     loadedImageBitmap = bitmap
                 } catch (e: Exception) {

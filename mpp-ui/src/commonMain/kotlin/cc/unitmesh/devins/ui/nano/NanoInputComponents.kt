@@ -410,10 +410,10 @@ object NanoInputComponents {
         var showDialog by remember { mutableStateOf(false) }
         val datePickerState = rememberDatePickerState()
 
-        // Display field
+        // Display field - use widthIn to allow flexible sizing in HStack while having a reasonable default
         Box(
             modifier = modifier
-                .fillMaxWidth()
+                .widthIn(min = 120.dp)
                 .clickable { showDialog = true }
         ) {
             OutlinedTextField(
@@ -814,9 +814,10 @@ object NanoInputComponents {
         var showDialog by remember { mutableStateOf(false) }
         val dateRangeState = rememberDateRangePickerState()
 
+        // Use widthIn to allow flexible sizing in HStack while having a reasonable default
         Box(
             modifier = modifier
-                .fillMaxWidth()
+                .widthIn(min = 180.dp)
                 .clickable { showDialog = true }
         ) {
             OutlinedTextField(

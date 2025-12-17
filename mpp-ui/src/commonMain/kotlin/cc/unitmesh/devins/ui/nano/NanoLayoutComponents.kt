@@ -98,6 +98,14 @@ object NanoLayoutComponents {
         }
         val shouldAutoDistribute = vstackOrCardChildren >= 2
 
+        // Types that should receive equal weight when in HStack with justify="between"
+        val flexibleInputTypes = setOf(
+            "DatePicker", "DateRangePicker", "Input", "TextArea", "Select", "Slider"
+        )
+        // Count flexible input children for auto-distribution in justify="between" scenarios
+        val flexibleInputChildren = children.count { it.type in flexibleInputTypes }
+        val shouldDistributeInputs = justify == "between" && flexibleInputChildren >= 2
+
         if (explicitWrap || shouldWrap) {
             @OptIn(ExperimentalLayoutApi::class)
             FlowRow(
@@ -134,6 +142,11 @@ object NanoLayoutComponents {
                     // VStack/Card in HStack with multiple siblings should share space equally
                     Box(modifier = Modifier.weight(1f).wrapContentHeight(unbounded = true)) {
                         renderNode(child, state, onAction, Modifier)
+                    }
+                } else if (shouldDistributeInputs && child.type in flexibleInputTypes) {
+                    // Input components in HStack with justify="between" should share space equally
+                    Box(modifier = Modifier.weight(1f).wrapContentHeight(unbounded = true)) {
+                        renderNode(child, state, onAction, Modifier.fillMaxWidth())
                     }
                 } else {
                     // Default: size to content
