@@ -102,17 +102,36 @@ object NanoContentComponents {
         }
 
         val baseBoxModifier = run {
-            // Default sizing should work both standalone and inside HStack.
-            // If width is specified, respect it; otherwise pick a reasonable default width.
-            val width = (widthPx?.dp) ?: 240.dp
-            val height = when {
-                aspectRatio != null && aspectRatio > 0f -> (width / aspectRatio)
-                else -> 180.dp
+            // Adaptive sizing: fillMaxWidth by default, but respect explicit width if provided.
+            // For aspectRatio, use aspectRatio() modifier for better responsiveness.
+            val minHeight = 240.dp  // Minimum height to ensure visibility
+            
+            when {
+                widthPx != null -> {
+                    // Explicit width specified
+                    val width = widthPx.dp
+                    val height = when {
+                        aspectRatio != null && aspectRatio > 0f -> (width / aspectRatio).coerceAtLeast(minHeight)
+                        else -> 240.dp
+                    }
+                    modifier
+                        .width(width)
+                        .height(height)
+                }
+                aspectRatio != null && aspectRatio > 0f -> {
+                    // Use fillMaxWidth with aspectRatio and minimum height for responsive sizing
+                    modifier
+                        .fillMaxWidth()
+                        .heightIn(min = minHeight)  // Set minimum height
+                        .aspectRatio(aspectRatio)
+                }
+                else -> {
+                    // Fallback: fillMaxWidth with fixed height
+                    modifier
+                        .fillMaxWidth()
+                        .height(280.dp)
+                }
             }
-
-            modifier
-                .width(width)
-                .height(height)
                 .clip(RoundedCornerShape(cornerRadius))
                 .background(MaterialTheme.colorScheme.surfaceVariant)
         }

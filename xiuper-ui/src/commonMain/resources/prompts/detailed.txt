@@ -52,7 +52,22 @@ component ComponentName(param: Type):
 | Slider | label, bind, min, max, step | Range slider |
 | DateRangePicker | bind | Date range picker |
 
-### 5. Form Components
+### 5. Feedback Components
+
+| Component | Props | Description |
+|-----------|-------|-------------|
+| Modal | open, title, on_close, size, content | Dialog overlay for critical information or actions |
+| Alert | type, message, on_close, dismissible | Inline alert for feedback messages |
+| Progress | value, max, label, indeterminate | Progress indicator (linear or circular) |
+| Spinner | size, color, label | Loading spinner for async operations |
+
+### 6. Data Components
+| Component | Props | Description |
+|-----------|-------|-------------|
+| DataChart | data, type, options, title | Visualize data as charts (bar, line, pie, etc.) |
+| DataTable | data, columns, pagination, selectable, on_row_click | Tabular data display with advanced features |
+
+### 7. Form Components
 ```nanodsl
 Form(onSubmit=request.login):
     Input(name="email", value := state.email)
