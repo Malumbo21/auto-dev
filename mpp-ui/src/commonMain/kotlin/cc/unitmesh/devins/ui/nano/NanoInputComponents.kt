@@ -12,6 +12,9 @@ import androidx.compose.ui.unit.dp
 import cc.unitmesh.xuiper.ir.NanoActionIR
 import cc.unitmesh.xuiper.ir.NanoIR
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
@@ -23,6 +26,50 @@ import kotlinx.serialization.json.jsonPrimitive
  * Switch, NumberInput, SmartTextField, Slider, DateRangePicker
  */
 object NanoInputComponents {
+
+    private val lenientJson = Json {
+        isLenient = true
+        ignoreUnknownKeys = true
+    }
+
+    private data class RadioOption(val value: String, val label: String)
+
+    private fun parseRadioOptions(optionsElement: JsonElement?): List<RadioOption> {
+        if (optionsElement == null) return emptyList()
+
+        fun fromJsonArray(arr: JsonArray): List<RadioOption> {
+            return arr.mapNotNull { el ->
+                when (el) {
+                    is JsonPrimitive -> {
+                        val v = el.contentOrNull ?: return@mapNotNull null
+                        RadioOption(value = v, label = v)
+                    }
+                    is JsonObject -> {
+                        val v = el["value"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+                        val l = el["label"]?.jsonPrimitive?.contentOrNull ?: v
+                        RadioOption(value = v, label = l)
+                    }
+                    else -> null
+                }
+            }
+        }
+
+        return when (optionsElement) {
+            is JsonArray -> fromJsonArray(optionsElement)
+            is JsonPrimitive -> {
+                val raw = optionsElement.contentOrNull ?: return emptyList()
+                val trimmed = raw.trim()
+                if (!trimmed.startsWith("[")) return emptyList()
+                try {
+                    val parsed = lenientJson.parseToJsonElement(trimmed)
+                    (parsed as? JsonArray)?.let { fromJsonArray(it) } ?: emptyList()
+                } catch (_: Exception) {
+                    emptyList()
+                }
+            }
+            else -> emptyList()
+        }
+    }
 
     private fun resolveStatePathFromBinding(ir: NanoIR, vararg keys: String): String? {
         val binding = keys.firstNotNullOfOrNull { ir.bindings?.get(it) }
@@ -143,7 +190,8 @@ object NanoInputComponents {
         var uncontrolledChecked by remember(statePath, checkedProp) { mutableStateOf(checkedProp ?: false) }
 
         val checked = checkedFromInList ?: checkedFromState ?: uncontrolledChecked
-        val label = ir.props["label"]?.jsonPrimitive?.content
+        val rawLabel = ir.props["label"]?.jsonPrimitive?.content
+        val label = rawLabel?.let { NanoRenderUtils.interpolateText(it, state) }
         val onChange = ir.actions?.get("onChange")
 
         Row(
@@ -279,22 +327,42 @@ object NanoInputComponents {
         val onChange = ir.actions?.get("onChange")
         var expanded by remember { mutableStateOf(false) }
 
-        // Read options from IR props
-        val options: List<String> = ir.props["options"]?.let { optionsElement ->
+        // Parse options - support both string array and object array {value, label}
+        data class SelectOption(val value: String, val label: String)
+        val options: List<SelectOption> = ir.props["options"]?.let { optionsElement ->
             try {
-                (optionsElement as? JsonArray)
-                    ?.mapNotNull { it.jsonPrimitive.contentOrNull }
+                (optionsElement as? JsonArray)?.mapNotNull { el ->
+                    when (el) {
+                        is JsonPrimitive -> {
+                            val v = el.contentOrNull ?: return@mapNotNull null
+                            SelectOption(value = v, label = v)
+                        }
+                        is JsonObject -> {
+                            val v = el["value"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+                            val l = el["label"]?.jsonPrimitive?.contentOrNull ?: v
+                            SelectOption(value = v, label = l)
+                        }
+                        else -> null
+                    }
+                }
             } catch (e: Exception) { null }
         } ?: emptyList()
 
+        // Find the label to display
+        val displayText = if (selectedValue.isNotEmpty()) {
+            options.find { it.value == selectedValue }?.label ?: selectedValue
+        } else {
+            placeholder
+        }
+
         Box(modifier = modifier) {
             OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) {
-                Text(if (selectedValue.isNotEmpty()) selectedValue else placeholder)
+                Text(displayText)
             }
             DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                 options.forEach { option ->
                     DropdownMenuItem(
-                        text = { Text(option) },
+                        text = { Text(option.label) },
                         onClick = {
                             expanded = false
                             if (statePath != null) {
@@ -303,11 +371,11 @@ object NanoInputComponents {
                                     payload = mapOf(
                                         "path" to JsonPrimitive(statePath),
                                         "operation" to JsonPrimitive("SET"),
-                                        "value" to JsonPrimitive(option)
+                                        "value" to JsonPrimitive(option.value)
                                     )
                                 ))
                             } else {
-                                uncontrolledSelected = option
+                                uncontrolledSelected = option.value
                             }
                             onChange?.let { onAction(it) }
                         }
@@ -444,8 +512,46 @@ object NanoInputComponents {
         modifier: Modifier,
         renderNode: @Composable (NanoIR, Map<String, Any>, (NanoActionIR) -> Unit, Modifier) -> Unit
     ) {
+        val children = ir.children.orEmpty()
+        if (children.isNotEmpty()) {
+            Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                children.forEach { child -> renderNode(child, state, onAction, Modifier) }
+            }
+            return
+        }
+
+        val options = parseRadioOptions(ir.props["options"])
+        val statePath = resolveStatePathFromBinding(ir, "value", "bind")
+        val selectedFromState = statePath?.let { state[it]?.toString() }
+        var uncontrolledSelected by remember(statePath) { mutableStateOf("") }
+        val selectedValue = selectedFromState ?: uncontrolledSelected
+
         Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            ir.children?.forEach { child -> renderNode(child, state, onAction, Modifier) }
+            options.forEach { option ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    RadioButton(
+                        selected = selectedValue == option.value,
+                        onClick = {
+                            if (statePath != null) {
+                                onAction(
+                                    NanoActionIR(
+                                        type = "stateMutation",
+                                        payload = mapOf(
+                                            "path" to JsonPrimitive(statePath),
+                                            "operation" to JsonPrimitive("SET"),
+                                            "value" to JsonPrimitive(option.value)
+                                        )
+                                    )
+                                )
+                            } else {
+                                uncontrolledSelected = option.value
+                            }
+                        }
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(option.label)
+                }
+            }
         }
     }
 

@@ -1206,12 +1206,98 @@ class IndentParser(
         // Capture complex literals that include commas/braces so regex parsing doesn't drop them.
         extractBracketLiteral("columns")?.let { result["columns"] = it }
 
-        // First, handle << (subscribe binding) pattern: content << state.count
-        val subscribeRegex = Regex("""(\w+)\s*<<\s*([\w.]+)""")
-        subscribeRegex.findAll(argsStr).forEach { match ->
-            val key = match.groupValues[1]
-            val value = match.groupValues[2]
-            result[key] = "<< $value"
+        // First, handle << (subscribe binding) pattern at top-level args.
+        // Supports expressions like: value << (flightBudget + (accommodationBudget * 5))
+        run {
+            var i = 0
+            var inString = false
+            var quoteChar = '\u0000'
+            var escaped = false
+            var depthParen = 0
+            var depthBracket = 0
+            var depthBrace = 0
+
+            fun isIdentStart(c: Char): Boolean = c == '_' || c.isLetter()
+            fun isIdentPart(c: Char): Boolean = c == '_' || c.isLetterOrDigit()
+
+            while (i < argsStr.length) {
+                // Skip whitespace and commas
+                while (i < argsStr.length && (argsStr[i].isWhitespace() || argsStr[i] == ',')) i++
+                if (i >= argsStr.length) break
+
+                // Parse key identifier
+                if (!isIdentStart(argsStr[i])) {
+                    i++
+                    continue
+                }
+                val keyStart = i
+                i++
+                while (i < argsStr.length && isIdentPart(argsStr[i])) i++
+                val key = argsStr.substring(keyStart, i)
+
+                // Skip whitespace
+                while (i < argsStr.length && argsStr[i].isWhitespace()) i++
+
+                // Expect <<
+                if (i + 1 >= argsStr.length || argsStr[i] != '<' || argsStr[i + 1] != '<') {
+                    continue
+                }
+                i += 2
+
+                // Skip whitespace
+                while (i < argsStr.length && argsStr[i].isWhitespace()) i++
+
+                // Capture expression until next top-level comma
+                val exprStart = i
+                inString = false
+                quoteChar = '\u0000'
+                escaped = false
+                depthParen = 0
+                depthBracket = 0
+                depthBrace = 0
+                while (i < argsStr.length) {
+                    val c = argsStr[i]
+                    if (inString) {
+                        if (escaped) {
+                            escaped = false
+                        } else if (c == '\\') {
+                            escaped = true
+                        } else if (c == quoteChar) {
+                            inString = false
+                            quoteChar = '\u0000'
+                        }
+                        i++
+                        continue
+                    }
+
+                    when (c) {
+                        '\'', '"' -> {
+                            inString = true
+                            quoteChar = c
+                        }
+                        '(' -> depthParen++
+                        ')' -> if (depthParen > 0) depthParen--
+                        '[' -> depthBracket++
+                        ']' -> if (depthBracket > 0) depthBracket--
+                        '{' -> depthBrace++
+                        '}' -> if (depthBrace > 0) depthBrace--
+                        ',' -> {
+                            if (depthParen == 0 && depthBracket == 0 && depthBrace == 0) {
+                                break
+                            }
+                        }
+                    }
+                    i++
+                }
+
+                val expr = argsStr.substring(exprStart, i).trim()
+                if (expr.isNotBlank()) {
+                    result[key] = "<< $expr"
+                }
+
+                // If we stopped at a comma, skip it
+                if (i < argsStr.length && argsStr[i] == ',') i++
+            }
         }
 
         // Then handle := (two-way binding) and = (assignment) patterns

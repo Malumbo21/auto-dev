@@ -48,6 +48,7 @@ object NanoLayoutComponents {
         val padding = ir.props["padding"]?.jsonPrimitive?.content?.toPadding()
         val align = ir.props["align"]?.jsonPrimitive?.content
         val justify = ir.props["justify"]?.jsonPrimitive?.content
+        val wrap = ir.props["wrap"]?.jsonPrimitive?.content
 
         val verticalAlignment = when (align) {
             "center" -> Alignment.CenterVertically
@@ -75,13 +76,15 @@ object NanoLayoutComponents {
         // FlowRow lets the VStack wrap below the image when space is tight.
         val shouldWrap = justify == null && containsImage && containsVStack
 
+        val explicitWrap = wrap == "wrap" || wrap == "true"
+
         // Count VStack/Card children to determine if we should auto-distribute space
         val vstackOrCardChildren = children.count {
             it.type == "VStack" || it.type == "Card"
         }
         val shouldAutoDistribute = vstackOrCardChildren >= 2
 
-        if (shouldWrap) {
+        if (explicitWrap || shouldWrap) {
             @OptIn(ExperimentalLayoutApi::class)
             FlowRow(
                 modifier = finalModifier,
@@ -89,7 +92,9 @@ object NanoLayoutComponents {
                 verticalArrangement = Arrangement.spacedBy(spacing)
             ) {
                 children.forEach { child ->
-                    renderNode(child, state, onAction, Modifier)
+                    // Checkbox groups are commonly authored as HStack(wrap="wrap"); treat them as block items.
+                    val childModifier = if (explicitWrap && child.type == "Checkbox") Modifier.fillMaxWidth() else Modifier
+                    renderNode(child, state, onAction, childModifier)
                 }
             }
             return

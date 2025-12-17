@@ -92,12 +92,184 @@ function resolveValue(context: NanoRenderContext, raw: any): any {
   const bindingPrefixMatch = trimmed.match(/^(<<|:=)\s+(.+)$/);
   const expr = bindingPrefixMatch ? bindingPrefixMatch[2].trim() : trimmed;
 
+  // Template interpolation: {expr} or ${expr}
+  if (expr.includes('{') || expr.includes('}')) {
+    const interpolated = interpolateText(expr, context.state);
+    // If the whole value is a pure numeric template, return number for callers like Progress.
+    const n = Number(interpolated);
+    return Number.isFinite(n) && interpolated.trim() !== '' ? n : interpolated;
+  }
+
+  // Arithmetic expression like: (a + b) * 5
+  if (looksLikeArithmeticExpression(expr)) {
+    const n = evaluateNumericExpression(expr, context.state);
+    if (n != null) return n;
+  }
+
   if (expr.startsWith('state.')) {
     return getByPath(context.state, expr);
   }
 
   // If it's a structured literal, parse it.
   return tryParseStructuredLiteral(trimmed);
+}
+
+function interpolateText(text: string, state: any): string {
+  const pattern = /\$\{([^}]+)\}|\{([^}]+)\}/g;
+  return text.replace(pattern, (_m, g1, g2) => {
+    const expr = String(g1 ?? g2 ?? '').trim();
+    if (!expr) return '';
+    const any = resolveIdentifier(expr, state);
+    if (any !== undefined) return String(any);
+    const n = evaluateNumericExpression(expr, state);
+    return n == null ? `{${expr}}` : formatNumber(n);
+  });
+}
+
+function looksLikeArithmeticExpression(expr: string): boolean {
+  // Avoid treating plain words as expressions.
+  return /[+\-*/()]/.test(expr) && /[A-Za-z0-9_]/.test(expr);
+}
+
+function resolveIdentifier(identifier: string, state: any): any {
+  const trimmed = identifier.trim();
+  if (!trimmed) return undefined;
+  const key = trimmed.startsWith('state.') ? trimmed.slice('state.'.length) : trimmed;
+  if (state && Object.prototype.hasOwnProperty.call(state, key)) return state[key];
+  if (trimmed.startsWith('state.')) {
+    const v = getByPath(state, trimmed);
+    if (v !== undefined) return v;
+  }
+  return undefined;
+}
+
+function formatNumber(n: number): string {
+  return Number.isInteger(n) ? String(n) : String(n);
+}
+
+// Small safe arithmetic parser: + - * /, parentheses, identifiers, numbers.
+function evaluateNumericExpression(expr: string, state: any): number | null {
+  try {
+    const parser = new NumericExprParser(expr, state);
+    const value = parser.parseExpression();
+    if (!parser.isAtEnd()) return null;
+    return value;
+  } catch {
+    return null;
+  }
+}
+
+class NumericExprParser {
+  private i = 0;
+  constructor(private readonly input: string, private readonly state: any) {}
+
+  isAtEnd(): boolean {
+    this.skipWs();
+    return this.i >= this.input.length;
+  }
+
+  parseExpression(): number {
+    let v = this.parseTerm();
+    while (true) {
+      this.skipWs();
+      if (this.match('+')) v += this.parseTerm();
+      else if (this.match('-')) v -= this.parseTerm();
+      else break;
+    }
+    return v;
+  }
+
+  private parseTerm(): number {
+    let v = this.parseFactor();
+    while (true) {
+      this.skipWs();
+      if (this.match('*')) v *= this.parseFactor();
+      else if (this.match('/')) {
+        const rhs = this.parseFactor();
+        v = Math.abs(rhs) < 1e-12 ? 0 : v / rhs;
+      } else break;
+    }
+    return v;
+  }
+
+  private parseFactor(): number {
+    this.skipWs();
+    if (this.match('+')) return this.parseFactor();
+    if (this.match('-')) return -this.parseFactor();
+    if (this.match('(')) {
+      const v = this.parseExpression();
+      this.skipWs();
+      this.match(')');
+      return v;
+    }
+    const c = this.peek();
+    if (!c) return 0;
+    if (this.isDigit(c) || c === '.') return this.parseNumber();
+    if (this.isIdentStart(c)) return this.parseIdentifierValue();
+    // Unknown token
+    this.i++;
+    return 0;
+  }
+
+  private parseNumber(): number {
+    const start = this.i;
+    let sawDot = false;
+    while (this.i < this.input.length) {
+      const c = this.input[this.i];
+      if (c === '.') {
+        if (sawDot) break;
+        sawDot = true;
+        this.i++;
+      } else if (this.isDigit(c)) {
+        this.i++;
+      } else {
+        break;
+      }
+    }
+    const n = Number(this.input.slice(start, this.i));
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  private parseIdentifierValue(): number {
+    const start = this.i;
+    while (this.i < this.input.length) {
+      const c = this.input[this.i];
+      if (this.isIdentPart(c) || c === '.') this.i++;
+      else break;
+    }
+    const raw = this.input.slice(start, this.i);
+    const any = resolveIdentifier(raw, this.state);
+    if (typeof any === 'number') return any;
+    if (typeof any === 'boolean') return any ? 1 : 0;
+    if (typeof any === 'string') {
+      const n = Number(any);
+      return Number.isFinite(n) ? n : 0;
+    }
+    return 0;
+  }
+
+  private skipWs() {
+    while (this.i < this.input.length && /\s/.test(this.input[this.i])) this.i++;
+  }
+  private match(ch: string): boolean {
+    if (this.input[this.i] === ch) {
+      this.i++;
+      return true;
+    }
+    return false;
+  }
+  private peek(): string | undefined {
+    return this.i < this.input.length ? this.input[this.i] : undefined;
+  }
+  private isDigit(c: string): boolean {
+    return c >= '0' && c <= '9';
+  }
+  private isIdentStart(c: string): boolean {
+    return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c === '_';
+  }
+  private isIdentPart(c: string): boolean {
+    return this.isIdentStart(c) || this.isDigit(c);
+  }
 }
 
 function inferChartFields(data: any[], xField?: string, yField?: string): { x: string; y: string } | null {
@@ -196,6 +368,8 @@ const RenderHStack: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir
   const spacing = ir.props.spacing || 'md';
   const align = ir.props.align || 'center';
   const justify = ir.props.justify || 'start';
+  const wrap = ir.props.wrap;
+  const wrapClass = wrap === 'wrap' || wrap === true ? 'wrap' : '';
 
   // Count VStack/Card children to determine if we should auto-distribute space
   const vstackOrCardChildren = ir.children?.filter(
@@ -204,7 +378,7 @@ const RenderHStack: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir
   const shouldAutoDistribute = vstackOrCardChildren >= 2;
 
   return (
-    <div className={`nano-hstack spacing-${spacing} align-${align} justify-${justify}`}>
+    <div className={`nano-hstack ${wrapClass} spacing-${spacing} align-${align} justify-${justify}`}>
       {ir.children?.map((child, i) => {
         // Support flex/weight property for space distribution
         const childFlex = child.props?.flex;
@@ -269,8 +443,10 @@ const RenderForm: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir, 
 // Content Components
 // ============================================================================
 
-const RenderText: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir }) => {
-  const content = ir.props.content || '';
+const RenderText: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir, context }) => {
+  const contentRaw = ir.props.content ?? '';
+  const resolved = resolveValue(context, contentRaw);
+  const content = typeof resolved === 'string' ? resolved : String(resolved ?? '');
   const style = ir.props.style || 'body';
   
   const Tag = getTextTag(style);
@@ -469,11 +645,36 @@ const RenderRadio: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir 
 };
 
 const RenderRadioGroup: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir, context }) => {
+  const optionsRaw = ir.props.options;
+  const name = ir.props.name || '';
+  const options = Array.isArray(optionsRaw)
+    ? optionsRaw
+    : (typeof optionsRaw === 'string' ? tryParseStructuredLiteral(optionsRaw) : []);
+
+  const resolvedOptions: Array<{ value: string; label: string }> = Array.isArray(options)
+    ? options
+        .map((o: any) => {
+          if (typeof o === 'string') return { value: o, label: o };
+          if (o && typeof o === 'object') {
+            const v = String(o.value ?? '');
+            const l = String(o.label ?? v);
+            return v ? { value: v, label: l } : null;
+          }
+          return null;
+        })
+        .filter(Boolean) as any
+    : [];
+
   return (
     <div className="nano-radiogroup">
-      {ir.children?.map((child, i) => (
-        <RenderNode key={i} ir={child} context={context} />
-      ))}
+      {(ir.children && ir.children.length > 0)
+        ? ir.children.map((child, i) => <RenderNode key={i} ir={child} context={context} />)
+        : resolvedOptions.map((opt, i) => (
+            <label key={i} className="nano-radio-wrapper">
+              <input type="radio" className="nano-radio" name={name} value={opt.value} />
+              <span>{opt.label}</span>
+            </label>
+          ))}
     </div>
   );
 };
@@ -539,19 +740,21 @@ const RenderAlert: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir,
   );
 };
 
-const RenderProgress: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir }) => {
-  const valueStr = ir.props.value;
-  const maxStr = ir.props.max;
-  const value = typeof valueStr === 'number' ? valueStr : (parseFloat(valueStr) || 0);
-  const max = typeof maxStr === 'number' ? maxStr : (parseFloat(maxStr) || 100);
+const RenderProgress: React.FC<{ ir: NanoIR; context: NanoRenderContext }> = ({ ir, context }) => {
+  const valueRaw = ir.props.value;
+  const maxRaw = ir.props.max;
+  const valueResolved = resolveValue(context, valueRaw);
+  const maxResolved = resolveValue(context, maxRaw);
+  const value = typeof valueResolved === 'number' ? valueResolved : (parseFloat(String(valueResolved ?? '')) || 0);
+  const max = typeof maxResolved === 'number' ? maxResolved : (parseFloat(String(maxResolved ?? '')) || 100);
   const showText = ir.props.showText !== false;
   const status = ir.props.status || 'normal';
-  const isBinding = (valueStr && typeof valueStr === 'string' && isNaN(parseFloat(valueStr))) ||
-                   (maxStr && typeof maxStr === 'string' && isNaN(parseFloat(maxStr)));
+  const isBinding = (valueRaw && typeof valueRaw === 'string' && isNaN(parseFloat(valueRaw))) ||
+                   (maxRaw && typeof maxRaw === 'string' && isNaN(parseFloat(maxRaw)));
   const percentage = max > 0 ? Math.round((value / max) * 100) : 0;
-  const displayText = isBinding ? `${valueStr || '0'} / ${maxStr || '100'}` : `${percentage}%`;
+  const displayText = isBinding ? `${String(valueResolved ?? valueRaw ?? '0')} / ${String(maxResolved ?? maxRaw ?? '100')}` : `${percentage}%`;
   return (
-    <div className={`nano-progress status-${status}`} data-value={valueStr} data-max={maxStr}>
+    <div className={`nano-progress status-${status}`} data-value={valueRaw} data-max={maxRaw}>
       <div className="nano-progress-bar" style={{ width: `${percentage}%` }}></div>
       {showText && <span className="nano-progress-text">{displayText}</span>}
     </div>

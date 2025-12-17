@@ -235,9 +235,9 @@ object NanoFeedbackComponents {
         val maxStr = ir.props["max"]?.jsonPrimitive?.content
         val showText = ir.props["showText"]?.jsonPrimitive?.booleanOrNull ?: true
 
-        // Resolve binding expressions
-        val value = NanoRenderUtils.resolveBindingValue(valueStr, state)?.toFloatOrNull() ?: 0f
-        val max = NanoRenderUtils.resolveBindingValue(maxStr, state)?.toFloatOrNull() ?: 100f
+            // Resolve binding / expression values
+            val value = NanoRenderUtils.evaluateNumberOrNull(valueStr, state)?.toFloat() ?: 0f
+            val max = NanoRenderUtils.evaluateNumberOrNull(maxStr, state)?.toFloat() ?: 100f
         val progress = if (max > 0f) (value / max).coerceIn(0f, 1f) else 0f
 
         Column(modifier = modifier.fillMaxWidth()) {
