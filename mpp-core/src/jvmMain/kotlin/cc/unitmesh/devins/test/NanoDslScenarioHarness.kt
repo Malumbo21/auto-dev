@@ -1,6 +1,7 @@
 package cc.unitmesh.devins.test
 
 import cc.unitmesh.agent.parser.NanoDSLValidator
+import cc.unitmesh.agent.parser.NanoDSLParseResult
 import cc.unitmesh.agent.subagent.NanoDSLAgent
 import cc.unitmesh.agent.subagent.NanoDSLContext
 import cc.unitmesh.config.ConfigManager
@@ -82,15 +83,20 @@ object NanoDslScenarioHarness {
             val generatedCode = extractNanoDslFromAgentContent(result.content)
 
             val validation = validator.validate(generatedCode)
-            val parseOk = validation.isValid
+            val validateOk = validation.isValid
+
+            val parseResult = if (validateOk) validator.parse(generatedCode) else NanoDSLParseResult.Failure(validation.errors)
+            val compileOk = parseResult is NanoDSLParseResult.Success
+            val irJson = (parseResult as? NanoDSLParseResult.Success)?.irJson
             val variableStateIssues = validateTemplateVariablesAgainstState(generatedCode)
 
-            val finalOk = result.success && parseOk && variableStateIssues.isEmpty()
+            val finalOk = result.success && validateOk && compileOk && variableStateIssues.isEmpty()
 
             val reportText = buildString {
                 appendLine("scenario: $scenario")
                 appendLine("agentSuccess: ${result.success}")
                 appendLine("validatorIsValid: ${validation.isValid}")
+                appendLine("compileOk: $compileOk")
                 if (validation.warnings.isNotEmpty()) {
                     appendLine("warnings:")
                     validation.warnings.forEach { appendLine("- $it") }
@@ -98,6 +104,10 @@ object NanoDslScenarioHarness {
                 if (validation.errors.isNotEmpty()) {
                     appendLine("errors:")
                     validation.errors.forEach { appendLine("- line ${it.line}: ${it.message}${it.suggestion?.let { s -> " ($s)" } ?: ""}") }
+                }
+                if (parseResult is NanoDSLParseResult.Failure && parseResult.errors.isNotEmpty()) {
+                    appendLine("compileErrors:")
+                    parseResult.errors.forEach { appendLine("- line ${it.line}: ${it.message}${it.suggestion?.let { s -> " ($s)" } ?: ""}") }
                 }
                 if (variableStateIssues.isNotEmpty()) {
                     appendLine("templateStateIssues:")
@@ -108,6 +118,9 @@ object NanoDslScenarioHarness {
             val caseDir = runDir.resolve(fileBase).also { it.createDirectories() }
             caseDir.resolve("scenario.txt").writeText(scenario, StandardCharsets.UTF_8)
             caseDir.resolve("generated.nanodsl").writeText(generatedCode, StandardCharsets.UTF_8)
+            if (irJson != null) {
+                caseDir.resolve("ir.json").writeText(irJson, StandardCharsets.UTF_8)
+            }
             caseDir.resolve("report.txt").writeText(reportText, StandardCharsets.UTF_8)
 
             if (finalOk) {
@@ -116,7 +129,8 @@ object NanoDslScenarioHarness {
             } else {
                 val reason = buildString {
                     if (!result.success) append("agent failed; ")
-                    if (!parseOk) append("validator invalid; ")
+                    if (!validateOk) append("validator invalid; ")
+                    if (!compileOk) append("compile failed; ")
                     if (variableStateIssues.isNotEmpty()) append("template/state mismatch; ")
                 }.trim()
 
@@ -191,6 +205,7 @@ object NanoDslScenarioHarness {
             .map { it.replace(Regex("^\\d+[\\.)\\s-]+"), "") }
             .map { it.trim() }
             .filter { it.isNotBlank() }
+            .distinct()
             .take(config.count)
 
         if (lines.isEmpty()) {
@@ -220,9 +235,13 @@ object NanoDslScenarioHarness {
             "Subscription user manages active services and monthly spending total"
         )
 
-        return (0 until config.count).map {
-            templates[random.nextInt(templates.size)]
+        if (config.count <= templates.size) {
+            return templates.shuffled(random).take(config.count)
         }
+
+        // If count > templates size, allow repeats but keep overall distribution stable
+        val base = templates.shuffled(random)
+        return (0 until config.count).map { base[it % base.size] }
     }
 
     private fun extractNanoDslFromAgentContent(content: String): String {
