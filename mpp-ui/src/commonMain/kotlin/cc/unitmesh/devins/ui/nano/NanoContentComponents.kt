@@ -101,18 +101,16 @@ object NanoContentComponents {
             else -> 8.dp
         }
 
-        val baseBoxModifier = run {
-            // Adaptive sizing: fillMaxWidth by default, but respect explicit width if provided.
-            // For aspectRatio, use aspectRatio() modifier for better responsiveness.
-            val minHeight = 240.dp  // Minimum height to ensure visibility
+        val minHeight = 480.dp
 
+        val baseBoxModifier = run {
             when {
                 widthPx != null -> {
                     // Explicit width specified
                     val width = widthPx.dp
                     var height = when {
                         aspectRatio != null && aspectRatio > 0f -> (width / aspectRatio).coerceAtLeast(minHeight)
-                        else -> 240.dp
+                        else -> 480.dp
                     }
                     if (height < minHeight) {
                         height = minHeight
@@ -234,7 +232,8 @@ object NanoContentComponents {
                     Image(
                         bitmap = loadedImageBitmap!!,
                         contentDescription = originalSrc,
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier.fillMaxSize()
+                            .heightIn(min = 480.dp),
                         contentScale = ContentScale.Crop
                     )
                 }

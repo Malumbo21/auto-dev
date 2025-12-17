@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -98,6 +100,12 @@ object NanoLayoutComponents {
         }
         val shouldAutoDistribute = vstackOrCardChildren >= 2
 
+        // Common header pattern: HStack(justify="between") { VStack(text...) ; Image(aspect=...) }
+        // In Row measure order, the VStack/Text can take nearly all maxWidth, leaving a tiny width for Image.
+        // Image height is derived from its width via aspectRatio, so it becomes very small.
+        // Balance widths automatically for this 2-child layout (unless author already provided explicit weight).
+        val shouldBalanceImageHeader = justify == "between" && children.size == 2 && containsImage && containsVStack
+
         // Types that should receive equal weight when in HStack with justify="between"
         val flexibleInputTypes = setOf(
             "DatePicker", "DateRangePicker", "Input", "TextArea", "Select", "Slider"
@@ -123,11 +131,22 @@ object NanoLayoutComponents {
         }
 
         Row(
-            modifier = finalModifier,
+            // When a Divider appears in a horizontal layout, render it as a vertical divider.
+            // Intrinsic height lets VerticalDivider fill the row height without stealing width.
+            modifier = if (children.any { it.type == "Divider" }) finalModifier.height(IntrinsicSize.Min) else finalModifier,
             horizontalArrangement = horizontalArrangement,
             verticalAlignment = verticalAlignment
         ) {
             children.forEach { child ->
+                if (child.type == "Divider") {
+                    VerticalDivider(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .width(1.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
+                    return@forEach
+                }
                 // Check if child has explicit flex/weight property
                 val childFlex = child.props["flex"]?.jsonPrimitive?.content?.toFloatOrNull()
                 val childWeight = child.props["weight"]?.jsonPrimitive?.content?.toFloatOrNull()
@@ -137,6 +156,12 @@ object NanoLayoutComponents {
                     // Explicit weight specified
                     Box(modifier = Modifier.weight(weight).wrapContentHeight(unbounded = true)) {
                         renderNode(child, state, onAction, Modifier)
+                    }
+                } else if (shouldBalanceImageHeader && (child.type == "VStack" || child.type == "Image")) {
+                    // Balance the two columns to avoid Image being squeezed into a tiny width.
+                    Box(modifier = Modifier.weight(1f).wrapContentHeight(unbounded = true)) {
+                        val childModifier = if (child.type == "Image") Modifier.fillMaxWidth() else Modifier
+                        renderNode(child, state, onAction, childModifier)
                     }
                 } else if (shouldAutoDistribute && (child.type == "VStack" || child.type == "Card")) {
                     // VStack/Card in HStack with multiple siblings should share space equally

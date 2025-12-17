@@ -526,9 +526,17 @@ ${input.description}
 
 NanoDSL uses Python-style indentation (4 spaces) to represent hierarchy.
 
+    ## Layout Guidelines (Important)
+
+    - When using `HStack(justify="between")` with a text column (e.g., `VStack` of `Text`) on one side and an `Image(aspect=...)` on the other, ALWAYS give both sides explicit width control (recommended: `flex`/`weight` on the two children). Otherwise the text column may take almost all width and the image becomes very narrow, making its computed height very small.
+    - If the layout is narrow, prefer `wrap="wrap"` (allow wrapping) or use `SplitView` instead of forcing two cramped columns.
+
+    ### Optional Child Sizing
+    - Any component inside `HStack` may specify `flex`/`weight` (number) to share available width.
+
 ### Layout Components
 - `VStack(spacing="sm", align="center")` - Vertical stack layout
-- `HStack(spacing="sm", align="center", justify="between")` - Horizontal stack layout
+    - `HStack(spacing="sm", align="center", justify="between", wrap="wrap")` - Horizontal stack layout (use `wrap` on narrow layouts)
 - `Card(padding="md", shadow="sm")` - Container with padding/shadow
 - `SplitView(ratio=0.5)` - Split screen layout (left/right panels)
 
