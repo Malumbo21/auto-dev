@@ -21,12 +21,28 @@ import cc.unitmesh.xuiper.ir.NanoActionIR
 import cc.unitmesh.xuiper.ir.NanoIR
 import cc.unitmesh.yaml.YamlUtils
 import kotlinx.serialization.json.jsonPrimitive
+import kotlin.math.pow
+import kotlin.math.round
 
 /**
  * Data visualization components for NanoUI Compose renderer.
  * Includes: DataChart, DataTable
  */
 object NanoDataComponents {
+
+    private fun formatFixed(num: Double, decimals: Int): String {
+        if (decimals <= 0) return round(num).toLong().toString()
+
+        val factor = 10.0.pow(decimals.toDouble())
+        val rounded = round(num * factor) / factor
+        val parts = rounded.toString().split('.', limit = 2)
+        val intPart = parts[0]
+        val fracPart = (parts.getOrNull(1) ?: "")
+            .padEnd(decimals, '0')
+            .take(decimals)
+
+        return "$intPart.$fracPart"
+    }
 
     /**
      * Render a data chart using the ChartBlockRenderer.
@@ -492,11 +508,11 @@ $bars
         return when (format?.lowercase()) {
             "currency" -> {
                 val num = value.toString().toDoubleOrNull()
-                if (num != null) "$${String.format("%.2f", num)}" else value.toString()
+                if (num != null) "$${formatFixed(num, 2)}" else value.toString()
             }
             "percent" -> {
                 val num = value.toString().toDoubleOrNull()
-                if (num != null) "${String.format("%.1f", num)}%" else value.toString()
+                if (num != null) "${formatFixed(num, 1)}%" else value.toString()
             }
             else -> value.toString()
         }

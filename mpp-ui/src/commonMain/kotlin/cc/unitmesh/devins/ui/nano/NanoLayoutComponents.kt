@@ -1,8 +1,11 @@
 package cc.unitmesh.devins.ui.nano
 
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -65,18 +68,39 @@ object NanoLayoutComponents {
         val baseModifier = if (justify != null) modifier.fillMaxWidth() else modifier
         val finalModifier = if (padding != null) baseModifier.padding(padding) else baseModifier
 
+        val children = ir.children.orEmpty()
+        val containsImage = remember(children) { children.any { it.type == "Image" } }
+        val containsVStack = remember(children) { children.any { it.type == "VStack" } }
+        // When mixing Image + VStack in a horizontal layout, Row can squeeze text into 1-char columns.
+        // FlowRow lets the VStack wrap below the image when space is tight.
+        val shouldWrap = justify == null && containsImage && containsVStack
+
         // Count VStack/Card children to determine if we should auto-distribute space
-        val vstackOrCardChildren = ir.children?.count {
+        val vstackOrCardChildren = children.count {
             it.type == "VStack" || it.type == "Card"
-        } ?: 0
+        }
         val shouldAutoDistribute = vstackOrCardChildren >= 2
+
+        if (shouldWrap) {
+            @OptIn(ExperimentalLayoutApi::class)
+            FlowRow(
+                modifier = finalModifier,
+                horizontalArrangement = Arrangement.spacedBy(spacing),
+                verticalArrangement = Arrangement.spacedBy(spacing)
+            ) {
+                children.forEach { child ->
+                    renderNode(child, state, onAction, Modifier)
+                }
+            }
+            return
+        }
 
         Row(
             modifier = finalModifier,
             horizontalArrangement = horizontalArrangement,
             verticalAlignment = verticalAlignment
         ) {
-            ir.children?.forEach { child ->
+            children.forEach { child ->
                 // Check if child has explicit flex/weight property
                 val childFlex = child.props["flex"]?.jsonPrimitive?.content?.toFloatOrNull()
                 val childWeight = child.props["weight"]?.jsonPrimitive?.content?.toFloatOrNull()
@@ -160,12 +184,26 @@ object NanoLayoutComponents {
         renderNode: @Composable (NanoIR, Map<String, Any>, (NanoActionIR) -> Unit, Modifier) -> Unit
     ) {
         val ratio = ir.props["ratio"]?.jsonPrimitive?.content?.toFloatOrNull() ?: 0.5f
-        Row(modifier = modifier.fillMaxWidth()) {
-            Box(modifier = Modifier.weight(ratio)) {
-                ir.children?.firstOrNull()?.let { renderNode(it, state, onAction, Modifier) }
-            }
-            Box(modifier = Modifier.weight(1f - ratio)) {
-                ir.children?.getOrNull(1)?.let { renderNode(it, state, onAction, Modifier) }
+        val children = ir.children.orEmpty()
+
+        BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+            val safeRatio = ratio.coerceIn(0.1f, 0.9f)
+
+            // On narrow screens, a split view becomes two cramped columns. Stack instead.
+            if (maxWidth < 720.dp) {
+                Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    children.firstOrNull()?.let { renderNode(it, state, onAction, Modifier.fillMaxWidth()) }
+                    children.getOrNull(1)?.let { renderNode(it, state, onAction, Modifier.fillMaxWidth()) }
+                }
+            } else {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Box(modifier = Modifier.weight(safeRatio)) {
+                        children.firstOrNull()?.let { renderNode(it, state, onAction, Modifier.fillMaxWidth()) }
+                    }
+                    Box(modifier = Modifier.weight(1f - safeRatio)) {
+                        children.getOrNull(1)?.let { renderNode(it, state, onAction, Modifier.fillMaxWidth()) }
+                    }
+                }
             }
         }
     }

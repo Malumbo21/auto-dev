@@ -6,15 +6,19 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
+import cc.unitmesh.llm.KoogLLMService
 import cc.unitmesh.xuiper.ir.NanoActionIR
 import cc.unitmesh.xuiper.ir.NanoIR
 import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonPrimitive
 
 /**
@@ -33,38 +37,151 @@ object NanoFeedbackComponents {
         modifier: Modifier,
         renderNode: @Composable (NanoIR, Map<String, Any>, (NanoActionIR) -> Unit, Modifier) -> Unit
     ) {
-        val title = ir.props["title"]?.jsonPrimitive?.content
-        val binding = ir.bindings?.get("visible")
-        val statePath = binding?.expression?.removePrefix("state.")
-        val isVisible = state[statePath] as? Boolean ?: true
+        val rawTitle = ir.props["title"]?.jsonPrimitive?.content
+        val closable = ir.props["closable"]?.jsonPrimitive?.booleanOrNull ?: true
 
-        if (isVisible) {
-            Surface(
-                modifier = modifier
-                    .fillMaxWidth()
-                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp)),
-                shape = RoundedCornerShape(8.dp),
-                tonalElevation = 4.dp
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    if (title != null) {
-                        Text(
-                            text = title,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+        // NanoSpec uses bindings.open for Modal
+        val binding = ir.bindings?.get("open")
+        val statePath = binding?.expression?.removePrefix("state.")
+        val isOpen = statePath?.let { state[it] as? Boolean } ?: true
+
+        val onCloseAction = ir.actions?.get("onClose")
+
+        fun closeModal() {
+            when {
+                onCloseAction != null -> onAction(onCloseAction)
+                statePath != null -> onAction(
+                    NanoActionIR(
+                        type = "stateMutation",
+                        payload = mapOf(
+                            "path" to JsonPrimitive(statePath),
+                            "operation" to JsonPrimitive("SET"),
+                            "value" to JsonPrimitive("false")
                         )
-                        Spacer(modifier = Modifier.height(12.dp))
+                    )
+                )
+            }
+        }
+
+        // Optional LLM fallback if Modal has no title and no children (content missing)
+        var llmService by remember { mutableStateOf<KoogLLMService?>(null) }
+        var generatedTitle by remember(ir.type, ir.props) { mutableStateOf<String?>(null) }
+        var generatedBody by remember(ir.type, ir.props) { mutableStateOf<String?>(null) }
+
+        LaunchedEffect(Unit) {
+            try {
+                val wrapper = ConfigManager.load()
+                val active = wrapper.getActiveModelConfig()
+                if (active != null) {
+                    llmService = KoogLLMService(active)
+                }
+            } catch (_: Exception) {
+                llmService = null
+            }
+        }
+
+        LaunchedEffect(isOpen, rawTitle, ir.children, llmService) {
+            if (isOpen && rawTitle.isNullOrBlank() && (ir.children.isNullOrEmpty()) && generatedTitle == null && llmService != null) {
+                val prompt = "Generate a short modal dialog title and one-sentence body for a UI. Return as: Title: ...\\nBody: ..."
+                val response = llmService!!.sendPrompt(prompt)
+                val titleLine = response.lineSequence().firstOrNull { it.trim().startsWith("Title:") }
+                val bodyLine = response.lineSequence().firstOrNull { it.trim().startsWith("Body:") }
+                generatedTitle = titleLine?.substringAfter("Title:")?.trim()?.takeIf { it.isNotEmpty() }
+                generatedBody = bodyLine?.substringAfter("Body:")?.trim()?.takeIf { it.isNotEmpty() }
+            }
+        }
+
+        if (isOpen) {
+            Dialog(
+                onDismissRequest = {
+                    if (closable) closeModal()
+                }
+            ) {
+                Surface(
+                    modifier = modifier
+                        .fillMaxWidth()
+                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp)),
+                    shape = RoundedCornerShape(12.dp),
+                    tonalElevation = 6.dp
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            val title = rawTitle ?: generatedTitle
+                            if (!title.isNullOrBlank()) {
+                                Text(
+                                    text = title,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            } else {
+                                Spacer(modifier = Modifier.weight(1f))
+                            }
+                            if (closable) {
+                                IconButton(onClick = { closeModal() }) {
+                                    Icon(Icons.Default.Close, contentDescription = "Close")
+                                }
+                            }
+                        }
+
+                        if (!rawTitle.isNullOrBlank() || !generatedTitle.isNullOrBlank() || closable) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                        }
+
+                        val children = ir.children
+                        if (!children.isNullOrEmpty()) {
+                            children.forEach { child -> renderNode(child, state, onAction, Modifier) }
+                        } else {
+                            val body = generatedBody
+                            if (!body.isNullOrBlank()) {
+                                Text(body, style = MaterialTheme.typography.bodyMedium)
+                            }
+                        }
                     }
-                    ir.children?.forEach { child -> renderNode(child, state, onAction, Modifier) }
                 }
             }
         }
     }
 
     @Composable
-    fun RenderAlert(ir: NanoIR, modifier: Modifier) {
+    fun RenderAlert(
+        ir: NanoIR,
+        modifier: Modifier,
+        onAction: (NanoActionIR) -> Unit = {}
+    ) {
         val type = ir.props["type"]?.jsonPrimitive?.content ?: "info"
-        val message = ir.props["message"]?.jsonPrimitive?.content ?: ""
+        val rawMessage = ir.props["message"]?.jsonPrimitive?.content ?: ""
+        val closable = ir.props["closable"]?.jsonPrimitive?.booleanOrNull ?: false
+        val onCloseAction = ir.actions?.get("onClose")
+
+        // Optional LLM fallback if message is missing
+        var llmService by remember { mutableStateOf<KoogLLMService?>(null) }
+        var generatedMessage by remember(type) { mutableStateOf<String?>(null) }
+
+        LaunchedEffect(Unit) {
+            try {
+                val wrapper = ConfigManager.load()
+                val active = wrapper.getActiveModelConfig()
+                if (active != null) {
+                    llmService = KoogLLMService(active)
+                }
+            } catch (_: Exception) {
+                llmService = null
+            }
+        }
+
+        LaunchedEffect(rawMessage, type, llmService) {
+            if (rawMessage.isBlank() && generatedMessage == null && llmService != null) {
+                val prompt = "Generate a short ${type} alert message for a UI (<= 80 chars)."
+                val response = llmService!!.sendPrompt(prompt)
+                generatedMessage = response.trim().lineSequence().firstOrNull()?.take(80)
+            }
+        }
+
+        val message = if (rawMessage.isNotBlank()) rawMessage else (generatedMessage ?: "")
 
         val backgroundColor = when (type) {
             "success" -> AutoDevColors.Signal.success.copy(alpha = 0.15f)
@@ -86,7 +203,9 @@ object NanoFeedbackComponents {
         }
 
         Surface(
-            modifier = modifier.fillMaxWidth().border(1.dp, borderColor, RoundedCornerShape(8.dp)),
+            modifier = modifier
+                .fillMaxWidth()
+                .border(1.dp, borderColor, RoundedCornerShape(8.dp)),
             color = backgroundColor,
             shape = RoundedCornerShape(8.dp)
         ) {
@@ -96,7 +215,16 @@ object NanoFeedbackComponents {
             ) {
                 Icon(icon, contentDescription = type, tint = borderColor, modifier = Modifier.size(20.dp))
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(message, color = borderColor)
+                Text(message, color = borderColor, modifier = Modifier.weight(1f))
+                if (closable) {
+                    IconButton(
+                        onClick = {
+                            if (onCloseAction != null) onAction(onCloseAction)
+                        }
+                    ) {
+                        Icon(Icons.Default.Close, contentDescription = "Close", tint = borderColor)
+                    }
+                }
             }
         }
     }

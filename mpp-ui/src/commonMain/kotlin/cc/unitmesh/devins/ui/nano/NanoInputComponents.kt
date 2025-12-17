@@ -24,6 +24,11 @@ import kotlinx.serialization.json.jsonPrimitive
  */
 object NanoInputComponents {
 
+    private fun resolveStatePathFromBinding(ir: NanoIR, vararg keys: String): String? {
+        val binding = keys.firstNotNullOfOrNull { ir.bindings?.get(it) }
+        return binding?.expression?.removePrefix("state.")
+    }
+
     @Composable
     fun RenderButton(
         ir: NanoIR,
@@ -429,9 +434,10 @@ object NanoInputComponents {
     ) {
         val label = ir.props["label"]?.jsonPrimitive?.content
         val placeholder = ir.props["placeholder"]?.jsonPrimitive?.content ?: ""
-        val binding = ir.bindings?.get("value")
-        val statePath = binding?.expression?.removePrefix("state.")
+        // NanoSpec uses bindings.bind for SmartTextField (keep compatibility with older value)
+        val statePath = resolveStatePathFromBinding(ir, "value", "bind")
         val currentValue = state[statePath]?.toString() ?: ""
+        val onChange = ir.actions?.get("onChange")
 
         OutlinedTextField(
             value = currentValue,
@@ -446,6 +452,7 @@ object NanoInputComponents {
                         )
                     ))
                 }
+                onChange?.let { onAction(it) }
             },
             label = label?.let { { Text(it) } },
             placeholder = { Text(placeholder) },
@@ -463,9 +470,20 @@ object NanoInputComponents {
         val label = ir.props["label"]?.jsonPrimitive?.content
         val min = ir.props["min"]?.jsonPrimitive?.content?.toFloatOrNull() ?: 0f
         val max = ir.props["max"]?.jsonPrimitive?.content?.toFloatOrNull() ?: 100f
-        val binding = ir.bindings?.get("value")
-        val statePath = binding?.expression?.removePrefix("state.")
-        val currentValue = (state[statePath] as? Number)?.toFloat() ?: min
+        val step = ir.props["step"]?.jsonPrimitive?.content?.toFloatOrNull()
+        // NanoSpec uses bindings.bind for Slider (keep compatibility with older value)
+        val statePath = resolveStatePathFromBinding(ir, "value", "bind")
+        val rawStateValue = statePath?.let { state[it] }
+        val currentValue = ((rawStateValue as? Number)?.toFloat() ?: min).coerceIn(min, max)
+        val onChange = ir.actions?.get("onChange")
+
+        val steps = remember(min, max, step) {
+            if (step == null || step <= 0f) 0
+            else {
+                val totalSteps = ((max - min) / step).toInt() - 1
+                totalSteps.coerceAtLeast(0)
+            }
+        }
 
         Column(modifier = modifier.fillMaxWidth()) {
             if (label != null) {
@@ -476,22 +494,29 @@ object NanoInputComponents {
                 value = currentValue,
                 onValueChange = { newValue ->
                     if (statePath != null) {
+                        val encoded = when (rawStateValue) {
+                            is Int -> newValue.toInt().toString()
+                            else -> newValue.toString()
+                        }
                         onAction(NanoActionIR(
                             type = "stateMutation",
                             payload = mapOf(
                                 "path" to JsonPrimitive(statePath),
                                 "operation" to JsonPrimitive("SET"),
-                                "value" to JsonPrimitive(newValue)
+                                "value" to JsonPrimitive(encoded)
                             )
                         ))
                     }
+                    onChange?.let { onAction(it) }
                 },
                 valueRange = min..max,
+                steps = steps,
                 modifier = Modifier.fillMaxWidth()
             )
         }
     }
 
+    @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     fun RenderDateRangePicker(
         ir: NanoIR,
@@ -499,23 +524,110 @@ object NanoInputComponents {
         onAction: (NanoActionIR) -> Unit,
         modifier: Modifier
     ) {
-        Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(
-                value = "",
-                onValueChange = {},
-                placeholder = { Text("Start date") },
-                leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = null) },
-                modifier = Modifier.weight(1f),
-                singleLine = true
+        // NanoSpec uses bindings.bind for DateRangePicker
+        val statePath = resolveStatePathFromBinding(ir, "bind", "value")
+        val current = state[statePath]
+        val onChange = ir.actions?.get("onChange")
+
+        fun parseTwoDates(value: Any?): Pair<String, String> {
+            return when (value) {
+                is List<*> -> {
+                    val start = value.getOrNull(0)?.toString().orEmpty()
+                    val end = value.getOrNull(1)?.toString().orEmpty()
+                    start to end
+                }
+                is Map<*, *> -> {
+                    val start = value["start"]?.toString().orEmpty()
+                    val end = value["end"]?.toString().orEmpty()
+                    start to end
+                }
+                is String -> {
+                    val parts = value.split("..", "—", " to ", limit = 2)
+                    if (parts.size == 2) parts[0].trim() to parts[1].trim() else "" to ""
+                }
+                else -> "" to ""
+            }
+        }
+
+        val (startStr, endStr) = remember(current) { parseTwoDates(current) }
+        val displayValue = remember(startStr, endStr) {
+            when {
+                startStr.isNotBlank() && endStr.isNotBlank() -> "$startStr .. $endStr"
+                startStr.isNotBlank() -> startStr
+                endStr.isNotBlank() -> endStr
+                else -> ""
+            }
+        }
+
+        var showDialog by remember { mutableStateOf(false) }
+        val dateRangeState = rememberDateRangePickerState()
+
+        OutlinedTextField(
+            value = displayValue,
+            onValueChange = { },
+            placeholder = { Text("Select date range") },
+            leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = null) },
+            modifier = modifier
+                .fillMaxWidth()
+                .clickable { showDialog = true },
+            singleLine = true,
+            readOnly = true,
+            enabled = false,
+            colors = OutlinedTextFieldDefaults.colors(
+                disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                disabledBorderColor = MaterialTheme.colorScheme.outline,
+                disabledLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                disabledPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            OutlinedTextField(
-                value = "",
-                onValueChange = {},
-                placeholder = { Text("End date") },
-                leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = null) },
-                modifier = Modifier.weight(1f),
-                singleLine = true
-            )
+        )
+
+        if (showDialog) {
+            DatePickerDialog(
+                onDismissRequest = { showDialog = false },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            val startMillis = dateRangeState.selectedStartDateMillis
+                            val endMillis = dateRangeState.selectedEndDateMillis
+
+                            if (statePath != null && startMillis != null && endMillis != null) {
+                                val start = NanoRenderUtils.formatDateFromMillis(startMillis)
+                                val end = NanoRenderUtils.formatDateFromMillis(endMillis)
+
+                                val encodedValue = when (current) {
+                                    is List<*> -> "[\"$start\", \"$end\"]"
+                                    is Map<*, *> -> "{\"start\": \"$start\", \"end\": \"$end\"}"
+                                    else -> "$start..$end"
+                                }
+
+                                onAction(
+                                    NanoActionIR(
+                                        type = "stateMutation",
+                                        payload = mapOf(
+                                            "path" to JsonPrimitive(statePath),
+                                            "operation" to JsonPrimitive("SET"),
+                                            "value" to JsonPrimitive(encodedValue)
+                                        )
+                                    )
+                                )
+
+                                onChange?.let { onAction(it) }
+                            }
+
+                            showDialog = false
+                        }
+                    ) {
+                        Text("OK")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDialog = false }) {
+                        Text("Cancel")
+                    }
+                }
+            ) {
+                DateRangePicker(state = dateRangeState)
+            }
         }
     }
 }

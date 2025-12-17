@@ -9,6 +9,7 @@ import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import cc.unitmesh.yaml.YamlUtils
+import kotlin.math.round
 
 /**
  * Stateful NanoUI Compose Renderer
@@ -109,9 +110,21 @@ object StatefulNanoRenderer {
                         }
                         "SET" -> {
                             when (currentValue) {
-                                is Int -> valueStr.toIntOrNull() ?: 0
+                                is Int -> {
+                                    valueStr.toIntOrNull()
+                                        ?: valueStr.toDoubleOrNull()?.let { round(it).toInt() }
+                                        ?: 0
+                                }
                                 is Float -> valueStr.toFloatOrNull() ?: 0f
                                 is Boolean -> valueStr.toBooleanStrictOrNull() ?: false
+                                is List<*> -> {
+                                    val parsed = parseStructuredDefault(valueStr)
+                                    if (parsed is List<*>) parsed else currentValue
+                                }
+                                is Map<*, *> -> {
+                                    val parsed = parseStructuredDefault(valueStr)
+                                    if (parsed is Map<*, *>) parsed else currentValue
+                                }
                                 else -> valueStr
                             }
                         }
@@ -168,7 +181,7 @@ object StatefulNanoRenderer {
             "NumberInput" -> NanoInputComponents.RenderNumberInput(ir, state, onAction, modifier)
             // P0: Feedback Components
             "Modal" -> NanoFeedbackComponents.RenderModal(ir, state, onAction, modifier, renderNode)
-            "Alert" -> NanoFeedbackComponents.RenderAlert(ir, modifier)
+            "Alert" -> NanoFeedbackComponents.RenderAlert(ir, modifier, onAction)
             "Progress" -> NanoFeedbackComponents.RenderProgress(ir, state, modifier)
             "Spinner" -> NanoFeedbackComponents.RenderSpinner(ir, modifier)
             // Tier 1-3: GenUI Components

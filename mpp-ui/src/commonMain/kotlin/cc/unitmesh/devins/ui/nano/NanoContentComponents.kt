@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -73,6 +74,48 @@ object NanoContentComponents {
         modifier: Modifier
     ) {
         val originalSrc = ir.props["src"]?.jsonPrimitive?.content ?: ""
+
+        val widthPx = ir.props["width"]?.jsonPrimitive?.content?.toIntOrNull()
+        val aspectStr = ir.props["aspect"]?.jsonPrimitive?.content
+        val radiusStr = ir.props["radius"]?.jsonPrimitive?.content
+
+        val aspectRatio = remember(aspectStr) {
+            val trimmed = aspectStr?.trim().orEmpty()
+            when {
+                trimmed.contains('/') -> {
+                    val parts = trimmed.split('/', limit = 2)
+                    val a = parts.getOrNull(0)?.trim()?.toFloatOrNull()
+                    val b = parts.getOrNull(1)?.trim()?.toFloatOrNull()
+                    if (a != null && b != null && b != 0f) a / b else null
+                }
+                trimmed.isNotEmpty() -> trimmed.toFloatOrNull()
+                else -> null
+            }
+        }
+
+        val cornerRadius = when (radiusStr) {
+            "sm" -> 4.dp
+            "md" -> 8.dp
+            "lg" -> 12.dp
+            "xl" -> 16.dp
+            else -> 8.dp
+        }
+
+        val baseBoxModifier = run {
+            // Default sizing should work both standalone and inside HStack.
+            // If width is specified, respect it; otherwise pick a reasonable default width.
+            val width = (widthPx?.dp) ?: 240.dp
+            val height = when {
+                aspectRatio != null && aspectRatio > 0f -> (width / aspectRatio)
+                else -> 180.dp
+            }
+
+            modifier
+                .width(width)
+                .height(height)
+                .clip(RoundedCornerShape(cornerRadius))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+        }
 
         // State to hold the generated image URL and loaded bitmap
         var generatedImageUrl by remember(originalSrc) { mutableStateOf<String?>(null) }
@@ -136,11 +179,7 @@ object NanoContentComponents {
 
         // Display the image
         Box(
-            modifier = modifier
-                .fillMaxWidth()
-                .height(200.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant),
+            modifier = baseBoxModifier,
             contentAlignment = Alignment.Center
         ) {
             when {

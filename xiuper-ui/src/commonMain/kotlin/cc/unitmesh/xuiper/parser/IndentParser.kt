@@ -39,6 +39,7 @@ class IndentParser(
         private val STATE_VAR_REGEX = Regex("""^\s*(\w+):\s*(\w+)\s*=\s*(.+)$""")
         private val COMPONENT_CALL_REGEX = Regex("""^(\w+)(?:\((.*?)\))?:\s*$""")
         private val COMPONENT_INLINE_REGEX = Regex("""^(\w+)(?:\((.*?)\))$""")
+        private val COMPONENT_MULTILINE_ARGS_START_REGEX = Regex("""^(\w+)\(\s*$""")
         private val PROP_REGEX = Regex("""^(\w+):\s*(.*)$""")
         private val IF_REGEX = Regex("""^if\s+(.+?):\s*$""")
         private val FOR_REGEX = Regex("""^for\s+(\w+)\s+in\s+(.+?):\s*$""")
@@ -254,6 +255,15 @@ class IndentParser(
             return NanoNode.Divider to startIndex + 1
         }
 
+        // Handle multi-line inline component call, e.g.:
+        // DataTable(
+        //   columns="...",
+        //   data=state.users
+        // )
+        COMPONENT_MULTILINE_ARGS_START_REGEX.matchEntire(trimmed)?.let { match ->
+            return parseMultilineInlineComponentCall(lines, startIndex, match.groupValues[1])
+        }
+
         // Handle component with block
         COMPONENT_CALL_REGEX.matchEntire(trimmed)?.let { match ->
             return parseComponentCall(lines, startIndex, match.groupValues[1], match.groupValues[2])
@@ -266,6 +276,90 @@ class IndentParser(
         }
 
         return null to startIndex + 1
+    }
+
+    private fun parseMultilineInlineComponentCall(
+        lines: List<String>,
+        startIndex: Int,
+        componentName: String
+    ): Pair<NanoNode?, Int> {
+        val startLine = lines[startIndex]
+        val baseIndent = getIndent(startLine)
+
+        var parenDepth = 0
+        var inString = false
+        var escaped = false
+        var collecting = false
+        val argsBuilder = StringBuilder()
+
+        var index = startIndex
+        while (index < lines.size) {
+            val line = lines[index]
+
+            // For multi-line calls we expect the closing ')' to align with the opening indent.
+            // Still, we scan characters to be robust if there are nested parentheses.
+            if (index != startIndex && line.isNotBlank()) {
+                val currentIndent = getIndent(line)
+                if (parenDepth > 0 && currentIndent < baseIndent) {
+                    break
+                }
+            }
+
+            val text = if (index == startIndex) line.trim() else line
+            for (c in text) {
+                if (inString) {
+                    if (escaped) {
+                        escaped = false
+                        if (collecting) argsBuilder.append(c)
+                        continue
+                    }
+                    when (c) {
+                        '\\' -> {
+                            escaped = true
+                            if (collecting) argsBuilder.append(c)
+                        }
+                        '"' -> {
+                            inString = false
+                            if (collecting) argsBuilder.append(c)
+                        }
+                        else -> if (collecting) argsBuilder.append(c)
+                    }
+                    continue
+                }
+
+                when (c) {
+                    '"' -> {
+                        inString = true
+                        if (collecting) argsBuilder.append(c)
+                    }
+                    '(' -> {
+                        parenDepth++
+                        if (parenDepth == 1) {
+                            collecting = true
+                        } else if (collecting) {
+                            argsBuilder.append(c)
+                        }
+                    }
+                    ')' -> {
+                        if (parenDepth > 0) parenDepth--
+                        if (parenDepth == 0 && collecting) {
+                            collecting = false
+                            val argsStr = argsBuilder.toString().trim()
+                            val node = createNode(componentName, argsStr, emptyList())
+                            return node to (index + 1)
+                        }
+                        if (collecting) argsBuilder.append(c)
+                    }
+                    else -> if (collecting) argsBuilder.append(c)
+                }
+            }
+
+            if (collecting) argsBuilder.append("\n")
+            index++
+        }
+
+        // If we didn't find a closing ')', treat it as an unparseable node.
+        return null to (startIndex + 1)
     }
 
     private fun parseComponentCall(
