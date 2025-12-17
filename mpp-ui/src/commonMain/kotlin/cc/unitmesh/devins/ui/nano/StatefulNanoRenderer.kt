@@ -26,12 +26,13 @@ import cc.unitmesh.llm.image.ImageGenerationResult
 import cc.unitmesh.llm.image.ImageGenerationService
 import cc.unitmesh.xuiper.ir.NanoActionIR
 import cc.unitmesh.xuiper.ir.NanoIR
-import cc.unitmesh.xuiper.ir.NanoStateIR
 import io.ktor.client.request.get
 import io.ktor.client.statement.readBytes
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.datetime.Clock
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
@@ -147,7 +148,7 @@ object StatefulNanoRenderer {
             "Icon" -> RenderIcon(ir, modifier)
             "Divider" -> RenderDivider(modifier)
             // Input
-            "Button" -> RenderButton(ir, onAction, modifier)
+            "Button" -> RenderButton(ir, state, onAction, modifier)
             "Input" -> RenderInput(ir, state, onAction, modifier)
             "Checkbox" -> RenderCheckbox(ir, state, onAction, modifier)
             "TextArea" -> RenderTextArea(ir, state, onAction, modifier)
@@ -316,13 +317,16 @@ object StatefulNanoRenderer {
     private fun RenderText(ir: NanoIR, state: Map<String, Any>, modifier: Modifier) {
         // Check for binding first
         val binding = ir.bindings?.get("content")
-        val content = if (binding != null) {
+        val rawContent = if (binding != null) {
             // Get value from state based on binding expression
             val expr = binding.expression.removePrefix("state.")
             state[expr]?.toString() ?: ""
         } else {
             ir.props["content"]?.jsonPrimitive?.content ?: ""
         }
+
+        // Interpolate {state.xxx} or {state.xxx + 1} expressions in content
+        val content = interpolateText(rawContent, state)
 
         val style = ir.props["style"]?.jsonPrimitive?.content
 
@@ -597,8 +601,10 @@ object StatefulNanoRenderer {
     // Input Components
 
     @Composable
-    private fun RenderButton(ir: NanoIR, onAction: (NanoActionIR) -> Unit, modifier: Modifier) {
-        val label = ir.props["label"]?.jsonPrimitive?.content ?: "Button"
+    private fun RenderButton(ir: NanoIR, state: Map<String, Any>, onAction: (NanoActionIR) -> Unit, modifier: Modifier) {
+        val rawLabel = ir.props["label"]?.jsonPrimitive?.content ?: "Button"
+        // Interpolate {state.xxx} expressions in button label
+        val label = interpolateText(rawLabel, state)
         val intent = ir.props["intent"]?.jsonPrimitive?.content
         val onClick = ir.actions?.get("onClick")
 
@@ -637,6 +643,8 @@ object StatefulNanoRenderer {
             mutableStateOf(state[statePath]?.toString() ?: "")
         }
 
+        // Use weight(1f) if no explicit width, otherwise use default sizing
+        // This allows Input to share space properly in HStack
         OutlinedTextField(
             value = value,
             onValueChange = { newValue ->
@@ -653,7 +661,7 @@ object StatefulNanoRenderer {
                 }
             },
             placeholder = { Text(placeholder) },
-            modifier = modifier.fillMaxWidth(),
+            modifier = modifier.widthIn(min = 120.dp, max = 300.dp),
             singleLine = true
         )
     }
@@ -943,6 +951,7 @@ object StatefulNanoRenderer {
         val statePath = binding?.expression?.removePrefix("state.")
         val currentValue = (state[statePath] as? Number)?.toString() ?: state[statePath]?.toString() ?: ""
 
+        // Use widthIn for better HStack layout instead of fillMaxWidth
         OutlinedTextField(
             value = currentValue,
             onValueChange = { newValue ->
@@ -958,7 +967,7 @@ object StatefulNanoRenderer {
                 }
             },
             placeholder = { Text(placeholder) },
-            modifier = modifier.fillMaxWidth(),
+            modifier = modifier.widthIn(min = 100.dp, max = 200.dp),
             singleLine = true
         )
     }
@@ -1277,6 +1286,102 @@ object StatefulNanoRenderer {
     // ============================================================================
     // Helper Functions
     // ============================================================================
+
+    /**
+     * Built-in variables that are always available for text interpolation
+     */
+    private fun getBuiltInVariables(): Map<String, Any> {
+        val now = Clock.System.now()
+        val localDateTime = now.toLocalDateTime(TimeZone.currentSystemDefault())
+        return mapOf(
+            "currentYear" to localDateTime.year,
+            "currentMonth" to localDateTime.monthNumber,
+            "currentDay" to localDateTime.dayOfMonth,
+            "currentHour" to localDateTime.hour,
+            "currentMinute" to localDateTime.minute,
+            "today" to "${localDateTime.year}-${localDateTime.monthNumber.toString().padStart(2, '0')}-${localDateTime.dayOfMonth.toString().padStart(2, '0')}",
+            "now" to localDateTime.toString()
+        )
+    }
+
+    /**
+     * Interpolate text with {state.xxx} or {state.xxx + 1} expressions.
+     * Also supports built-in variables and provides default values for missing variables.
+     */
+    private fun interpolateText(text: String, state: Map<String, Any>): String {
+        // Regex to match {expr} patterns, including expressions like {state.currentDay - 1}
+        val pattern = Regex("""\{([^}]+)\}""")
+
+        // Merge built-in variables with state (state takes precedence)
+        val mergedState = getBuiltInVariables() + state
+
+        return pattern.replace(text) { matchResult ->
+            val expr = matchResult.groupValues[1].trim()
+            evaluateExpression(expr, mergedState)
+        }
+    }
+
+    /**
+     * Evaluate a simple expression like "state.currentDay" or "state.currentDay - 1"
+     */
+    private fun evaluateExpression(expr: String, state: Map<String, Any>): String {
+        // Handle arithmetic expressions: state.xxx + N, state.xxx - N
+        val arithmeticPattern = Regex("""state\.(\w+)\s*([+\-*/])\s*(\d+)""")
+        val arithmeticMatch = arithmeticPattern.matchEntire(expr)
+        if (arithmeticMatch != null) {
+            val varName = arithmeticMatch.groupValues[1]
+            val operator = arithmeticMatch.groupValues[2]
+            val operand = arithmeticMatch.groupValues[3].toIntOrNull() ?: 0
+
+            val value = state[varName]
+            val numValue = when (value) {
+                is Number -> value.toInt()
+                is String -> value.toIntOrNull() ?: getDefaultForVariable(varName)
+                else -> getDefaultForVariable(varName)
+            }
+
+            val result = when (operator) {
+                "+" -> numValue + operand
+                "-" -> numValue - operand
+                "*" -> numValue * operand
+                "/" -> if (operand != 0) numValue / operand else numValue
+                else -> numValue
+            }
+            return result.toString()
+        }
+
+        // Handle simple state reference: state.xxx
+        val simplePattern = Regex("""state\.(\w+)""")
+        val simpleMatch = simplePattern.matchEntire(expr)
+        if (simpleMatch != null) {
+            val varName = simpleMatch.groupValues[1]
+            return state[varName]?.toString() ?: getDefaultForVariable(varName).toString()
+        }
+
+        // Return original expression if it doesn't match
+        return "{$expr}"
+    }
+
+    /**
+     * Get default value for a variable based on its name.
+     * Provides sensible defaults when variables are not found.
+     */
+    private fun getDefaultForVariable(varName: String): Int {
+        return when {
+            varName.contains("day", ignoreCase = true) -> 1
+            varName.contains("month", ignoreCase = true) -> 1
+            varName.contains("year", ignoreCase = true) -> 2024
+            varName.contains("count", ignoreCase = true) -> 0
+            varName.contains("index", ignoreCase = true) -> 0
+            varName.contains("page", ignoreCase = true) -> 1
+            varName.contains("step", ignoreCase = true) -> 1
+            varName.contains("quantity", ignoreCase = true) -> 1
+            varName.contains("amount", ignoreCase = true) -> 0
+            varName.contains("price", ignoreCase = true) -> 0
+            varName.contains("total", ignoreCase = true) -> 0
+            else -> 0
+        }
+    }
 
     private fun resolveBindingValue(value: String?, state: Map<String, Any>): String? {
         if (value == null) return null
