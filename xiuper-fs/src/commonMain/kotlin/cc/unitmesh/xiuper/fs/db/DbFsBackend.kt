@@ -115,9 +115,12 @@ class DbFsBackend(
             ?: throw FsException(FsErrorCode.ENOENT, "No such path: ${normalized.value}")
 
         if (node.isDir != 0L) {
+            // Check if directory has any children
+            // Use executeAsList().firstOrNull() to avoid exception when multiple children exist
             val anyChild = database.fsNodeQueries
                 .selectChildren(normalized.value + "/%")
-                .executeAsOneOrNull()
+                .executeAsList()
+                .firstOrNull()
             if (anyChild != null) throw FsException(FsErrorCode.ENOTEMPTY, "Directory not empty: ${normalized.value}")
         }
 

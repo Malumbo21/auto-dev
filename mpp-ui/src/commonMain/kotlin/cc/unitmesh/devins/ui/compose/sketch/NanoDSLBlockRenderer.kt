@@ -238,10 +238,17 @@ fun NanoDSLBlockRenderer(
                     .padding(16.dp)
             }
 
+            // Use theme colors instead of hardcoded values
             val backgroundColor = if (isDarkTheme) {
-                Color(0xFF1E1E1E)  // Dark background
+                MaterialTheme.colorScheme.surfaceContainerLowest
             } else {
-                Color(0xFFF5F5F5)  // Light background
+                MaterialTheme.colorScheme.surfaceContainerHigh
+            }
+
+            val borderColor = if (isDarkTheme) {
+                MaterialTheme.colorScheme.outlineVariant
+            } else {
+                MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
             }
 
             Box(
@@ -252,11 +259,7 @@ fun NanoDSLBlockRenderer(
                     )
                     .border(
                         width = 1.dp,
-                        color = if (isDarkTheme) {
-                            Color(0xFF3C3C3C)
-                        } else {
-                            Color(0xFFE0E0E0)
-                        },
+                        color = borderColor,
                         shape = RoundedCornerShape(8.dp)
                     )
                     .padding(16.dp)

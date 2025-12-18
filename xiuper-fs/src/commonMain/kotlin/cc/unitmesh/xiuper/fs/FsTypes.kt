@@ -73,6 +73,17 @@ data class ReadResult(
     val contentType: String? = null
 ) {
     fun textOrNull(): String? = runCatching { bytes.decodeToString() }.getOrNull()
+
+    // Override equals/hashCode to use content equality for ByteArray
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is ReadResult) return false
+        return bytes.contentEquals(other.bytes) && contentType == other.contentType
+    }
+
+    override fun hashCode(): Int {
+        return 31 * bytes.contentHashCode() + (contentType?.hashCode() ?: 0)
+    }
 }
 
 data class WriteResult(

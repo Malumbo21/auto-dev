@@ -48,7 +48,8 @@ class InMemoryFsBackend : FsBackend, CapabilityAwareBackend {
         val normalized = FsPath.of(path.value)
         val node = getNode(normalized) ?: throw FsException(FsErrorCode.ENOENT, "No such path: ${normalized.value}")
         val file = node as? Node.File ?: throw FsException(FsErrorCode.EISDIR, "Is a directory: ${normalized.value}")
-        return ReadResult(bytes = file.bytes)
+        // Return defensive copy to prevent external mutation
+        return ReadResult(bytes = file.bytes.copyOf())
     }
 
     override suspend fun write(path: FsPath, content: ByteArray, options: WriteOptions): WriteResult {
@@ -62,11 +63,13 @@ class InMemoryFsBackend : FsBackend, CapabilityAwareBackend {
         when (existing) {
             is Node.Dir -> throw FsException(FsErrorCode.EISDIR, "Is a directory: ${normalized.value}")
             is Node.File -> {
-                existing.bytes = content
+                // Store defensive copy to prevent external mutation
+                existing.bytes = content.copyOf()
                 return WriteResult(ok = true)
             }
             null -> {
-                parentDir.children[name] = Node.File(content)
+                // Store defensive copy to prevent external mutation
+                parentDir.children[name] = Node.File(content.copyOf())
                 return WriteResult(ok = true)
             }
         }

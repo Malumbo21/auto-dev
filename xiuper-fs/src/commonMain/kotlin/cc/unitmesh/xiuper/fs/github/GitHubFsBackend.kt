@@ -34,10 +34,18 @@ import kotlinx.serialization.json.Json
 class GitHubFsBackend(
     private val token: String? = null,
     private val baseUrl: String = "https://api.github.com"
-) : FsBackend {
-    
+) : FsBackend, AutoCloseable {
+
     private val client = HttpClient {
         expectSuccess = false
+    }
+
+    /**
+     * Close the HTTP client to release resources.
+     * Should be called when the backend is no longer needed.
+     */
+    override fun close() {
+        client.close()
     }
     
     private val json = Json {

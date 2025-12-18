@@ -48,7 +48,9 @@ class DefaultMcpBackend(
                 FsStat(path, isDirectory = true)
             
             path.value.startsWith("/resources/") && !path.value.endsWith("/") -> {
-                val uri = path.value.removePrefix("/resources/")
+                val encodedUri = path.value.removePrefix("/resources/")
+                // Decode the URI to match the encoding used in list()
+                val uri = decodeUri(encodedUri)
                 val resource = getResource(uri)
                 FsStat(
                     path = path,

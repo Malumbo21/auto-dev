@@ -71,11 +71,20 @@ sealed interface PathPattern {
     }
     
     data class Wildcard(val pattern: String) : PathPattern {
-        private val regex = pattern
-            .replace(".", "\\.")
-            .replace("*", ".*")
-            .toRegex()
-        
+        private val regex: Regex
+
+        init {
+            // Prevent ReDoS attacks by limiting pattern complexity
+            require(pattern.length <= 256) { "Pattern too long (max 256 characters)" }
+            require(pattern.count { it == '*' } <= 10) { "Too many wildcards (max 10)" }
+
+            // Use [^/]* instead of .* to match single path segments (more secure and semantically correct)
+            regex = pattern
+                .replace(".", "\\.")
+                .replace("*", "[^/]*")  // Non-greedy, single segment match
+                .toRegex()
+        }
+
         override fun matches(path: FsPath): Boolean = regex.matches(path.value)
     }
     
