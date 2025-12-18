@@ -76,6 +76,9 @@ kotlin {
                 implementation(libs.ktor.client.core)
                 implementation(libs.ktor.client.contentNegotiation)
                 implementation(libs.ktor.serialization.kotlinx.json)
+                
+                // MCP SDK for cross-platform Model Context Protocol support
+                implementation(libs.mcp.kotlin.sdk)
             }
         }
 

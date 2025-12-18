@@ -29,3 +29,79 @@ interface MountPolicy {
         }
     }
 }
+
+/**
+ * Path-based policy: allowlist or denylist.
+ */
+class PathFilterPolicy(
+    private val mode: Mode,
+    private val patterns: List<PathPattern>,
+    private val delegate: MountPolicy = MountPolicy.AllowAll
+) : MountPolicy {
+    enum class Mode {
+        ALLOWLIST,
+        DENYLIST
+    }
+    
+    override suspend fun checkOperation(op: FsOperation, path: FsPath): FsException? {
+        val matches = patterns.any { it.matches(path) }
+        val allowed = when (mode) {
+            Mode.ALLOWLIST -> matches
+            Mode.DENYLIST -> !matches
+        }
+        
+        return if (allowed) {
+            delegate.checkOperation(op, path)
+        } else {
+            FsException(FsErrorCode.EACCES, "Path not allowed by policy: ${path.value}")
+        }
+    }
+}
+
+sealed interface PathPattern {
+    fun matches(path: FsPath): Boolean
+    
+    data class Exact(val pattern: String) : PathPattern {
+        override fun matches(path: FsPath): Boolean = path.value == pattern
+    }
+    
+    data class Prefix(val prefix: String) : PathPattern {
+        override fun matches(path: FsPath): Boolean = 
+            path.value == prefix || path.value.startsWith("$prefix/")
+    }
+    
+    data class Wildcard(val pattern: String) : PathPattern {
+        private val regex = pattern
+            .replace(".", "\\.")
+            .replace("*", ".*")
+            .toRegex()
+        
+        override fun matches(path: FsPath): Boolean = regex.matches(path.value)
+    }
+    
+    companion object {
+        fun parse(pattern: String): PathPattern = when {
+            "*" in pattern -> Wildcard(pattern)
+            pattern.endsWith("/") -> Prefix(pattern.trimEnd('/'))
+            else -> Exact(pattern)
+        }
+    }
+}
+
+/**
+ * Delete approval policy: requires explicit confirmation for delete operations.
+ */
+class DeleteApprovalPolicy(
+    private val approvalProvider: suspend (FsPath) -> Boolean,
+    private val delegate: MountPolicy = MountPolicy.AllowAll
+) : MountPolicy {
+    override suspend fun checkOperation(op: FsOperation, path: FsPath): FsException? {
+        if (op == FsOperation.DELETE) {
+            val approved = approvalProvider(path)
+            if (!approved) {
+                return FsException(FsErrorCode.EACCES, "Delete not approved: ${path.value}")
+            }
+        }
+        return delegate.checkOperation(op, path)
+    }
+}

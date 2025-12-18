@@ -379,7 +379,7 @@ class RestSchema private constructor(
     }
 }
 
-private class FsPathPattern private constructor(
+internal class FsPathPattern private constructor(
     private val raw: String,
     private val segments: List<Segment>
 ) {
