@@ -8,6 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -15,10 +16,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.unit.dp
-import cc.unitmesh.agent.Platform
+import cc.unitmesh.devins.ui.compose.icons.AutoDevComposeIcons
 import cc.unitmesh.devins.ui.nano.StatefulNanoRenderer
 import cc.unitmesh.xuiper.dsl.NanoDSL
 import cc.unitmesh.xuiper.ir.NanoIR
@@ -64,6 +67,7 @@ fun NanoDSLBlockRenderer(
     var nanoIR by remember { mutableStateOf<NanoIR?>(null) }
     var isDarkTheme by remember { mutableStateOf(true) }
     var isMobileLayout by remember { mutableStateOf(false) }
+    var zoomLevel by remember { mutableStateOf(1.0f) }
 
     // Parse NanoDSL to IR when code changes
     LaunchedEffect(nanodslCode, isComplete) {
@@ -162,33 +166,55 @@ fun NanoDSLBlockRenderer(
                 }
 
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    // Zoom out button
+                    NanoDSLIconButton(
+                        icon = AutoDevComposeIcons.ZoomOut,
+                        contentDescription = "Zoom Out",
+                        isActive = zoomLevel > 0.5f,
+                        onClick = { if (zoomLevel > 0.5f) zoomLevel -= 0.1f }
+                    )
+
+                    // Zoom in button
+                    NanoDSLIconButton(
+                        icon = AutoDevComposeIcons.ZoomIn,
+                        contentDescription = "Zoom In",
+                        isActive = zoomLevel < 2.0f,
+                        onClick = { if (zoomLevel < 2.0f) zoomLevel += 0.1f }
+                    )
+
+                    Spacer(Modifier.width(4.dp))
+
                     // Theme toggle button
-                    NanoDSLToggleButton(
-                        text = if (isDarkTheme) "🌙" else "☀️",
+                    NanoDSLIconButton(
+                        icon = if (isDarkTheme) AutoDevComposeIcons.DarkMode else AutoDevComposeIcons.LightMode,
+                        contentDescription = if (isDarkTheme) "Dark Mode" else "Light Mode",
                         isActive = isDarkTheme,
                         onClick = { isDarkTheme = !isDarkTheme }
                     )
 
                     // Layout toggle button
-                    NanoDSLToggleButton(
-                        text = if (isMobileLayout) "📱" else "🖥️",
+                    NanoDSLIconButton(
+                        icon = if (isMobileLayout) AutoDevComposeIcons.PhoneAndroid else AutoDevComposeIcons.Computer,
+                        contentDescription = if (isMobileLayout) "Mobile Layout" else "Desktop Layout",
                         isActive = isMobileLayout,
                         onClick = { isMobileLayout = !isMobileLayout }
                     )
 
                     // Preview/Code toggle button
-                    NanoDSLToggleButton(
-                        text = if (showPreview && nanoIR != null) "</>" else "Preview",
+                    NanoDSLIconButton(
+                        icon = AutoDevComposeIcons.Code,
+                        contentDescription = if (showPreview && nanoIR != null) "Show Code" else "Show Preview",
                         isActive = showPreview && nanoIR != null,
                         onClick = { showPreview = !showPreview }
                     )
 
                     // Copy button
-                    NanoDSLToggleButton(
-                        text = if (showCopied) "✓" else "📋",
+                    NanoDSLIconButton(
+                        icon = if (showCopied) AutoDevComposeIcons.Check else AutoDevComposeIcons.ContentCopy,
+                        contentDescription = if (showCopied) "Copied" else "Copy",
                         isActive = showCopied,
                         onClick = {
                             clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(nanodslCode))
@@ -212,10 +238,17 @@ fun NanoDSLBlockRenderer(
                     .padding(16.dp)
             }
 
+            // Use theme colors instead of hardcoded values
             val backgroundColor = if (isDarkTheme) {
-                Color(0xFF1E1E1E)  // Dark background
+                MaterialTheme.colorScheme.surfaceContainerLowest
             } else {
-                Color(0xFFF5F5F5)  // Light background
+                MaterialTheme.colorScheme.surfaceContainerHigh
+            }
+
+            val borderColor = if (isDarkTheme) {
+                MaterialTheme.colorScheme.outlineVariant
+            } else {
+                MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
             }
 
             Box(
@@ -226,20 +259,18 @@ fun NanoDSLBlockRenderer(
                     )
                     .border(
                         width = 1.dp,
-                        color = if (isDarkTheme) {
-                            Color(0xFF3C3C3C)
-                        } else {
-                            Color(0xFFE0E0E0)
-                        },
+                        color = borderColor,
                         shape = RoundedCornerShape(8.dp)
                     )
                     .padding(16.dp)
             ) {
-                // Apply theme to the content
+                // Apply theme and zoom to the content
                 CompositionLocalProvider(
                     LocalContentColor provides if (isDarkTheme) Color.White else Color.Black
                 ) {
-                    StatefulNanoRenderer.Render(nanoIR!!)
+                    Box(modifier = Modifier.scale(zoomLevel)) {
+                        StatefulNanoRenderer.Render(nanoIR!!)
+                    }
                 }
             }
         } else {
@@ -341,3 +372,75 @@ private fun NanoDSLToggleButton(
     }
 }
 
+/**
+ * NanoDSL Icon Button - Theme-aware icon button component
+ *
+ * Features:
+ * - Uses Material icons instead of emoji for better cross-platform support
+ * - Theme-aware colors using MaterialTheme.colorScheme
+ * - Smooth animations for state changes
+ * - Clear visual feedback for active/inactive states
+ *
+ * @param icon The ImageVector icon to display
+ * @param contentDescription Accessibility description for the icon
+ * @param isActive Whether the button is in active state
+ * @param onClick Callback when button is clicked
+ */
+@Composable
+private fun NanoDSLIconButton(
+    icon: ImageVector,
+    contentDescription: String,
+    isActive: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    // Theme-aware colors with animation
+    val backgroundColor by animateColorAsState(
+        targetValue = if (isActive) {
+            MaterialTheme.colorScheme.primaryContainer
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant
+        }
+    )
+
+    val contentColor by animateColorAsState(
+        targetValue = if (isActive) {
+            MaterialTheme.colorScheme.onPrimaryContainer
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        }
+    )
+
+    val borderWidth by animateDpAsState(
+        targetValue = if (isActive) 1.dp else 0.dp
+    )
+
+    val borderColor by animateColorAsState(
+        targetValue = if (isActive) {
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+        } else {
+            MaterialTheme.colorScheme.outline.copy(alpha = 0.0f)
+        }
+    )
+
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(4.dp))
+            .border(
+                width = borderWidth,
+                color = borderColor,
+                shape = RoundedCornerShape(4.dp)
+            )
+            .background(backgroundColor)
+            .clickable(onClick = onClick)
+            .padding(6.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            modifier = Modifier.size(16.dp),
+            tint = contentColor
+        )
+    }
+}

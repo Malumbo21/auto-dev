@@ -1,0 +1,12 @@
+-- Migration 1: Add extended attributes support
+-- From schema v1 (FsNode only) to v2 (FsNode + FsXattr)
+
+CREATE TABLE IF NOT EXISTS FsXattr (
+    path TEXT NOT NULL,
+    name TEXT NOT NULL,
+    value BLOB NOT NULL,
+    PRIMARY KEY (path, name),
+    FOREIGN KEY (path) REFERENCES FsNode(path) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_xattr_path ON FsXattr(path);
