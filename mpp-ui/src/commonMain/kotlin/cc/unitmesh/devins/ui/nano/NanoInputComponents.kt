@@ -10,6 +10,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import cc.unitmesh.agent.Platform
 import cc.unitmesh.xuiper.ir.NanoActionIR
 import cc.unitmesh.xuiper.ir.NanoIR
 import kotlinx.serialization.json.JsonArray
@@ -434,41 +435,60 @@ object NanoInputComponents {
             )
         }
 
-        // DatePicker Dialog
+        // On Desktop/other non-Android targets, Material3 DatePickerDialog can throw
+        // "layouts are not part of the same hierarchy" due to popup positioning.
+        // Use an inline panel as a safe fallback.
         if (showDialog) {
-            DatePickerDialog(
-                onDismissRequest = { showDialog = false },
-                confirmButton = {
-                    TextButton(onClick = {
-                        val selectedDate = datePickerState.selectedDateMillis
-                        if (selectedDate != null) {
-                            val dateStr = NanoRenderUtils.formatDateFromMillis(selectedDate)
-                            if (statePath != null) {
-                                onAction(NanoActionIR(
-                                    type = "stateMutation",
-                                    payload = mapOf(
-                                        "path" to JsonPrimitive(statePath),
-                                        "operation" to JsonPrimitive("SET"),
-                                        "value" to JsonPrimitive(dateStr)
-                                    )
-                                ))
-                            } else {
-                                uncontrolledValue = dateStr
-                            }
-                            onChange?.let { onAction(it) }
-                        }
-                        showDialog = false
-                    }) {
-                        Text("OK")
+            val onConfirm: () -> Unit = {
+                val selectedDate = datePickerState.selectedDateMillis
+                if (selectedDate != null) {
+                    val dateStr = NanoRenderUtils.formatDateFromMillis(selectedDate)
+                    if (statePath != null) {
+                        onAction(
+                            NanoActionIR(
+                                type = "stateMutation",
+                                payload = mapOf(
+                                    "path" to JsonPrimitive(statePath),
+                                    "operation" to JsonPrimitive("SET"),
+                                    "value" to JsonPrimitive(dateStr)
+                                )
+                            )
+                        )
+                    } else {
+                        uncontrolledValue = dateStr
                     }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showDialog = false }) {
-                        Text("Cancel")
+                    onChange?.let { onAction(it) }
+                }
+                showDialog = false
+            }
+
+            if (Platform.isAndroid) {
+                DatePickerDialog(
+                    onDismissRequest = { showDialog = false },
+                    confirmButton = { TextButton(onClick = onConfirm) { Text("OK") } },
+                    dismissButton = { TextButton(onClick = { showDialog = false }) { Text("Cancel") } }
+                ) {
+                    DatePicker(state = datePickerState)
+                }
+            } else {
+                Surface(
+                    modifier = modifier
+                        .widthIn(min = 120.dp)
+                        .padding(top = 8.dp),
+                    shape = MaterialTheme.shapes.medium,
+                    tonalElevation = 1.dp
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        DatePicker(state = datePickerState)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            TextButton(onClick = { showDialog = false }) { Text("Cancel") }
+                            TextButton(onClick = onConfirm) { Text("OK") }
+                        }
                     }
                 }
-            ) {
-                DatePicker(state = datePickerState)
             }
         }
     }
@@ -839,51 +859,64 @@ object NanoInputComponents {
         }
 
         if (showDialog) {
-            DatePickerDialog(
-                onDismissRequest = { showDialog = false },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            val startMillis = dateRangeState.selectedStartDateMillis
-                            val endMillis = dateRangeState.selectedEndDateMillis
+            val onConfirm: () -> Unit = {
+                val startMillis = dateRangeState.selectedStartDateMillis
+                val endMillis = dateRangeState.selectedEndDateMillis
 
-                            if (statePath != null && startMillis != null && endMillis != null) {
-                                val start = NanoRenderUtils.formatDateFromMillis(startMillis)
-                                val end = NanoRenderUtils.formatDateFromMillis(endMillis)
+                if (statePath != null && startMillis != null && endMillis != null) {
+                    val start = NanoRenderUtils.formatDateFromMillis(startMillis)
+                    val end = NanoRenderUtils.formatDateFromMillis(endMillis)
 
-                                val encodedValue = when (current) {
-                                    is List<*> -> "[\"$start\", \"$end\"]"
-                                    is Map<*, *> -> "{\"start\": \"$start\", \"end\": \"$end\"}"
-                                    else -> "$start..$end"
-                                }
-
-                                onAction(
-                                    NanoActionIR(
-                                        type = "stateMutation",
-                                        payload = mapOf(
-                                            "path" to JsonPrimitive(statePath),
-                                            "operation" to JsonPrimitive("SET"),
-                                            "value" to JsonPrimitive(encodedValue)
-                                        )
-                                    )
-                                )
-
-                                onChange?.let { onAction(it) }
-                            }
-
-                            showDialog = false
-                        }
-                    ) {
-                        Text("OK")
+                    val encodedValue = when (current) {
+                        is List<*> -> "[\"$start\", \"$end\"]"
+                        is Map<*, *> -> "{\"start\": \"$start\", \"end\": \"$end\"}"
+                        else -> "$start..$end"
                     }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showDialog = false }) {
-                        Text("Cancel")
+
+                    onAction(
+                        NanoActionIR(
+                            type = "stateMutation",
+                            payload = mapOf(
+                                "path" to JsonPrimitive(statePath),
+                                "operation" to JsonPrimitive("SET"),
+                                "value" to JsonPrimitive(encodedValue)
+                            )
+                        )
+                    )
+
+                    onChange?.let { onAction(it) }
+                }
+
+                showDialog = false
+            }
+
+            if (Platform.isAndroid) {
+                DatePickerDialog(
+                    onDismissRequest = { showDialog = false },
+                    confirmButton = { TextButton(onClick = onConfirm) { Text("OK") } },
+                    dismissButton = { TextButton(onClick = { showDialog = false }) { Text("Cancel") } }
+                ) {
+                    DateRangePicker(state = dateRangeState)
+                }
+            } else {
+                Surface(
+                    modifier = modifier
+                        .widthIn(min = 180.dp)
+                        .padding(top = 8.dp),
+                    shape = MaterialTheme.shapes.medium,
+                    tonalElevation = 1.dp
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        DateRangePicker(state = dateRangeState)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            TextButton(onClick = { showDialog = false }) { Text("Cancel") }
+                            TextButton(onClick = onConfirm) { Text("OK") }
+                        }
                     }
                 }
-            ) {
-                DateRangePicker(state = dateRangeState)
             }
         }
     }
