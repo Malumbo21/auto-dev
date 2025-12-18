@@ -5,9 +5,19 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
-suspend fun runPosixSubsetConformance(vfs: XiuperFileSystem) {
+suspend fun runPosixSubsetConformance(
+    vfs: XiuperFileSystem,
+    capabilities: BackendCapabilities = BackendCapabilities()
+) {
     // Root exists and is a directory
     assertTrue(vfs.stat(FsPath.of("/")).isDirectory)
+
+    if (!capabilities.supportsMkdir) {
+        assertFailsWith<FsException> {
+            vfs.mkdir(FsPath.of("/tmp"))
+        }.also { assertEquals(FsErrorCode.ENOTSUP, it.code) }
+        return
+    }
 
     // mkdir basic behavior
     vfs.mkdir(FsPath.of("/tmp"))
@@ -30,6 +40,13 @@ suspend fun runPosixSubsetConformance(vfs: XiuperFileSystem) {
     // list entries
     val entries = vfs.list(FsPath.of("/tmp")).map { it.name }.toSet()
     assertTrue(entries.contains("hello.txt"))
+
+    if (!capabilities.supportsDelete) {
+        assertFailsWith<FsException> {
+            vfs.delete(FsPath.of("/tmp/hello.txt"))
+        }.also { assertEquals(FsErrorCode.ENOTSUP, it.code) }
+        return
+    }
 
     // delete file
     vfs.delete(FsPath.of("/tmp/hello.txt"))

@@ -14,7 +14,12 @@ import kotlin.test.assertTrue
 import kotlin.test.fail
 
 class DbPosixSubsetConformanceTest {
-    private fun newFs(): XiuperFileSystem {
+    private data class ConformanceTarget(
+        val fs: XiuperFileSystem,
+        val capabilities: BackendCapabilities
+    )
+
+    private fun newTarget(): ConformanceTarget {
         val driver: SqlDriver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
         XiuperFsDatabase.Schema.create(driver)
         val database = XiuperFsDatabase(driver)
@@ -27,16 +32,18 @@ class DbPosixSubsetConformanceTest {
         )
 
         val backend = DbFsBackend(database)
-        return XiuperVfs(
+        val capabilities = (backend as? CapabilityAwareBackend)?.capabilities ?: BackendCapabilities()
+        val fs = XiuperVfs(
             mounts = listOf(
                 Mount(FsPath.of("/"), backend)
             )
         )
+        return ConformanceTarget(fs, capabilities)
     }
 
     @Test
     fun rootAlwaysExistsAndIsDirectory() = runTest {
-        val fs = newFs()
+        val (fs) = newTarget()
         val st = fs.stat(FsPath.of("/"))
         assertTrue(st.isDirectory)
         assertEquals("/", st.path.value)
@@ -47,7 +54,7 @@ class DbPosixSubsetConformanceTest {
 
     @Test
     fun listNonexistentIsEnoent() = runTest {
-        val fs = newFs()
+        val (fs) = newTarget()
         assertFsError(FsErrorCode.ENOENT) {
             fs.list(FsPath.of("/missing"))
         }
@@ -55,7 +62,14 @@ class DbPosixSubsetConformanceTest {
 
     @Test
     fun mkdirRequiresParentAndIsNotMkdirP() = runTest {
-        val fs = newFs()
+        val (fs, caps) = newTarget()
+        if (!caps.supportsMkdir) {
+            assertFsError(FsErrorCode.ENOTSUP) {
+                fs.mkdir(FsPath.of("/a/b"))
+            }
+            return@runTest
+        }
+
         assertFsError(FsErrorCode.ENOENT) {
             fs.mkdir(FsPath.of("/a/b"))
         }
@@ -69,7 +83,13 @@ class DbPosixSubsetConformanceTest {
 
     @Test
     fun mkdirExistingIsEexist() = runTest {
-        val fs = newFs()
+        val (fs, caps) = newTarget()
+        if (!caps.supportsMkdir) {
+            assertFsError(FsErrorCode.ENOTSUP) {
+                fs.mkdir(FsPath.of("/dir"))
+            }
+            return@runTest
+        }
         fs.mkdir(FsPath.of("/dir"))
         assertFsError(FsErrorCode.EEXIST) {
             fs.mkdir(FsPath.of("/dir"))
@@ -82,9 +102,13 @@ class DbPosixSubsetConformanceTest {
 
     @Test
     fun writeRequiresParentDir() = runTest {
-        val fs = newFs()
+        val (fs, caps) = newTarget()
         assertFsError(FsErrorCode.ENOENT) {
             fs.write(FsPath.of("/a/file.txt"), "x".encodeToByteArray())
+        }
+
+        if (!caps.supportsMkdir) {
+            return@runTest
         }
 
         fs.mkdir(FsPath.of("/a"))
@@ -96,7 +120,8 @@ class DbPosixSubsetConformanceTest {
 
     @Test
     fun writeIsCreateOrTruncate() = runTest {
-        val fs = newFs()
+        val (fs, caps) = newTarget()
+        if (!caps.supportsMkdir) return@runTest
         fs.mkdir(FsPath.of("/d"))
 
         fs.write(FsPath.of("/d/f"), "hello".encodeToByteArray())
@@ -110,7 +135,8 @@ class DbPosixSubsetConformanceTest {
 
     @Test
     fun typeErrorsForReadAndList() = runTest {
-        val fs = newFs()
+        val (fs, caps) = newTarget()
+        if (!caps.supportsMkdir) return@runTest
         fs.mkdir(FsPath.of("/d"))
         fs.write(FsPath.of("/d/f"), "x".encodeToByteArray())
 
@@ -125,7 +151,14 @@ class DbPosixSubsetConformanceTest {
 
     @Test
     fun deleteFileAndEmptyDirectory() = runTest {
-        val fs = newFs()
+        val (fs, caps) = newTarget()
+        if (!caps.supportsMkdir) return@runTest
+        if (!caps.supportsDelete) {
+            assertFsError(FsErrorCode.ENOTSUP) {
+                fs.delete(FsPath.of("/d"))
+            }
+            return@runTest
+        }
         fs.mkdir(FsPath.of("/d"))
         fs.write(FsPath.of("/d/f"), "x".encodeToByteArray())
 
@@ -142,7 +175,14 @@ class DbPosixSubsetConformanceTest {
 
     @Test
     fun deleteNonEmptyDirectoryIsEnotempty() = runTest {
-        val fs = newFs()
+        val (fs, caps) = newTarget()
+        if (!caps.supportsMkdir) return@runTest
+        if (!caps.supportsDelete) {
+            assertFsError(FsErrorCode.ENOTSUP) {
+                fs.delete(FsPath.of("/d"))
+            }
+            return@runTest
+        }
         fs.mkdir(FsPath.of("/d"))
         fs.write(FsPath.of("/d/f"), "x".encodeToByteArray())
 
@@ -153,15 +193,16 @@ class DbPosixSubsetConformanceTest {
 
     @Test
     fun deleteRootIsEacces() = runTest {
-        val fs = newFs()
-        assertFsError(FsErrorCode.EACCES) {
+        val (fs, caps) = newTarget()
+        val expected = if (caps.supportsDelete) FsErrorCode.EACCES else FsErrorCode.ENOTSUP
+        assertFsError(expected) {
             fs.delete(FsPath.of("/"))
         }
     }
 
     @Test
     fun commitIsNoOpAndOk() = runTest {
-        val fs = newFs()
+        val (fs) = newTarget()
         val r = fs.commit(FsPath.of("/"))
         assertTrue(r.ok)
     }

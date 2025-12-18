@@ -5,7 +5,11 @@ import kotlinx.datetime.Clock
 
 class DbFsBackend(
     private val database: XiuperFsDatabase,
-) : FsBackend {
+) : FsBackend, CapabilityAwareBackend {
+    override val capabilities: BackendCapabilities = BackendCapabilities(
+        supportsMkdir = true,
+        supportsDelete = true
+    )
 
     override suspend fun stat(path: FsPath): FsStat {
         val normalized = FsPath.of(path.value)
@@ -137,6 +141,10 @@ class DbFsBackend(
     }
 }
 
+/**
+ * Create a [DbFsBackend] with migration support.
+ * Applies schema migrations if needed and initializes root directory.
+ */
 fun DbFsBackend(driverFactory: DatabaseDriverFactory): DbFsBackend {
     val database = createDatabase(driverFactory)
     // ensure root exists
