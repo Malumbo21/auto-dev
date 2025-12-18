@@ -292,46 +292,97 @@ object NanoContentComponents {
         val sizeName = ir.props["size"]?.jsonPrimitive?.content
         val colorName = ir.props["color"]?.jsonPrimitive?.content
 
+        val normalizedName = iconName.trim().lowercase().replace('_', '-')
+
         // Map icon names to Material Icons
-        val iconVector: ImageVector = when (iconName.lowercase()) {
+        val iconVector: ImageVector = when (normalizedName) {
+            // Travel / Places
             "flight", "airplane", "plane" -> Icons.Default.Flight
-            "arrow-right" -> Icons.AutoMirrored.Filled.ArrowForward
-            "arrow-left" -> Icons.AutoMirrored.Filled.ArrowBack
-            "arrow-down" -> Icons.Default.ArrowDropDown
-            "arrow-up" -> Icons.Default.ArrowDropUp
             "hotel", "bed" -> Icons.Default.Hotel
             "restaurant", "food", "dining" -> Icons.Default.Restaurant
-            "attractions", "place", "location" -> Icons.Default.Place
+
+            // Location / Navigation (FontAwesome/Lucide-style names)
+            "location-dot", "location-on", "map-pin", "pin", "pin-drop" -> Icons.Default.LocationOn
+            "location-arrow", "near-me" -> Icons.Default.NearMe
+            "my-location", "crosshair", "crosshairs" -> Icons.Default.MyLocation
+            "place", "attractions", "location" -> Icons.Default.Place
             "map" -> Icons.Default.Map
-            "calendar", "event" -> Icons.Default.Event
-            "time", "schedule" -> Icons.Default.Schedule
+            "compass" -> Icons.Default.Explore
+            "globe", "globe-americas", "globe-asia", "globe-europe" -> Icons.Default.Public
+            "route" -> Icons.Default.AltRoute
+
+            // Time / Calendar
+            "calendar", "calendar-days", "event" -> Icons.Default.Event
+            "clock", "time", "schedule" -> Icons.Default.Schedule
+
+            // Weather
+            "sun", "sunny" -> Icons.Default.WbSunny
+            "moon" -> Icons.Default.NightsStay
+            "cloud", "cloudy" -> Icons.Default.Cloud
+            "wind" -> Icons.Default.Air
+            "snowflake", "snow" -> Icons.Default.AcUnit
+            "umbrella", "rain" -> Icons.Default.Umbrella
+            "bolt", "lightning" -> Icons.Default.Bolt
+            "droplet", "drop", "water" -> Icons.Default.WaterDrop
+
+            // Common actions
             "check", "done" -> Icons.Default.Check
-            "check-circle", "check_circle", "checkcircle" -> Icons.Default.CheckCircle
-            "star", "favorite" -> Icons.Default.Star
-            "info" -> Icons.Default.Info
-            "warning" -> Icons.Default.Warning
-            "error" -> Icons.Default.Error
-            "home" -> Icons.Default.Home
-            "person", "user" -> Icons.Default.Person
-            "settings" -> Icons.Default.Settings
-            "search" -> Icons.Default.Search
-            "menu" -> Icons.Default.Menu
-            "close" -> Icons.Default.Close
-            "add" -> Icons.Default.Add
-            "edit" -> Icons.Default.Edit
-            "delete" -> Icons.Default.Delete
+            "check-circle", "circle-check" -> Icons.Default.CheckCircle
+            "xmark", "times", "close" -> Icons.Default.Close
+            "trash", "delete" -> Icons.Default.Delete
+            "pen", "pencil", "edit" -> Icons.Default.Edit
+            "save", "floppy-disk" -> Icons.Default.Save
             "share" -> Icons.Default.Share
-            "send" -> Icons.Default.Send
-            "email", "mail" -> Icons.Default.Email
+            "send", "paper-plane" -> Icons.Default.Send
+            "refresh", "sync", "rotate" -> Icons.Default.Refresh
+            "download" -> Icons.Default.Download
+            "upload" -> Icons.Default.Upload
+            "copy", "content-copy" -> Icons.Default.ContentCopy
+            "paste", "content-paste" -> Icons.Default.ContentPaste
+            "cut", "content-cut" -> Icons.Default.ContentCut
+            "clipboard" -> Icons.Default.ContentPaste
+            "link" -> Icons.Default.Link
+            "external-link", "open-in-new" -> Icons.Default.OpenInNew
+            "attachment", "attach", "paperclip" -> Icons.Default.AttachFile
+
+            // UI controls
+            "search", "magnifying-glass" -> Icons.Default.Search
+            "menu", "bars" -> Icons.Default.Menu
+            "settings", "gear", "cog" -> Icons.Default.Settings
+            "sliders", "tune" -> Icons.Default.Tune
+            "filter" -> Icons.Default.FilterList
+            "sort" -> Icons.Default.Sort
+            "ellipsis", "more" -> Icons.Default.MoreHoriz
+            "ellipsis-vertical", "more-vertical" -> Icons.Default.MoreVert
+
+            // Arrows / Chevrons
+            "arrow-right" -> Icons.AutoMirrored.Filled.ArrowForward
+            "arrow-left" -> Icons.AutoMirrored.Filled.ArrowBack
+            "arrow-up" -> Icons.Default.KeyboardArrowUp
+            "arrow-down" -> Icons.Default.KeyboardArrowDown
+            "chevron-right", "angle-right" -> Icons.Default.ChevronRight
+            "chevron-left", "angle-left" -> Icons.Default.ChevronLeft
+            "chevron-up", "angle-up" -> Icons.Default.KeyboardArrowUp
+            "chevron-down", "angle-down" -> Icons.Default.KeyboardArrowDown
+            "caret-up" -> Icons.Default.ArrowDropUp
+            "caret-down" -> Icons.Default.ArrowDropDown
+            "back", "arrow-back" -> Icons.AutoMirrored.Filled.ArrowBack
+            "forward", "arrow-forward" -> Icons.AutoMirrored.Filled.ArrowForward
+
+            // Status
+            "info", "circle-info" -> Icons.Default.Info
+            "warning", "triangle-exclamation" -> Icons.Default.Warning
+            "error", "circle-xmark", "ban" -> Icons.Default.Error
+            "help", "circle-question", "question" -> Icons.Default.Help
+
+            // Misc
+            "home", "house" -> Icons.Default.Home
+            "person", "user" -> Icons.Default.Person
+            "email", "mail", "envelope" -> Icons.Default.Email
             "phone" -> Icons.Default.Phone
             "camera" -> Icons.Default.CameraAlt
             "image", "photo" -> Icons.Default.Image
-            "attach", "attachment" -> Icons.Default.AttachFile
-            "download" -> Icons.Default.Download
-            "upload" -> Icons.Default.Upload
-            "refresh" -> Icons.Default.Refresh
-            "arrow_back", "back" -> Icons.Default.ArrowBack
-            "arrow_forward", "forward" -> Icons.Default.ArrowForward
+            "star", "favorite" -> Icons.Default.Star
             else -> Icons.Default.Info // Default fallback
         }
 
