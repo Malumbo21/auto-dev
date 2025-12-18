@@ -9,7 +9,15 @@ import io.ktor.client.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
-import kotlinx.serialization.Serializable
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.*
 
 /**
@@ -23,14 +31,17 @@ import kotlinx.serialization.json.*
  * @param config ModelConfig containing GLM API key and optional base URL
  */
 class ImageGenerationService(
-    private val config: ModelConfig
+    private val config: ModelConfig,
+    private val client: HttpClient = HttpClientFactory.create()
 ) {
     private val json = Json {
         ignoreUnknownKeys = true
         isLenient = true
     }
 
-    private val client: HttpClient = HttpClientFactory.create()
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val inFlightMutex = Mutex()
+    private val inFlight = mutableMapOf<RequestKey, kotlinx.coroutines.Deferred<ImageGenerationResult>>()
 
     private val baseUrl: String
         get() = config.baseUrl.ifEmpty {
@@ -41,13 +52,42 @@ class ImageGenerationService(
      * Generate an image from a text prompt.
      *
      * @param prompt Text description of the image to generate
-     * @param size Image size (default: "1024x1024")
+     * @param size Image size (default: "1024x512")
      * @return Result containing the generated image URL or error
      */
     suspend fun generateImage(
         prompt: String,
-        size: String = "1024x1024"
+        size: String = "1024x512"
     ): ImageGenerationResult {
+        val key = RequestKey(prompt = prompt, size = size)
+
+        // In-flight de-duplication:
+        // - If the same (prompt, size) is already being generated, await that request.
+        // - Otherwise start one request and let others await it.
+        val deferred = inFlightMutex.withLock {
+            inFlight[key] ?: run {
+                val created = scope.async(start = CoroutineStart.LAZY) {
+                    generateImageInternal(prompt = prompt, size = size)
+                }
+                inFlight[key] = created
+                created.invokeOnCompletion {
+                    scope.launch {
+                        inFlightMutex.withLock {
+                            if (inFlight[key] === created) {
+                                inFlight.remove(key)
+                            }
+                        }
+                    }
+                }
+                created.start()
+                created
+            }
+        }
+
+        return deferred.await()
+    }
+
+    private suspend fun generateImageInternal(prompt: String, size: String): ImageGenerationResult {
         return try {
             val requestBody = buildImageRequest(prompt, size)
 
@@ -106,8 +146,14 @@ class ImageGenerationService(
     }
 
     fun close() {
+        scope.cancel()
         client.close()
     }
+
+    private data class RequestKey(
+        val prompt: String,
+        val size: String
+    )
 
     companion object {
         /**

@@ -72,12 +72,50 @@ object FallbackNlpTokenizer {
      * Supports both English and Chinese text.
      */
     fun extractKeywords(query: String, stopWords: Set<String>): List<String> {
-        val tokens = tokenize(query)
+        // IMPORTANT:
+        // This variant is used by schema-linking (Text2SQL) and should preserve
+        // surface forms (e.g., "users", "orders") rather than stemming them.
+        // Stemming can unintentionally collapse domain terms into SQL stop-words
+        // (e.g., "orders" -> "order" which is a stop-word), harming recall.
+        val tokens = tokenizeWithoutStemming(query)
+        return tokens
+            .filter { it !in stopWords && it.length > 1 }
+            .distinct()
+    }
+
+    /**
+     * Tokenize text into lowercase tokens without English stemming.
+     * This is intentionally simpler than [tokenize] and optimized for schema matching.
+     */
+    private fun tokenizeWithoutStemming(text: String): List<String> {
+        if (text.isBlank()) return emptyList()
+
+        val tokens = mutableListOf<String>()
+
+        // Keep behavior consistent with the main tokenizer regarding separators.
+        val processedText = text.lowercase()
+        val rawSegments = processedText.split(Regex("[^a-z0-9\\u4e00-\\u9fa5._-]+"))
+
+        for (segment in rawSegments) {
+            if (segment.isBlank()) continue
+
+            if (segment.matches(Regex("[\\u4e00-\\u9fa5]+"))) {
+                // Chinese segment: reuse segmenter and keep its output as-is.
+                ChineseSegmenter.segment(segment).forEach { token ->
+                    val t = token.text.trim()
+                    if (t.isNotEmpty()) tokens.add(t)
+                }
+                continue
+            }
+
+            // English/code-ish segment: split camel/snake/dots/dashes but DO NOT stem.
+            splitCamelCase(segment).forEach { word ->
+                val w = word.trim().lowercase()
+                if (w.isNotEmpty()) tokens.add(w)
+            }
+        }
 
         return tokens
-            .filter { it.text !in stopWords && it.text.length > 1 }
-            .map { it.text }
-            .distinct()
     }
 
     /**

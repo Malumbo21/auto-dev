@@ -445,15 +445,11 @@ NanoDSL uses Python-style indentation (4 spaces) to represent hierarchy.
     - `HStack(spacing="sm", align="center", justify="between", wrap="wrap")` - Horizontal stack layout (use `wrap` on narrow layouts)
 - `Card(padding="md", shadow="sm")` - Container with padding/shadow
 - `SplitView(ratio=0.5)` - Split screen layout (left/right panels)
-
-### Display Components
 - `Text("content", style="h1|h2|h3|body|caption")` - Text display
-- `Image(src="/{scene}.jpg", aspect=16/9, radius="md")` - Image display. Use descriptive scene path like "/singapore-skyline.jpg", "/beach-sunset.jpg". The image will be AI-generated based on the scene name. Do NOT use external URLs.
+- `Image(src="/{scene}.jpg", aspect=16/9, radius="md")` - Image display. Do NOT use external URLs. Use descriptive scene path like "/singapore-skyline.jpg", "/beach-sunset.jpg".
 - `Badge("text", color="green|red|blue")` - Status indicator
 - `Icon("name", size="sm|md|lg", color="primary")` - Icon display
 - `Divider` - Horizontal line separator
-
-### Form Input Components
 - `Input(value=binding, placeholder="...", type="text|email|password")` - Text input
 - `TextArea(value=binding, placeholder="...", rows=4)` - Multi-line text input
 - `Select(value=binding, options=[...], placeholder="...")` - Dropdown select
@@ -548,7 +544,7 @@ if state.isLoggedIn:
 3. Keep it minimal - no redundant components
 4. Wrap output in ```nanodsl code fence
 5. Use appropriate components: DatePicker for dates, Switch for toggles, Modal for dialogs, etc.
-6. For Image components: Use descriptive scene paths like "/singapore-marina-bay.jpg", "/tropical-beach.jpg". Do NOT use external URLs - images will be AI-generated from the scene name."""
+6. For Image components: Use descriptive scene paths like "/singapore-marina-bay.jpg", "/tropical-beach.jpg". Do NOT use external URLs"""
 
     }
 }
