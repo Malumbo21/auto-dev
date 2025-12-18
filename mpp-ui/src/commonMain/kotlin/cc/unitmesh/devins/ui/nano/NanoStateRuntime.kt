@@ -60,31 +60,67 @@ class NanoStateRuntime(
         val result = mutableMapOf<String, Any?>()
         ir.state?.variables?.forEach { (name, varDef) ->
             val defaultValue = varDef.defaultValue
-            val raw = defaultValue?.jsonPrimitive?.content
+            val primitive = defaultValue as? JsonPrimitive
+            val raw = primitive?.content
             result[name] = when (varDef.type) {
-                "int" -> defaultValue?.jsonPrimitive?.intOrNull
+                "int" -> primitive?.intOrNull
                     ?: raw?.toIntOrNull()
                     ?: raw?.toDoubleOrNull()?.let { round(it).toInt() }
                     ?: 0
                 "float" -> raw?.toFloatOrNull() ?: 0f
-                "bool" -> defaultValue?.jsonPrimitive?.booleanOrNull
+                "bool" -> primitive?.booleanOrNull
                     ?: raw?.let { parseBoolLoose(it) }
                     ?: false
                 "str" -> raw ?: ""
                 "list" -> {
-                    val raw = defaultValue?.jsonPrimitive?.content ?: "[]"
-                    val parsed = parseStructuredDefault(raw)
-                    if (parsed is List<*>) parsed else emptyList<Any>()
+                    when (defaultValue) {
+                        is JsonArray -> defaultValue.map { jsonElementToRuntimeValue(it) }
+                        is JsonPrimitive -> {
+                            val parsed = parseStructuredDefault(defaultValue.content)
+                            if (parsed is List<*>) parsed else emptyList<Any>()
+                        }
+                        is JsonObject -> emptyList<Any>()
+                        null -> emptyList<Any>()
+                        else -> {
+                            val parsed = parseStructuredDefault(defaultValue.toString())
+                            if (parsed is List<*>) parsed else emptyList<Any>()
+                        }
+                    }
                 }
                 "dict", "map", "object" -> {
-                    val raw = defaultValue?.jsonPrimitive?.content ?: "{}"
-                    val parsed = parseStructuredDefault(raw)
-                    if (parsed is Map<*, *>) parsed else emptyMap<String, Any>()
+                    when (defaultValue) {
+                        is JsonObject -> defaultValue.entries.associate { (k, v) -> k to jsonElementToRuntimeValue(v) }
+                        is JsonPrimitive -> {
+                            val parsed = parseStructuredDefault(defaultValue.content)
+                            if (parsed is Map<*, *>) parsed else emptyMap<String, Any>()
+                        }
+                        is JsonArray -> emptyMap<String, Any>()
+                        null -> emptyMap<String, Any>()
+                        else -> {
+                            val parsed = parseStructuredDefault(defaultValue.toString())
+                            if (parsed is Map<*, *>) parsed else emptyMap<String, Any>()
+                        }
+                    }
                 }
-                else -> defaultValue?.jsonPrimitive?.content ?: ""
+                else -> primitive?.content ?: defaultValue?.toString().orEmpty()
             }
         }
         return result
+    }
+
+    private fun jsonElementToRuntimeValue(el: JsonElement?): Any? {
+        return when (el) {
+            null -> null
+            is JsonPrimitive -> {
+                el.booleanOrNull
+                    ?: el.intOrNull
+                    ?: el.content.toDoubleOrNull()
+                    ?: el.content
+            }
+            is JsonArray -> el.map { jsonElementToRuntimeValue(it) }
+            is JsonObject -> el.entries.associate { (k, v) -> k to jsonElementToRuntimeValue(v) }
+            else -> el.toString()
+        }
     }
 
     private fun applySequence(action: NanoActionIR) {

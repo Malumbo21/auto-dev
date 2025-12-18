@@ -1,5 +1,8 @@
 package cc.unitmesh.devins.ui.nano
 
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
@@ -41,7 +44,26 @@ object StatefulNanoRenderer {
     ) {
         // Runtime wraps NanoState + action application logic.
         // Recreated when IR changes (e.g. live preview re-parses NanoDSL).
-        val runtime = remember(ir) { NanoStateRuntime(ir) }
+        // NOTE: Compose doesn't allow try/catch around composable invocations, so we catch
+        // failures in non-composable initialization here to keep UI alive.
+        val runtimeResult = remember(ir) { runCatching { NanoStateRuntime(ir) } }
+        val runtime = runtimeResult.getOrNull()
+        val runtimeError = runtimeResult.exceptionOrNull()
+
+        if (runtime == null) {
+            println("StatefulNanoRenderer init error: $runtimeError")
+            Surface(
+                modifier = modifier,
+                color = MaterialTheme.colorScheme.errorContainer
+            ) {
+                Text(
+                    text = "渲染初始化失败：${runtimeError?.message ?: runtimeError?.let { it::class.simpleName }.orEmpty()}",
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+            return
+        }
 
         // Subscribe to declared state keys so Compose recomposes when they change.
         // IMPORTANT: we must *read* the collected State's `.value` so Compose tracks it.

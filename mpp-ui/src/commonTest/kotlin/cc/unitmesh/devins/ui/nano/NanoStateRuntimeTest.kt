@@ -130,4 +130,33 @@ component Demo:
         assertEquals(3, snapshot["current_day"])
         assertEquals(true, snapshot["show_summary"])
     }
+
+    @Test
+    fun `initial state should support JsonArray defaults`() {
+        val source = """
+component TravelPlan:
+    state:
+        flights: list = [
+            {
+                "flightNumber": "CA1234",
+                "price": 1280
+            }
+        ]
+
+    VStack:
+        Text("x")
+        """.trimIndent()
+
+        val ir = NanoDSL.toIR(source)
+        val runtime = NanoStateRuntime(ir)
+
+        val snapshot = runtime.snapshot()
+        val flights = snapshot["flights"] as List<*>
+        assertEquals(1, flights.size)
+
+        val first = flights[0] as Map<*, *>
+        assertEquals("CA1234", first["flightNumber"])
+        val price = first["price"] as Number
+        assertEquals(1280, price.toInt())
+    }
 }
