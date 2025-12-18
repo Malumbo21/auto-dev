@@ -37,6 +37,118 @@ object NanoInputComponents {
 
     private data class RadioOption(val value: String, val label: String)
 
+    private fun unquoteString(raw: String): String {
+        val t = raw.trim()
+        return t.removeSurrounding("\"", "\"")
+            .removeSurrounding("'", "'")
+            .trim()
+    }
+
+    private fun splitTopLevelCommaSeparated(input: String): List<String> {
+        val parts = mutableListOf<String>()
+        val sb = StringBuilder()
+        var braceDepth = 0
+        var bracketDepth = 0
+        var inSingle = false
+        var inDouble = false
+        var escaped = false
+
+        fun flush() {
+            val s = sb.toString().trim()
+            if (s.isNotEmpty()) parts += s
+            sb.clear()
+        }
+
+        input.forEach { c ->
+            if (escaped) {
+                sb.append(c)
+                escaped = false
+                return@forEach
+            }
+            when (c) {
+                '\\' -> {
+                    if (inSingle || inDouble) {
+                        sb.append(c)
+                        escaped = true
+                    } else {
+                        sb.append(c)
+                    }
+                }
+                '\'' -> {
+                    sb.append(c)
+                    if (!inDouble) inSingle = !inSingle
+                }
+                '"' -> {
+                    sb.append(c)
+                    if (!inSingle) inDouble = !inDouble
+                }
+                '{' -> {
+                    sb.append(c)
+                    if (!inSingle && !inDouble) braceDepth++
+                }
+                '}' -> {
+                    sb.append(c)
+                    if (!inSingle && !inDouble && braceDepth > 0) braceDepth--
+                }
+                '[' -> {
+                    sb.append(c)
+                    if (!inSingle && !inDouble) bracketDepth++
+                }
+                ']' -> {
+                    sb.append(c)
+                    if (!inSingle && !inDouble && bracketDepth > 0) bracketDepth--
+                }
+                ',' -> {
+                    if (!inSingle && !inDouble && braceDepth == 0 && bracketDepth == 0) {
+                        flush()
+                    } else {
+                        sb.append(c)
+                    }
+                }
+                else -> sb.append(c)
+            }
+        }
+        flush()
+        return parts
+    }
+
+    private fun parseRadioOptionsFromDslLiteral(raw: String): List<RadioOption> {
+        val trimmed = raw.trim()
+        if (!trimmed.startsWith("[") || !trimmed.endsWith("]")) return emptyList()
+
+        val inner = trimmed.removePrefix("[").removeSuffix("]").trim()
+        if (inner.isBlank()) return emptyList()
+
+        val items = splitTopLevelCommaSeparated(inner)
+
+        fun extractField(item: String, field: String): String? {
+            val pattern = Regex(
+                """(?is)(?:\"$field\"|$field)\s*:\s*(\"(?:\\\\.|[^\"])*\"|'(?:\\\\.|[^'])*'|[^,}\]]+)"""
+            )
+            val m = pattern.find(item) ?: return null
+            return unquoteString(m.groupValues[1])
+        }
+
+        return items.mapNotNull { itemRaw ->
+            val item = itemRaw.trim()
+            when {
+                item.startsWith("{") && item.endsWith("}") -> {
+                    val value = extractField(item, "value") ?: return@mapNotNull null
+                    val label = extractField(item, "label") ?: value
+                    RadioOption(value = value, label = label)
+                }
+                item.startsWith("\"") || item.startsWith("'") -> {
+                    val v = unquoteString(item)
+                    if (v.isBlank()) null else RadioOption(value = v, label = v)
+                }
+                else -> {
+                    val v = item.trim()
+                    if (v.isBlank()) null else RadioOption(value = v, label = v)
+                }
+            }
+        }
+    }
+
     private fun parseRadioOptions(optionsElement: JsonElement?): List<RadioOption> {
         if (optionsElement == null) return emptyList()
 
@@ -65,9 +177,9 @@ object NanoInputComponents {
                 if (!trimmed.startsWith("[")) return emptyList()
                 try {
                     val parsed = lenientJson.parseToJsonElement(trimmed)
-                    (parsed as? JsonArray)?.let { fromJsonArray(it) } ?: emptyList()
+                    (parsed as? JsonArray)?.let { fromJsonArray(it) } ?: parseRadioOptionsFromDslLiteral(trimmed)
                 } catch (_: Exception) {
-                    emptyList()
+                    parseRadioOptionsFromDslLiteral(trimmed)
                 }
             }
             else -> emptyList()
@@ -76,8 +188,19 @@ object NanoInputComponents {
 
     private fun resolveStatePathFromBinding(ir: NanoIR, vararg keys: String): String? {
         val binding = keys.firstNotNullOfOrNull { ir.bindings?.get(it) }
-        val expr = binding?.expression?.trim() ?: return null
-        val normalized = if (expr.startsWith("state.")) expr.removePrefix("state.") else expr
+        val exprFromBinding = binding?.expression?.trim()
+        val exprFromProp = keys.firstNotNullOfOrNull { key ->
+            ir.props[key]?.jsonPrimitive?.contentOrNull?.trim()
+        }
+
+        val rawExpr = (exprFromBinding ?: exprFromProp)?.trim() ?: return null
+        val withoutMode = when {
+            rawExpr.startsWith(":=") -> rawExpr.removePrefix(":=").trim()
+            rawExpr.startsWith("<<") -> rawExpr.removePrefix("<<").trim()
+            else -> rawExpr
+        }
+
+        val normalized = if (withoutMode.startsWith("state.")) withoutMode.removePrefix("state.") else withoutMode
         // Only treat simple identifiers or dotted paths as a writable state path.
         // This prevents expressions like '"x" in state.items' from being treated as a path.
         return normalized.takeIf { it.matches(Regex("[A-Za-z_]\\w*(\\.[A-Za-z_]\\w*)*")) }

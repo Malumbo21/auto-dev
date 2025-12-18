@@ -46,8 +46,12 @@ object NanoControlFlowComponents {
     ) {
         val loop = ir.loop
         val variable = loop?.variable
-        val iterable = loop?.iterable?.trim()?.removePrefix("state.")?.trim()
-        val items = iterable?.let { state[it] as? List<*> } ?: emptyList<Any>()
+        val iterableExpr = loop?.iterable?.trim().orEmpty()
+        val resolved = if (iterableExpr.isNotBlank()) NanoRenderUtils.resolveAny(iterableExpr, state) else null
+        val items: List<Any?> = when (resolved) {
+            is List<*> -> resolved
+            else -> emptyList()
+        }
 
         Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items.forEachIndexed { index, item ->

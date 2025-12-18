@@ -7,6 +7,12 @@ import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonPrimitive
 
 /**
@@ -14,6 +20,19 @@ import kotlinx.serialization.json.jsonPrimitive
  * Contains text interpolation, expression evaluation, and styling helpers.
  */
 object NanoRenderUtils {
+
+    /**
+     * Resolve an expression to a runtime value (not stringified).
+     *
+     * Supports:
+     * - `state.xxx`
+     * - `xxx`
+     * - dotted map access: `day_plan.title`
+     * - bracket access: `items[0]`, `map["key"]`
+     */
+    fun resolveAny(expression: String, state: Map<String, Any>): Any? {
+        return resolveIdentifierAny(expression, state)
+    }
 
     /**
      * Resolve a string prop value from IR.
@@ -302,6 +321,21 @@ object NanoRenderUtils {
             return map[key] ?: map.entries.firstOrNull { it.key?.toString() == key }?.value
         }
 
+        fun jsonElementToRuntimeValue(el: JsonElement?): Any? {
+            return when (el) {
+                null -> null
+                is JsonPrimitive -> el.booleanOrNull ?: el.intOrNull ?: el.content.toDoubleOrNull() ?: el.content
+                is JsonArray -> el.map { jsonElementToRuntimeValue(it) }
+                is JsonObject -> el.entries.associate { (k, v) -> k to jsonElementToRuntimeValue(v) }
+                else -> el.toString()
+            }
+        }
+
+        fun jsonObjectGet(obj: JsonObject, key: String): Any? {
+            val el = obj[key] ?: return null
+            return jsonElementToRuntimeValue(el)
+        }
+
         while (i < expr.length) {
             while (i < expr.length && expr[i].isWhitespace()) i++
             if (i >= expr.length) break
@@ -317,6 +351,7 @@ object NanoRenderUtils {
                     val seg = expr.substring(segStart, i)
                     current = when (val c = current) {
                         is Map<*, *> -> mapGet(c, seg)
+                        is JsonObject -> jsonObjectGet(c, seg)
                         else -> null
                     }
                 }
@@ -365,6 +400,8 @@ object NanoRenderUtils {
                     current = when (val c = current) {
                         is Map<*, *> -> mapGet(c, key?.toString().orEmpty())
                         is List<*> -> (key as? Int)?.let { idx -> c.getOrNull(idx) }
+                        is JsonObject -> jsonObjectGet(c, key?.toString().orEmpty())
+                        is JsonArray -> (key as? Int)?.let { idx -> c.getOrNull(idx) }?.let { jsonElementToRuntimeValue(it) }
                         else -> null
                     }
                 }

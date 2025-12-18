@@ -90,7 +90,7 @@ object NanoLayoutComponents {
         val containsVStack = remember(children) { children.any { it.type == "VStack" } }
         // When mixing Image + VStack in a horizontal layout, Row can squeeze text into 1-char columns.
         // FlowRow lets the VStack wrap below the image when space is tight.
-        val shouldWrap = justify == null && containsImage && containsVStack
+        val shouldWrap = containsImage && containsVStack
 
         val explicitWrap = wrap == "wrap" || wrap == "true"
 

@@ -68,4 +68,19 @@ class NanoTextInterpolationTest {
         val rawBound = NanoRenderUtils.resolveStringProp(boundBadge, "text", state)
         assertEquals("2000", rawBound)
     }
+
+    @Test
+    fun `should resolve nested paths for loop variables`() {
+        val state = mapOf(
+            "day_plan" to mapOf(
+                "day" to 1,
+                "title" to "抵达北京",
+                "activities" to listOf("入住酒店", "王府井逛街")
+            )
+        )
+
+        assertEquals("1", NanoRenderUtils.evaluateExpression("day_plan.day", state))
+        assertEquals("抵达北京", NanoRenderUtils.evaluateExpression("day_plan.title", state))
+        assertEquals("入住酒店", NanoRenderUtils.evaluateExpression("day_plan.activities[0]", state))
+    }
 }

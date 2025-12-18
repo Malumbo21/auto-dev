@@ -5,6 +5,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -41,9 +43,8 @@ object NanoContentComponents {
         // Check for binding first
         val binding = ir.bindings?.get("content")
         val rawContent = if (binding != null) {
-            // Get value from state based on binding expression
-            val expr = binding.expression.removePrefix("state.")
-            state[expr]?.toString() ?: ""
+            // Get value from state based on binding expression (supports dotted paths)
+            NanoRenderUtils.evaluateExpression(binding.expression, state)
         } else {
             ir.props["content"]?.jsonPrimitive?.content ?: ""
         }
@@ -294,6 +295,10 @@ object NanoContentComponents {
         // Map icon names to Material Icons
         val iconVector: ImageVector = when (iconName.lowercase()) {
             "flight", "airplane", "plane" -> Icons.Default.Flight
+            "arrow-right" -> Icons.AutoMirrored.Filled.ArrowForward
+            "arrow-left" -> Icons.AutoMirrored.Filled.ArrowBack
+            "arrow-down" -> Icons.Default.ArrowDropDown
+            "arrow-up" -> Icons.Default.ArrowDropUp
             "hotel", "bed" -> Icons.Default.Hotel
             "restaurant", "food", "dining" -> Icons.Default.Restaurant
             "attractions", "place", "location" -> Icons.Default.Place
