@@ -213,25 +213,98 @@ class IndentParser(
 
             val match = STATE_VAR_REGEX.matchEntire(line)
             if (match != null) {
+                val name = match.groupValues[1]
+                val type = match.groupValues[2]
                 val rawValue = match.groupValues[3].trim()
-                // Strip quotes from string values (e.g., "" -> empty string, "hello" -> hello)
-                val defaultValue = if (rawValue.startsWith("\"") && rawValue.endsWith("\"")) {
-                    rawValue.substring(1, rawValue.length - 1)
-                } else {
-                    rawValue
-                }
+
+                val (defaultValue, nextIndex) = collectStateDefaultValue(lines, index, baseIndent, rawValue)
                 variables.add(
                     NanoNode.StateVariable(
-                        name = match.groupValues[1],
-                        type = match.groupValues[2],
+                        name = name,
+                        type = type,
                         defaultValue = defaultValue
                     )
                 )
+                index = nextIndex
+                continue
             }
             index++
         }
 
         return NanoNode.StateBlock(variables) to index
+    }
+
+    private fun collectStateDefaultValue(
+        lines: List<String>,
+        startIndex: Int,
+        stateIndent: Int,
+        rawValue: String
+    ): Pair<String?, Int> {
+        if (rawValue.isBlank()) return null to (startIndex + 1)
+
+        // Strip quotes from simple string values (e.g., "" -> empty string, "hello" -> hello)
+        // For JSON-like values (arrays/objects), keep raw text as-is so it can be parsed later.
+        if (rawValue.startsWith("\"") && rawValue.endsWith("\"") && rawValue.length >= 2) {
+            return rawValue.substring(1, rawValue.length - 1) to (startIndex + 1)
+        }
+
+        val trimmed = rawValue.trimStart()
+        val open = when (trimmed.firstOrNull()) {
+            '[' -> '['
+            '{' -> '{'
+            else -> return rawValue to (startIndex + 1)
+        }
+        val close = if (open == '[') ']' else '}'
+
+        val builder = StringBuilder()
+        builder.append(rawValue.trim())
+
+        var depth = 0
+        var inString = false
+        var escaped = false
+
+        fun scanChunk(chunk: String) {
+            for (c in chunk) {
+                if (inString) {
+                    if (escaped) {
+                        escaped = false
+                    } else if (c == '\\') {
+                        escaped = true
+                    } else if (c == '"') {
+                        inString = false
+                    }
+                    continue
+                }
+                when (c) {
+                    '"' -> inString = true
+                    open -> depth++
+                    close -> if (depth > 0) depth--
+                }
+            }
+        }
+
+        scanChunk(builder.toString())
+
+        var index = startIndex
+        while (depth > 0) {
+            index++
+            if (index >= lines.size) break
+
+            val line = lines[index]
+            if (line.isBlank()) continue
+
+            val indent = getIndent(line)
+            // Stop collecting if we exit the state block.
+            if (indent <= stateIndent) {
+                return builder.toString() to index
+            }
+
+            val chunk = line.trim()
+            builder.append('\n').append(chunk)
+            scanChunk(chunk)
+        }
+
+        return builder.toString() to (index + 1)
     }
 
     private fun parseNode(lines: List<String>, startIndex: Int, expectedIndent: Int): Pair<NanoNode?, Int> {
@@ -962,7 +1035,15 @@ class IndentParser(
                 } else {
                     extractFirstArg(argsStr) ?: ""
                 }
-                val binding = contentArg?.let { Binding.parse(it) }?.takeIf { it !is Binding.Static }
+                val bindingFromNamed = contentArg?.let { Binding.parse(it) }?.takeIf { it !is Binding.Static }
+                val bindingFromPositional = if (bindingFromNamed == null && extractFirstArg(argsStr) == null) {
+                    extractFirstRawArg(argsStr)
+                        ?.takeIf { it.isNotBlank() }
+                        ?.let { Binding.Subscribe(it) }
+                } else {
+                    null
+                }
+                val binding = bindingFromNamed ?: bindingFromPositional
                 NanoNode.Text(
                     content = content,
                     style = args["style"] ?: props["style"],
@@ -1368,6 +1449,59 @@ class IndentParser(
         if (argsStr.isBlank()) return null
         val match = Regex("""^"([^"]*)".*$""").find(argsStr.trim())
         return match?.groupValues?.get(1)
+    }
+
+    private fun extractFirstRawArg(argsStr: String): String? {
+        val trimmed = argsStr.trim()
+        if (trimmed.isBlank()) return null
+
+        var i = 0
+        var inString = false
+        var quoteChar = '\u0000'
+        var escaped = false
+        var depthParen = 0
+        var depthBracket = 0
+        var depthBrace = 0
+
+        while (i < trimmed.length) {
+            val c = trimmed[i]
+            if (inString) {
+                if (escaped) {
+                    escaped = false
+                } else if (c == '\\') {
+                    escaped = true
+                } else if (c == quoteChar) {
+                    inString = false
+                    quoteChar = '\u0000'
+                }
+                i++
+                continue
+            }
+
+            when (c) {
+                '\'', '"' -> {
+                    inString = true
+                    quoteChar = c
+                }
+                '(' -> depthParen++
+                ')' -> if (depthParen > 0) depthParen--
+                '[' -> depthBracket++
+                ']' -> if (depthBracket > 0) depthBracket--
+                '{' -> depthBrace++
+                '}' -> if (depthBrace > 0) depthBrace--
+                ',' -> {
+                    if (depthParen == 0 && depthBracket == 0 && depthBrace == 0) {
+                        break
+                    }
+                }
+            }
+            i++
+        }
+
+        val first = trimmed.substring(0, i).trim()
+        // Ignore named-only first segments (e.g., style="h2").
+        if (first.contains('=') || first.contains(":=")) return null
+        return first
     }
 
     private fun getIndent(line: String): Int {

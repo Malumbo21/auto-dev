@@ -24,8 +24,8 @@ object NanoRenderUtils {
     fun resolveStringProp(ir: NanoIR, propKey: String, state: Map<String, Any>): String {
         val binding = ir.bindings?.get(propKey)
         return if (binding != null) {
-            val expr = binding.expression.removePrefix("state.")
-            state[expr]?.toString() ?: ""
+            // Allow expressions beyond simple state paths.
+            evaluateExpression(binding.expression, state)
         } else {
             ir.props[propKey]?.jsonPrimitive?.content ?: ""
         }
@@ -266,12 +266,106 @@ object NanoRenderUtils {
     private fun resolveIdentifierAny(identifier: String, state: Map<String, Any>): Any? {
         val trimmed = identifier.trim()
         if (trimmed.isBlank()) return null
-        val key = if (trimmed.startsWith("state.")) trimmed.removePrefix("state.") else trimmed
-        return when {
-            state.containsKey(key) -> state[key]
-            state.containsKey(trimmed) -> state[trimmed]
-            else -> null
+        return resolvePathAny(trimmed, state)
+    }
+
+    private fun resolvePathAny(expression: String, state: Map<String, Any>): Any? {
+        var expr = expression.trim()
+        if (expr.isBlank()) return null
+
+        // Drop optional state. prefix.
+        if (expr.startsWith("state.")) {
+            expr = expr.removePrefix("state.")
         }
+
+        fun isIdentStart(c: Char): Boolean = c == '_' || c.isLetter()
+        fun isIdentPart(c: Char): Boolean = c == '_' || c.isLetterOrDigit()
+
+        var i = 0
+        if (i >= expr.length || !isIdentStart(expr[i])) return null
+        val rootStart = i
+        i++
+        while (i < expr.length && isIdentPart(expr[i])) i++
+        val rootKey = expr.substring(rootStart, i)
+
+        var current: Any? = state[rootKey] ?: state[expression] // fallback to raw key if provided
+
+        fun mapGet(map: Map<*, *>, key: String): Any? {
+            return map[key] ?: map.entries.firstOrNull { it.key?.toString() == key }?.value
+        }
+
+        while (i < expr.length) {
+            while (i < expr.length && expr[i].isWhitespace()) i++
+            if (i >= expr.length) break
+
+            when (expr[i]) {
+                '.' -> {
+                    i++
+                    while (i < expr.length && expr[i].isWhitespace()) i++
+                    val segStart = i
+                    if (i >= expr.length || !isIdentStart(expr[i])) return null
+                    i++
+                    while (i < expr.length && isIdentPart(expr[i])) i++
+                    val seg = expr.substring(segStart, i)
+                    current = when (val c = current) {
+                        is Map<*, *> -> mapGet(c, seg)
+                        else -> null
+                    }
+                }
+                '[' -> {
+                    i++
+                    while (i < expr.length && expr[i].isWhitespace()) i++
+                    if (i >= expr.length) return null
+
+                    val key: Any? = when (expr[i]) {
+                        '\'', '"' -> {
+                            val quote = expr[i]
+                            i++
+                            val start = i
+                            var escaped = false
+                            val sb = StringBuilder()
+                            while (i < expr.length) {
+                                val ch = expr[i]
+                                if (escaped) {
+                                    sb.append(ch)
+                                    escaped = false
+                                } else if (ch == '\\') {
+                                    escaped = true
+                                } else if (ch == quote) {
+                                    break
+                                } else {
+                                    sb.append(ch)
+                                }
+                                i++
+                            }
+                            // Skip closing quote
+                            if (i < expr.length && expr[i] == quote) i++
+                            sb.toString()
+                        }
+                        else -> {
+                            val start = i
+                            while (i < expr.length && expr[i] != ']') i++
+                            expr.substring(start, i).trim().toIntOrNull() ?: expr.substring(start, i).trim()
+                        }
+                    }
+
+                    while (i < expr.length && expr[i].isWhitespace()) i++
+                    if (i < expr.length && expr[i] == ']') i++ else return null
+
+                    current = when (val c = current) {
+                        is Map<*, *> -> mapGet(c, key?.toString().orEmpty())
+                        is List<*> -> (key as? Int)?.let { idx -> c.getOrNull(idx) }
+                        else -> null
+                    }
+                }
+                else -> {
+                    // Unsupported syntax
+                    return null
+                }
+            }
+        }
+
+        return current
     }
 
     private fun evaluateNumericExpressionOrNull(expr: String, state: Map<String, Any>): Double? {
@@ -476,8 +570,7 @@ object NanoRenderUtils {
             .removeSurrounding("'", "'")
 
         fun resolveValue(expr: String): Any? {
-            val normalized = expr.trim().removePrefix("state.")
-            return state[normalized]
+            return resolveIdentifierAny(expr.trim(), state)
         }
 
         // Basic comparisons: ==, !=, >, >=, <, <=
@@ -532,6 +625,8 @@ object NanoRenderUtils {
             is Boolean -> value
             is String -> value.isNotBlank()
             is Number -> value.toDouble() != 0.0
+            is Map<*, *> -> value.isNotEmpty()
+            is Collection<*> -> value.isNotEmpty()
             null -> false
             else -> true
         }
