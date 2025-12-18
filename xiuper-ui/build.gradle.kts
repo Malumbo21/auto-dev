@@ -1,6 +1,7 @@
 plugins {
     kotlin("multiplatform")
     kotlin("plugin.serialization")
+    id("com.android.library")
     `maven-publish`
 }
 
@@ -12,8 +13,26 @@ repositories {
     mavenCentral()
 }
 
+android {
+    namespace = "cc.unitmesh.xiuper.ui"
+    compileSdk = 34
+    defaultConfig {
+        minSdk = 24
+    }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+}
+
 kotlin {
     jvmToolchain(17)
+
+    androidTarget {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        }
+    }
 
     // JVM target
     jvm()
@@ -47,6 +66,7 @@ kotlin {
         val commonMain by getting {
             dependencies {
                 implementation(project(":mpp-core"))
+                implementation(libs.kotlin.logging)
                 implementation(libs.kotlinx.serialization.json)
                 implementation(libs.kotlinx.coroutines.core)
                 implementation(libs.kotlinx.datetime)
@@ -63,7 +83,6 @@ kotlin {
         val jvmMain by getting {
             dependencies {
                 // JVM-specific logging
-                implementation(libs.kotlin.logging.jvm)
                 implementation(libs.logback)
             }
         }
