@@ -46,8 +46,8 @@ object NanoControlFlowComponents {
     ) {
         val loop = ir.loop
         val variable = loop?.variable
-        val iterable = loop?.iterable?.removePrefix("state.")
-        val items = state[iterable] as? List<*> ?: emptyList<Any>()
+        val iterable = loop?.iterable?.trim()?.removePrefix("state.")?.trim()
+        val items = iterable?.let { state[it] as? List<*> } ?: emptyList<Any>()
 
         Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items.forEachIndexed { index, item ->

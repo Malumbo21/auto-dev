@@ -43,7 +43,9 @@ object NanoRenderUtils {
             "currentDay" to localDateTime.dayOfMonth,
             "currentHour" to localDateTime.hour,
             "currentMinute" to localDateTime.minute,
-            "today" to "${localDateTime.year}-${localDateTime.monthNumber.toString().padStart(2, '0')}-${localDateTime.dayOfMonth.toString().padStart(2, '0')}",
+            "today" to "${localDateTime.year}-${
+                localDateTime.monthNumber.toString().padStart(2, '0')
+            }-${localDateTime.dayOfMonth.toString().padStart(2, '0')}",
             "now" to localDateTime.toString()
         )
     }
@@ -153,10 +155,12 @@ object NanoRenderUtils {
                     if (args.size != 2) return null
                     value.replace(args[0], args[1])
                 }
+
                 "title" -> {
                     if (args.isNotEmpty()) return null
                     titleCasePreservingAcronyms(value)
                 }
+
                 else -> return null
             }
 
@@ -198,21 +202,25 @@ object NanoRenderUtils {
                         continue
                     }
                 }
+
                 c == '\'' && !inDouble -> {
                     inSingle = !inSingle
                     i++
                     continue
                 }
+
                 c == '"' && !inSingle -> {
                     inDouble = !inDouble
                     i++
                     continue
                 }
+
                 !inSingle && !inDouble && c == ',' -> {
                     flushArg()
                     i++
                     continue
                 }
+
                 !inSingle && !inDouble && c == ')' -> {
                     flushArg()
                     return args.filter { true } to (i + 1)
@@ -312,6 +320,7 @@ object NanoRenderUtils {
                         else -> null
                     }
                 }
+
                 '[' -> {
                     i++
                     while (i < expr.length && expr[i].isWhitespace()) i++
@@ -342,6 +351,7 @@ object NanoRenderUtils {
                             if (i < expr.length && expr[i] == quote) i++
                             sb.toString()
                         }
+
                         else -> {
                             val start = i
                             while (i < expr.length && expr[i] != ']') i++
@@ -358,6 +368,7 @@ object NanoRenderUtils {
                         else -> null
                     }
                 }
+
                 else -> {
                     // Unsupported syntax
                     return null
@@ -558,78 +569,230 @@ object NanoRenderUtils {
     fun evaluateCondition(condition: String?, state: Map<String, Any>): Boolean {
         if (condition.isNullOrBlank()) return true
 
-        val trimmed = condition.trim()
-        if (trimmed.startsWith("!")) return !evaluateCondition(trimmed.removePrefix("!").trim(), state)
-        if (trimmed.startsWith("not ")) return !evaluateCondition(trimmed.removePrefix("not ").trim(), state)
-        if (trimmed == "true") return true
-        if (trimmed == "false") return false
-
         fun unquote(raw: String): String = raw
             .trim()
             .removeSurrounding("\"", "\"")
             .removeSurrounding("'", "'")
 
-        fun resolveValue(expr: String): Any? {
-            return resolveIdentifierAny(expr.trim(), state)
+        fun stripOuterParens(raw: String): String {
+            var s = raw.trim()
+            while (s.startsWith('(') && s.endsWith(')')) {
+                var depth = 0
+                var inString: Char? = null
+                var escaped = false
+                var enclosesAll = true
+                for (i in s.indices) {
+                    val c = s[i]
+                    if (inString != null) {
+                        if (escaped) {
+                            escaped = false
+                        } else if (c == '\\') {
+                            escaped = true
+                        } else if (c == inString) {
+                            inString = null
+                        }
+                        continue
+                    }
+                    when (c) {
+                        '\'', '"' -> inString = c
+                        '(' -> depth++
+                        ')' -> {
+                            depth--
+                            // If we reach depth 0 before the last char, outer parens don't enclose all.
+                            if (depth == 0 && i != s.lastIndex) {
+                                enclosesAll = false
+                                break
+                            }
+                        }
+                    }
+                }
+                if (!enclosesAll || depth != 0) break
+                s = s.substring(1, s.length - 1).trim()
+            }
+            return s
         }
 
-        // Basic comparisons: ==, !=, >, >=, <, <=
-        val comparison = Regex("^(.+?)\\s*(==|!=|>=|<=|>|<)\\s*(.+)$").matchEntire(trimmed)
-        if (comparison != null) {
-            val leftRaw = comparison.groupValues[1].trim()
-            val op = comparison.groupValues[2]
-            val rightRaw = comparison.groupValues[3].trim()
+        fun splitTopLevel(expr: String, keyword: String): List<String> {
+            val parts = mutableListOf<String>()
+            var depth = 0
+            var inString: Char? = null
+            var escaped = false
+            var start = 0
 
-            val leftValue = resolveValue(leftRaw)
-
-            val rightValue: Any? = when {
-                rightRaw.equals("true", ignoreCase = true) -> true
-                rightRaw.equals("false", ignoreCase = true) -> false
-                rightRaw.startsWith("state.") || rightRaw.matches(Regex("[A-Za-z_]\\w*(\\.[A-Za-z_]\\w*)*")) -> resolveValue(rightRaw)
-                rightRaw.matches(Regex("-?\\d+(\\.\\d+)?")) -> rightRaw.toDoubleOrNull()
-                (rightRaw.startsWith("\"") && rightRaw.endsWith("\"")) || (rightRaw.startsWith("'") && rightRaw.endsWith("'")) -> unquote(rightRaw)
-                else -> rightRaw
+            fun isBoundary(idx: Int): Boolean {
+                if (idx < 0 || idx >= expr.length) return true
+                return expr[idx].isWhitespace()
             }
 
-            fun asNumber(v: Any?): Double? = when (v) {
-                is Number -> v.toDouble()
-                is String -> v.toDoubleOrNull()
-                else -> null
+            var i = 0
+            while (i < expr.length) {
+                val c = expr[i]
+                if (inString != null) {
+                    if (escaped) {
+                        escaped = false
+                    } else if (c == '\\') {
+                        escaped = true
+                    } else if (c == inString) {
+                        inString = null
+                    }
+                    i++
+                    continue
+                }
+
+                when (c) {
+                    '\'', '"' -> inString = c
+                    '(' -> depth++
+                    ')' -> if (depth > 0) depth--
+                }
+
+                if (depth == 0) {
+                    if (expr.regionMatches(i, keyword, 0, keyword.length, ignoreCase = false)) {
+                        val beforeOk = isBoundary(i - 1)
+                        val afterOk = isBoundary(i + keyword.length)
+                        if (beforeOk && afterOk) {
+                            val part = expr.substring(start, i).trim()
+                            if (part.isNotEmpty()) parts.add(part)
+                            start = i + keyword.length
+                            i = start
+                            continue
+                        }
+                    }
+                }
+                i++
             }
 
-            fun equalsLoosely(left: Any?, right: Any?): Boolean {
-                // Prefer numeric equality if both sides are numeric-ish.
-                val ln = asNumber(left)
-                val rn = asNumber(right)
-                if (ln != null && rn != null) return ln == rn
+            val tail = expr.substring(start).trim()
+            if (tail.isNotEmpty()) parts.add(tail)
+            return parts
+        }
 
-                // Prefer boolean equality if both sides are booleans.
-                if (left is Boolean && right is Boolean) return left == right
+        fun resolveValue(expr: String): Any? = resolveIdentifierAny(expr.trim(), state)
 
-                return left?.toString() == right?.toString()
+        fun parseOperand(raw: String): Any? {
+            val r = raw.trim()
+            if (r.equals("true", ignoreCase = true)) return true
+            if (r.equals("false", ignoreCase = true)) return false
+            if ((r.startsWith("\"") && r.endsWith("\"")) || (r.startsWith("'") && r.endsWith("'"))) return unquote(r)
+            r.toDoubleOrNull()?.let { return it }
+
+            // Try resolving identifier/path (supports dot and brackets).
+            val resolved = resolveValue(r)
+            return resolved ?: r
+        }
+
+        fun asNumber(v: Any?): Double? = when (v) {
+            is Number -> v.toDouble()
+            is String -> v.toDoubleOrNull()
+            else -> null
+        }
+
+        fun equalsLoosely(left: Any?, right: Any?): Boolean {
+            // Prefer numeric equality if both sides are numeric-ish.
+            val ln = asNumber(left)
+            val rn = asNumber(right)
+            if (ln != null && rn != null) return ln == rn
+
+            // Prefer boolean equality if both sides are booleans.
+            if (left is Boolean && right is Boolean) return left == right
+
+            return left?.toString() == right?.toString()
+        }
+
+        fun findTopLevelComparison(expr: String): Pair<Int, String>? {
+            var depth = 0
+            var inString: Char? = null
+            var escaped = false
+            var i = 0
+
+            while (i < expr.length) {
+                val c = expr[i]
+                if (inString != null) {
+                    if (escaped) {
+                        escaped = false
+                    } else if (c == '\\') {
+                        escaped = true
+                    } else if (c == inString) {
+                        inString = null
+                    }
+                    i++
+                    continue
+                }
+
+                when (c) {
+                    '\'', '"' -> inString = c
+                    '(' -> depth++
+                    ')' -> if (depth > 0) depth--
+                }
+
+                if (depth == 0) {
+                    val two = if (i + 1 < expr.length) expr.substring(i, i + 2) else ""
+                    when (two) {
+                        "==", "!=", ">=", "<=" -> return i to two
+                    }
+                    if (c == '>' || c == '<') return i to c.toString()
+                }
+                i++
             }
+            return null
+        }
 
-            when (op) {
-                "==" -> return equalsLoosely(leftValue, rightValue)
-                "!=" -> return !equalsLoosely(leftValue, rightValue)
-                ">" -> return (asNumber(leftValue) ?: return false) > (asNumber(rightValue) ?: return false)
-                ">=" -> return (asNumber(leftValue) ?: return false) >= (asNumber(rightValue) ?: return false)
-                "<" -> return (asNumber(leftValue) ?: return false) < (asNumber(rightValue) ?: return false)
-                "<=" -> return (asNumber(leftValue) ?: return false) <= (asNumber(rightValue) ?: return false)
+        fun truthy(value: Any?): Boolean {
+            return when (value) {
+                is Boolean -> value
+                is String -> value.isNotBlank()
+                is Number -> value.toDouble() != 0.0
+                is Map<*, *> -> value.isNotEmpty()
+                is Collection<*> -> value.isNotEmpty()
+                null -> false
+                else -> true
             }
         }
 
-        // Simple evaluation: treat it as a state path and check if it is truthy.
-        val value = resolveValue(trimmed)
-        return when (value) {
-            is Boolean -> value
-            is String -> value.isNotBlank()
-            is Number -> value.toDouble() != 0.0
-            is Map<*, *> -> value.isNotEmpty()
-            is Collection<*> -> value.isNotEmpty()
-            null -> false
-            else -> true
+        fun eval(exprRaw: String): Boolean {
+            var expr = stripOuterParens(exprRaw).trim()
+            if (expr.isBlank()) return false
+
+            // Unary operators
+            if (expr.startsWith("!")) return !eval(expr.removePrefix("!").trim())
+            if (expr.startsWith("not ")) return !eval(expr.removePrefix("not ").trim())
+
+            if (expr == "true") return true
+            if (expr == "false") return false
+
+            // Boolean operators with precedence: and > or
+            val orParts = splitTopLevel(expr, "or")
+            if (orParts.size > 1) return orParts.any { eval(it) }
+
+            val andParts = splitTopLevel(expr, "and")
+            if (andParts.size > 1) return andParts.all { eval(it) }
+
+            // Comparisons at top-level
+            val cmp = findTopLevelComparison(expr)
+            if (cmp != null) {
+                val (idx, op) = cmp
+                val leftRaw = expr.substring(0, idx).trim()
+                val rightRaw = expr.substring(idx + op.length).trim()
+
+                val leftValue = parseOperand(leftRaw)
+                val rightValue = parseOperand(rightRaw)
+
+                return when (op) {
+                    "==" -> equalsLoosely(leftValue, rightValue)
+                    "!=" -> !equalsLoosely(leftValue, rightValue)
+                    ">" -> (asNumber(leftValue) ?: return false) > (asNumber(rightValue) ?: return false)
+                    ">=" -> (asNumber(leftValue) ?: return false) >= (asNumber(rightValue) ?: return false)
+                    "<" -> (asNumber(leftValue) ?: return false) < (asNumber(rightValue) ?: return false)
+                    "<=" -> (asNumber(leftValue) ?: return false) <= (asNumber(rightValue) ?: return false)
+                    else -> false
+                }
+            }
+
+            // Simple evaluation: treat it as a state path and check if it is truthy.
+            val value = resolveValue(expr) ?: parseOperand(expr)
+            return truthy(value)
         }
+
+        return eval(condition)
     }
 
     /**

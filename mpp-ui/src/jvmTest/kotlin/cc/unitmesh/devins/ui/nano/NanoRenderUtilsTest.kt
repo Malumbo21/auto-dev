@@ -71,6 +71,39 @@ class NanoRenderUtilsTest {
     }
 
     @Test
+    fun `evaluateCondition supports boolean operators and complex paths`() {
+        val state = mapOf(
+            "selectedAirline" to "all",
+            "priceRange" to listOf(0, 5000),
+            "flight" to mapOf(
+                "airline" to "中国国航",
+                "price" to 1280
+            ),
+            "enabled" to true,
+            "count" to 3
+        )
+
+        assertTrue(
+            NanoRenderUtils.evaluateCondition(
+                "state.selectedAirline == \"all\" or flight.airline == state.selectedAirline",
+                state
+            )
+        )
+        assertTrue(
+            NanoRenderUtils.evaluateCondition(
+                "flight.price <= state.priceRange[1]",
+                state
+            )
+        )
+        assertTrue(
+            NanoRenderUtils.evaluateCondition(
+                "state.enabled == true and state.count >= 3",
+                state
+            )
+        )
+    }
+
+    @Test
     fun `interpolateText supports map indexing with brackets`() {
         val state = mapOf(
             "flight" to mapOf(
