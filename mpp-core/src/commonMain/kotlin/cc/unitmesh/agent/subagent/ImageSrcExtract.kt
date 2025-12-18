@@ -29,24 +29,68 @@ fun shouldGenerateImage(src: String): Boolean {
 fun extractContextPrompt(context: String): String {
     if (context.isEmpty()) return ""
 
+    // Prefer the Text node that is closest to the Image node in the provided snippet.
+    // `NanoDSLAgent` passes a substring around the Image match, so picking the closest
+    // description usually yields the best prompt.
+    val imageIndex = context.indexOf("Image(")
+
     // Look for Text components with meaningful content
     val textPattern = Regex("""Text\s*\(\s*["']([^"']+)["']""")
     val textMatches = textPattern.findAll(context).toList()
 
-    // Filter out common UI labels and get meaningful descriptions
-    val meaningfulTexts = textMatches
-        .map { it.groupValues[1] }
-        .filter { text ->
-            text.length > 3 &&
-                    !text.matches(
-                        Regex(
-                            "^(Click|Submit|Cancel|OK|Yes|No|Close|Open|Edit|Delete|Save|Back|Next|Previous)$",
-                            RegexOption.IGNORE_CASE
-                        )
-                    )
-        }
+    fun isMeaningfulText(text: String): Boolean {
+        if (text.length <= 3) return false
+        return !text.matches(
+            Regex(
+                "^(Click|Submit|Cancel|OK|Yes|No|Close|Open|Edit|Delete|Save|Back|Next|Previous)$",
+                RegexOption.IGNORE_CASE
+            )
+        )
+    }
 
-    return meaningfulTexts.firstOrNull() ?: ""
+    val meaningfulMatches = textMatches
+        .map { match -> match.range.first to match.groupValues[1] }
+        .filter { (_, text) -> isMeaningfulText(text) }
+
+    if (meaningfulMatches.isEmpty()) return ""
+
+    // If we can locate an Image in this context snippet, pick the closest Text.
+    // Prefer a Text that appears before the Image when distances tie.
+    if (imageIndex >= 0) {
+        val best = meaningfulMatches.minWithOrNull(
+            compareBy<Pair<Int, String>> { (pos, _) -> kotlin.math.abs(pos - imageIndex) }
+                .thenBy { (pos, _) -> if (pos <= imageIndex) 0 else 1 }
+        )
+        return best?.second ?: ""
+    }
+
+    // Fallback: the first meaningful Text.
+    return meaningfulMatches.first().second
+}
+
+private fun isLikelyNoisyOrTokenizedUrl(src: String): Boolean {
+    val trimmed = src.trim()
+    if (!(trimmed.startsWith("http://") || trimmed.startsWith("https://"))) return false
+
+    // Common signing/token query params (case-insensitive).
+    val lower = trimmed.lowercase()
+    if (lower.contains("signature=") || lower.contains("expires=") || lower.contains("token=") || lower.contains("publickey=")) {
+        return true
+    }
+
+    // Heuristic: too many digits indicates an auto-generated object key / timestamp / hash.
+    // We bias toward considering it noisy when the string is long and digit-dense.
+    val totalLen = trimmed.length
+    if (totalLen < 40) return false
+
+    val digitCount = trimmed.count { it.isDigit() }
+    val letterCount = trimmed.count { it.isLetter() }
+    val digitRatio = digitCount.toDouble() / totalLen.toDouble()
+
+    // Examples we want to catch:
+    // - object keys with timestamps + hashes
+    // - signed URLs with long numeric expirations
+    return (digitCount >= 16 && digitRatio >= 0.25) || (digitCount >= letterCount * 2 && digitCount >= 20)
 }
 
 private fun extractPromptFromSrc(src: String): String? {
@@ -55,6 +99,10 @@ private fun extractPromptFromSrc(src: String): String? {
     // data: URLs are already real embedded images; they usually don't contain useful prompts.
     val trimmed = src.trim()
     if (trimmed.startsWith("data:")) return null
+
+    // Signed / tokenized URLs often contain lots of numbers and are not meaningful prompts.
+    // In that case, fall back to extracting prompt from nearby Text blocks.
+    if (isLikelyNoisyOrTokenizedUrl(trimmed)) return null
 
     // Handle URLs - try to extract meaningful parts
     val urlCleaned = if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
