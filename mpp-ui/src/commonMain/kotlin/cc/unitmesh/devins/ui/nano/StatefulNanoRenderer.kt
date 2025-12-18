@@ -44,9 +44,11 @@ object StatefulNanoRenderer {
         val runtime = remember(ir) { NanoStateRuntime(ir) }
 
         // Subscribe to declared state keys so Compose recomposes when they change.
-        // We only track keys declared in the component's `state:` block.
-        runtime.declaredKeys.forEach { key ->
-            runtime.state.flow(key).collectAsState()
+        // IMPORTANT: we must *read* the collected State's `.value` so Compose tracks it.
+        // Use a stable key order to keep hook ordering deterministic across recompositions.
+        val observedKeys = remember(runtime) { runtime.declaredKeys.toList().sorted() }
+        observedKeys.forEach { key ->
+            runtime.state.flow(key).collectAsState().value
         }
 
         val snapshot = runtime.snapshot()

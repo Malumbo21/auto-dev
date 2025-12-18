@@ -107,9 +107,9 @@ class HtmlRendererTest {
             padding = "md",
             children = listOf(NanoIR.text("Hello"))
         )
-        
+
         val html = renderer.render(ir)
-        
+
         assertContains(html, "<!DOCTYPE html>")
         assertContains(html, "<html>")
         assertContains(html, "<style>")
@@ -347,22 +347,22 @@ component PriceSlider:
 
         // Should have slider container
         assertContains(html, "nano-slider-container")
-        
+
         // Should have label
         assertContains(html, "Price Range")
         assertContains(html, "nano-slider-label")
-        
+
         // Should have value display span
         assertContains(html, "nano-slider-value")
         assertContains(html, "data-bind=\"state.max_price\"")
-        
+
         // Should have slider input with correct attributes
         assertContains(html, "<input type=\"range\"")
         assertContains(html, "class=\"nano-slider\"")
         assertContains(html, "min=\"500.0\"")
         assertContains(html, "max=\"5000.0\"")
         assertContains(html, "step=\"100.0\"")
-        
+
         // Should have binding attribute
         assertContains(html, "data-bindings")
     }
@@ -387,7 +387,7 @@ component SimpleSlider:
         // Should have value display even without label
         assertContains(html, "nano-slider-value")
         assertContains(html, "data-bind=\"state.volume\"")
-        
+
         // Should have slider with correct range
         assertContains(html, "min=\"0.0\"")
         assertContains(html, "max=\"100.0\"")
