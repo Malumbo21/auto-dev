@@ -72,9 +72,9 @@ class MigrationTest {
     
     @Test
     fun migrationRegistryThrowsIfNoPathExists() {
-        // Currently registry is empty; path from 1→2 should fail
+        // Currently registry has v1→v2; v2→v3 should fail
         val exception = assertFailsWith<IllegalStateException> {
-            MigrationRegistry.path(current = 1, target = 2)
+            MigrationRegistry.path(current = 2, target = 3)
         }
         assertTrue(exception.message!!.contains("No migration found"))
     }

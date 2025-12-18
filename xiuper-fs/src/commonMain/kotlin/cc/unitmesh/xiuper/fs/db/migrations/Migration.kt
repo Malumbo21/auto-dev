@@ -25,8 +25,8 @@ interface Migration {
  */
 object MigrationRegistry {
     val all: List<Migration> = listOf(
-        // Future migrations will be registered here, e.g.:
-        // Migration_1_to_2(),
+        Migration_1_to_2(),
+        // Future migrations:
         // Migration_2_to_3(),
     )
     

@@ -3,11 +3,10 @@ package cc.unitmesh.xiuper.fs.db.migrations
 import app.cash.sqldelight.db.SqlDriver
 
 /**
- * Example migration: v1 → v2
- * Adds extended attributes (xattr) support for POSIX-style metadata.
+ * Migration v1 → v2: Add extended attributes support.
  * 
- * This is currently commented out and not registered in [MigrationRegistry].
- * Uncomment and register when xattr support is needed.
+ * Adds FsXattr table for POSIX-style extended attributes (user.*, security.*, etc.).
+ * Indexed by path for efficient lookup and cascades on delete.
  */
 class Migration_1_to_2 : Migration {
     override val fromVersion = 1

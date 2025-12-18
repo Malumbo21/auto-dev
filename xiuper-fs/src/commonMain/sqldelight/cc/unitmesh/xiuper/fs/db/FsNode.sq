@@ -5,6 +5,17 @@ CREATE TABLE FsNode (
   mtimeEpochMillis INTEGER NOT NULL
 );
 
+-- Extended attributes table (added in schema v2)
+CREATE TABLE IF NOT EXISTS FsXattr (
+    path TEXT NOT NULL,
+    name TEXT NOT NULL,
+    value BLOB NOT NULL,
+    PRIMARY KEY (path, name),
+    FOREIGN KEY (path) REFERENCES FsNode(path) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_xattr_path ON FsXattr(path);
+
 selectByPath:
 SELECT path, isDir, content, mtimeEpochMillis
 FROM FsNode
@@ -17,6 +28,11 @@ VALUES (?, ?, ?, ?);
 deleteByPath:
 DELETE FROM FsNode
 WHERE path = ?;
+
+selectAll:
+SELECT path, isDir, content, mtimeEpochMillis
+FROM FsNode
+ORDER BY path;
 
 selectChildren:
 SELECT path, isDir, content, mtimeEpochMillis
