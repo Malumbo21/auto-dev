@@ -5,6 +5,9 @@ import cc.unitmesh.xuiper.action.NanoAction
 import cc.unitmesh.xuiper.ir.NanoIR
 import cc.unitmesh.xuiper.ir.NanoStateIR
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.intOrNull
@@ -222,7 +225,7 @@ class NanoStateManager {
         return trimmed
     }
 
-    private fun parseJsonValue(element: kotlinx.serialization.json.JsonElement): Any? {
+    private fun parseJsonValue(element: JsonElement): Any? {
         return when (element) {
             is JsonPrimitive -> {
                 element.booleanOrNull
@@ -230,6 +233,8 @@ class NanoStateManager {
                     ?: element.doubleOrNull
                     ?: element.content
             }
+            is JsonArray -> element.map { parseJsonValue(it) }.toMutableList()
+            is JsonObject -> element.entries.associate { (k, v) -> k to parseJsonValue(v) }.toMutableMap()
             else -> element.toString()
         }
     }

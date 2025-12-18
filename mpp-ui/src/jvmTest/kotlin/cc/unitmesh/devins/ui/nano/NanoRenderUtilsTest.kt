@@ -69,4 +69,28 @@ class NanoRenderUtilsTest {
         assertTrue(NanoRenderUtils.evaluateCondition("state.mode == 'primary'", state))
         assertFalse(NanoRenderUtils.evaluateCondition("state.mode != 'primary'", state))
     }
+
+    @Test
+    fun `interpolateText supports map indexing with brackets`() {
+        val state = mapOf(
+            "flight" to mapOf(
+                "airline" to "中国国航",
+                "price" to 1280
+            )
+        )
+
+        assertEquals("中国国航", NanoRenderUtils.interpolateText("{flight['airline']}", state))
+        assertEquals("1280", NanoRenderUtils.interpolateText("{flight[\"price\"]}", state))
+    }
+
+    @Test
+    fun `evaluateCondition treats empty collections as false`() {
+        val state = mapOf(
+            "selectedFlight" to emptyMap<String, Any>(),
+            "flights" to emptyList<Any>()
+        )
+
+        assertFalse(NanoRenderUtils.evaluateCondition("state.selectedFlight", state))
+        assertFalse(NanoRenderUtils.evaluateCondition("state.flights", state))
+    }
 }

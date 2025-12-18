@@ -3,6 +3,8 @@ package cc.unitmesh.xuiper.dsl
 import cc.unitmesh.xuiper.action.HttpMethod
 import cc.unitmesh.xuiper.action.NanoAction
 import cc.unitmesh.xuiper.ast.NanoNode
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
@@ -10,6 +12,12 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class NanoDSLParserTest {
+
+    private fun loadResourceText(resourcePath: String): String {
+        val stream = javaClass.classLoader.getResourceAsStream(resourcePath)
+            ?: error("Test resource not found: $resourcePath")
+        return stream.bufferedReader().use { it.readText() }
+    }
 
     @Test
     fun `should parse simple component`() {
@@ -122,6 +130,21 @@ component TaskList:
         assertEquals("task", forLoop.variable)
         assertEquals("state.tasks", forLoop.iterable)
         assertEquals(1, forLoop.body.size)
+    }
+
+    @Test
+    fun `should keep multiline JSON state defaults and emit JsonArray in IR`() {
+        val source = loadResourceText("nanodsl/travelplan.dsl")
+
+        val ir = NanoDSL.toIR(source)
+        val flightsDefault = ir.state!!.variables["flights"]!!.defaultValue
+
+        assertTrue(flightsDefault is JsonArray)
+        assertEquals(2, flightsDefault.size)
+
+        val first = flightsDefault[0].jsonObject
+        assertEquals("CA1234", first["flightNumber"]!!.jsonPrimitive.content)
+        assertEquals("Air China", first["airline"]!!.jsonPrimitive.content)
     }
 
     @Test

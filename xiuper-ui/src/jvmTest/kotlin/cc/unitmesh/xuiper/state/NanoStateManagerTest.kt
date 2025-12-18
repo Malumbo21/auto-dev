@@ -4,9 +4,12 @@ import cc.unitmesh.xuiper.action.MutationOp
 import cc.unitmesh.xuiper.action.NanoAction
 import cc.unitmesh.xuiper.ir.NanoStateIR
 import cc.unitmesh.xuiper.ir.NanoStateVarIR
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class NanoStateManagerTest {
@@ -103,6 +106,47 @@ class NanoStateManagerTest {
         val result = manager.evaluate("""f"Hello ${"\${state.name}"}, count is ${"\${state.count}"}"""")
         
         assertEquals("Hello World, count is 5", result)
+    }
+
+    @Test
+    fun `should parse JsonArray and JsonObject defaults into Kotlin collections`() {
+        val manager = NanoStateManager()
+
+        val flights = JsonArray(
+            listOf(
+                JsonObject(
+                    mapOf(
+                        "flightNumber" to JsonPrimitive("CA1234"),
+                        "price" to JsonPrimitive(1280)
+                    )
+                ),
+                JsonObject(
+                    mapOf(
+                        "flightNumber" to JsonPrimitive("MU5678"),
+                        "price" to JsonPrimitive(1150)
+                    )
+                )
+            )
+        )
+
+        val stateIR = NanoStateIR(
+            variables = mapOf(
+                "selectedFlight" to NanoStateVarIR("dict", JsonObject(emptyMap())),
+                "flights" to NanoStateVarIR("list", flights)
+            )
+        )
+
+        manager.initFromIR(stateIR)
+
+        val parsedFlights = manager["flights"] as List<*>
+        assertEquals(2, parsedFlights.size)
+        val first = parsedFlights[0] as Map<*, *>
+        assertEquals("CA1234", first["flightNumber"])
+        assertEquals(1280, first["price"])
+
+        val selected = manager["selectedFlight"] as Map<*, *>
+        assertTrue(selected.isEmpty())
+        assertFalse(selected.isNotEmpty())
     }
 
     @Test

@@ -4,6 +4,7 @@ import cc.unitmesh.xuiper.action.BodyField
 import cc.unitmesh.xuiper.action.NanoAction
 import cc.unitmesh.xuiper.ast.Binding
 import cc.unitmesh.xuiper.ast.NanoNode
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -69,7 +70,7 @@ object NanoIRConverter {
             val vars = stateBlock.variables.associate { v ->
                 v.name to NanoStateVarIR(
                     type = v.type,
-                    defaultValue = v.defaultValue?.let { JsonPrimitive(it) }
+                    defaultValue = v.defaultValue?.let { parseStateDefaultToJsonElement(it) }
                 )
             }
             NanoStateIR(vars)
@@ -655,4 +656,25 @@ object NanoIRConverter {
         return NanoIR(type = "Spinner", props = props)
     }
 }
+
+    private fun parseStateDefaultToJsonElement(defaultValue: String): JsonElement {
+        val trimmed = defaultValue.trim()
+        if (trimmed.isBlank()) return JsonPrimitive("")
+
+        // Parse JSON containers (object/array) and JSON primitives when they are valid JSON tokens.
+        val looksLikeJson = trimmed.startsWith("{") || trimmed.startsWith("[") ||
+            trimmed == "true" || trimmed == "false" || trimmed == "null" ||
+            trimmed.matches(Regex("""-?\d+(\.\d+)?"""))
+
+        if (looksLikeJson) {
+            return try {
+                Json.parseToJsonElement(trimmed)
+            } catch (_: Throwable) {
+                JsonPrimitive(defaultValue)
+            }
+        }
+
+        // For non-JSON literals (e.g. strings where quotes were stripped in the parser), keep as string.
+        return JsonPrimitive(defaultValue)
+    }
 
