@@ -40,6 +40,7 @@ class IndentParser(
         private val COMPONENT_CALL_REGEX = Regex("""^(\w+)(?:\((.*?)\))?:\s*$""")
         private val COMPONENT_INLINE_REGEX = Regex("""^(\w+)(?:\((.*?)\))$""")
         private val COMPONENT_MULTILINE_ARGS_START_REGEX = Regex("""^(\w+)\(\s*$""")
+        private val COMPONENT_PARTIAL_INLINE_START_REGEX = Regex("""^(\w+)\(.*$""")
         private val PROP_REGEX = Regex("""^(\w+):\s*(.*)$""")
         private val IF_REGEX = Regex("""^if\s+(.+?):\s*$""")
         private val FOR_REGEX = Regex("""^for\s+(\w+)\s+in\s+(.+?):\s*$""")
@@ -330,6 +331,22 @@ class IndentParser(
             return NanoNode.Divider to startIndex + 1
         }
 
+        // Handle multi-line inline component call with args already present on the first line, e.g.:
+        // RadioGroup(value := state.transport, options=[
+        //   {"value": "train", "label": "Train"},
+        // ], name="transport")
+        // This is common when args contain multi-line bracket literals.
+        if (COMPONENT_PARTIAL_INLINE_START_REGEX.matches(trimmed)
+            && trimmed.contains('(')
+            && !trimmed.contains(')')
+            && !COMPONENT_CALL_REGEX.matches(trimmed)
+            && !COMPONENT_INLINE_REGEX.matches(trimmed)
+            && !trimmed.endsWith(":")
+        ) {
+            val componentName = trimmed.substringBefore('(').trim()
+            return parseMultilineInlineComponentCallFromPartialStart(lines, startIndex, componentName)
+        }
+
         // Handle multi-line inline component call, e.g.:
         // DataTable(
         //   columns="...",
@@ -351,6 +368,92 @@ class IndentParser(
         }
 
         return null to startIndex + 1
+    }
+
+    private fun parseMultilineInlineComponentCallFromPartialStart(
+        lines: List<String>,
+        startIndex: Int,
+        componentName: String
+    ): Pair<NanoNode?, Int> {
+        val startLine = lines[startIndex]
+        val baseIndent = getIndent(startLine)
+
+        var parenDepth = 0
+        var inString = false
+        var quoteChar = '\u0000'
+        var escaped = false
+        var collecting = false
+        val argsBuilder = StringBuilder()
+
+        var index = startIndex
+        while (index < lines.size) {
+            val line = lines[index]
+
+            if (index != startIndex && line.isNotBlank()) {
+                val currentIndent = getIndent(line)
+                if (parenDepth > 0 && currentIndent < baseIndent) {
+                    break
+                }
+            }
+
+            val text = if (index == startIndex) line.trim() else line
+            for (c in text) {
+                if (inString) {
+                    if (escaped) {
+                        escaped = false
+                        if (collecting) argsBuilder.append(c)
+                        continue
+                    }
+                    when (c) {
+                        '\\' -> {
+                            escaped = true
+                            if (collecting) argsBuilder.append(c)
+                        }
+                        '\'', '"' -> {
+                            if (c == quoteChar) {
+                                inString = false
+                                quoteChar = '\u0000'
+                            }
+                            if (collecting) argsBuilder.append(c)
+                        }
+                        else -> if (collecting) argsBuilder.append(c)
+                    }
+                    continue
+                }
+
+                when (c) {
+                    '\'', '"' -> {
+                        inString = true
+                        quoteChar = c
+                        if (collecting) argsBuilder.append(c)
+                    }
+                    '(' -> {
+                        parenDepth++
+                        if (parenDepth == 1) {
+                            collecting = true
+                        } else if (collecting) {
+                            argsBuilder.append(c)
+                        }
+                    }
+                    ')' -> {
+                        if (parenDepth > 0) parenDepth--
+                        if (parenDepth == 0 && collecting) {
+                            collecting = false
+                            val argsStr = argsBuilder.toString().trim()
+                            val node = createNode(componentName, argsStr, emptyList())
+                            return node to (index + 1)
+                        }
+                        if (collecting) argsBuilder.append(c)
+                    }
+                    else -> if (collecting) argsBuilder.append(c)
+                }
+            }
+
+            if (collecting) argsBuilder.append("\n")
+            index++
+        }
+
+        return null to (startIndex + 1)
     }
 
     private fun parseMultilineInlineComponentCall(
@@ -1331,6 +1434,7 @@ class IndentParser(
 
         // Capture complex literals that include commas/braces so regex parsing doesn't drop them.
         extractBracketLiteral("columns")?.let { result["columns"] = it }
+        extractBracketLiteral("options")?.let { result["options"] = it }
 
         // First, handle << (subscribe binding) pattern at top-level args.
         // Supports expressions like: value << (flightBudget + (accommodationBudget * 5))
