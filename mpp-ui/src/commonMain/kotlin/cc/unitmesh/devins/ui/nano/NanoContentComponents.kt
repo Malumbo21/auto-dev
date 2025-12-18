@@ -316,7 +316,7 @@ object NanoContentComponents {
             "clock", "time", "schedule" -> Icons.Default.Schedule
 
             // Weather
-            "sun", "sunny" -> Icons.Default.WbSunny
+            "weather", "sun", "sunny" -> Icons.Default.WbSunny
             "moon" -> Icons.Default.NightsStay
             "cloud", "cloudy" -> Icons.Default.Cloud
             "wind" -> Icons.Default.Air
@@ -344,6 +344,8 @@ object NanoContentComponents {
             "link" -> Icons.Default.Link
             "external-link", "open-in-new" -> Icons.Default.OpenInNew
             "attachment", "attach", "paperclip" -> Icons.Default.AttachFile
+            "ticket" -> Icons.Default.ConfirmationNumber
+            "id-card", "id", "badge" -> Icons.Default.Badge
 
             // UI controls
             "search", "magnifying-glass" -> Icons.Default.Search
