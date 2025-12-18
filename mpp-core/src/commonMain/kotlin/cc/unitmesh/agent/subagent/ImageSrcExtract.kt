@@ -49,29 +49,23 @@ fun extractContextPrompt(context: String): String {
     return meaningfulTexts.firstOrNull() ?: ""
 }
 
-/**
- * Extract a meaningful prompt from the src value and surrounding context.
- * Works with URLs (including fake Unsplash links), paths, and placeholders.
- */
-fun extractImagePrompt(src: String, surroundingContext: String = ""): String {
-    // First, try to extract meaningful text from the surrounding context
-    // Look for nearby Text components that might describe the image
-    val contextPrompt = extractContextPrompt(surroundingContext)
-    if (contextPrompt.isNotEmpty()) {
-        return contextPrompt
-    }
+private fun extractPromptFromSrc(src: String): String? {
+    if (src.isBlank()) return null
+
+    // data: URLs are already real embedded images; they usually don't contain useful prompts.
+    val trimmed = src.trim()
+    if (trimmed.startsWith("data:")) return null
 
     // Handle URLs - try to extract meaningful parts
-    val urlCleaned = if (src.startsWith("http://") || src.startsWith("https://")) {
+    val urlCleaned = if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
         // For URLs, try to extract path segments that might be meaningful
-        val pathPart = src
+        trimmed
             .replace(Regex("^https?://[^/]+/"), "") // Remove domain
             .replace(Regex("\\?.*$"), "") // Remove query string
             .replace(Regex("photo-[0-9a-f-]+"), "") // Remove Unsplash photo IDs
             .replace(Regex("[0-9]+x[0-9]+"), "") // Remove dimensions
-        pathPart
     } else {
-        src
+        trimmed
     }
 
     // Clean up the path/URL
@@ -85,16 +79,34 @@ fun extractImagePrompt(src: String, surroundingContext: String = ""): String {
         .trim()
 
     // If it looks like a variable reference (e.g., item.image), extract the meaningful part
-    if (cleaned.contains(".")) {
-        val parts = cleaned.split(".")
-        val extracted = parts.lastOrNull()?.replace(Regex("[^a-zA-Z0-9 ]"), " ")?.trim() ?: cleaned
-        if (extracted.isNotEmpty()) return extracted
+    val candidate = if (cleaned.contains(".")) {
+        cleaned.split(".")
+            .lastOrNull()
+            ?.replace(Regex("[^a-zA-Z0-9 ]"), " ")
+            ?.replace(Regex("\\s+"), " ")
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() } ?: cleaned
+    } else {
+        cleaned
     }
 
-    // If we got a meaningful string, use it
-    if (cleaned.length > 3 && cleaned.any { it.isLetter() }) {
-        return cleaned
-    }
+    if (candidate.length > 3 && candidate.any { it.isLetter() }) return candidate
+    return null
+}
+
+/**
+ * Extract a meaningful prompt from the src value and surrounding context.
+ * Works with URLs (including fake Unsplash links), paths, and placeholders.
+ */
+fun extractImagePrompt(src: String, surroundingContext: String = ""): String {
+    // Prefer deriving prompt from src when it contains meaningful information.
+    // This avoids picking unrelated nearby Text like titles (e.g., "Singapore Trip Planner").
+    val srcPrompt = extractPromptFromSrc(src)
+    if (srcPrompt != null) return srcPrompt
+
+    // Otherwise, try to extract meaningful text from the surrounding NanoDSL context.
+    val contextPrompt = extractContextPrompt(surroundingContext)
+    if (contextPrompt.isNotEmpty()) return contextPrompt
 
     // Fallback: return a generic prompt based on context or default
     return "high quality image"
