@@ -83,6 +83,10 @@ fun NanoDSLBlockRenderer(
         customSeedHex = "#FF385C"
     )
 
+    // Apply Nano theme to the whole block (header + preview + borders).
+    // This ensures theme switching affects background and not only icons.
+    ProvideNanoTheme(state = nanoThemeState) {
+
     // Parse NanoDSL to IR when code changes
     LaunchedEffect(nanodslCode, isComplete) {
         if (isComplete && nanodslCode.isNotBlank()) {
@@ -101,19 +105,19 @@ fun NanoDSLBlockRenderer(
         }
     }
 
-    Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(8.dp))
-            .border(
-                width = 1.dp,
-                color = if (parseError != null)
-                    MaterialTheme.colorScheme.error.copy(alpha = 0.3f)
-                else
-                    MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
-                shape = RoundedCornerShape(8.dp)
-            )
-            .background(MaterialTheme.colorScheme.surface)
-    ) {
+        Column(
+            modifier = modifier
+                .clip(RoundedCornerShape(8.dp))
+                .border(
+                    width = 1.dp,
+                    color = if (parseError != null)
+                        MaterialTheme.colorScheme.error.copy(alpha = 0.3f)
+                    else
+                        MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                    shape = RoundedCornerShape(8.dp)
+                )
+                .background(MaterialTheme.colorScheme.surface)
+        ) {
         // Header
         Row(
             modifier = Modifier
@@ -228,6 +232,7 @@ fun NanoDSLBlockRenderer(
                                 text = { Text("Bank (Black/Gold)") },
                                 onClick = {
                                     nanoThemeState.family = NanoThemeFamily.BANK_BLACK_GOLD
+                                    // Keep previous dark choice for bank style; don't force.
                                     themeMenuExpanded = false
                                 }
                             )
@@ -235,6 +240,8 @@ fun NanoDSLBlockRenderer(
                                 text = { Text("Travel (Airbnb)") },
                                 onClick = {
                                     nanoThemeState.family = NanoThemeFamily.TRAVEL_AIRBNB
+                                    // Airbnb style is expected to be light by default.
+                                    nanoThemeState.dark = false
                                     themeMenuExpanded = false
                                 }
                             )
@@ -343,28 +350,25 @@ fun NanoDSLBlockRenderer(
                     .fillMaxWidth()
                     .padding(16.dp)
             }
+            val backgroundColor = MaterialTheme.colorScheme.surface
+            val borderColor = MaterialTheme.colorScheme.outline
 
-            ProvideNanoTheme(state = nanoThemeState) {
-                val backgroundColor = MaterialTheme.colorScheme.surface
-                val borderColor = MaterialTheme.colorScheme.outline
-
-                Box(
-                    modifier = previewModifier
-                        .background(
-                            color = backgroundColor,
-                            shape = RoundedCornerShape(8.dp)
-                        )
-                        .border(
-                            width = 1.dp,
-                            color = borderColor,
-                            shape = RoundedCornerShape(8.dp)
-                        )
-                        .padding(16.dp)
-                ) {
-                    // Use Layout to properly scale content including layout size
-                    ScaledBox(scale = zoomLevel) {
-                        StatefulNanoRenderer.Render(nanoIR!!)
-                    }
+            Box(
+                modifier = previewModifier
+                    .background(
+                        color = backgroundColor,
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                    .border(
+                        width = 1.dp,
+                        color = borderColor,
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                    .padding(16.dp)
+            ) {
+                // Use Layout to properly scale content including layout size
+                ScaledBox(scale = zoomLevel) {
+                    StatefulNanoRenderer.Render(nanoIR!!)
                 }
             }
         } else {
@@ -392,6 +396,7 @@ fun NanoDSLBlockRenderer(
                     color = MaterialTheme.colorScheme.error
                 )
             }
+        }
         }
     }
 }
