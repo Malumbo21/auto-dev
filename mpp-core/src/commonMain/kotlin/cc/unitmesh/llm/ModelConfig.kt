@@ -16,6 +16,7 @@ enum class LLMProviderType(val displayName: String) {
     QWEN("Qwen"),
     KIMI("Kimi"),
     GITHUB_COPILOT("GitHub Copilot"),
+    MINIMAX("MiniMax"),
     CUSTOM_OPENAI_BASE("custom-openai-base");
 
     companion object {
@@ -77,7 +78,7 @@ data class ModelConfig(
             LLMProviderType.OLLAMA ->
                 // Ollama requires baseUrl (can use default if empty)
                 modelName.isNotEmpty()
-            LLMProviderType.GLM, LLMProviderType.QWEN, LLMProviderType.KIMI ->
+            LLMProviderType.GLM, LLMProviderType.QWEN, LLMProviderType.KIMI, LLMProviderType.MINIMAX ->
                 // These providers have default baseUrl in ModelRegistry
                 apiKey.isNotEmpty() && modelName.isNotEmpty()
             LLMProviderType.CUSTOM_OPENAI_BASE ->

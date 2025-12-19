@@ -81,6 +81,7 @@ object ExecutorFactory {
             LLMProviderType.GLM -> createGLM(config)
             LLMProviderType.QWEN -> createQwen(config)
             LLMProviderType.KIMI -> createKimi(config)
+            LLMProviderType.MINIMAX -> createOpenAI(config)
             LLMProviderType.GITHUB_COPILOT -> throw IllegalStateException(
                 "GitHub Copilot is not available. Make sure GitHub Copilot is configured on your system " +
                 "(OAuth token in ~/.config/github-copilot/apps.json)"

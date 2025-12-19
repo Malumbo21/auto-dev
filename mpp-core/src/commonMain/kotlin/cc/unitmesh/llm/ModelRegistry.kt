@@ -27,6 +27,7 @@ object ModelRegistry {
             LLMProviderType.GLM -> GLMModels.all
             LLMProviderType.QWEN -> QwenModels.all
             LLMProviderType.KIMI -> KimiModels.all
+            LLMProviderType.MINIMAX -> MiniMaxModels.all
             LLMProviderType.GITHUB_COPILOT -> GithubCopilotModels.all
             LLMProviderType.CUSTOM_OPENAI_BASE -> emptyList() // Custom models are user-defined
         }
@@ -48,6 +49,7 @@ object ModelRegistry {
             LLMProviderType.GLM -> "https://open.bigmodel.cn/api/paas/v4/"
             LLMProviderType.QWEN -> "https://dashscope.aliyuncs.com/api/v1/"
             LLMProviderType.KIMI -> "https://api.moonshot.cn/v1/"
+            LLMProviderType.MINIMAX -> "https://api.minimaxi.com/v1/"
             LLMProviderType.OLLAMA -> "http://localhost:11434/"
             LLMProviderType.GITHUB_COPILOT -> "https://api.githubcopilot.com/"
             else -> ""
@@ -73,6 +75,7 @@ object ModelRegistry {
             LLMProviderType.GLM -> GLMModels.create(modelName)
             LLMProviderType.QWEN -> QwenModels.create(modelName)
             LLMProviderType.KIMI -> KimiModels.create(modelName)
+            LLMProviderType.MINIMAX -> MiniMaxModels.create(modelName)
             LLMProviderType.GITHUB_COPILOT -> GithubCopilotModels.create(modelName)
             LLMProviderType.CUSTOM_OPENAI_BASE -> null
         }
@@ -98,6 +101,7 @@ object ModelRegistry {
             LLMProviderType.GLM -> LLMProvider.OpenAI // Use OpenAI-compatible provider
             LLMProviderType.QWEN -> LLMProvider.OpenAI // Use OpenAI-compatible provider
             LLMProviderType.KIMI -> LLMProvider.OpenAI // Use OpenAI-compatible provider
+            LLMProviderType.MINIMAX -> LLMProvider.OpenAI // Use OpenAI-compatible provider
             LLMProviderType.GITHUB_COPILOT -> LLMProvider.OpenAI // Use OpenAI-compatible provider
             LLMProviderType.CUSTOM_OPENAI_BASE -> LLMProvider.OpenAI // Use OpenAI-compatible provider
         }
@@ -475,6 +479,51 @@ object ModelRegistry {
                 ),
                 contextLength = contextLength,
                 maxOutputTokens = null
+            )
+        }
+    }
+
+    private object MiniMaxModels {
+        val all = listOf(
+            "MiniMax-M2.1",      // 旗舰编程模型
+            "MiniMax-M2.0",      // 上一代编程模型
+            "MiniMax-Text-01",   // 通用文本模型
+            "MiniMax-Text-01V"   // 视觉理解模型
+        )
+
+        fun create(modelName: String): LLModel {
+            val (contextLength, maxOutputTokens) = when {
+                modelName.contains("M2.1") -> 1_000_000L to 128_000L
+                modelName.contains("M2.0") -> 1_000_000L to 64_000L
+                modelName.contains("01V") -> 1_000_000L to 32_000L
+                else -> 1_000_000L to 32_000L
+            }
+
+            val capabilities = if (modelName.contains("01V")) {
+                listOf(
+                    LLMCapability.Completion,
+                    LLMCapability.Temperature,
+                    LLMCapability.Tools,
+                    LLMCapability.ToolChoice,
+                    LLMCapability.Vision.Image,
+                    LLMCapability.Document
+                )
+            } else {
+                listOf(
+                    LLMCapability.Completion,
+                    LLMCapability.Temperature,
+                    LLMCapability.Tools,
+                    LLMCapability.ToolChoice,
+                    LLMCapability.MultipleChoices
+                )
+            }
+
+            return LLModel(
+                provider = LLMProvider.OpenAI,
+                id = modelName,
+                capabilities = capabilities,
+                contextLength = contextLength,
+                maxOutputTokens = maxOutputTokens
             )
         }
     }
