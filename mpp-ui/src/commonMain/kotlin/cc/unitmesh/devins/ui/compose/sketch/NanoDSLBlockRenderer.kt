@@ -19,21 +19,29 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.layer.GraphicsLayer
+import androidx.compose.ui.graphics.layer.drawLayer
+import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.unit.dp
 import cc.unitmesh.devins.ui.compose.icons.AutoDevComposeIcons
 import cc.unitmesh.devins.ui.nano.StatefulNanoRenderer
+import cc.unitmesh.devins.ui.platform.createFileChooser
 import cc.unitmesh.xuiper.dsl.NanoDSL
 import cc.unitmesh.xuiper.ir.NanoIR
 import cc.unitmesh.devins.ui.nano.theme.NanoThemeFamily
 import cc.unitmesh.devins.ui.nano.theme.ProvideNanoTheme
 import cc.unitmesh.devins.ui.nano.theme.parseHexColorOrNull
 import cc.unitmesh.devins.ui.nano.theme.rememberNanoThemeState
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import androidx.compose.material3.Surface as M3Surface
 
 /**
@@ -76,6 +84,10 @@ fun NanoDSLBlockRenderer(
     var nanoIR by remember { mutableStateOf<NanoIR?>(null) }
     var isMobileLayout by remember { mutableStateOf(false) }
     var zoomLevel by remember { mutableStateOf(0.75f) }
+    var isCapturingScreenshot by remember { mutableStateOf(false) }
+
+    // GraphicsLayer for screenshot capture
+    val graphicsLayer = rememberGraphicsLayer()
 
     val nanoThemeState = rememberNanoThemeState(
         family = NanoThemeFamily.BANK_BLACK_GOLD,
@@ -87,23 +99,23 @@ fun NanoDSLBlockRenderer(
     // This ensures theme switching affects background and not only icons.
     ProvideNanoTheme(state = nanoThemeState) {
 
-    // Parse NanoDSL to IR when code changes
-    LaunchedEffect(nanodslCode, isComplete) {
-        if (isComplete && nanodslCode.isNotBlank()) {
-            try {
-                val ir = NanoDSL.toIR(nanodslCode)
-                nanoIR = ir
+        // Parse NanoDSL to IR when code changes
+        LaunchedEffect(nanodslCode, isComplete) {
+            if (isComplete && nanodslCode.isNotBlank()) {
+                try {
+                    val ir = NanoDSL.toIR(nanodslCode)
+                    nanoIR = ir
+                    parseError = null
+                } catch (e: Exception) {
+                    parseError = e.message ?: "Unknown parse error"
+                    nanoIR = null
+                }
+            } else if (!isComplete) {
+                // Reset during streaming
                 parseError = null
-            } catch (e: Exception) {
-                parseError = e.message ?: "Unknown parse error"
                 nanoIR = null
             }
-        } else if (!isComplete) {
-            // Reset during streaming
-            parseError = null
-            nanoIR = null
         }
-    }
 
         Column(
             modifier = modifier
@@ -118,285 +130,325 @@ fun NanoDSLBlockRenderer(
                 )
                 .background(MaterialTheme.colorScheme.surface)
         ) {
-        // Header
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "NanoDSL",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                if (parseError != null) {
-                    Spacer(Modifier.width(8.dp))
-                    M3Surface(
-                        shape = RoundedCornerShape(4.dp),
-                        color = MaterialTheme.colorScheme.errorContainer
-                    ) {
-                        Text(
-                            text = "Parse Error",
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                    }
-                } else if (nanoIR != null) {
-                    Spacer(Modifier.width(8.dp))
-                    M3Surface(
-                        shape = RoundedCornerShape(4.dp),
-                        color = MaterialTheme.colorScheme.tertiaryContainer
-                    ) {
-                        Text(
-                            text = "Valid",
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.tertiary
-                        )
-                    }
-                } else if (!isComplete) {
-                    Spacer(Modifier.width(8.dp))
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(12.dp),
-                        strokeWidth = 1.5.dp,
+            // Header
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "NanoDSL",
+                        style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                }
-            }
 
-            // Toggle buttons (only show if we have valid IR or parse error)
-            if (nanoIR != null || parseError != null) {
-                val clipboardManager = LocalClipboardManager.current
-                var showCopied by remember { mutableStateOf(false) }
-
-                // Auto-hide "Copied!" message after 2 seconds
-                LaunchedEffect(showCopied) {
-                    if (showCopied) {
-                        kotlinx.coroutines.delay(2000)
-                        showCopied = false
+                    if (parseError != null) {
+                        Spacer(Modifier.width(8.dp))
+                        M3Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = MaterialTheme.colorScheme.errorContainer
+                        ) {
+                            Text(
+                                text = "Parse Error",
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    } else if (nanoIR != null) {
+                        Spacer(Modifier.width(8.dp))
+                        M3Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = MaterialTheme.colorScheme.tertiaryContainer
+                        ) {
+                            Text(
+                                text = "Valid",
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.tertiary
+                            )
+                        }
+                    } else if (!isComplete) {
+                        Spacer(Modifier.width(8.dp))
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(12.dp),
+                            strokeWidth = 1.5.dp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
 
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Zoom out button
-                    NanoDSLIconButton(
-                        icon = AutoDevComposeIcons.ZoomOut,
-                        contentDescription = "Zoom Out",
-                        isActive = zoomLevel > 0.5f,
-                        onClick = { if (zoomLevel > 0.5f) zoomLevel -= 0.1f }
-                    )
+                // Toggle buttons (only show if we have valid IR or parse error)
+                if (nanoIR != null || parseError != null) {
+                    val clipboardManager = LocalClipboardManager.current
+                    var showCopied by remember { mutableStateOf(false) }
 
-                    // Zoom in button
-                    NanoDSLIconButton(
-                        icon = AutoDevComposeIcons.ZoomIn,
-                        contentDescription = "Zoom In",
-                        isActive = zoomLevel < 2.0f,
-                        onClick = { if (zoomLevel < 2.0f) zoomLevel += 0.1f }
-                    )
-
-                    Spacer(Modifier.width(4.dp))
-
-                    // Theme mode toggle button (applies real Nano MaterialTheme)
-                    NanoDSLIconButton(
-                        icon = if (nanoThemeState.dark) AutoDevComposeIcons.DarkMode else AutoDevComposeIcons.LightMode,
-                        contentDescription = if (nanoThemeState.dark) "Dark Mode" else "Light Mode",
-                        isActive = nanoThemeState.dark,
-                        onClick = { nanoThemeState.dark = !nanoThemeState.dark }
-                    )
-
-                    // Theme family selector
-                    Box {
-                        var themeMenuExpanded by remember { mutableStateOf(false) }
-
-                        NanoDSLIconButton(
-                            icon = AutoDevComposeIcons.Palette,
-                            contentDescription = "Theme Style",
-                            isActive = nanoThemeState.family != NanoThemeFamily.BANK_BLACK_GOLD,
-                            onClick = { themeMenuExpanded = true }
-                        )
-
-                        DropdownMenu(
-                            expanded = themeMenuExpanded,
-                            onDismissRequest = { themeMenuExpanded = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("Bank (Black/Gold)") },
-                                onClick = {
-                                    nanoThemeState.family = NanoThemeFamily.BANK_BLACK_GOLD
-                                    // Keep previous dark choice for bank style; don't force.
-                                    themeMenuExpanded = false
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Travel (Airbnb)") },
-                                onClick = {
-                                    nanoThemeState.family = NanoThemeFamily.TRAVEL_AIRBNB
-                                    // Airbnb style is expected to be light by default.
-                                    nanoThemeState.dark = false
-                                    themeMenuExpanded = false
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Custom (Seed Color)") },
-                                onClick = {
-                                    nanoThemeState.family = NanoThemeFamily.CUSTOM
-                                    themeMenuExpanded = false
-                                }
-                            )
+                    // Auto-hide "Copied!" message after 2 seconds
+                    LaunchedEffect(showCopied) {
+                        if (showCopied) {
+                            kotlinx.coroutines.delay(2000)
+                            showCopied = false
                         }
                     }
 
-                    if (nanoThemeState.family == NanoThemeFamily.CUSTOM) {
-                        val seedColor = parseHexColorOrNull(nanoThemeState.customSeedHex)
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Zoom out button
+                        NanoDSLIconButton(
+                            icon = AutoDevComposeIcons.ZoomOut,
+                            contentDescription = "Zoom Out",
+                            isActive = zoomLevel > 0.5f,
+                            onClick = { if (zoomLevel > 0.5f) zoomLevel -= 0.1f }
+                        )
 
-                        // Preset swatches
+                        // Zoom in button
+                        NanoDSLIconButton(
+                            icon = AutoDevComposeIcons.ZoomIn,
+                            contentDescription = "Zoom In",
+                            isActive = zoomLevel < 2.0f,
+                            onClick = { if (zoomLevel < 2.0f) zoomLevel += 0.1f }
+                        )
+
+                        Spacer(Modifier.width(4.dp))
+
+                        // Theme mode toggle button (applies real Nano MaterialTheme)
+                        NanoDSLIconButton(
+                            icon = if (nanoThemeState.dark) AutoDevComposeIcons.DarkMode else AutoDevComposeIcons.LightMode,
+                            contentDescription = if (nanoThemeState.dark) "Dark Mode" else "Light Mode",
+                            isActive = nanoThemeState.dark,
+                            onClick = { nanoThemeState.dark = !nanoThemeState.dark }
+                        )
+
+                        // Theme family selector
                         Box {
-                            var swatchMenuExpanded by remember { mutableStateOf(false) }
-                            val swatchColor = seedColor ?: MaterialTheme.colorScheme.primary
+                            var themeMenuExpanded by remember { mutableStateOf(false) }
 
-                            Box(
-                                modifier = Modifier
-                                    .size(28.dp)
-                                    .clip(MaterialTheme.shapes.small)
-                                    .clickable { swatchMenuExpanded = true }
-                                    .border(1.dp, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.small)
-                                    .background(swatchColor)
+                            NanoDSLIconButton(
+                                icon = AutoDevComposeIcons.Palette,
+                                contentDescription = "Theme Style",
+                                isActive = nanoThemeState.family != NanoThemeFamily.BANK_BLACK_GOLD,
+                                onClick = { themeMenuExpanded = true }
                             )
 
                             DropdownMenu(
-                                expanded = swatchMenuExpanded,
-                                onDismissRequest = { swatchMenuExpanded = false }
+                                expanded = themeMenuExpanded,
+                                onDismissRequest = { themeMenuExpanded = false }
                             ) {
-                                val presets = listOf(
-                                    "#FF385C",
-                                    "#FFD166",
-                                    "#00A699",
-                                    "#6366F1",
-                                    "#00BCD4",
-                                    "#22C55E",
-                                    "#A855F7",
-                                    "#EF4444"
+                                DropdownMenuItem(
+                                    text = { Text("Bank (Black/Gold)") },
+                                    onClick = {
+                                        nanoThemeState.family = NanoThemeFamily.BANK_BLACK_GOLD
+                                        // Keep previous dark choice for bank style; don't force.
+                                        themeMenuExpanded = false
+                                    }
                                 )
-                                presets.forEach { hex ->
-                                    DropdownMenuItem(
-                                        text = { Text(hex) },
-                                        onClick = {
-                                            nanoThemeState.customSeedHex = hex
-                                            swatchMenuExpanded = false
-                                        }
-                                    )
-                                }
+                                DropdownMenuItem(
+                                    text = { Text("Travel (Airbnb)") },
+                                    onClick = {
+                                        nanoThemeState.family = NanoThemeFamily.TRAVEL_AIRBNB
+                                        // Airbnb style is expected to be light by default.
+                                        nanoThemeState.dark = false
+                                        themeMenuExpanded = false
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Custom (Seed Color)") },
+                                    onClick = {
+                                        nanoThemeState.family = NanoThemeFamily.CUSTOM
+                                        themeMenuExpanded = false
+                                    }
+                                )
                             }
                         }
 
-                        OutlinedTextField(
-                            value = nanoThemeState.customSeedHex,
-                            onValueChange = { nanoThemeState.customSeedHex = it.take(10) },
-                            modifier = Modifier.width(140.dp),
-                            singleLine = true,
-                            textStyle = MaterialTheme.typography.labelSmall,
-                            placeholder = { Text("#RRGGBB") }
-                        )
-                    }
+                        if (nanoThemeState.family == NanoThemeFamily.CUSTOM) {
+                            val seedColor = parseHexColorOrNull(nanoThemeState.customSeedHex)
 
-                    // Layout toggle button
-                    NanoDSLIconButton(
-                        icon = if (isMobileLayout) AutoDevComposeIcons.PhoneAndroid else AutoDevComposeIcons.Computer,
-                        contentDescription = if (isMobileLayout) "Mobile Layout" else "Desktop Layout",
-                        isActive = isMobileLayout,
-                        onClick = { isMobileLayout = !isMobileLayout }
-                    )
+                            // Preset swatches
+                            Box {
+                                var swatchMenuExpanded by remember { mutableStateOf(false) }
+                                val swatchColor = seedColor ?: MaterialTheme.colorScheme.primary
 
-                    // Preview/Code toggle button
-                    NanoDSLIconButton(
-                        icon = AutoDevComposeIcons.Code,
-                        contentDescription = if (showPreview && nanoIR != null) "Show Code" else "Show Preview",
-                        isActive = showPreview && nanoIR != null,
-                        onClick = { showPreview = !showPreview }
-                    )
+                                Box(
+                                    modifier = Modifier
+                                        .size(28.dp)
+                                        .clip(MaterialTheme.shapes.small)
+                                        .clickable { swatchMenuExpanded = true }
+                                        .border(1.dp, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.small)
+                                        .background(swatchColor)
+                                )
 
-                    // Copy button
-                    NanoDSLIconButton(
-                        icon = if (showCopied) AutoDevComposeIcons.Check else AutoDevComposeIcons.ContentCopy,
-                        contentDescription = if (showCopied) "Copied" else "Copy",
-                        isActive = showCopied,
-                        onClick = {
-                            clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(nanodslCode))
-                            showCopied = true
+                                DropdownMenu(
+                                    expanded = swatchMenuExpanded,
+                                    onDismissRequest = { swatchMenuExpanded = false }
+                                ) {
+                                    val presets = listOf(
+                                        "#FF385C",
+                                        "#FFD166",
+                                        "#00A699",
+                                        "#6366F1",
+                                        "#00BCD4",
+                                        "#22C55E",
+                                        "#A855F7",
+                                        "#EF4444"
+                                    )
+                                    presets.forEach { hex ->
+                                        DropdownMenuItem(
+                                            text = { Text(hex) },
+                                            onClick = {
+                                                nanoThemeState.customSeedHex = hex
+                                                swatchMenuExpanded = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+
+                            OutlinedTextField(
+                                value = nanoThemeState.customSeedHex,
+                                onValueChange = { nanoThemeState.customSeedHex = it.take(10) },
+                                modifier = Modifier.width(140.dp),
+                                singleLine = true,
+                                textStyle = MaterialTheme.typography.labelSmall,
+                                placeholder = { Text("#RRGGBB") }
+                            )
                         }
-                    )
+
+                        // Layout toggle button
+                        NanoDSLIconButton(
+                            icon = if (isMobileLayout) AutoDevComposeIcons.PhoneAndroid else AutoDevComposeIcons.Computer,
+                            contentDescription = if (isMobileLayout) "Mobile Layout" else "Desktop Layout",
+                            isActive = isMobileLayout,
+                            onClick = { isMobileLayout = !isMobileLayout }
+                        )
+
+                        // Preview/Code toggle button
+                        NanoDSLIconButton(
+                            icon = AutoDevComposeIcons.Code,
+                            contentDescription = if (showPreview && nanoIR != null) "Show Code" else "Show Preview",
+                            isActive = showPreview && nanoIR != null,
+                            onClick = { showPreview = !showPreview }
+                        )
+
+                        // Copy button
+                        NanoDSLIconButton(
+                            icon = if (showCopied) AutoDevComposeIcons.Check else AutoDevComposeIcons.ContentCopy,
+                            contentDescription = if (showCopied) "Copied" else "Copy",
+                            isActive = showCopied,
+                            onClick = {
+                                clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(nanodslCode))
+                                showCopied = true
+                            }
+                        )
+
+                        // Screenshot button (only show when preview is visible)
+                        if (showPreview && nanoIR != null) {
+                            NanoDSLIconButton(
+                                icon = AutoDevComposeIcons.Screenshot,
+                                contentDescription = "Screenshot",
+                                isActive = isCapturingScreenshot,
+                                onClick = {
+                                    isCapturingScreenshot = true
+                                    CoroutineScope(Dispatchers.Default).launch {
+                                        try {
+                                            val imageBitmap = graphicsLayer.toImageBitmap()
+                                            val pngBytes = encodeImageBitmapToPng(imageBitmap)
+                                            if (pngBytes != null) {
+                                                val fileChooser = createFileChooser()
+                                                val timestamp =
+                                                    kotlinx.datetime.Clock.System.now().toEpochMilliseconds()
+                                                fileChooser.saveFile(
+                                                    title = "Save NanoDSL Screenshot",
+                                                    defaultFileName = "nanodsl-screenshot-$timestamp.png",
+                                                    fileExtension = "png",
+                                                    data = pngBytes
+                                                )
+                                            }
+                                        } catch (e: Exception) {
+                                            e.printStackTrace()
+                                        } finally {
+                                            isCapturingScreenshot = false
+                                        }
+                                    }
+                                }
+                            )
+                        }
+                    }
                 }
             }
-        }
 
-        // Content
-        if (showPreview && nanoIR != null) {
-            // Live UI Preview with theme and layout control
-            val previewModifier = if (isMobileLayout) {
-                Modifier
-                    .width(600.dp)  // Fixed mobile width
-                    .padding(16.dp)
+            // Content
+            if (showPreview && nanoIR != null) {
+                // Live UI Preview with theme and layout control
+                val previewModifier = if (isMobileLayout) {
+                    Modifier
+                        .width(600.dp)  // Fixed mobile width
+                        .padding(16.dp)
+                } else {
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                }
+                val backgroundColor = MaterialTheme.colorScheme.surface
+                val borderColor = MaterialTheme.colorScheme.outline
+
+                Box(
+                    modifier = previewModifier
+                        .background(
+                            color = backgroundColor,
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                        .border(
+                            width = 1.dp,
+                            color = borderColor,
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                        .padding(16.dp)
+                        // Draw content to GraphicsLayer for screenshot capture
+                        .drawWithContent {
+                            graphicsLayer.record {
+                                this@drawWithContent.drawContent()
+                            }
+                            drawLayer(graphicsLayer)
+                        }
+                ) {
+                    // Use Layout to properly scale content including layout size
+                    ScaledBox(scale = zoomLevel) {
+                        StatefulNanoRenderer.Render(nanoIR!!)
+                    }
+                }
             } else {
-                Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-            }
-            val backgroundColor = MaterialTheme.colorScheme.surface
-            val borderColor = MaterialTheme.colorScheme.outline
-
-            Box(
-                modifier = previewModifier
-                    .background(
-                        color = backgroundColor,
-                        shape = RoundedCornerShape(8.dp)
-                    )
-                    .border(
-                        width = 1.dp,
-                        color = borderColor,
-                        shape = RoundedCornerShape(8.dp)
-                    )
-                    .padding(16.dp)
-            ) {
-                // Use Layout to properly scale content including layout size
-                ScaledBox(scale = zoomLevel) {
-                    StatefulNanoRenderer.Render(nanoIR!!)
-                }
-            }
-        } else {
-            // Source code view
-            CodeBlockRenderer(
-                code = nanodslCode,
-                language = "nanodsl",
-                displayName = "NanoDSL"
-            )
-        }
-
-        // Show parse error details
-        if (parseError != null && !showPreview) {
-            M3Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(8.dp),
-                color = MaterialTheme.colorScheme.errorContainer,
-                shape = RoundedCornerShape(4.dp)
-            ) {
-                Text(
-                    text = "Error: $parseError",
-                    modifier = Modifier.padding(8.dp),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error
+                // Source code view
+                CodeBlockRenderer(
+                    code = nanodslCode,
+                    language = "nanodsl",
+                    displayName = "NanoDSL"
                 )
             }
-        }
+
+            // Show parse error details
+            if (parseError != null && !showPreview) {
+                M3Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(8.dp),
+                    color = MaterialTheme.colorScheme.errorContainer,
+                    shape = RoundedCornerShape(4.dp)
+                ) {
+                    Text(
+                        text = "Error: $parseError",
+                        modifier = Modifier.padding(8.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
         }
     }
 }
@@ -545,7 +597,6 @@ private fun NanoDSLIconButton(
 }
 
 
-
 /**
  * A Box that scales its content and adjusts its layout size accordingly.
  * Unlike Modifier.scale() which only visually scales content without changing layout,
@@ -568,9 +619,9 @@ private fun ScaledBox(
         // Measure children with scaled-up constraints so they have room to render
         val scaledConstraints = constraints.copy(
             maxWidth = if (constraints.maxWidth == Int.MAX_VALUE) Int.MAX_VALUE
-                       else (constraints.maxWidth / scale).toInt(),
+            else (constraints.maxWidth / scale).toInt(),
             maxHeight = if (constraints.maxHeight == Int.MAX_VALUE) Int.MAX_VALUE
-                        else (constraints.maxHeight / scale).toInt()
+            else (constraints.maxHeight / scale).toInt()
         )
 
         val placeables = measurables.map { it.measure(scaledConstraints) }

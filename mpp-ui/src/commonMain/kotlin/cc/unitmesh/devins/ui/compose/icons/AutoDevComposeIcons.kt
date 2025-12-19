@@ -126,6 +126,7 @@ object AutoDevComposeIcons {
     val ZoomIn: ImageVector get() = Icons.Default.ZoomIn
     val ZoomOut: ImageVector get() = Icons.Default.ZoomOut
     val PhoneAndroid: ImageVector get() = Icons.Default.PhoneAndroid
+    val Screenshot: ImageVector get() = Icons.Default.CameraAlt
 
     /**
      * Custom icons converted from SVG resources
