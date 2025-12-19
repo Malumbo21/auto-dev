@@ -15,6 +15,8 @@ internal actual suspend fun platformWriteCachedImageBytes(key: String, bytes: By
     val file = nanoImageCacheFile(key)
     file.parentFile?.mkdirs()
     runCatching { file.writeBytes(bytes) }
+    // Best-effort JPG copy for local reuse/debugging.
+    runCatching { persistNanoImageAsJpeg(key, bytes) }
 }
 
 private fun nanoImageCacheFile(key: String): File {

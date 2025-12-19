@@ -23,6 +23,8 @@ import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlin.io.encoding.Base64
+import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlinx.serialization.json.jsonPrimitive
 
 /**
@@ -44,10 +46,12 @@ fun RenderImageContent(
 ) {
     var generatedImageUrl by remember(originalSrc) { mutableStateOf<String?>(null) }
     var isGenerating by remember(originalSrc) { mutableStateOf(false) }
-    var errorMessage by remember(originalSrc) { mutableStateOf<String?>(null) }
     var imageGenerationService by remember { mutableStateOf<ImageGenerationService?>(null) }
-    var loadedImageBitmap by remember(originalSrc) { mutableStateOf<ImageBitmap?>(null) }
-    var isLoadingImage by remember(originalSrc) { mutableStateOf(false) }
+
+    val resolvedSrc = remember(originalSrc, generatedImageUrl) { generatedImageUrl ?: originalSrc }
+    var errorMessage by remember(resolvedSrc) { mutableStateOf<String?>(null) }
+    var loadedImageBitmap by remember(resolvedSrc) { mutableStateOf<ImageBitmap?>(null) }
+    var isLoadingImage by remember(resolvedSrc) { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         try {
@@ -61,7 +65,7 @@ fun RenderImageContent(
 
     LaunchedEffect(originalSrc, imageGenerationService) {
         if (imageGenerationService != null &&
-            !originalSrc.startsWith("data:") &&
+            !isDirectImageSrc(originalSrc) &&
             generatedImageUrl == null &&
             !isGenerating
         ) {
@@ -83,15 +87,16 @@ fun RenderImageContent(
         }
     }
 
-    LaunchedEffect(generatedImageUrl) {
-        if (generatedImageUrl != null && loadedImageBitmap == null && !isLoadingImage) {
+    LaunchedEffect(resolvedSrc) {
+        if (!isDirectImageSrc(resolvedSrc) || loadedImageBitmap != null || isLoadingImage) {
+            return@LaunchedEffect
+        }
+
+        if (loadedImageBitmap == null && !isLoadingImage) {
             isLoadingImage = true
             try {
-                val url = generatedImageUrl!!
-                val cacheKey = nanoImageCacheKeyFromSrc(url)
-                val imageBytes = NanoImageCache.getOrPut(cacheKey) {
-                    downloadImageBytes(url)
-                }
+                val cacheKey = nanoImageCacheKeyFromSrc(stableCacheKeySrc(resolvedSrc))
+                val imageBytes = NanoImageCache.getOrPut(cacheKey) { loadImageBytesFromSrc(resolvedSrc) }
                 val bitmap = decodeImageBytesToBitmap(imageBytes)
                 loadedImageBitmap = bitmap
             } catch (e: Exception) {
@@ -126,16 +131,74 @@ fun RenderImageContent(
         loadedImageBitmap != null -> {
             Image(
                 bitmap = loadedImageBitmap!!,
-                contentDescription = originalSrc,
+                contentDescription = resolvedSrc,
                 modifier = Modifier.Companion.fillMaxSize(),
                 contentScale = ContentScale.Companion.Crop
             )
         }
         else -> {
-            Text("Image: $originalSrc", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Image: $resolvedSrc", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
+
+private fun isDirectImageSrc(src: String): Boolean {
+    val trimmed = src.trim()
+    if (trimmed.isEmpty()) return false
+
+    if (trimmed.startsWith("data:image/", ignoreCase = true)) return true
+    if (trimmed.startsWith("http://", ignoreCase = true) || trimmed.startsWith("https://", ignoreCase = true)) return true
+    if (trimmed.startsWith("file://", ignoreCase = true)) return true
+
+    val lower = trimmed.lowercase()
+    if (lower.endsWith(".png") || lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".gif") ||
+        lower.endsWith(".webp") || lower.endsWith(".bmp") || lower.endsWith(".svg")
+    ) {
+        return true
+    }
+
+    // Raw base64 payload (no data: prefix). Keep this conservative so normal prompts don't get misdetected.
+    if (!trimmed.contains(' ') && trimmed.length >= 256 && BASE64_PAYLOAD_REGEX.matches(trimmed)) return true
+
+    return false
+}
+
+private fun stableCacheKeySrc(src: String): String {
+    val trimmed = src.trim()
+    // Avoid hashing huge inline base64/data-uri strings.
+    return when {
+        trimmed.startsWith("data:", ignoreCase = true) -> "data:${trimmed.length}:${trimmed.take(160)}"
+        !trimmed.contains(' ') && trimmed.length >= 256 && BASE64_PAYLOAD_REGEX.matches(trimmed) -> "b64:${trimmed.length}:${trimmed.take(160)}"
+        else -> trimmed
+    }
+}
+
+@OptIn(ExperimentalEncodingApi::class)
+private suspend fun loadImageBytesFromSrc(src: String): ByteArray {
+    val trimmed = src.trim()
+    return when {
+        trimmed.startsWith("data:", ignoreCase = true) -> decodeDataUriToBytes(trimmed)
+        trimmed.startsWith("http://", ignoreCase = true) || trimmed.startsWith("https://", ignoreCase = true) -> downloadImageBytes(trimmed)
+        // Raw base64 without data: prefix
+        !trimmed.contains(' ') && trimmed.length >= 256 && BASE64_PAYLOAD_REGEX.matches(trimmed) -> Base64.decode(trimmed)
+        else -> error("Unsupported image src: ${trimmed.take(60)}")
+    }
+}
+
+@OptIn(ExperimentalEncodingApi::class)
+private fun decodeDataUriToBytes(dataUri: String): ByteArray {
+    val commaIndex = dataUri.indexOf(',')
+    require(commaIndex >= 0) { "Invalid data URI (missing comma)" }
+
+    val meta = dataUri.substring(5, commaIndex) // after "data:"
+    val payload = dataUri.substring(commaIndex + 1)
+    val isBase64 = meta.contains(";base64", ignoreCase = true)
+    require(isBase64) { "Unsupported data URI encoding (expected base64)" }
+
+    return Base64.decode(payload)
+}
+
+private val BASE64_PAYLOAD_REGEX = Regex("^[A-Za-z0-9+/\\r\\n]+=*$")
 
 @Composable
 fun RenderImage(
