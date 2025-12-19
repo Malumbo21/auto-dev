@@ -7,6 +7,7 @@ import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -20,6 +21,36 @@ import kotlinx.serialization.json.jsonPrimitive
  * Contains text interpolation, expression evaluation, and styling helpers.
  */
 object NanoRenderUtils {
+
+    private val lenientJson = Json {
+        isLenient = true
+        ignoreUnknownKeys = true
+        allowTrailingComma = true
+        allowStructuredMapKeys = true
+    }
+
+    private fun jsonElementToRuntimeValue(el: JsonElement?): Any? {
+        return when (el) {
+            null -> null
+            is JsonPrimitive -> el.booleanOrNull ?: el.intOrNull ?: el.content.toDoubleOrNull() ?: el.content
+            is JsonArray -> el.map { jsonElementToRuntimeValue(it) }
+            is JsonObject -> el.entries.associate { (k, v) -> k to jsonElementToRuntimeValue(v) }
+            else -> el.toString()
+        }
+    }
+
+    private fun parseJsonLiteralToRuntimeValueOrNull(text: String): Any? {
+        val trimmed = text.trim()
+        if (trimmed.isEmpty()) return null
+        if (!(trimmed.startsWith('[') || trimmed.startsWith('{'))) return null
+
+        return try {
+            val parsed = lenientJson.parseToJsonElement(trimmed)
+            jsonElementToRuntimeValue(parsed)
+        } catch (_: Throwable) {
+            null
+        }
+    }
 
     /**
      * Resolve an expression to a runtime value (not stringified).
@@ -318,6 +349,12 @@ object NanoRenderUtils {
     private fun resolveIdentifierAny(identifier: String, state: Map<String, Any>): Any? {
         val trimmed = identifier.trim()
         if (trimmed.isBlank()) return null
+
+        // Support JSON literals in expressions, primarily for control-flow like:
+        // `for item in [ {"name": "A"}, {"name": "B"} ]:`
+        // This returns runtime Kotlin List/Map values so dot/bracket access works.
+        parseJsonLiteralToRuntimeValueOrNull(trimmed)?.let { return it }
+
         return resolvePathAny(trimmed, state)
     }
 
@@ -344,16 +381,6 @@ object NanoRenderUtils {
 
         fun mapGet(map: Map<*, *>, key: String): Any? {
             return map[key] ?: map.entries.firstOrNull { it.key?.toString() == key }?.value
-        }
-
-        fun jsonElementToRuntimeValue(el: JsonElement?): Any? {
-            return when (el) {
-                null -> null
-                is JsonPrimitive -> el.booleanOrNull ?: el.intOrNull ?: el.content.toDoubleOrNull() ?: el.content
-                is JsonArray -> el.map { jsonElementToRuntimeValue(it) }
-                is JsonObject -> el.entries.associate { (k, v) -> k to jsonElementToRuntimeValue(v) }
-                else -> el.toString()
-            }
         }
 
         fun jsonObjectGet(obj: JsonObject, key: String): Any? {

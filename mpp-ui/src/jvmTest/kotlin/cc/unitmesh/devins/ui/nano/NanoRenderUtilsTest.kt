@@ -165,4 +165,25 @@ class NanoRenderUtilsTest {
         assertFalse(NanoRenderUtils.evaluateCondition("state.selectedFlight", state))
         assertFalse(NanoRenderUtils.evaluateCondition("state.flights", state))
     }
+
+    @Test
+    fun `resolveAny supports JSON list literals for for-loop`() {
+        val expr = """
+            [
+              {"name": "Gardens by the Bay", "icon": "leaf", "color": "green"},
+              {"name": "Marina Bay Sands", "icon": "building", "color": "blue"}
+            ]
+        """.trimIndent()
+
+        val resolved = NanoRenderUtils.resolveAny(expr, emptyMap())
+        assertNotNull(resolved)
+
+        val list = resolved as List<*>
+        assertEquals(2, list.size)
+
+        val first = list[0] as Map<*, *>
+        assertEquals("Gardens by the Bay", first["name"])
+        assertEquals("leaf", first["icon"])
+        assertEquals("green", first["color"])
+    }
 }

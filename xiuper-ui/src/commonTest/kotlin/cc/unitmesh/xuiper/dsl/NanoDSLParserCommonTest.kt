@@ -156,5 +156,29 @@ component BadgeTest:
         assertEquals("Active", badge.text)
         assertEquals("green", badge.color)
     }
+
+    @Test
+    fun shouldParseForLoopWithMultilineListLiteralIterable() {
+        val source = """
+component Attractions:
+    HStack:
+        for attraction in [
+            {"name": "Gardens by the Bay", "icon": "leaf"},
+            {"name": "Marina Bay Sands", "icon": "building"}
+        ]:
+            Text(attraction.name)
+        """.trimIndent()
+
+        val result = NanoDSL.parse(source)
+
+        val hstack = result.children[0] as NanoNode.HStack
+        val forLoop = hstack.children[0] as NanoNode.ForLoop
+
+        assertEquals("attraction", forLoop.variable)
+        assertTrue(forLoop.iterable.trim().startsWith("["))
+        assertTrue(forLoop.iterable.trim().endsWith("]"))
+        assertTrue(forLoop.iterable.contains("Gardens by the Bay"))
+        assertEquals(1, forLoop.body.size)
+    }
 }
 

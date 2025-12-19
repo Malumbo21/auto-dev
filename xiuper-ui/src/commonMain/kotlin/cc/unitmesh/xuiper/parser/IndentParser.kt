@@ -44,6 +44,7 @@ class IndentParser(
         private val PROP_REGEX = Regex("""^(\w+):\s*(.*)$""")
         private val IF_REGEX = Regex("""^if\s+(.+?):\s*$""")
         private val FOR_REGEX = Regex("""^for\s+(\w+)\s+in\s+(.+?):\s*$""")
+        private val FOR_MULTILINE_LIST_START_REGEX = Regex("""^for\s+(\w+)\s+in\s+\[\s*$""")
         private val ON_CLICK_REGEX = Regex("""^on_click:\s*(.+)$""")
         private val ON_CLICK_BLOCK_REGEX = Regex("""^on_click:\s*$""")
         private val ON_EVENT_REGEX = Regex("""^on_([a-zA-Z_][\w_]*):\s*(.+)$""")
@@ -326,6 +327,14 @@ class IndentParser(
             return parseForLoop(lines, startIndex, match.groupValues[1], match.groupValues[2])
         }
 
+        // Handle multi-line list literal for loop, e.g.:
+        // for item in [
+        //   {"name": "A"},
+        // ]:
+        FOR_MULTILINE_LIST_START_REGEX.matchEntire(trimmed)?.let { match ->
+            return parseForLoopWithMultilineIterable(lines, startIndex, match.groupValues[1])
+        }
+
         // Handle Divider
         if (trimmed == "Divider") {
             return NanoNode.Divider to startIndex + 1
@@ -368,6 +377,119 @@ class IndentParser(
         }
 
         return null to startIndex + 1
+    }
+
+    private fun parseChildrenAfterHeader(
+        lines: List<String>,
+        headerEndIndex: Int,
+        baseIndent: Int
+    ): Pair<List<NanoNode>, Int> {
+        var index = headerEndIndex + 1
+        val children = mutableListOf<NanoNode>()
+
+        while (index < lines.size) {
+            val line = lines[index]
+            if (line.isBlank()) {
+                index++
+                continue
+            }
+
+            val currentIndent = getIndent(line)
+            if (currentIndent <= baseIndent) break
+
+            val (node, newIndex) = parseNode(lines, index, currentIndent)
+            if (node != null) {
+                children.add(node)
+            }
+            index = newIndex
+        }
+
+        return children to index
+    }
+
+    private fun parseForLoopWithMultilineIterable(
+        lines: List<String>,
+        startIndex: Int,
+        variable: String
+    ): Pair<NanoNode.ForLoop, Int> {
+        val baseIndent = getIndent(lines[startIndex])
+
+        // Collect iterable expression across lines until we hit a top-level closing ']' followed by ':'
+        // We keep only trimmed lines to produce valid JSON for the runtime resolver.
+        val parts = mutableListOf<String>()
+        var index = startIndex
+
+        var inString = false
+        var quoteChar = '\u0000'
+        var escaped = false
+        var bracketDepth = 0
+        var seenBracket = false
+        var headerEndIndex = startIndex
+
+        while (index < lines.size) {
+            val line = lines[index]
+            if (line.isBlank()) {
+                index++
+                continue
+            }
+
+            val trimmedLine = line.trim()
+            val lineExpr = if (index == startIndex) {
+                // first line is: for <var> in [
+                "["
+            } else {
+                trimmedLine
+            }
+
+            parts += lineExpr
+
+            for (c in lineExpr) {
+                if (inString) {
+                    if (escaped) {
+                        escaped = false
+                        continue
+                    }
+                    when (c) {
+                        '\\' -> escaped = true
+                        '\'', '"' -> if (c == quoteChar) {
+                            inString = false
+                            quoteChar = '\u0000'
+                        }
+                    }
+                    continue
+                }
+
+                when (c) {
+                    '\'', '"' -> {
+                        inString = true
+                        quoteChar = c
+                    }
+
+                    '[' -> {
+                        bracketDepth++
+                        seenBracket = true
+                    }
+
+                    ']' -> {
+                        if (bracketDepth > 0) bracketDepth--
+                    }
+                }
+            }
+
+            // Header ends when we close the top-level list and the line ends with ':' (e.g. "]:"
+            if (seenBracket && bracketDepth == 0 && trimmedLine.endsWith(':')) {
+                headerEndIndex = index
+                break
+            }
+
+            index++
+        }
+
+        var iterable = parts.joinToString("\n").trim()
+        if (iterable.endsWith(':')) iterable = iterable.dropLast(1).trim()
+
+        val (body, endIndex) = parseChildrenAfterHeader(lines, headerEndIndex, baseIndent)
+        return NanoNode.ForLoop(variable, iterable, body) to endIndex
     }
 
     private fun parseMultilineInlineComponentCallFromPartialStart(
