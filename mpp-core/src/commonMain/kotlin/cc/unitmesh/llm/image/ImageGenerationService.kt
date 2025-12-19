@@ -3,6 +3,7 @@ package cc.unitmesh.llm.image
 import cc.unitmesh.agent.tool.impl.http.HttpClientFactory
 import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.llm.LLMProviderType
+import cc.unitmesh.llm.LLMServiceManager
 import cc.unitmesh.llm.ModelConfig
 import cc.unitmesh.llm.ModelRegistry
 import io.ktor.client.*
@@ -27,15 +28,16 @@ import kotlinx.serialization.json.*
  * Supported models: cogview-3-flash, cogview-4
  * It is designed to work across all platforms (JVM, JS, WASM) using Ktor HTTP client.
  *
+ * The image model is read dynamically from LLMServiceManager, allowing UI components
+ * to change the model without recreating the service instance.
+ *
  * API Reference: https://docs.bigmodel.cn/api-reference/模型-api/图像生成
  *
  * @param config ModelConfig containing GLM API key and optional base URL
- * @param imageModel The image generation model to use (default: cogview-3-flash)
  */
 class ImageGenerationService(
     private val config: ModelConfig,
-    private val client: HttpClient = HttpClientFactory.create(),
-    private var imageModel: String = DEFAULT_IMAGE_MODEL
+    private val client: HttpClient = HttpClientFactory.create()
 ) {
     companion object {
         const val DEFAULT_IMAGE_MODEL = "cogview-3-flash"
@@ -47,9 +49,14 @@ class ImageGenerationService(
 
         /**
          * Create an ImageGenerationService from a ModelConfig.
+         * Note: imageModel parameter is deprecated, use LLMServiceManager.updateImageGenerationModel() instead.
          */
         fun create(config: ModelConfig, imageModel: String = DEFAULT_IMAGE_MODEL): ImageGenerationService {
-            return ImageGenerationService(config, imageModel = imageModel)
+            // Set the initial model in LLMServiceManager if provided
+            if (imageModel != DEFAULT_IMAGE_MODEL) {
+                LLMServiceManager.updateImageGenerationModel(imageModel)
+            }
+            return ImageGenerationService(config)
         }
 
         suspend fun default(): ImageGenerationService? {
@@ -59,15 +66,20 @@ class ImageGenerationService(
 
         /**
          * Create an ImageGenerationService with just an API key.
+         * Note: imageModel parameter is deprecated, use LLMServiceManager.updateImageGenerationModel() instead.
          */
         fun create(apiKey: String, imageModel: String = DEFAULT_IMAGE_MODEL): ImageGenerationService {
+            // Set the initial model in LLMServiceManager if provided
+            if (imageModel != DEFAULT_IMAGE_MODEL) {
+                LLMServiceManager.updateImageGenerationModel(imageModel)
+            }
             val config = ModelConfig(
                 provider = LLMProviderType.GLM,
                 modelName = imageModel,
                 apiKey = apiKey,
                 baseUrl = ModelRegistry.getDefaultBaseUrl(LLMProviderType.GLM)
             )
-            return ImageGenerationService(config, imageModel = imageModel)
+            return ImageGenerationService(config)
         }
     }
     private val json = Json {
@@ -147,27 +159,29 @@ class ImageGenerationService(
 
     /**
      * Set the image generation model.
+     * This now delegates to LLMServiceManager for global state management.
      * @param model The model ID (e.g., "cogview-3-flash", "cogview-4")
      */
     fun setImageModel(model: String) {
-        if (model in AVAILABLE_MODELS) {
-            imageModel = model
-        }
+        LLMServiceManager.updateImageGenerationModel(model)
     }
 
     /**
      * Get the current image generation model.
+     * This now reads from LLMServiceManager for consistent global state.
      */
-    fun getImageModel(): String = imageModel
+    fun getImageModel(): String = LLMServiceManager.getImageGenerationModel()
 
     private fun buildImageRequest(prompt: String, size: String): String {
+        // Read the current model from LLMServiceManager for dynamic updates
+        val currentModel = LLMServiceManager.getImageGenerationModel()
         val requestJson = buildJsonObject {
-            put("model", imageModel)
+            put("model", currentModel)
             put("prompt", prompt)
             put("size", size)
         }
 
-        println("Image model: $imageModel")
+        println("Image model: $currentModel")
         return json.encodeToString(JsonObject.serializer(), requestJson)
     }
 

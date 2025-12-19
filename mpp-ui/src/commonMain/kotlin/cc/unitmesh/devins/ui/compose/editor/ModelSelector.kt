@@ -11,6 +11,7 @@ import cc.unitmesh.devins.ui.compose.icons.AutoDevComposeIcons
 import cc.unitmesh.devins.ui.provider.CopilotModelRefresher
 import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.devins.ui.i18n.Strings
+import cc.unitmesh.llm.LLMServiceManager
 import cc.unitmesh.llm.ModelConfig
 import cc.unitmesh.llm.NamedModelConfig
 import kotlinx.coroutines.launch
@@ -34,7 +35,7 @@ fun ModelSelector(onConfigChange: (ModelConfig) -> Unit = {}) {
     var currentConfigName by remember { mutableStateOf<String?>(null) }
     var isRefreshingCopilot by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    
+
     // Check if GitHub Copilot refresh is available (JVM with local token)
     val isCopilotAvailable = remember { CopilotModelRefresher.isAvailable() }
 
@@ -45,8 +46,11 @@ fun ModelSelector(onConfigChange: (ModelConfig) -> Unit = {}) {
             availableConfigs = wrapper.getAllConfigs()
             currentConfigName = wrapper.getActiveName()
 
-            // Notify parent of initial config
-            wrapper.getActiveModelConfig()?.let { onConfigChange(it) }
+            // Notify parent of initial config and update LLMServiceManager
+            wrapper.getActiveModelConfig()?.let { config ->
+                LLMServiceManager.updateModelConfig(config)
+                onConfigChange(config)
+            }
         } catch (e: Exception) {
             println("Failed to load configs: ${e.message}")
         }
@@ -102,7 +106,10 @@ fun ModelSelector(onConfigChange: (ModelConfig) -> Unit = {}) {
                             try {
                                 ConfigManager.setActive(config.name)
                                 currentConfigName = config.name
-                                onConfigChange(config.toModelConfig())
+                                val modelConfig = config.toModelConfig()
+                                // Update LLMServiceManager for global state
+                                LLMServiceManager.updateModelConfig(modelConfig)
+                                onConfigChange(modelConfig)
                                 expanded = false
                             } catch (e: Exception) {
                                 println("Failed to set active config: ${e.message}")
@@ -157,11 +164,11 @@ fun ModelSelector(onConfigChange: (ModelConfig) -> Unit = {}) {
                 )
             }
         )
-        
+
         // Refresh GitHub Copilot button (only shown on JVM with local token)
         if (isCopilotAvailable) {
             DropdownMenuItem(
-                text = { 
+                text = {
                     Text(
                         if (isRefreshingCopilot) "Refreshing Copilot..." else "Refresh GitHub Copilot"
                     )
@@ -176,13 +183,13 @@ fun ModelSelector(onConfigChange: (ModelConfig) -> Unit = {}) {
                                     // Save each config to config.yaml
                                     val existingNames = availableConfigs.map { it.name }.toMutableSet()
                                     var savedCount = 0
-                                    
+
                                     for (config in copilotConfigs) {
                                         // Skip if already exists
                                         if (config.name in existingNames) {
                                             continue
                                         }
-                                        
+
                                         try {
                                             ConfigManager.saveConfig(config, setActive = false)
                                             existingNames.add(config.name)
@@ -191,11 +198,11 @@ fun ModelSelector(onConfigChange: (ModelConfig) -> Unit = {}) {
                                             println("Failed to save config ${config.name}: ${e.message}")
                                         }
                                     }
-                                    
+
                                     // Reload configs
                                     val wrapper = ConfigManager.load()
                                     availableConfigs = wrapper.getAllConfigs()
-                                    
+
                                     println("Added $savedCount GitHub Copilot configurations")
                                 }
                             } catch (e: Exception) {
@@ -240,7 +247,7 @@ fun ModelSelector(onConfigChange: (ModelConfig) -> Unit = {}) {
         ModelConfigDialog(
             currentConfig = if (isNewConfig) ModelConfig() else (currentConfig?.toModelConfig() ?: ModelConfig()),
             currentConfigName = if (isNewConfig) null else currentConfigName,
-            onDismiss = { 
+            onDismiss = {
                 showConfigDialog = false
                 isNewConfig = false
             },
@@ -272,7 +279,8 @@ fun ModelSelector(onConfigChange: (ModelConfig) -> Unit = {}) {
                         availableConfigs = wrapper.getAllConfigs()
                         currentConfigName = wrapper.getActiveName()
 
-                        // Notify parent
+                        // Update LLMServiceManager and notify parent
+                        LLMServiceManager.updateModelConfig(newModelConfig)
                         onConfigChange(newModelConfig)
                         showConfigDialog = false
 

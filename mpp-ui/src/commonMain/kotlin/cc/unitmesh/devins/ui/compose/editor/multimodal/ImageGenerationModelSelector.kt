@@ -8,6 +8,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import cc.unitmesh.devins.ui.compose.icons.AutoDevComposeIcons
+import cc.unitmesh.llm.LLMServiceManager
 
 /**
  * Available image generation models for GLM CogView.
@@ -28,6 +29,9 @@ enum class ImageGenerationModel(val modelId: String, val displayName: String) {
  * Shows current model and allows switching between available image generation models.
  * Only visible when GLM provider is selected.
  *
+ * This component automatically updates LLMServiceManager when the model changes,
+ * ensuring that ImageGenerationService uses the correct model.
+ *
  * @param currentModel The currently selected image generation model
  * @param onModelChange Callback when user selects a different model
  * @param modifier Modifier for the component
@@ -39,6 +43,11 @@ fun ImageGenerationModelSelector(
     modifier: Modifier = Modifier
 ) {
     var expanded by remember { mutableStateOf(false) }
+
+    // Initialize LLMServiceManager with current model on first composition
+    LaunchedEffect(Unit) {
+        LLMServiceManager.updateImageGenerationModel(currentModel.modelId)
+    }
 
     Box(modifier = modifier) {
         Row(
@@ -87,6 +96,8 @@ fun ImageGenerationModelSelector(
                         }
                     },
                     onClick = {
+                        // Update LLMServiceManager for global state
+                        LLMServiceManager.updateImageGenerationModel(model.modelId)
                         onModelChange(model)
                         expanded = false
                     },
