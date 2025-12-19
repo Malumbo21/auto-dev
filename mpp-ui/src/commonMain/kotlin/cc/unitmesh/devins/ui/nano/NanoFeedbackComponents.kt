@@ -268,33 +268,4 @@ object NanoFeedbackComponents {
             }
         }
     }
-
-    /**
-     * @deprecated Moved to [NanoDataComponents.RenderDataChart]
-     */
-    @Deprecated(
-        message = "Use NanoDataComponents.RenderDataChart instead",
-        replaceWith = ReplaceWith("NanoDataComponents.RenderDataChart(ir, state, modifier)", "cc.unitmesh.devins.ui.nano.NanoDataComponents")
-    )
-    @Composable
-    fun RenderDataChart(ir: NanoIR, state: Map<String, Any>, modifier: Modifier) {
-        NanoDataComponents.RenderDataChart(ir, state, modifier)
-    }
-
-    /**
-     * @deprecated Moved to [NanoDataComponents.RenderDataTable]
-     */
-    @Deprecated(
-        message = "Use NanoDataComponents.RenderDataTable instead",
-        replaceWith = ReplaceWith("NanoDataComponents.RenderDataTable(ir, state, onAction, modifier)", "cc.unitmesh.devins.ui.nano.NanoDataComponents")
-    )
-    @Composable
-    fun RenderDataTable(
-        ir: NanoIR,
-        state: Map<String, Any>,
-        onAction: (NanoActionIR) -> Unit,
-        modifier: Modifier
-    ) {
-        NanoDataComponents.RenderDataTable(ir, state, onAction, modifier)
-    }
 }
