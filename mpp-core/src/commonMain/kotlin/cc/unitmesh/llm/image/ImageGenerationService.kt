@@ -21,19 +21,55 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.*
 
 /**
- * Image Generation Service using GLM CogView-3-Flash API.
+ * Image Generation Service using GLM CogView API.
  *
- * This service generates images from text prompts using the GLM CogView-3-Flash model.
+ * This service generates images from text prompts using GLM CogView models.
+ * Supported models: cogview-3-flash, cogview-4
  * It is designed to work across all platforms (JVM, JS, WASM) using Ktor HTTP client.
  *
  * API Reference: https://docs.bigmodel.cn/api-reference/模型-api/图像生成
  *
  * @param config ModelConfig containing GLM API key and optional base URL
+ * @param imageModel The image generation model to use (default: cogview-3-flash)
  */
 class ImageGenerationService(
     private val config: ModelConfig,
-    private val client: HttpClient = HttpClientFactory.create()
+    private val client: HttpClient = HttpClientFactory.create(),
+    private var imageModel: String = DEFAULT_IMAGE_MODEL
 ) {
+    companion object {
+        const val DEFAULT_IMAGE_MODEL = "cogview-3-flash"
+
+        /**
+         * Available image generation models
+         */
+        val AVAILABLE_MODELS = listOf("cogview-3-flash", "cogview-4")
+
+        /**
+         * Create an ImageGenerationService from a ModelConfig.
+         */
+        fun create(config: ModelConfig, imageModel: String = DEFAULT_IMAGE_MODEL): ImageGenerationService {
+            return ImageGenerationService(config, imageModel = imageModel)
+        }
+
+        suspend fun default(): ImageGenerationService? {
+            val activeConfig = ConfigManager.load().getActiveConfig() ?: return null
+            return create(activeConfig.toModelConfig())
+        }
+
+        /**
+         * Create an ImageGenerationService with just an API key.
+         */
+        fun create(apiKey: String, imageModel: String = DEFAULT_IMAGE_MODEL): ImageGenerationService {
+            val config = ModelConfig(
+                provider = LLMProviderType.GLM,
+                modelName = imageModel,
+                apiKey = apiKey,
+                baseUrl = ModelRegistry.getDefaultBaseUrl(LLMProviderType.GLM)
+            )
+            return ImageGenerationService(config, imageModel = imageModel)
+        }
+    }
     private val json = Json {
         ignoreUnknownKeys = true
         isLenient = true
@@ -109,12 +145,29 @@ class ImageGenerationService(
         }
     }
 
+    /**
+     * Set the image generation model.
+     * @param model The model ID (e.g., "cogview-3-flash", "cogview-4")
+     */
+    fun setImageModel(model: String) {
+        if (model in AVAILABLE_MODELS) {
+            imageModel = model
+        }
+    }
+
+    /**
+     * Get the current image generation model.
+     */
+    fun getImageModel(): String = imageModel
+
     private fun buildImageRequest(prompt: String, size: String): String {
         val requestJson = buildJsonObject {
-            put("model", "cogview-3-flash")
+            put("model", imageModel)
             put("prompt", prompt)
             put("size", size)
         }
+
+        println("Image model: $imageModel")
         return json.encodeToString(JsonObject.serializer(), requestJson)
     }
 
@@ -154,33 +207,6 @@ class ImageGenerationService(
         val prompt: String,
         val size: String
     )
-
-    companion object {
-        /**
-         * Create an ImageGenerationService from a ModelConfig.
-         */
-        fun create(config: ModelConfig): ImageGenerationService {
-            return ImageGenerationService(config)
-        }
-
-        suspend fun default(): ImageGenerationService? {
-            val activeConfig = ConfigManager.load().getActiveConfig() ?: return null
-            return create(activeConfig.toModelConfig())
-        }
-
-        /**
-         * Create an ImageGenerationService with just an API key.
-         */
-        fun create(apiKey: String): ImageGenerationService {
-            val config = ModelConfig(
-                provider = LLMProviderType.GLM,
-                modelName = "cogview-3-flash",
-                apiKey = apiKey,
-                baseUrl = ModelRegistry.getDefaultBaseUrl(LLMProviderType.GLM)
-            )
-            return ImageGenerationService(config)
-        }
-    }
 }
 
 /**

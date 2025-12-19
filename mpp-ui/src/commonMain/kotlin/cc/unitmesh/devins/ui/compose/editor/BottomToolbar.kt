@@ -7,7 +7,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import cc.unitmesh.agent.Platform
+import cc.unitmesh.devins.ui.compose.editor.multimodal.ImageGenerationModel
+import cc.unitmesh.devins.ui.compose.editor.multimodal.ImageGenerationModelSelector
 import cc.unitmesh.devins.ui.compose.icons.AutoDevComposeIcons
+import cc.unitmesh.llm.LLMProviderType
 import cc.unitmesh.llm.ModelConfig
 
 /**
@@ -36,9 +39,16 @@ fun BottomToolbar(
     onImageClick: () -> Unit = {},
     hasImages: Boolean = false,
     imageCount: Int = 0,
-    visionModel: String? = null
+    visionModel: String? = null,
+    // Image generation model support (GLM only)
+    currentModelConfig: ModelConfig? = null,
+    imageGenerationModel: ImageGenerationModel = ImageGenerationModel.COGVIEW_3_FLASH,
+    onImageGenerationModelChange: ((ImageGenerationModel) -> Unit)? = null
 ) {
     val isMobile = Platform.isAndroid || Platform.isIOS
+
+    // Check if current model is GLM provider
+    val isGlmProvider = currentModelConfig?.provider == LLMProviderType.GLM
 
     Row(
         modifier =
@@ -88,6 +98,14 @@ fun BottomToolbar(
                 ModelSelector(
                     onConfigChange = onModelConfigChange
                 )
+
+                // Show image generation model selector when GLM is selected
+                if (isGlmProvider && onImageGenerationModelChange != null) {
+                    ImageGenerationModelSelector(
+                        currentModel = imageGenerationModel,
+                        onModelChange = onImageGenerationModelChange
+                    )
+                }
 
                 if (totalTokenInfo != null && totalTokenInfo.totalTokens > 0) {
                     Surface(

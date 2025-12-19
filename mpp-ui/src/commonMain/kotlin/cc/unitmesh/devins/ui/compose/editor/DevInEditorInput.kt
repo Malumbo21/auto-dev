@@ -43,6 +43,7 @@ import cc.unitmesh.devins.ui.compose.editor.context.WorkspaceFileSearchProvider
 import cc.unitmesh.devins.ui.compose.editor.highlighting.DevInSyntaxHighlighter
 import cc.unitmesh.devins.ui.compose.editor.multimodal.AttachedImage
 import cc.unitmesh.devins.ui.compose.editor.multimodal.ImageAttachmentBar
+import cc.unitmesh.devins.ui.compose.editor.multimodal.ImageGenerationModel
 import cc.unitmesh.devins.ui.compose.editor.multimodal.ImagePreviewDialog
 import cc.unitmesh.devins.ui.compose.editor.multimodal.ImageUploadManager
 import cc.unitmesh.config.ConfigManager
@@ -116,7 +117,12 @@ fun DevInEditorInput(
      * Called when user selects a different vision model.
      * @param config The selected vision model configuration
      */
-    onVisionModelChange: ((NamedModelConfig) -> Unit)? = null
+    onVisionModelChange: ((NamedModelConfig) -> Unit)? = null,
+    /**
+     * Called when user selects a different image generation model (GLM only).
+     * @param model The selected image generation model
+     */
+    onImageGenerationModelChange: ((ImageGenerationModel) -> Unit)? = null
 ) {
     var textFieldValue by remember { mutableStateOf(TextFieldValue(initialText)) }
     var highlightedText by remember { mutableStateOf(initialText) }
@@ -139,6 +145,12 @@ fun DevInEditorInput(
     // File context state (for TopToolbar)
     var selectedFiles by remember { mutableStateOf<List<SelectedFileItem>>(emptyList()) }
     var autoAddCurrentFile by remember { mutableStateOf(true) }
+
+    // Image generation model state (GLM only)
+    var imageGenerationModel by remember { mutableStateOf(ImageGenerationModel.COGVIEW_3_FLASH) }
+
+    // Current model config state for detecting GLM provider
+    var currentModelConfig by remember { mutableStateOf<ModelConfig?>(null) }
 
     // File search provider - use WorkspaceFileSearchProvider as default if not provided
     val effectiveSearchProvider = remember { fileSearchProvider ?: WorkspaceFileSearchProvider() }
@@ -803,7 +815,10 @@ fun DevInEditorInput(
                             showToolConfig = true
                         },
                         totalTokenInfo = renderer?.totalTokenInfo,
-                        onModelConfigChange = onModelConfigChange,
+                        onModelConfigChange = { config ->
+                            currentModelConfig = config
+                            onModelConfigChange(config)
+                        },
                         // Multimodal support
                         onImageClick = {
                             // Trigger image picker (only if upload callback is available)
@@ -826,7 +841,14 @@ fun DevInEditorInput(
                         },
                         hasImages = multimodalState.hasImages,
                         imageCount = multimodalState.imageCount,
-                        visionModel = if (multimodalState.hasImages) multimodalState.visionModel else null
+                        visionModel = if (multimodalState.hasImages) multimodalState.visionModel else null,
+                        // Image generation model support (GLM only)
+                        currentModelConfig = currentModelConfig,
+                        imageGenerationModel = imageGenerationModel,
+                        onImageGenerationModelChange = { model ->
+                            imageGenerationModel = model
+                            onImageGenerationModelChange?.invoke(model)
+                        }
                     )
                 }
             }
