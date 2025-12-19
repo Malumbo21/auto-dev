@@ -20,6 +20,7 @@ import cc.unitmesh.devins.ui.compose.sketch.chart.isChartAvailable
 import cc.unitmesh.xuiper.ir.NanoActionIR
 import cc.unitmesh.xuiper.ir.NanoIR
 import cc.unitmesh.yaml.YamlUtils
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import kotlin.math.pow
 import kotlin.math.round
@@ -42,6 +43,38 @@ object NanoDataComponents {
             .take(decimals)
 
         return "$intPart.$fracPart"
+    }
+
+    /**
+     * Convert a JsonArray to a Kotlin List, recursively converting nested elements.
+     */
+    private fun jsonArrayToList(jsonArray: kotlinx.serialization.json.JsonArray): List<Any?> {
+        return jsonArray.map { element ->
+            when (element) {
+                is kotlinx.serialization.json.JsonPrimitive -> {
+                    element.contentOrNull ?: element.toString()
+                }
+                is kotlinx.serialization.json.JsonArray -> jsonArrayToList(element)
+                is kotlinx.serialization.json.JsonObject -> jsonObjectToMap(element)
+                else -> element.toString()
+            }
+        }
+    }
+
+    /**
+     * Convert a JsonObject to a Kotlin Map, recursively converting nested elements.
+     */
+    private fun jsonObjectToMap(jsonObject: kotlinx.serialization.json.JsonObject): Map<String, Any?> {
+        return jsonObject.mapValues { (_, value) ->
+            when (value) {
+                is kotlinx.serialization.json.JsonPrimitive -> {
+                    value.contentOrNull ?: value.toString()
+                }
+                is kotlinx.serialization.json.JsonArray -> jsonArrayToList(value)
+                is kotlinx.serialization.json.JsonObject -> jsonObjectToMap(value)
+                else -> value.toString()
+            }
+        }
     }
 
     /**
@@ -304,19 +337,37 @@ $bars
         onAction: (NanoActionIR) -> Unit,
         modifier: Modifier
     ) {
-        val columnsStr = ir.props["columns"]?.jsonPrimitive?.content
-        val dataStr = ir.props["data"]?.jsonPrimitive?.content
+        // Handle both JsonPrimitive (string) and JsonArray for columns and data
+        val columnsElement = ir.props["columns"]
+        val dataElement = ir.props["data"]
 
-        // Resolve bindings
-        val resolvedColumns = NanoRenderUtils.resolveBindingAny(columnsStr, state)
-        val resolvedData = NanoRenderUtils.resolveBindingAny(dataStr, state)
+        val columnsStr = when (columnsElement) {
+            is kotlinx.serialization.json.JsonPrimitive -> columnsElement.content
+            is kotlinx.serialization.json.JsonArray -> columnsElement.toString()
+            else -> null
+        }
+        val dataStr = when (dataElement) {
+            is kotlinx.serialization.json.JsonPrimitive -> dataElement.content
+            is kotlinx.serialization.json.JsonArray -> dataElement.toString()
+            else -> null
+        }
+
+        // For JsonArray, convert directly to List for resolved values
+        val resolvedColumnsFromArray = if (columnsElement is kotlinx.serialization.json.JsonArray) {
+            jsonArrayToList(columnsElement)
+        } else null
+        val resolvedDataFromArray = if (dataElement is kotlinx.serialization.json.JsonArray) {
+            jsonArrayToList(dataElement)
+        } else null
+
+        // Resolve bindings (only for string values that might be state references)
+        val resolvedColumns = resolvedColumnsFromArray ?: NanoRenderUtils.resolveBindingAny(columnsStr, state)
+        val resolvedData = resolvedDataFromArray ?: NanoRenderUtils.resolveBindingAny(dataStr, state)
 
         // Parse columns and data
         val columnDefs = parseColumnDefs(resolvedColumns ?: columnsStr)
 
-        val effectiveColumnDefs = if (columnDefs.isNotEmpty()) {
-            columnDefs
-        } else {
+        val effectiveColumnDefs = columnDefs.ifEmpty {
             inferColumnsFromData(resolvedData)
         }
 
