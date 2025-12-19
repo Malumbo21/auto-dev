@@ -13,7 +13,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import cc.unitmesh.config.ConfigManager
-import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
 import cc.unitmesh.llm.KoogLLMService
 import cc.unitmesh.xuiper.ir.NanoActionIR
 import cc.unitmesh.xuiper.ir.NanoIR
@@ -185,17 +184,12 @@ object NanoFeedbackComponents {
 
         val message = if (rawMessage.isNotBlank()) rawMessage else (generatedMessage ?: "")
 
-        val backgroundColor = when (type) {
-            "success" -> AutoDevColors.Signal.success.copy(alpha = 0.15f)
-            "warning" -> AutoDevColors.Signal.warn.copy(alpha = 0.15f)
-            "error" -> AutoDevColors.Signal.error.copy(alpha = 0.15f)
-            else -> AutoDevColors.Signal.info.copy(alpha = 0.15f)
-        }
-        val borderColor = when (type) {
-            "success" -> AutoDevColors.Signal.success
-            "warning" -> AutoDevColors.Signal.warn
-            "error" -> AutoDevColors.Signal.error
-            else -> AutoDevColors.Signal.info
+        val (backgroundColor, borderColor) = when (type) {
+            // Treat alert types as semantic intents from the active theme.
+            "success" -> MaterialTheme.colorScheme.tertiaryContainer to MaterialTheme.colorScheme.tertiary
+            "warning" -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.primary
+            "error" -> MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.error
+            else -> MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.secondary
         }
         val icon = when (type) {
             "success" -> Icons.Default.CheckCircle

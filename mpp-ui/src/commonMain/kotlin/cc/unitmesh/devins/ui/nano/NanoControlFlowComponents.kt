@@ -3,12 +3,12 @@ package cc.unitmesh.devins.ui.nano
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
 import cc.unitmesh.xuiper.ir.NanoActionIR
 import cc.unitmesh.xuiper.ir.NanoIR
 
@@ -67,14 +67,16 @@ object NanoControlFlowComponents {
 
     @Composable
     fun RenderUnknown(ir: NanoIR, modifier: Modifier) {
+        val border = MaterialTheme.colorScheme.error
+        val background = MaterialTheme.colorScheme.errorContainer
         Surface(
-            modifier = modifier.border(1.dp, AutoDevColors.Signal.error, RoundedCornerShape(4.dp)),
-            color = AutoDevColors.Signal.error.copy(alpha = 0.1f)
+            modifier = modifier.border(1.dp, border, RoundedCornerShape(4.dp)),
+            color = background
         ) {
             Text(
                 text = "Unknown: ${ir.type}",
                 modifier = Modifier.padding(8.dp),
-                color = AutoDevColors.Signal.error
+                color = MaterialTheme.colorScheme.onErrorContainer
             )
         }
     }

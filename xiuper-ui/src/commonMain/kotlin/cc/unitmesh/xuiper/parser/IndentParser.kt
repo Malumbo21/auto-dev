@@ -32,7 +32,7 @@ import cc.unitmesh.xuiper.spec.v1.NanoSpecV1
 class IndentParser(
     override val spec: NanoSpec = NanoSpecV1
 ) : NanoParser {
-    
+
     companion object {
         private val COMPONENT_REGEX = Regex("""^component\s+(\w+)(?:\((.*?)\))?:\s*$""")
         private val STATE_BLOCK_REGEX = Regex("""^\s*state:\s*$""")

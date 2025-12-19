@@ -66,6 +66,7 @@ object AutoDevComposeIcons {
     val DarkMode: ImageVector get() = Icons.Default.DarkMode
     val Brightness4: ImageVector get() = Icons.Default.Brightness4
     val AutoMode: ImageVector get() = Icons.Default.Brightness4 // Using Brightness4 as fallback for auto mode
+    val Palette: ImageVector get() = Icons.Default.Palette
     val Visibility: ImageVector get() = Icons.Default.Visibility
     val VisibilityOff: ImageVector get() = Icons.Default.VisibilityOff
     val MoreVert: ImageVector get() = Icons.Default.MoreVert

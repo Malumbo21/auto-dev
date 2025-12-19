@@ -9,12 +9,10 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
 import cc.unitmesh.xuiper.ir.NanoIR
 import kotlinx.serialization.json.jsonPrimitive
 
@@ -54,22 +52,25 @@ object NanoContentComponents {
         val text = NanoRenderUtils.interpolateText(rawText, state)
         val colorName = ir.props["color"]?.jsonPrimitive?.content
 
-        val bgColor = when (colorName) {
-            "green" -> AutoDevColors.Signal.success
-            "red" -> AutoDevColors.Signal.error
-            "blue" -> AutoDevColors.Signal.info
-            "yellow" -> AutoDevColors.Signal.warn
-            "orange" -> AutoDevColors.Signal.warn
-            else -> MaterialTheme.colorScheme.primaryContainer
+        val (bgColor, contentColor) = when (colorName) {
+            // Treat named colors as semantic intents so they can be themed.
+            "green" -> MaterialTheme.colorScheme.tertiaryContainer to MaterialTheme.colorScheme.onTertiaryContainer
+            "red" -> MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
+            "blue" -> MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer
+            "yellow", "orange" -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer
+            else -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer
         }
 
-        val textColor = if (colorName == "yellow") Color.Black else Color.White
-
-        Surface(modifier = modifier, shape = RoundedCornerShape(4.dp), color = bgColor) {
+        Surface(
+            modifier = modifier,
+            shape = RoundedCornerShape(4.dp),
+            color = bgColor,
+            contentColor = contentColor
+        ) {
             Text(
                 text = text,
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                color = textColor,
+                color = LocalContentColor.current,
                 fontSize = 12.sp
             )
         }
@@ -91,7 +92,7 @@ object NanoContentComponents {
             "restaurant", "food", "dining" -> Icons.Default.Restaurant
 
             // Location / Navigation (FontAwesome/Lucide-style names)
-            "location-dot", "location-on", "map-pin", "pin", "pin-drop" -> Icons.Default.LocationOn
+            "location-dot", "location-on", "map-pin", "pin", "pin-drop", "flag" -> Icons.Default.LocationOn
             "location-arrow", "near-me" -> Icons.Default.NearMe
             "my-location", "crosshair", "crosshairs" -> Icons.Default.MyLocation
             "place", "attractions", "location" -> Icons.Default.Place
@@ -192,10 +193,11 @@ object NanoContentComponents {
         val iconColor = when (colorName) {
             "primary" -> MaterialTheme.colorScheme.primary
             "secondary" -> MaterialTheme.colorScheme.secondary
-            "green" -> AutoDevColors.Signal.success
-            "red" -> AutoDevColors.Signal.error
-            "blue" -> AutoDevColors.Signal.info
-            "yellow", "orange" -> AutoDevColors.Signal.warn
+            // Treat named colors as semantic intents so they can be themed.
+            "green" -> MaterialTheme.colorScheme.tertiary
+            "red" -> MaterialTheme.colorScheme.error
+            "blue" -> MaterialTheme.colorScheme.secondary
+            "yellow", "orange" -> MaterialTheme.colorScheme.primary
             else -> MaterialTheme.colorScheme.onSurface
         }
 

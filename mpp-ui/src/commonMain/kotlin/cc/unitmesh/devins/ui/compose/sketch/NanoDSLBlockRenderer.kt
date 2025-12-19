@@ -8,9 +8,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,6 +30,10 @@ import cc.unitmesh.devins.ui.compose.icons.AutoDevComposeIcons
 import cc.unitmesh.devins.ui.nano.StatefulNanoRenderer
 import cc.unitmesh.xuiper.dsl.NanoDSL
 import cc.unitmesh.xuiper.ir.NanoIR
+import cc.unitmesh.devins.ui.nano.theme.NanoThemeFamily
+import cc.unitmesh.devins.ui.nano.theme.ProvideNanoTheme
+import cc.unitmesh.devins.ui.nano.theme.parseHexColorOrNull
+import cc.unitmesh.devins.ui.nano.theme.rememberNanoThemeState
 import androidx.compose.material3.Surface as M3Surface
 
 /**
@@ -67,9 +74,14 @@ fun NanoDSLBlockRenderer(
     var showPreview by remember { mutableStateOf(true) }
     var parseError by remember { mutableStateOf<String?>(null) }
     var nanoIR by remember { mutableStateOf<NanoIR?>(null) }
-    var isDarkTheme by remember { mutableStateOf(true) }
     var isMobileLayout by remember { mutableStateOf(false) }
     var zoomLevel by remember { mutableStateOf(0.75f) }
+
+    val nanoThemeState = rememberNanoThemeState(
+        family = NanoThemeFamily.BANK_BLACK_GOLD,
+        dark = true,
+        customSeedHex = "#FF385C"
+    )
 
     // Parse NanoDSL to IR when code changes
     LaunchedEffect(nanodslCode, isComplete) {
@@ -189,13 +201,105 @@ fun NanoDSLBlockRenderer(
 
                     Spacer(Modifier.width(4.dp))
 
-                    // Theme toggle button
+                    // Theme mode toggle button (applies real Nano MaterialTheme)
                     NanoDSLIconButton(
-                        icon = if (isDarkTheme) AutoDevComposeIcons.DarkMode else AutoDevComposeIcons.LightMode,
-                        contentDescription = if (isDarkTheme) "Dark Mode" else "Light Mode",
-                        isActive = isDarkTheme,
-                        onClick = { isDarkTheme = !isDarkTheme }
+                        icon = if (nanoThemeState.dark) AutoDevComposeIcons.DarkMode else AutoDevComposeIcons.LightMode,
+                        contentDescription = if (nanoThemeState.dark) "Dark Mode" else "Light Mode",
+                        isActive = nanoThemeState.dark,
+                        onClick = { nanoThemeState.dark = !nanoThemeState.dark }
                     )
+
+                    // Theme family selector
+                    Box {
+                        var themeMenuExpanded by remember { mutableStateOf(false) }
+
+                        NanoDSLIconButton(
+                            icon = AutoDevComposeIcons.Palette,
+                            contentDescription = "Theme Style",
+                            isActive = nanoThemeState.family != NanoThemeFamily.BANK_BLACK_GOLD,
+                            onClick = { themeMenuExpanded = true }
+                        )
+
+                        DropdownMenu(
+                            expanded = themeMenuExpanded,
+                            onDismissRequest = { themeMenuExpanded = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Bank (Black/Gold)") },
+                                onClick = {
+                                    nanoThemeState.family = NanoThemeFamily.BANK_BLACK_GOLD
+                                    themeMenuExpanded = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Travel (Airbnb)") },
+                                onClick = {
+                                    nanoThemeState.family = NanoThemeFamily.TRAVEL_AIRBNB
+                                    themeMenuExpanded = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Custom (Seed Color)") },
+                                onClick = {
+                                    nanoThemeState.family = NanoThemeFamily.CUSTOM
+                                    themeMenuExpanded = false
+                                }
+                            )
+                        }
+                    }
+
+                    if (nanoThemeState.family == NanoThemeFamily.CUSTOM) {
+                        val seedColor = parseHexColorOrNull(nanoThemeState.customSeedHex)
+
+                        // Preset swatches
+                        Box {
+                            var swatchMenuExpanded by remember { mutableStateOf(false) }
+                            val swatchColor = seedColor ?: MaterialTheme.colorScheme.primary
+
+                            Box(
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .clip(MaterialTheme.shapes.small)
+                                    .clickable { swatchMenuExpanded = true }
+                                    .border(1.dp, MaterialTheme.colorScheme.outline, MaterialTheme.shapes.small)
+                                    .background(swatchColor)
+                            )
+
+                            DropdownMenu(
+                                expanded = swatchMenuExpanded,
+                                onDismissRequest = { swatchMenuExpanded = false }
+                            ) {
+                                val presets = listOf(
+                                    "#FF385C",
+                                    "#FFD166",
+                                    "#00A699",
+                                    "#6366F1",
+                                    "#00BCD4",
+                                    "#22C55E",
+                                    "#A855F7",
+                                    "#EF4444"
+                                )
+                                presets.forEach { hex ->
+                                    DropdownMenuItem(
+                                        text = { Text(hex) },
+                                        onClick = {
+                                            nanoThemeState.customSeedHex = hex
+                                            swatchMenuExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+
+                        OutlinedTextField(
+                            value = nanoThemeState.customSeedHex,
+                            onValueChange = { nanoThemeState.customSeedHex = it.take(10) },
+                            modifier = Modifier.width(140.dp),
+                            singleLine = true,
+                            textStyle = MaterialTheme.typography.labelSmall,
+                            placeholder = { Text("#RRGGBB") }
+                        )
+                    }
 
                     // Layout toggle button
                     NanoDSLIconButton(
@@ -240,35 +344,22 @@ fun NanoDSLBlockRenderer(
                     .padding(16.dp)
             }
 
-            // Use theme colors instead of hardcoded values
-            val backgroundColor = if (isDarkTheme) {
-                MaterialTheme.colorScheme.surfaceContainerLowest
-            } else {
-                MaterialTheme.colorScheme.surfaceContainerHigh
-            }
+            ProvideNanoTheme(state = nanoThemeState) {
+                val backgroundColor = MaterialTheme.colorScheme.surface
+                val borderColor = MaterialTheme.colorScheme.outline
 
-            val borderColor = if (isDarkTheme) {
-                MaterialTheme.colorScheme.outlineVariant
-            } else {
-                MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
-            }
-
-            Box(
-                modifier = previewModifier
-                    .background(
-                        color = backgroundColor,
-                        shape = RoundedCornerShape(8.dp)
-                    )
-                    .border(
-                        width = 1.dp,
-                        color = borderColor,
-                        shape = RoundedCornerShape(8.dp)
-                    )
-                    .padding(16.dp)
-            ) {
-                // Apply theme and zoom to the content
-                CompositionLocalProvider(
-                    LocalContentColor provides if (isDarkTheme) Color.White else Color.Black
+                Box(
+                    modifier = previewModifier
+                        .background(
+                            color = backgroundColor,
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                        .border(
+                            width = 1.dp,
+                            color = borderColor,
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                        .padding(16.dp)
                 ) {
                     // Use Layout to properly scale content including layout size
                     ScaledBox(scale = zoomLevel) {

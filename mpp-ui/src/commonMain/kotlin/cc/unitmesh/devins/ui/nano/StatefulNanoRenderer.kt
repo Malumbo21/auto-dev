@@ -8,6 +8,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import cc.unitmesh.xuiper.ir.NanoActionIR
 import cc.unitmesh.xuiper.ir.NanoIR
+import cc.unitmesh.devins.ui.nano.theme.NanoThemeState
+import cc.unitmesh.devins.ui.nano.theme.LocalNanoThemeApplied
+import cc.unitmesh.devins.ui.nano.theme.ProvideNanoTheme
+import cc.unitmesh.devins.ui.nano.theme.rememberNanoThemeState
 
 /**
  * Stateful NanoUI Compose Renderer
@@ -39,6 +43,29 @@ object StatefulNanoRenderer {
      */
     @Composable
     fun Render(
+        ir: NanoIR,
+        modifier: Modifier = Modifier,
+        themeState: NanoThemeState? = null
+    ) {
+        when {
+            themeState != null -> ProvideNanoTheme(state = themeState) {
+                RenderInternal(ir = ir, modifier = modifier)
+            }
+
+            // Avoid overriding an already-applied NanoTheme upstream.
+            LocalNanoThemeApplied.current -> RenderInternal(ir = ir, modifier = modifier)
+
+            else -> {
+                val defaultThemeState = rememberNanoThemeState()
+                ProvideNanoTheme(state = defaultThemeState) {
+                    RenderInternal(ir = ir, modifier = modifier)
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun RenderInternal(
         ir: NanoIR,
         modifier: Modifier = Modifier
     ) {
