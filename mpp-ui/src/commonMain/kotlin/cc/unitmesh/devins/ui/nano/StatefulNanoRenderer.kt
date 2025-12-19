@@ -101,7 +101,7 @@ object StatefulNanoRenderer {
             "Form" -> NanoLayoutComponents.RenderForm(ir, state, onAction, modifier, renderNode)
             // Content
             "Text" -> NanoContentComponents.RenderText(ir, state, modifier)
-            "Image" -> NanoContentComponents.RenderImage(ir, modifier)
+            "Image" -> RenderImage(ir, modifier)
             "Badge" -> NanoContentComponents.RenderBadge(ir, state, modifier)
             "Icon" -> NanoContentComponents.RenderIcon(ir, modifier)
             "Divider" -> NanoContentComponents.RenderDivider(modifier)
