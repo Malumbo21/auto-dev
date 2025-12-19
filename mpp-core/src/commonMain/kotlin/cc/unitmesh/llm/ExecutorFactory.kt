@@ -81,7 +81,7 @@ object ExecutorFactory {
             LLMProviderType.GLM -> createGLM(config)
             LLMProviderType.QWEN -> createQwen(config)
             LLMProviderType.KIMI -> createKimi(config)
-            LLMProviderType.MINIMAX -> createOpenAI(config)
+            LLMProviderType.MINIMAX -> createMinimax(config)
             LLMProviderType.GITHUB_COPILOT -> throw IllegalStateException(
                 "GitHub Copilot is not available. Make sure GitHub Copilot is configured on your system " +
                 "(OAuth token in ~/.config/github-copilot/apps.json)"
@@ -195,6 +195,17 @@ object ExecutorFactory {
             CustomOpenAILLMClient(
                 apiKey = config.apiKey,
                 baseUrl = config.baseUrl,
+                customHeaders = config.customHeaders
+            )
+        )
+    }
+
+    private fun createMinimax(config: ModelConfig): SingleLLMPromptExecutor {
+        val baseUrl = config.baseUrl.ifEmpty { ModelRegistry.getDefaultBaseUrl(LLMProviderType.MINIMAX) }
+        return SingleLLMPromptExecutor(
+            CustomOpenAILLMClient(
+                apiKey = config.apiKey,
+                baseUrl = baseUrl,
                 customHeaders = config.customHeaders
             )
         )
