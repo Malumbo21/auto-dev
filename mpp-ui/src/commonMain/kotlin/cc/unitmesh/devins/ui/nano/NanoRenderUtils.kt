@@ -536,24 +536,82 @@ object NanoRenderUtils {
         }
 
         private fun parseIdentifierValue(): Double {
-            val start = index
-            while (index < input.length) {
-                val c = input[index]
-                if (c == '_' || c.isLetterOrDigit() || c == '.') {
-                    index++
-                } else {
-                    break
-                }
-            }
-            val raw = input.substring(start, index)
-            val key = if (raw.startsWith("state.")) raw.removePrefix("state.") else raw
-            val any = state[key] ?: state[raw]
+            val raw = parsePathToken()
+
+            // Important: arithmetic expressions often reference nested values like
+            // `state.budget.transport` where `budget` is a Map. Direct lookup in [state]
+            // would fail, so we resolve via the same safe path resolver used elsewhere.
+            val any = resolveIdentifierAny(raw, state)
             return when (any) {
                 is Number -> any.toDouble()
                 is String -> any.toDoubleOrNull() ?: 0.0
                 is Boolean -> if (any) 1.0 else 0.0
                 else -> 0.0
             }
+        }
+
+        /**
+         * Parse a path-like token that may include dotted access and bracket access, e.g.:
+         * - state.budget.transport
+         * - flight["price"]
+         * - items[0].price
+         */
+        private fun parsePathToken(): String {
+            val start = index
+
+            fun isIdentPart(c: Char): Boolean = c == '_' || c.isLetterOrDigit()
+
+            // root identifier
+            while (index < input.length && isIdentPart(input[index])) index++
+
+            while (index < input.length) {
+                when (input[index]) {
+                    '.' -> {
+                        index++
+                        if (index >= input.length) break
+                        while (index < input.length && isIdentPart(input[index])) index++
+                    }
+
+                    '[' -> {
+                        // Scan until matching ']'. Support quoted strings inside brackets.
+                        index++
+                        var inString: Char? = null
+                        var escaped = false
+                        while (index < input.length) {
+                            val c = input[index]
+                            if (inString != null) {
+                                if (escaped) {
+                                    escaped = false
+                                } else if (c == '\\') {
+                                    escaped = true
+                                } else if (c == inString) {
+                                    inString = null
+                                }
+                                index++
+                                continue
+                            }
+
+                            when (c) {
+                                '\'', '"' -> {
+                                    inString = c
+                                    index++
+                                }
+
+                                ']' -> {
+                                    index++
+                                    break
+                                }
+
+                                else -> index++
+                            }
+                        }
+                    }
+
+                    else -> break
+                }
+            }
+
+            return input.substring(start, index)
         }
 
         private fun skipWhitespace() {

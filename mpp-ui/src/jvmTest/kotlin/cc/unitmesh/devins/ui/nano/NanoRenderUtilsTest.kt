@@ -8,6 +8,9 @@ import kotlin.test.assertTrue
 
 class NanoRenderUtilsTest {
 
+    /**
+     * Tests text interpolation with state variable substitution
+     */
     @Test
     fun `interpolateText supports dollar braces templates`() {
         val state = mapOf(
@@ -34,6 +37,9 @@ class NanoRenderUtilsTest {
         assertEquals("", NanoRenderUtils.interpolateText("{state.unknown.title()}", state))
     }
 
+    /**
+     * Tests numeric expression evaluation against state
+     */
     @Test
     fun `evaluateNumberOrNull supports subscribe expression`() {
         val state = mapOf(
@@ -51,6 +57,9 @@ class NanoRenderUtilsTest {
         assertEquals(2050.0, v)
     }
 
+    /**
+     * Tests boolean expression evaluation against state
+     */
     @Test
     fun `evaluateCondition supports negation and comparisons`() {
         val state = mapOf(
@@ -72,6 +81,7 @@ class NanoRenderUtilsTest {
 
     @Test
     fun `evaluateCondition supports boolean operators and complex paths`() {
+        // Defines test data with nested properties
         val state = mapOf(
             "selectedAirline" to "all",
             "priceRange" to listOf(0, 5000),
@@ -103,6 +113,9 @@ class NanoRenderUtilsTest {
         )
     }
 
+    /**
+     * Verifies bracketed map indexing within interpolated text
+     */
     @Test
     fun `interpolateText supports map indexing with brackets`() {
         val state = mapOf(
@@ -116,6 +129,32 @@ class NanoRenderUtilsTest {
         assertEquals("1280", NanoRenderUtils.interpolateText("{flight[\"price\"]}", state))
     }
 
+    /**
+     * Verifies arithmetic interpolation over nested map paths
+     */
+    @Test
+    fun `interpolateText supports arithmetic over nested map paths`() {
+        val state = mapOf(
+            "budget" to mapOf(
+                "transport" to 800,
+                "hotel" to 1200,
+                "food" to 600,
+                "tickets" to 400
+            )
+        )
+
+        assertEquals(
+            "¥3000",
+            NanoRenderUtils.interpolateText(
+                "¥{state.budget.transport + state.budget.hotel + state.budget.food + state.budget.tickets}",
+                state
+            )
+        )
+    }
+
+    /**
+     * Verifies empty collections evaluate to false
+     */
     @Test
     fun `evaluateCondition treats empty collections as false`() {
         val state = mapOf(
