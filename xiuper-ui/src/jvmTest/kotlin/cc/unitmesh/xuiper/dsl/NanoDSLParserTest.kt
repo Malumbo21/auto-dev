@@ -3,7 +3,9 @@ package cc.unitmesh.xuiper.dsl
 import cc.unitmesh.xuiper.action.HttpMethod
 import cc.unitmesh.xuiper.action.NanoAction
 import cc.unitmesh.xuiper.ast.NanoNode
+import cc.unitmesh.xuiper.ir.NanoIRConverter
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Test
@@ -483,5 +485,33 @@ component LoginForm:
         assertEquals("str", emailState!!.type)
         // The default value should be an empty string, not ""
         assertEquals("", emailState.defaultValue?.jsonPrimitive?.content)
+    }
+
+    @Test
+    fun `should convert Select options bracket literal into JsonArray`() {
+        val source = """
+component TripPlanner:
+    state:
+        accommodation: str = ""
+
+    Select(value := state.accommodation, options=[
+        {"value": "hotel", "label": "星级酒店"},
+        {"value": "hostel", "label": "青年旅社"}
+    ], placeholder="选择住宿类型")
+        """.trimIndent()
+
+        val ast = NanoDSL.parse(source)
+        val select = ast.children[0] as NanoNode.Select
+        assertTrue(select.options!!.trim().startsWith("["))
+
+        val ir = NanoIRConverter.convert(select)
+        val options = ir.props["options"]
+        assertTrue(options is JsonArray)
+        assertTrue((options as JsonArray).isNotEmpty())
+
+        val first = options[0]
+        assertTrue(first is JsonObject)
+        val v = (first as JsonObject)["value"]!!.jsonPrimitive.content
+        assertTrue(v == "hotel")
     }
 }

@@ -310,7 +310,24 @@ object NanoIRConverter {
 
     private fun convertSelect(node: NanoNode.Select): NanoIR {
         val props = mutableMapOf<String, JsonElement>()
-        node.options?.let { props["options"] = JsonPrimitive(it) }
+
+        // Options may come from:
+        // 1) a state identifier (e.g. options=countries)
+        // 2) a DSL bracket literal (e.g. options=[{"value":"a"}])
+        // For (2) we should emit a real JsonArray/JsonObject so UI renderers can parse it.
+        node.options?.let { raw ->
+            val trimmed = raw.trim()
+            val optionsElement: JsonElement = if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
+                try {
+                    Json.parseToJsonElement(trimmed)
+                } catch (_: Throwable) {
+                    JsonPrimitive(raw)
+                }
+            } else {
+                JsonPrimitive(raw)
+            }
+            props["options"] = optionsElement
+        }
         node.placeholder?.let { props["placeholder"] = JsonPrimitive(it) }
 
         val bindings = node.value?.let {
@@ -543,7 +560,21 @@ object NanoIRConverter {
 
     private fun convertRadioGroup(node: NanoNode.RadioGroup): NanoIR {
         val props = mutableMapOf<String, JsonElement>()
-        node.options?.let { props["options"] = JsonPrimitive(it) }
+
+        node.options?.let { raw ->
+            val trimmed = raw.trim()
+            val optionsElement: JsonElement = if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
+                try {
+                    Json.parseToJsonElement(trimmed)
+                } catch (_: Throwable) {
+                    JsonPrimitive(raw)
+                }
+            } else {
+                JsonPrimitive(raw)
+            }
+            props["options"] = optionsElement
+        }
+
         node.name?.let { props["name"] = JsonPrimitive(it) }
 
         val bindings = node.value?.let {
@@ -655,7 +686,6 @@ object NanoIRConverter {
 
         return NanoIR(type = "Spinner", props = props)
     }
-}
 
     private fun parseStateDefaultToJsonElement(defaultValue: String): JsonElement {
         val trimmed = defaultValue.trim()
@@ -677,4 +707,4 @@ object NanoIRConverter {
         // For non-JSON literals (e.g. strings where quotes were stripped in the parser), keep as string.
         return JsonPrimitive(defaultValue)
     }
-
+}
