@@ -16,8 +16,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.unit.dp
@@ -67,7 +69,7 @@ fun NanoDSLBlockRenderer(
     var nanoIR by remember { mutableStateOf<NanoIR?>(null) }
     var isDarkTheme by remember { mutableStateOf(true) }
     var isMobileLayout by remember { mutableStateOf(false) }
-    var zoomLevel by remember { mutableStateOf(1.0f) }
+    var zoomLevel by remember { mutableStateOf(0.75f) }
 
     // Parse NanoDSL to IR when code changes
     LaunchedEffect(nanodslCode, isComplete) {
@@ -268,7 +270,8 @@ fun NanoDSLBlockRenderer(
                 CompositionLocalProvider(
                     LocalContentColor provides if (isDarkTheme) Color.White else Color.Black
                 ) {
-                    Box(modifier = Modifier.scale(zoomLevel)) {
+                    // Use Layout to properly scale content including layout size
+                    ScaledBox(scale = zoomLevel) {
                         StatefulNanoRenderer.Render(nanoIR!!)
                     }
                 }
@@ -442,5 +445,55 @@ private fun NanoDSLIconButton(
             modifier = Modifier.size(16.dp),
             tint = contentColor
         )
+    }
+}
+
+
+
+/**
+ * A Box that scales its content and adjusts its layout size accordingly.
+ * Unlike Modifier.scale() which only visually scales content without changing layout,
+ * this composable properly scales both the visual appearance and the layout bounds.
+ *
+ * @param scale The scale factor (e.g., 0.75f for 75% size)
+ * @param modifier Modifier for the container
+ * @param content The content to scale
+ */
+@Composable
+private fun ScaledBox(
+    scale: Float,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    Layout(
+        content = content,
+        modifier = modifier
+    ) { measurables, constraints ->
+        // Measure children with scaled-up constraints so they have room to render
+        val scaledConstraints = constraints.copy(
+            maxWidth = if (constraints.maxWidth == Int.MAX_VALUE) Int.MAX_VALUE
+                       else (constraints.maxWidth / scale).toInt(),
+            maxHeight = if (constraints.maxHeight == Int.MAX_VALUE) Int.MAX_VALUE
+                        else (constraints.maxHeight / scale).toInt()
+        )
+
+        val placeables = measurables.map { it.measure(scaledConstraints) }
+
+        // Calculate the scaled layout size
+        val width = (placeables.maxOfOrNull { it.width } ?: 0)
+        val height = (placeables.maxOfOrNull { it.height } ?: 0)
+        val scaledWidth = (width * scale).toInt()
+        val scaledHeight = (height * scale).toInt()
+
+        layout(scaledWidth, scaledHeight) {
+            placeables.forEach { placeable ->
+                // Place with scale transform from top-left origin
+                placeable.placeWithLayer(0, 0) {
+                    scaleX = scale
+                    scaleY = scale
+                    transformOrigin = TransformOrigin(0f, 0f)
+                }
+            }
+        }
     }
 }

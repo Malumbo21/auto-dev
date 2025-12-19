@@ -113,7 +113,12 @@ object NanoInputComponents {
     }
 
     private fun parseRadioOptionsFromDslLiteral(raw: String): List<RadioOption> {
+        // Some upstream IR generators store strings with escaped quotes (e.g. \"train\")
+        // inside a Kotlin raw string / JSON primitive. Normalize them so the lightweight
+        // DSL parser can still recognize quoted values.
         val trimmed = raw.trim()
+            .replace("\\\"", "\"")
+            .replace("\\'", "'")
         if (!trimmed.startsWith("[") || !trimmed.endsWith("]")) return emptyList()
 
         val inner = trimmed.removePrefix("[").removeSuffix("]").trim()
