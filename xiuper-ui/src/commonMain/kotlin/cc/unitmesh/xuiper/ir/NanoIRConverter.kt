@@ -308,25 +308,32 @@ object NanoIRConverter {
         )
     }
 
+    /**
+     * If [raw] looks like a JSON literal (array/object/primitive), parse it into a JsonElement.
+     * Otherwise return JsonPrimitive(raw).
+     */
+    private fun parseMaybeJsonLiteral(raw: String): JsonElement {
+        val trimmed = raw.trim()
+        if (trimmed.isBlank()) return JsonPrimitive("")
+
+        val looksLikeJson = trimmed.startsWith("[") || trimmed.startsWith("{") ||
+            trimmed == "true" || trimmed == "false" || trimmed == "null" ||
+            trimmed.matches(Regex("""-?\d+(\.\d+)?"""))
+
+        if (!looksLikeJson) return JsonPrimitive(raw)
+
+        return try {
+            Json.parseToJsonElement(trimmed)
+        } catch (_: Throwable) {
+            JsonPrimitive(raw)
+        }
+    }
+
     private fun convertSelect(node: NanoNode.Select): NanoIR {
         val props = mutableMapOf<String, JsonElement>()
 
-        // Options may come from:
-        // 1) a state identifier (e.g. options=countries)
-        // 2) a DSL bracket literal (e.g. options=[{"value":"a"}])
-        // For (2) we should emit a real JsonArray/JsonObject so UI renderers can parse it.
         node.options?.let { raw ->
-            val trimmed = raw.trim()
-            val optionsElement: JsonElement = if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
-                try {
-                    Json.parseToJsonElement(trimmed)
-                } catch (_: Throwable) {
-                    JsonPrimitive(raw)
-                }
-            } else {
-                JsonPrimitive(raw)
-            }
-            props["options"] = optionsElement
+            props["options"] = parseMaybeJsonLiteral(raw)
         }
         node.placeholder?.let { props["placeholder"] = JsonPrimitive(it) }
 
@@ -515,7 +522,7 @@ object NanoIRConverter {
     private fun convertDataTable(node: NanoNode.DataTable): NanoIR {
         val props = mutableMapOf<String, JsonElement>()
         node.name?.let { props["name"] = JsonPrimitive(it) }
-        node.columns?.let { props["columns"] = JsonPrimitive(it) }
+        node.columns?.let { props["columns"] = parseMaybeJsonLiteral(it) }
         node.data?.let { props["data"] = JsonPrimitive(it) }
 
         val actions = node.onRowClick?.let {
@@ -562,17 +569,7 @@ object NanoIRConverter {
         val props = mutableMapOf<String, JsonElement>()
 
         node.options?.let { raw ->
-            val trimmed = raw.trim()
-            val optionsElement: JsonElement = if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
-                try {
-                    Json.parseToJsonElement(trimmed)
-                } catch (_: Throwable) {
-                    JsonPrimitive(raw)
-                }
-            } else {
-                JsonPrimitive(raw)
-            }
-            props["options"] = optionsElement
+            props["options"] = parseMaybeJsonLiteral(raw)
         }
 
         node.name?.let { props["name"] = JsonPrimitive(it) }
@@ -688,23 +685,9 @@ object NanoIRConverter {
     }
 
     private fun parseStateDefaultToJsonElement(defaultValue: String): JsonElement {
-        val trimmed = defaultValue.trim()
-        if (trimmed.isBlank()) return JsonPrimitive("")
-
-        // Parse JSON containers (object/array) and JSON primitives when they are valid JSON tokens.
-        val looksLikeJson = trimmed.startsWith("{") || trimmed.startsWith("[") ||
-            trimmed == "true" || trimmed == "false" || trimmed == "null" ||
-            trimmed.matches(Regex("""-?\d+(\.\d+)?"""))
-
-        if (looksLikeJson) {
-            return try {
-                Json.parseToJsonElement(trimmed)
-            } catch (_: Throwable) {
-                JsonPrimitive(defaultValue)
-            }
-        }
-
-        // For non-JSON literals (e.g. strings where quotes were stripped in the parser), keep as string.
-        return JsonPrimitive(defaultValue)
+        // Keep state-default parsing behavior in sync with parseMaybeJsonLiteral.
+        // State defaults come from the parser without surrounding quotes for strings.
+        // parseMaybeJsonLiteral already preserves raw strings via JsonPrimitive(raw).
+        return parseMaybeJsonLiteral(defaultValue)
     }
 }
