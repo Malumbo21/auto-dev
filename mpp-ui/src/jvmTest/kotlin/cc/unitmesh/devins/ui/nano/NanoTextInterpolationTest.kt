@@ -70,6 +70,29 @@ class NanoTextInterpolationTest {
     }
 
     @Test
+    fun `should resolve bare path expressions in literal props`() {
+        val state = mapOf(
+            "item" to mapOf(
+                "name" to "护照",
+                "checked" to true
+            )
+        )
+
+        val checkbox = NanoIR(
+            type = "Checkbox",
+            props = mapOf(
+                "label" to JsonPrimitive("item.name")
+            )
+        )
+
+        assertEquals("护照", NanoRenderUtils.resolveStringProp(checkbox, "label", state))
+
+        // Guardrail: date-like literals must not be treated as arithmetic expressions.
+        val text = NanoIR(type = "Text", props = mapOf("content" to JsonPrimitive("2024-06-15")))
+        assertEquals("2024-06-15", NanoRenderUtils.resolveStringProp(text, "content", emptyMap()))
+    }
+
+    @Test
     fun `should resolve nested paths for loop variables`() {
         val state = mapOf(
             "day_plan" to mapOf(

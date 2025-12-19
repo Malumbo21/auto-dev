@@ -40,14 +40,7 @@ object NanoContentComponents {
 
     @Composable
     fun RenderText(ir: NanoIR, state: Map<String, Any>, modifier: Modifier) {
-        // Check for binding first
-        val binding = ir.bindings?.get("content")
-        val rawContent = if (binding != null) {
-            // Get value from state based on binding expression (supports dotted paths)
-            NanoRenderUtils.evaluateExpression(binding.expression, state)
-        } else {
-            ir.props["content"]?.jsonPrimitive?.content ?: ""
-        }
+        val rawContent = NanoRenderUtils.resolveStringProp(ir, "content", state)
 
         // Interpolate {state.xxx} or {state.xxx + 1} expressions in content
         val content = NanoRenderUtils.interpolateText(rawContent, state)
@@ -319,6 +312,8 @@ object NanoContentComponents {
             "weather", "sun", "sunny" -> Icons.Default.WbSunny
             "moon" -> Icons.Default.NightsStay
             "cloud", "cloudy" -> Icons.Default.Cloud
+            "cloud-sun", "partly-cloudy", "partly-cloudy-day" -> Icons.Default.Cloud
+            "cloud-rain", "cloud-showers", "rainy" -> Icons.Default.Umbrella
             "wind" -> Icons.Default.Air
             "snowflake", "snow" -> Icons.Default.AcUnit
             "umbrella", "rain" -> Icons.Default.Umbrella

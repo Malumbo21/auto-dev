@@ -46,7 +46,32 @@ object NanoRenderUtils {
             // Allow expressions beyond simple state paths.
             evaluateExpression(binding.expression, state)
         } else {
-            ir.props[propKey]?.jsonPrimitive?.content ?: ""
+            val literal = ir.props[propKey]?.jsonPrimitive?.content ?: return ""
+
+            // If author wrote an unquoted expression (e.g. `label=item.name`, `Text(state.destination)`),
+            // NanoIR often carries it as a plain string without `{}` templates. In that case, attempt
+            // to resolve it as a safe path expression.
+            //
+            // IMPORTANT: avoid evaluating arbitrary strings that might look like arithmetic
+            // (e.g. dates: "2024-06-15"). We only evaluate simple identifiers / dotted paths /
+            // bracket access, optionally prefixed with `state.`.
+            val normalized = literal.trim().let { raw ->
+                when {
+                    raw.startsWith("<<") -> raw.removePrefix("<<").trim()
+                    raw.startsWith(":=") -> raw.removePrefix(":=").trim()
+                    else -> raw
+                }
+            }
+
+            val isPathExpression = normalized.startsWith("state.") ||
+                normalized.matches(Regex("[A-Za-z_]\\w*(?:\\.[A-Za-z_]\\w*|\\[[^\\]]+\\])*(?:\\.[A-Za-z_]\\w*)*"))
+
+            if (isPathExpression) {
+                val evaluated = evaluateExpression(normalized, state)
+                if (evaluated.isNotBlank()) return evaluated
+            }
+
+            literal
         }
     }
 

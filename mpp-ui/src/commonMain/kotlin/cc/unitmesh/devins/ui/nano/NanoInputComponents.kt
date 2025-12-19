@@ -233,8 +233,7 @@ object NanoInputComponents {
         onAction: (NanoActionIR) -> Unit,
         modifier: Modifier
     ) {
-        val rawLabel = ir.props["label"]?.jsonPrimitive?.content ?: "Button"
-        // Interpolate {state.xxx} expressions in button label
+        val rawLabel = NanoRenderUtils.resolveStringProp(ir, "label", state).ifBlank { "Button" }
         val label = NanoRenderUtils.interpolateText(rawLabel, state)
         val intent = ir.props["intent"]?.jsonPrimitive?.content
         val disabledIf = ir.props["disabled_if"]?.jsonPrimitive?.content
@@ -325,8 +324,8 @@ object NanoInputComponents {
         var uncontrolledChecked by remember(statePath, checkedProp) { mutableStateOf(checkedProp ?: false) }
 
         val checked = checkedFromInList ?: checkedFromState ?: uncontrolledChecked
-        val rawLabel = ir.props["label"]?.jsonPrimitive?.content
-        val label = rawLabel?.let { NanoRenderUtils.interpolateText(it, state) }
+        val rawLabel = NanoRenderUtils.resolveStringProp(ir, "label", state)
+        val label = rawLabel.takeIf { it.isNotBlank() }?.let { NanoRenderUtils.interpolateText(it, state) }
         val onChange = ir.actions?.get("onChange")
 
         Row(
