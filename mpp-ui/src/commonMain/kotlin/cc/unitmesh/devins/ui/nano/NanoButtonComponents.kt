@@ -11,6 +11,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import cc.unitmesh.agent.subagent.NanoDSLAgent
+import cc.unitmesh.agent.subagent.NanoDSLContext
+import cc.unitmesh.config.ConfigManager
+import cc.unitmesh.llm.KoogLLMService
 import cc.unitmesh.xuiper.ir.NanoActionIR
 import cc.unitmesh.xuiper.ir.NanoIR
 import kotlinx.serialization.json.Json
@@ -120,7 +124,7 @@ object NanoButtonComponents {
         onDismiss: () -> Unit,
         onAction: (NanoActionIR) -> Unit
     ) {
-        var llmService by remember { mutableStateOf<cc.unitmesh.llm.KoogLLMService?>(null) }
+        var llmService by remember { mutableStateOf<KoogLLMService?>(null) }
         var generatedIR by remember { mutableStateOf<NanoIR?>(null) }
         var isLoading by remember { mutableStateOf(true) }
         var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -128,10 +132,10 @@ object NanoButtonComponents {
         // Initialize LLM service
         LaunchedEffect(Unit) {
             try {
-                val wrapper = cc.unitmesh.config.ConfigManager.load()
+                val wrapper = ConfigManager.load()
                 val active = wrapper.getActiveModelConfig()
                 if (active != null) {
-                    llmService = cc.unitmesh.llm.KoogLLMService(active)
+                    llmService = KoogLLMService(active)
                 } else {
                     errorMessage = "No LLM configuration found"
                     isLoading = false
@@ -157,8 +161,8 @@ object NanoButtonComponents {
                     appendLine("Keep it simple with 2-3 components maximum.")
                 }
 
-                val agent = cc.unitmesh.agent.subagent.NanoDSLAgent(service, maxRetries = 1)
-                val context = cc.unitmesh.agent.subagent.NanoDSLContext(description = description)
+                val agent = NanoDSLAgent(service, maxRetries = 1)
+                val context = NanoDSLContext(description = description)
                 val result = agent.execute(context) { /* ignore progress */ }
 
                 if (result.success) {
