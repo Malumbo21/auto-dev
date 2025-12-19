@@ -229,6 +229,16 @@ object NanoInputComponents {
         return InListExpression(item = item, listPath = listPath)
     }
 
+    /**
+     * Check if an action type is supported by NanoStateRuntime.
+     * Currently only "sequence" and "stateMutation" are handled.
+     * Other action types (ShowToast, Navigate, Fetch, etc.) are not implemented
+     * in the Compose renderer and should trigger dynamic dialog generation.
+     */
+    private fun isActionSupported(action: NanoActionIR): Boolean {
+        return action.type in setOf("sequence", "stateMutation")
+    }
+
     @Composable
     fun RenderButton(
         ir: NanoIR,
@@ -243,16 +253,24 @@ object NanoInputComponents {
         val isDisabled = !disabledIf.isNullOrBlank() && NanoRenderUtils.evaluateCondition(disabledIf, state)
         val onClick = ir.actions?.get("onClick")
 
-        // State for dynamic dialog when button has no onClick action
+        // State for dynamic dialog when button has unsupported action
         var showDynamicDialog by remember { mutableStateOf(false) }
 
         val handleClick: () -> Unit = {
             if (!isDisabled) {
-                if (onClick != null) {
-                    onAction(onClick)
-                } else {
-                    // No onClick action defined - show dynamic dialog
-                    showDynamicDialog = true
+                when {
+                    onClick == null -> {
+                        // No onClick action defined - show dynamic dialog
+                        showDynamicDialog = true
+                    }
+                    isActionSupported(onClick) -> {
+                        // Supported action - execute it
+                        onAction(onClick)
+                    }
+                    else -> {
+                        // Unsupported action type (ShowToast, Navigate, etc.) - show dynamic dialog
+                        showDynamicDialog = true
+                    }
                 }
             }
         }

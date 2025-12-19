@@ -14,19 +14,19 @@ import kotlinx.coroutines.flow.flowOf
 actual class WebEditVisionHelper actual constructor(
     private val bridge: WebEditBridge
 ) : VisionFallbackProvider {
-    
-    override fun isAvailable(): Boolean = false
-    
+
+    actual override fun isAvailable(): Boolean = false
+
     actual fun analyzeScreenshot(
         userIntent: String,
         actionableContext: String?
     ): Flow<String> = flowOf("[Vision fallback not available on Android]")
-    
+
     actual fun close() {
         // No resources to clean up
     }
-    
-    override suspend fun suggestActionsWithVision(
+
+    actual override suspend fun suggestActionsWithVision(
         userIntent: String,
         failedAction: WebEditAction?,
         actionableElements: List<AccessibilityNode>

@@ -9,14 +9,14 @@ import kotlinx.coroutines.flow.flowOf
 
 /**
  * WASM implementation of WebEditVisionHelper.
- * 
+ *
  * Vision-based analysis is not supported on WASM platform.
  * This is a stub implementation that returns empty results.
  */
 actual class WebEditVisionHelper actual constructor(
     private val bridge: WebEditBridge
 ) : VisionFallbackProvider {
-    
+
     /**
      * Analyze screenshot with vision LLM.
      * Not supported on WASM - returns empty flow.
@@ -28,23 +28,23 @@ actual class WebEditVisionHelper actual constructor(
         println("Warning: Vision analysis not supported on WASM platform")
         return flowOf("Vision analysis is not available on this platform.")
     }
-    
+
     /**
      * Close resources. No-op on WASM.
      */
     actual fun close() {
         // No resources to clean up on WASM
     }
-    
+
     /**
      * Check if vision fallback is available - always false on WASM.
      */
-    override fun isAvailable(): Boolean = false
-    
+    actual override fun isAvailable(): Boolean = false
+
     /**
      * Suggest actions with vision - not supported on WASM.
      */
-    override suspend fun suggestActionsWithVision(
+    actual override suspend fun suggestActionsWithVision(
         userIntent: String,
         failedAction: WebEditAction?,
         actionableElements: List<AccessibilityNode>

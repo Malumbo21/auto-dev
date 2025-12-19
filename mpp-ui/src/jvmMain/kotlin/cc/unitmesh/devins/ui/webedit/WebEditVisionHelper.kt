@@ -19,16 +19,16 @@ import java.util.*
 
 /**
  * JVM implementation of WebEditVisionHelper.
- * 
+ *
  * Uses MultimodalLLMService (GLM-4.6V) to understand screenshots when DOM-based
  * automation fails or needs visual confirmation.
- * 
+ *
  * Workflow:
  * 1. Capture screenshot from WebView via bridge
  * 2. Upload to Tencent COS (required by GLM-4.6V)
  * 3. Send to vision model with prompt
  * 4. Parse response for actions or understanding
- * 
+ *
  * Implements [VisionFallbackProvider] for integration with WebEditAutomation.
  */
 actual class WebEditVisionHelper actual constructor(
@@ -36,7 +36,7 @@ actual class WebEditVisionHelper actual constructor(
 ) : VisionFallbackProvider {
     private var cosUploader: TencentCosUploader? = null
     private var multimodalService: MultimodalLLMService? = null
-    
+
     // Internal constructor for factory (internal so createWebEditVisionHelper can use it)
     internal constructor(
         bridge: WebEditBridge,
@@ -46,22 +46,22 @@ actual class WebEditVisionHelper actual constructor(
         this.cosUploader = cosUploader
         this.multimodalService = multimodalService
     }
-    
+
     companion object {
         private const val VISION_MODEL_NAME = "glm-4.6v"
         private const val SCREENSHOT_TIMEOUT_MS = 10_000L
     }
-    
+
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
-    
+
     /**
      * Check if vision fallback is available.
      */
-    override fun isAvailable(): Boolean = cosUploader != null && multimodalService != null
-    
+    actual override fun isAvailable(): Boolean = cosUploader != null && multimodalService != null
+
     /**
      * Capture a screenshot and get visual understanding from the LLM.
-     * 
+     *
      * @param userIntent The user's original intent/command
      * @param actionableContext Optional DOM context to include in prompt
      * @return Flow of LLM response chunks
@@ -74,7 +74,7 @@ actual class WebEditVisionHelper actual constructor(
             emit("[Vision fallback not available - check COS and GLM config]")
             return@flow
         }
-        
+
         // Step 1: Capture screenshot
         emit("📸 Capturing screenshot...\n")
         val screenshot = captureScreenshot()
@@ -82,37 +82,37 @@ actual class WebEditVisionHelper actual constructor(
             emit("❌ Screenshot capture failed: ${screenshot?.error ?: "timeout"}\n")
             return@flow
         }
-        
+
         val base64 = screenshot.base64
         if (base64.isNullOrEmpty()) {
             emit("❌ Screenshot is empty\n")
             return@flow
         }
-        
+
         // Step 2: Upload to COS
         emit("☁️ Uploading to cloud storage...\n")
         val imageBytes = Base64.getDecoder().decode(base64)
         val fileName = "webedit_${System.currentTimeMillis()}.jpg"
-        
+
         val uploadResult = cosUploader!!.uploadImageBytes(
             bytes = imageBytes,
             fileName = fileName,
             contentType = screenshot.mimeType ?: "image/jpeg"
         )
-        
+
         if (uploadResult.isFailure) {
             emit("❌ Upload failed: ${uploadResult.exceptionOrNull()?.message}\n")
             return@flow
         }
-        
+
         val imageUrl = uploadResult.getOrThrow()
         emit("✅ Uploaded: $imageUrl\n")
-        
+
         // Step 3: Build prompt and call vision model
         emit("🤖 Analyzing with vision model...\n\n")
-        
+
         val prompt = buildVisionPrompt(userIntent, actionableContext, screenshot)
-        
+
         multimodalService!!.streamImageUnderstanding(
             imageUrl = imageUrl,
             prompt = prompt,
@@ -121,53 +121,53 @@ actual class WebEditVisionHelper actual constructor(
             emit(chunk)
         }
     }
-    
+
     /**
      * Use vision to suggest browser actions when DOM-based approach fails.
-     * 
+     *
      * @param userIntent The user's command
      * @param failedAction The action that failed (optional)
      * @param actionableElements Current actionable elements from DOM
      * @return List of suggested WebEditActions, or empty if vision fails
      */
-    override suspend fun suggestActionsWithVision(
+    actual override suspend fun suggestActionsWithVision(
         userIntent: String,
         failedAction: WebEditAction?,
         actionableElements: List<AccessibilityNode>
     ): List<WebEditAction> {
         if (!isAvailable()) return emptyList()
-        
+
         // Capture screenshot
         val screenshot = captureScreenshot() ?: return emptyList()
         if (screenshot.error != null || screenshot.base64.isNullOrEmpty()) return emptyList()
-        
+
         // Upload to COS
         val imageBytes = Base64.getDecoder().decode(screenshot.base64)
         val fileName = "webedit_action_${System.currentTimeMillis()}.jpg"
         val uploadResult = cosUploader!!.uploadImageBytes(imageBytes, fileName, screenshot.mimeType ?: "image/jpeg")
         if (uploadResult.isFailure) return emptyList()
-        
+
         val imageUrl = uploadResult.getOrThrow()
-        
+
         // Build action-focused prompt
         val prompt = buildActionPrompt(userIntent, failedAction, actionableElements, screenshot)
-        
+
         // Collect full response
         val responseBuilder = StringBuilder()
         multimodalService!!.streamImageUnderstanding(imageUrl, prompt, enableThinking = false)
             .collect { responseBuilder.append(it) }
-        
+
         // Parse actions from response
         return parseActionsFromResponse(responseBuilder.toString())
     }
-    
+
     /**
      * Capture screenshot from the WebView and wait for result.
      */
     private suspend fun captureScreenshot(): WebEditMessage.ScreenshotCaptured? {
         // Clear previous screenshot
         bridge.captureScreenshot(maxWidth = 1280, quality = 0.8)
-        
+
         // Wait for screenshot result
         return withTimeoutOrNull(SCREENSHOT_TIMEOUT_MS) {
             // Poll for screenshot (StateFlow doesn't have a "waitForNext" built-in)
@@ -186,7 +186,7 @@ actual class WebEditVisionHelper actual constructor(
             null
         }
     }
-    
+
     private fun buildVisionPrompt(
         userIntent: String,
         actionableContext: String?,
@@ -218,7 +218,7 @@ actual class WebEditVisionHelper actual constructor(
             appendLine("Be concise and actionable.")
         }
     }
-    
+
     private fun buildActionPrompt(
         userIntent: String,
         failedAction: WebEditAction?,
@@ -255,7 +255,7 @@ actual class WebEditVisionHelper actual constructor(
             appendLine("Look at the screenshot and output ONLY the JSON array, no explanation.")
         }
     }
-    
+
     private fun parseActionsFromResponse(response: String): List<WebEditAction> {
         return try {
             // Extract JSON array from response
@@ -264,12 +264,12 @@ actual class WebEditVisionHelper actual constructor(
                 .removePrefix("```")
                 .removeSuffix("```")
                 .trim()
-            
+
             // Find JSON array bounds
             val start = cleaned.indexOf('[')
             val end = cleaned.lastIndexOf(']')
             if (start == -1 || end == -1 || end <= start) return emptyList()
-            
+
             val jsonArray = cleaned.substring(start, end + 1)
             json.decodeFromString<List<WebEditAction>>(jsonArray)
         } catch (e: Exception) {
@@ -277,7 +277,7 @@ actual class WebEditVisionHelper actual constructor(
             emptyList()
         }
     }
-    
+
     /**
      * Clean up resources.
      */
@@ -293,7 +293,7 @@ actual class WebEditVisionHelper actual constructor(
 actual suspend fun createWebEditVisionHelper(bridge: WebEditBridge): WebEditVisionHelper? {
     return try {
         val config = ConfigManager.load()
-        
+
         // Initialize COS uploader
         val cloudStorage = config.getCloudStorage()
         println("[WebEditVisionHelper] 📋 Cloud storage config:")
@@ -303,7 +303,7 @@ actual suspend fun createWebEditVisionHelper(bridge: WebEditBridge): WebEditVisi
         println("   bucket: ${cloudStorage.bucket}")
         println("   region: ${cloudStorage.region}")
         println("   isConfigured(): ${cloudStorage.isConfigured()}")
-        
+
         val cosUploader = if (cloudStorage.isConfigured()) {
             println("[WebEditVisionHelper] ✅ Creating TencentCosUploader...")
             TencentCosUploader(
@@ -317,13 +317,13 @@ actual suspend fun createWebEditVisionHelper(bridge: WebEditBridge): WebEditVisi
             println("   Check: secretId=${cloudStorage.secretId.isNotBlank()}, secretKey=${cloudStorage.secretKey.isNotBlank()}, bucket=${cloudStorage.bucket.isNotBlank()}, region=${cloudStorage.region.isNotBlank()}")
             null
         }
-        
+
         // Initialize multimodal LLM service
         println("[WebEditVisionHelper] 📋 Looking for GLM/ZhiPu config...")
         val glmConfig = config.getModelConfigByProvider("GLM")
             ?: config.getModelConfigByProvider("zhipu")
             ?: config.getModelConfigByProvider("ZHIPU")
-        
+
         if (glmConfig != null) {
             println("[WebEditVisionHelper] ✅ Found GLM config: ${glmConfig.modelName}, apiKey=${if (glmConfig.apiKey.isNotBlank()) "${glmConfig.apiKey.take(8)}..." else "(empty)"}")
         } else {
@@ -333,7 +333,7 @@ actual suspend fun createWebEditVisionHelper(bridge: WebEditBridge): WebEditVisi
                 println("[WebEditVisionHelper] 📋 Active config: provider=${activeConfig.provider}, model=${activeConfig.modelName}")
             }
         }
-        
+
         val multimodalService = if (glmConfig != null) {
             val visionConfig = glmConfig.copy(modelName = "glm-4.6v")
             println("[WebEditVisionHelper] ✅ Creating MultimodalLLMService with ${visionConfig.modelName}")
@@ -350,7 +350,7 @@ actual suspend fun createWebEditVisionHelper(bridge: WebEditBridge): WebEditVisi
                 null
             }
         }
-        
+
         if (cosUploader != null && multimodalService != null) {
             println("[WebEditVisionHelper] ✅ Vision helper initialized")
             // Use private constructor
