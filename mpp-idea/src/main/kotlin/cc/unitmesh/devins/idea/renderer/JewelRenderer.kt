@@ -51,6 +51,13 @@ class JewelRenderer(
     private val _currentStreamingOutput = MutableStateFlow("")
     val currentStreamingOutput: StateFlow<String> = _currentStreamingOutput.asStateFlow()
 
+    // Thinking content state - displayed in a collapsible, scrolling area
+    private val _currentThinkingOutput = MutableStateFlow("")
+    val currentThinkingOutput: StateFlow<String> = _currentThinkingOutput.asStateFlow()
+
+    private val _isThinking = MutableStateFlow(false)
+    val isThinking: StateFlow<Boolean> = _isThinking.asStateFlow()
+
     // Debouncing mechanism for streaming updates to prevent EDT spam
     private var lastStreamingUpdateTime = 0L
     // Update UI at most every streamingUpdateDebounceMs
@@ -122,6 +129,8 @@ class JewelRenderer(
     override fun renderLLMResponseStart() {
         super.renderLLMResponseStart()
         _currentStreamingOutput.value = ""
+        _currentThinkingOutput.value = ""
+        _isThinking.value = false
         _isProcessing.value = true
 
         if (executionStartTime == 0L) {
@@ -138,17 +147,62 @@ class JewelRenderer(
             return
         }
 
+        // Extract thinking content
+        val extraction = extractThinkingContent(reasoningBuffer.toString())
+
+        // Handle thinking content
+        if (extraction.hasThinking) {
+            val thinkContent = extraction.thinkingContent.toString()
+            if (thinkContent.isNotEmpty()) {
+                val wasInThinkBlock = isInThinkBlock
+                isInThinkBlock = extraction.hasIncompleteThinkBlock
+                renderThinkingChunk(
+                    thinkContent,
+                    isStart = !wasInThinkBlock && (extraction.hasCompleteThinkBlock || extraction.hasIncompleteThinkBlock),
+                    isEnd = extraction.hasCompleteThinkBlock && !extraction.hasIncompleteThinkBlock
+                )
+            }
+        } else if (isInThinkBlock && !extraction.hasIncompleteThinkBlock) {
+            isInThinkBlock = false
+            _isThinking.value = false
+        }
+
         // Filter devin blocks and output clean content
-        val processedContent = filterDevinBlocks(reasoningBuffer.toString())
+        val processedContent = filterDevinBlocks(extraction.contentWithoutThinking)
         val cleanContent = cleanNewlines(processedContent)
 
         // Debounce streaming updates to prevent EDT spam during rapid LLM streaming
         val now = System.currentTimeMillis()
         pendingStreamingContent = cleanContent
-        
+
         if (now - lastStreamingUpdateTime >= streamingUpdateDebounceMs) {
             lastStreamingUpdateTime = now
             _currentStreamingOutput.value = cleanContent
+        }
+    }
+
+    override fun renderThinkingChunk(chunk: String, isStart: Boolean, isEnd: Boolean) {
+        if (isStart) {
+            _currentThinkingOutput.value = ""
+            _isThinking.value = true
+        }
+
+        // Append thinking content - keep only last N lines for scrolling effect
+        val maxLines = 5
+        val currentLines = _currentThinkingOutput.value.lines().toMutableList()
+        val newLines = chunk.lines()
+        currentLines.addAll(newLines)
+
+        // Keep only last N lines
+        val trimmedLines = if (currentLines.size > maxLines) {
+            currentLines.takeLast(maxLines)
+        } else {
+            currentLines
+        }
+        _currentThinkingOutput.value = trimmedLines.joinToString("\n")
+
+        if (isEnd) {
+            _isThinking.value = false
         }
     }
 
@@ -159,7 +213,7 @@ class JewelRenderer(
         val finalContent = pendingStreamingContent ?: _currentStreamingOutput.value
         pendingStreamingContent = null
         lastStreamingUpdateTime = 0L
-        
+
         val content = finalContent.trim()
         if (content.isNotEmpty()) {
             addTimelineItem(
@@ -172,6 +226,8 @@ class JewelRenderer(
         }
 
         _currentStreamingOutput.value = ""
+        _currentThinkingOutput.value = ""
+        _isThinking.value = false
         _isProcessing.value = false
         _lastMessageTokenInfo = null
     }

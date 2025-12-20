@@ -28,7 +28,13 @@ class ServerSideRenderer : CodingAgentRenderer {
     override fun renderLLMResponseEnd() {
         // No-op for server-side
     }
-    
+
+    override fun renderThinkingChunk(chunk: String, isStart: Boolean, isEnd: Boolean) {
+        // Send thinking content as a special event type
+        // Clients can choose to display this differently (e.g., in a collapsible area)
+        eventChannel.trySend(AgentEvent.ThinkingChunk(chunk, isStart, isEnd))
+    }
+
     override fun renderToolCall(toolName: String, paramsStr: String) {
         eventChannel.trySend(AgentEvent.ToolCall(toolName, paramsStr))
     }

@@ -45,6 +45,13 @@ class ComposeRenderer : BaseRenderer() {
     private var _currentStreamingOutput by mutableStateOf("")
     val currentStreamingOutput: String get() = _currentStreamingOutput
 
+    // Thinking content state - displayed in a collapsible, scrolling area
+    private var _currentThinkingOutput by mutableStateOf("")
+    val currentThinkingOutput: String get() = _currentThinkingOutput
+
+    private var _isThinking by mutableStateOf(false)
+    val isThinking: Boolean get() = _isThinking
+
     private var _isProcessing by mutableStateOf(false)
     val isProcessing: Boolean get() = _isProcessing
 
@@ -103,6 +110,8 @@ class ComposeRenderer : BaseRenderer() {
     override fun renderLLMResponseStart() {
         super.renderLLMResponseStart()
         _currentStreamingOutput = ""
+        _currentThinkingOutput = ""
+        _isThinking = false
         _isProcessing = true
 
         // Start timing if this is the first iteration
@@ -120,12 +129,57 @@ class ComposeRenderer : BaseRenderer() {
             return
         }
 
+        // Extract thinking content
+        val extraction = extractThinkingContent(reasoningBuffer.toString())
+
+        // Handle thinking content
+        if (extraction.hasThinking) {
+            val thinkContent = extraction.thinkingContent.toString()
+            if (thinkContent.isNotEmpty()) {
+                val wasInThinkBlock = isInThinkBlock
+                isInThinkBlock = extraction.hasIncompleteThinkBlock
+                renderThinkingChunk(
+                    thinkContent,
+                    isStart = !wasInThinkBlock && (extraction.hasCompleteThinkBlock || extraction.hasIncompleteThinkBlock),
+                    isEnd = extraction.hasCompleteThinkBlock && !extraction.hasIncompleteThinkBlock
+                )
+            }
+        } else if (isInThinkBlock && !extraction.hasIncompleteThinkBlock) {
+            isInThinkBlock = false
+            _isThinking = false
+        }
+
         // Process the buffer to filter out devin blocks
-        val processedContent = filterDevinBlocks(reasoningBuffer.toString())
+        val processedContent = filterDevinBlocks(extraction.contentWithoutThinking)
         val cleanContent = cleanNewlines(processedContent)
 
         // Update streaming output for Compose UI
         _currentStreamingOutput = cleanContent
+    }
+
+    override fun renderThinkingChunk(chunk: String, isStart: Boolean, isEnd: Boolean) {
+        if (isStart) {
+            _currentThinkingOutput = ""
+            _isThinking = true
+        }
+
+        // Append thinking content - keep only last N lines for scrolling effect
+        val maxLines = 5
+        val currentLines = _currentThinkingOutput.lines().toMutableList()
+        val newLines = chunk.lines()
+        currentLines.addAll(newLines)
+
+        // Keep only last N lines
+        val trimmedLines = if (currentLines.size > maxLines) {
+            currentLines.takeLast(maxLines)
+        } else {
+            currentLines
+        }
+        _currentThinkingOutput = trimmedLines.joinToString("\n")
+
+        if (isEnd) {
+            _isThinking = false
+        }
     }
 
     override fun renderLLMResponseEnd() {
@@ -138,6 +192,8 @@ class ComposeRenderer : BaseRenderer() {
         // IMPORTANT: Clear streaming output FIRST to avoid showing both
         // StreamingMessageItem and MessageItem simultaneously (double progress bar issue)
         _currentStreamingOutput = ""
+        _currentThinkingOutput = ""
+        _isThinking = false
         _isProcessing = false
         _lastMessageTokenInfo = null
 
@@ -913,11 +969,11 @@ class ComposeRenderer : BaseRenderer() {
             )
         )
     }
-    
+
     // ============================================================
     // Multimodal Analysis Support
     // ============================================================
-    
+
     /**
      * Start multimodal analysis - adds a new MultimodalAnalysisItem to timeline.
      */
@@ -935,7 +991,7 @@ class ComposeRenderer : BaseRenderer() {
         _timeline.add(item)
         return item.id
     }
-    
+
     /**
      * Update multimodal analysis status.
      */
@@ -953,7 +1009,7 @@ class ComposeRenderer : BaseRenderer() {
             )
         }
     }
-    
+
     /**
      * Append streaming result to multimodal analysis.
      */
@@ -967,7 +1023,7 @@ class ComposeRenderer : BaseRenderer() {
             )
         }
     }
-    
+
     /**
      * Complete multimodal analysis with final result.
      */
@@ -987,7 +1043,7 @@ class ComposeRenderer : BaseRenderer() {
             )
         }
     }
-    
+
     /**
      * Fail multimodal analysis with error.
      */
@@ -1094,7 +1150,7 @@ class ComposeRenderer : BaseRenderer() {
                 // Info items are not persisted (they're runtime-only for UI display)
                 null
             }
-            
+
             is TimelineItem.MultimodalAnalysisItem -> {
                 // Multimodal analysis items are not persisted (they're runtime-only)
                 null
@@ -1334,7 +1390,7 @@ class ComposeRenderer : BaseRenderer() {
                     // Info items are not persisted as messages
                     null
                 }
-                
+
                 is TimelineItem.MultimodalAnalysisItem -> {
                     // Multimodal analysis items can be saved with their final result
                     if (item.finalResult != null) {

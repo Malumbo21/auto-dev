@@ -90,6 +90,11 @@ class KoogLLMService(
                                 val ttfb = Clock.System.now().toEpochMilliseconds() - startTime
                                 logger.info { "📥 [LLM] First chunk received - TTFB: ${ttfb}ms" }
                             }
+                            // Debug: Log chunks that might contain thinking tags
+                            if (frame.text.contains("<think") || frame.text.contains("</think") ||
+                                frame.text.contains("<reasoning") || frame.text.contains("</reasoning")) {
+                                logger.debug { "🧠 [LLM] Thinking tag detected in chunk: ${frame.text.take(100)}..." }
+                            }
                             emit(frame.text)
                         }
                         is StreamFrame.End -> {

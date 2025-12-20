@@ -91,8 +91,17 @@ export class CliRenderer extends BaseRenderer {
     }
   }
 
+  // Thinking display state
+  private thinkingLines: string[] = [];
+  private currentThinkingLine: string = '';
+  private readonly maxThinkingLines = 3;
+
   renderLLMResponseStart(): void {
     this.baseLLMResponseStart(); // Use BaseRenderer helper
+    this.isInThinkBlock = false;
+    this.thinkingBuffer = '';
+    this.thinkingLines = [];
+    this.currentThinkingLine = '';
     process.stdout.write(semanticChalk.muted('💭 '));
   }
 
@@ -105,8 +114,27 @@ export class CliRenderer extends BaseRenderer {
       return; // Don't output anything yet, wait for more chunks
     }
 
+    // Extract thinking content
+    const extraction = this.extractThinkingContent(this.reasoningBuffer);
+
+    // Handle thinking content
+    if (extraction.hasThinking) {
+      const thinkContent = extraction.thinkingContent;
+      if (thinkContent.length > 0) {
+        const wasInThinkBlock = this.isInThinkBlock;
+        this.isInThinkBlock = extraction.hasIncompleteThinkBlock;
+        this.renderThinkingChunk(
+          thinkContent,
+          !wasInThinkBlock && (extraction.hasCompleteThinkBlock || extraction.hasIncompleteThinkBlock),
+          extraction.hasCompleteThinkBlock && !extraction.hasIncompleteThinkBlock
+        );
+      }
+    } else if (this.isInThinkBlock && !extraction.hasIncompleteThinkBlock) {
+      this.isInThinkBlock = false;
+    }
+
     // Process the buffer to filter out devin blocks (from BaseRenderer)
-    let processedContent = this.filterDevinBlocks(this.reasoningBuffer);
+    let processedContent = this.filterDevinBlocks(extraction.contentWithoutThinking);
 
     // Only output new content that hasn't been printed yet
     if (processedContent.length > 0) {
@@ -121,9 +149,49 @@ export class CliRenderer extends BaseRenderer {
     }
   }
 
+  /**
+   * Render thinking content in a compact, scrolling format with gray color
+   */
+  override renderThinkingChunk(chunk: string, isStart: boolean, isEnd: boolean): void {
+    if (isStart) {
+      this.thinkingLines = [];
+      this.currentThinkingLine = '';
+      process.stdout.write(semanticChalk.muted('🧠 Thinking: '));
+    }
+
+    // Process chunk character by character to handle line breaks
+    for (const char of chunk) {
+      if (char === '\n') {
+        // Complete current line
+        this.thinkingLines.push(this.currentThinkingLine);
+        this.currentThinkingLine = '';
+
+        // Keep only last N lines for scrolling effect
+        if (this.thinkingLines.length > this.maxThinkingLines) {
+          this.thinkingLines.shift();
+        }
+
+        // Clear line and reprint last line (scrolling effect)
+        process.stdout.write('\r\x1b[K'); // Clear current line
+        process.stdout.write(semanticChalk.muted('🧠 ' + (this.thinkingLines[this.thinkingLines.length - 1] || '')));
+      } else {
+        this.currentThinkingLine += char;
+        process.stdout.write(semanticChalk.muted(char));
+      }
+    }
+
+    if (isEnd) {
+      // End of thinking block - add newline
+      console.log();
+      this.thinkingLines = [];
+      this.currentThinkingLine = '';
+    }
+  }
+
   renderLLMResponseEnd(): void {
     // Force output any remaining content after filtering devin blocks
-    const finalContent = this.filterDevinBlocks(this.reasoningBuffer);
+    const extraction = this.extractThinkingContent(this.reasoningBuffer);
+    const finalContent = this.filterDevinBlocks(extraction.contentWithoutThinking);
     const remainingContent = finalContent.slice(this.lastOutputLength || 0);
 
     if (remainingContent.length > 0) {

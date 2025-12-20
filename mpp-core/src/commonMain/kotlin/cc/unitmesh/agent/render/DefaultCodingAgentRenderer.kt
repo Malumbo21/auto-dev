@@ -29,12 +29,78 @@ class DefaultCodingAgentRenderer : BaseRenderer() {
             return
         }
 
+        // Extract and handle thinking content
+        val extraction = extractThinkingContent(reasoningBuffer.toString())
+
+        // Render thinking content if present
+        if (extraction.hasThinking) {
+            val thinkContent = extraction.thinkingContent.toString()
+            if (thinkContent.isNotEmpty()) {
+                val wasInThinkBlock = isInThinkBlock
+                isInThinkBlock = extraction.hasIncompleteThinkBlock
+                renderThinkingChunk(
+                    thinkContent,
+                    isStart = !wasInThinkBlock && (extraction.hasCompleteThinkBlock || extraction.hasIncompleteThinkBlock),
+                    isEnd = extraction.hasCompleteThinkBlock && !extraction.hasIncompleteThinkBlock
+                )
+            }
+        } else if (isInThinkBlock && !extraction.hasIncompleteThinkBlock) {
+            // Think block just ended
+            isInThinkBlock = false
+        }
+
         // Filter devin blocks and output clean content
-        val processedContent = filterDevinBlocks(reasoningBuffer.toString())
+        val processedContent = filterDevinBlocks(extraction.contentWithoutThinking)
         val cleanContent = cleanNewlines(processedContent)
 
         // Simple output for default renderer
         print(cleanContent)
+    }
+
+    // Track thinking display state
+    private var thinkingLineCount = 0
+    private val maxThinkingLines = 3
+    private val thinkingLines = mutableListOf<String>()
+    private var currentThinkingLine = StringBuilder()
+
+    override fun renderThinkingChunk(chunk: String, isStart: Boolean, isEnd: Boolean) {
+        if (isStart) {
+            // Start of thinking block - show header
+            thinkingLineCount = 0
+            thinkingLines.clear()
+            currentThinkingLine.clear()
+            print("\u001B[90m🧠 Thinking: ")  // Gray color
+        }
+
+        // Process chunk character by character to handle line breaks
+        for (char in chunk) {
+            if (char == '\n') {
+                // Complete current line
+                thinkingLines.add(currentThinkingLine.toString())
+                currentThinkingLine.clear()
+                thinkingLineCount++
+
+                // Keep only last N lines for scrolling effect
+                if (thinkingLines.size > maxThinkingLines) {
+                    thinkingLines.removeAt(0)
+                }
+
+                // Clear line and reprint last N lines (scrolling effect)
+                print("\r\u001B[K")  // Clear current line
+                print("\u001B[90m🧠 ${thinkingLines.lastOrNull() ?: ""}")
+            } else {
+                currentThinkingLine.append(char)
+                // Print character in gray
+                print("\u001B[90m$char")
+            }
+        }
+
+        if (isEnd) {
+            // End of thinking block - reset color and add newline
+            println("\u001B[0m")  // Reset color
+            thinkingLines.clear()
+            currentThinkingLine.clear()
+        }
     }
 
     override fun renderLLMResponseEnd() {

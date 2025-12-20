@@ -338,6 +338,17 @@ export class VSCodeRenderer {
     this.chatProvider.postMessage({ type: 'endResponse' });
   }
 
+  /**
+   * Render thinking/reasoning content from the LLM.
+   * Sends to webview for display in a collapsible, scrolling area with muted colors.
+   */
+  renderThinkingChunk(chunk: string, isStart: boolean, isEnd: boolean): void {
+    this.chatProvider.postMessage({
+      type: 'thinkingChunk',
+      data: { chunk, isStart, isEnd }
+    });
+  }
+
   renderToolCall(toolName: string, paramsStr: string): void {
     this.chatProvider.postMessage({
       type: 'toolCall',

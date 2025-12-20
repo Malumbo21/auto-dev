@@ -170,21 +170,154 @@ class CodingCliRenderer : CodingAgentRenderer {
         val startTime: Long
     )
 
+    // Thinking block state
+    private var isInThinkBlock = false
+    private val thinkingBuffer = StringBuilder()
+    private val reasoningBuffer = StringBuilder()
+    private var thinkingLineCount = 0
+    private val maxThinkingLines = 3
+    private val thinkingLines = mutableListOf<String>()
+    private var currentThinkingLine = StringBuilder()
+
     override fun renderIterationHeader(current: Int, max: Int) {
         println("\n━━━ Iteration $current/$max ━━━")
     }
 
     override fun renderLLMResponseStart() {
         println("💭 ")
+        // Reset thinking state
+        isInThinkBlock = false
+        thinkingBuffer.clear()
+        reasoningBuffer.clear()
+        thinkingLines.clear()
+        currentThinkingLine.clear()
     }
 
     override fun renderLLMResponseChunk(chunk: String) {
-        print(chunk)
-        System.out.flush()
+        reasoningBuffer.append(chunk)
+
+        // Extract thinking content
+        val extraction = extractThinkingContent(reasoningBuffer.toString())
+
+        // Render thinking content if present
+        if (extraction.hasThinking) {
+            val thinkContent = extraction.thinkingContent.toString()
+            if (thinkContent.isNotEmpty()) {
+                val wasInThinkBlock = isInThinkBlock
+                isInThinkBlock = extraction.hasIncompleteThinkBlock
+                renderThinkingChunk(
+                    thinkContent,
+                    isStart = !wasInThinkBlock && (extraction.hasCompleteThinkBlock || extraction.hasIncompleteThinkBlock),
+                    isEnd = extraction.hasCompleteThinkBlock && !extraction.hasIncompleteThinkBlock
+                )
+            }
+        } else if (isInThinkBlock && !extraction.hasIncompleteThinkBlock) {
+            isInThinkBlock = false
+        }
+
+        // Output non-thinking content
+        val cleanContent = extraction.contentWithoutThinking
+        if (cleanContent.isNotEmpty()) {
+            print(cleanContent)
+            System.out.flush()
+        }
     }
 
     override fun renderLLMResponseEnd() {
         println("\n")
+    }
+
+    override fun renderThinkingChunk(chunk: String, isStart: Boolean, isEnd: Boolean) {
+        if (isStart) {
+            // Start of thinking block - show header with gray color
+            thinkingLineCount = 0
+            thinkingLines.clear()
+            currentThinkingLine.clear()
+            print("\u001B[90m🧠 Thinking: ")  // Gray color
+        }
+
+        // Process chunk character by character to handle line breaks
+        for (char in chunk) {
+            if (char == '\n') {
+                // Complete current line
+                thinkingLines.add(currentThinkingLine.toString())
+                currentThinkingLine.clear()
+                thinkingLineCount++
+
+                // Keep only last N lines for scrolling effect
+                if (thinkingLines.size > maxThinkingLines) {
+                    thinkingLines.removeAt(0)
+                }
+
+                // Clear line and reprint last line (scrolling effect)
+                print("\r\u001B[K")  // Clear current line
+                print("\u001B[90m🧠 ${thinkingLines.lastOrNull() ?: ""}")
+            } else {
+                currentThinkingLine.append(char)
+                // Print character in gray
+                print("\u001B[90m$char")
+            }
+        }
+        System.out.flush()
+
+        if (isEnd) {
+            // End of thinking block - reset color and add newline
+            println("\u001B[0m")  // Reset color
+            thinkingLines.clear()
+            currentThinkingLine.clear()
+        }
+    }
+
+    /**
+     * Extract thinking content from the buffer.
+     * Returns a result with content separated from thinking blocks.
+     */
+    private fun extractThinkingContent(content: String): ThinkingExtractionResult {
+        val result = ThinkingExtractionResult()
+        var remaining = content
+
+        // Handle complete <think>...</think> blocks
+        val completeThinkPattern = Regex("<think>([\\s\\S]*?)</think>")
+        val matches = completeThinkPattern.findAll(remaining)
+        for (match in matches) {
+            result.thinkingContent.append(match.groupValues[1])
+            result.hasCompleteThinkBlock = true
+        }
+        remaining = remaining.replace(completeThinkPattern, "")
+
+        // Check for incomplete <think> block at the end
+        val openThinkIndex = remaining.lastIndexOf("<think>")
+        if (openThinkIndex != -1) {
+            val closeThinkIndex = remaining.indexOf("</think>", openThinkIndex)
+            if (closeThinkIndex == -1) {
+                // Incomplete think block - extract content after <think>
+                val thinkContent = remaining.substring(openThinkIndex + 7)
+                result.thinkingContent.append(thinkContent)
+                result.hasIncompleteThinkBlock = true
+                remaining = remaining.substring(0, openThinkIndex)
+            }
+        }
+
+        // Check for partial <think or </think tags
+        val partialThinkPattern = Regex("<(?:t(?:h(?:i(?:n(?:k)?)?)?)?)?$|</(?:t(?:h(?:i(?:n(?:k)?)?)?)?)?$")
+        if (partialThinkPattern.containsMatchIn(remaining)) {
+            result.hasPartialTag = true
+            remaining = remaining.replace(partialThinkPattern, "")
+        }
+
+        result.contentWithoutThinking = remaining
+        return result
+    }
+
+    private class ThinkingExtractionResult {
+        var contentWithoutThinking: String = ""
+        val thinkingContent = StringBuilder()
+        var hasCompleteThinkBlock = false
+        var hasIncompleteThinkBlock = false
+        var hasPartialTag = false
+
+        val hasThinking: Boolean
+            get() = thinkingContent.isNotEmpty()
     }
 
     override fun renderToolCall(toolName: String, paramsStr: String) {

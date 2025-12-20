@@ -99,6 +99,21 @@ interface JsCodingAgentRenderer {
     fun renderLLMResponseChunk(chunk: String)
     fun renderLLMResponseEnd()
 
+    /**
+     * Render a thinking/reasoning chunk from the LLM.
+     * This is called when the LLM outputs thinking content (e.g., wrapped in <think> tags).
+     *
+     * Thinking content should be displayed differently from regular content:
+     * - Use a muted/gray color
+     * - Display in a compact, scrolling area (showing only last few lines)
+     * - Can be collapsed/expanded by the user
+     *
+     * @param chunk The thinking content chunk
+     * @param isStart Whether this is the start of a new thinking block
+     * @param isEnd Whether this is the end of the current thinking block
+     */
+    fun renderThinkingChunk(chunk: String, isStart: Boolean, isEnd: Boolean) {}
+
     // Tool execution methods
     fun renderToolCall(toolName: String, paramsStr: String)
     fun renderToolResult(toolName: String, success: Boolean, output: String?, fullOutput: String?)
@@ -163,6 +178,10 @@ class JsRendererAdapter(private val jsRenderer: JsCodingAgentRenderer) : CodingA
 
     override fun renderLLMResponseEnd() {
         jsRenderer.renderLLMResponseEnd()
+    }
+
+    override fun renderThinkingChunk(chunk: String, isStart: Boolean, isEnd: Boolean) {
+        jsRenderer.renderThinkingChunk(chunk, isStart, isEnd)
     }
 
     override fun renderToolCall(toolName: String, paramsStr: String) {

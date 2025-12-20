@@ -19,9 +19,11 @@ export abstract class BaseRenderer implements JsCodingAgentRenderer {
 
   protected reasoningBuffer: string = '';
   protected isInDevinBlock: boolean = false;
+  protected isInThinkBlock: boolean = false;
   protected lastIterationReasoning: string = '';
   protected consecutiveRepeats: number = 0;
   protected lastOutputLength: number = 0;
+  protected thinkingBuffer: string = '';
 
   /**
    * Filter out devin blocks and thinking blocks from content
@@ -104,6 +106,56 @@ export abstract class BaseRenderer implements JsCodingAgentRenderer {
     return content.replace(/\n{3,}/g, '\n\n');
   }
 
+  /**
+   * Extract thinking content from the buffer.
+   * Returns an object with content separated from thinking blocks.
+   */
+  protected extractThinkingContent(content: string): ThinkingExtractionResult {
+    const result: ThinkingExtractionResult = {
+      contentWithoutThinking: '',
+      thinkingContent: '',
+      hasCompleteThinkBlock: false,
+      hasIncompleteThinkBlock: false,
+      hasPartialTag: false,
+      hasThinking: false
+    };
+
+    let remaining = content;
+
+    // Handle complete <think>...</think> blocks
+    const completeThinkPattern = /<think>([\s\S]*?)<\/think>/g;
+    let match;
+    while ((match = completeThinkPattern.exec(remaining)) !== null) {
+      result.thinkingContent += match[1];
+      result.hasCompleteThinkBlock = true;
+    }
+    remaining = remaining.replace(/<think>[\s\S]*?<\/think>/g, '');
+
+    // Check for incomplete <think> block at the end
+    const openThinkIndex = remaining.lastIndexOf('<think>');
+    if (openThinkIndex !== -1) {
+      const closeThinkIndex = remaining.indexOf('</think>', openThinkIndex);
+      if (closeThinkIndex === -1) {
+        // Incomplete think block - extract content after <think>
+        const thinkContent = remaining.substring(openThinkIndex + 7);
+        result.thinkingContent += thinkContent;
+        result.hasIncompleteThinkBlock = true;
+        remaining = remaining.substring(0, openThinkIndex);
+      }
+    }
+
+    // Check for partial <think or </think tags
+    const partialThinkPattern = /<(?:t(?:h(?:i(?:n(?:k)?)?)?)?)?$|<\/(?:t(?:h(?:i(?:n(?:k)?)?)?)?)?$/;
+    if (partialThinkPattern.test(remaining)) {
+      result.hasPartialTag = true;
+      remaining = remaining.replace(partialThinkPattern, '');
+    }
+
+    result.contentWithoutThinking = remaining;
+    result.hasThinking = result.thinkingContent.length > 0;
+    return result;
+  }
+
   // ============================================================================
   // JsCodingAgentRenderer Interface - Abstract methods
   // These must be implemented by subclasses (CliRenderer, ServerRenderer, TuiRenderer)
@@ -113,6 +165,24 @@ export abstract class BaseRenderer implements JsCodingAgentRenderer {
   abstract renderLLMResponseStart(): void;
   abstract renderLLMResponseChunk(chunk: string): void;
   abstract renderLLMResponseEnd(): void;
+
+  /**
+   * Render a thinking/reasoning chunk from the LLM.
+   * This is called when the LLM outputs thinking content (e.g., wrapped in <think> tags).
+   *
+   * Thinking content should be displayed differently from regular content:
+   * - Use a muted/gray color
+   * - Display in a compact, scrolling area (showing only last few lines)
+   * - Can be collapsed/expanded by the user
+   *
+   * @param chunk The thinking content chunk
+   * @param isStart Whether this is the start of a new thinking block
+   * @param isEnd Whether this is the end of the current thinking block
+   */
+  renderThinkingChunk(chunk: string, isStart: boolean, isEnd: boolean): void {
+    // Default: no-op, subclasses can override to display thinking content
+  }
+
   abstract renderToolCall(toolName: string, paramsStr: string): void;
   abstract renderToolResult(toolName: string, success: boolean, output: string | null, fullOutput?: string | null, metadata?: Record<string, string>): void;
   abstract renderTaskComplete(executionTimeMs?: number, toolsUsedCount?: number): void;
@@ -180,4 +250,16 @@ export abstract class BaseRenderer implements JsCodingAgentRenderer {
    * Output newline - to be implemented by subclasses
    */
   protected abstract outputNewline(): void;
+}
+
+/**
+ * Result of thinking content extraction
+ */
+export interface ThinkingExtractionResult {
+  contentWithoutThinking: string;
+  thinkingContent: string;
+  hasCompleteThinkBlock: boolean;
+  hasIncompleteThinkBlock: boolean;
+  hasPartialTag: boolean;
+  hasThinking: boolean;
 }

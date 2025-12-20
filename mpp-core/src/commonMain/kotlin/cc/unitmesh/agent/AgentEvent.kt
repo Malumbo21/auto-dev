@@ -26,6 +26,18 @@ sealed interface AgentEvent {
     @Serializable
     data class LLMResponseChunk(val chunk: String) : AgentEvent
 
+    /**
+     * Thinking/reasoning content from the LLM.
+     * This is separate from regular content and should be displayed differently
+     * (e.g., in a collapsible, scrolling area with muted colors).
+     */
+    @Serializable
+    data class ThinkingChunk(
+        val chunk: String,
+        val isStart: Boolean = false,
+        val isEnd: Boolean = false
+    ) : AgentEvent
+
     @Serializable
     data class ToolCall(val toolName: String, val params: String) : AgentEvent
 
