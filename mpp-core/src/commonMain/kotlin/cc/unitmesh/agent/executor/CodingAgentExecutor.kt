@@ -145,6 +145,7 @@ class CodingAgentExecutor(
             // This enforces the "one tool per response" rule even when LLM returns multiple tool calls
             val toolCalls = if (singleToolPerIteration && allToolCalls.size > 1) {
                 logger.warn { "LLM returned ${allToolCalls.size} tool calls, but singleToolPerIteration is enabled. Only executing the first one: ${allToolCalls.first().toolName}" }
+                logger.warn { "Tool calls: ${allToolCalls.joinToString()}" }
                 renderer.renderError("Warning: LLM returned ${allToolCalls.size} tool calls, only executing the first one")
                 listOf(allToolCalls.first())
             } else {
