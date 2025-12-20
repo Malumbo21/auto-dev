@@ -2,21 +2,14 @@ package cc.unitmesh.devins.ui.nano
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import cc.unitmesh.agent.Platform
 import cc.unitmesh.xuiper.ir.NanoActionIR
 import cc.unitmesh.xuiper.ir.NanoIR
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
@@ -25,173 +18,14 @@ import kotlin.math.round
 
 /**
  * Input components for NanoUI Compose renderer.
- * Includes: Input, Checkbox, TextArea, Select, DatePicker, Radio, RadioGroup,
- * Switch, NumberInput, SmartTextField, Slider, DateRangePicker
+ * Includes: Input, Checkbox, TextArea, Switch, NumberInput, SmartTextField, Slider
  *
- * Note: Button components have been extracted to [NanoButtonComponents]
+ * Note: 
+ * - Button components have been extracted to [NanoButtonComponents]
+ * - Date components (DatePicker, DateRangePicker) have been extracted to [NanoDateComponents]
+ * - Selection components (Select, Radio, RadioGroup) have been extracted to [NanoSelectionComponents]
  */
 object NanoInputComponents {
-
-    private val lenientJson = Json {
-        isLenient = true
-        ignoreUnknownKeys = true
-    }
-
-    private data class RadioOption(val value: String, val label: String)
-
-    private fun unquoteString(raw: String): String {
-        val t = raw.trim()
-        return t.removeSurrounding("\"", "\"")
-            .removeSurrounding("'", "'")
-            .trim()
-    }
-
-    private fun splitTopLevelCommaSeparated(input: String): List<String> {
-        val parts = mutableListOf<String>()
-        val sb = StringBuilder()
-        var braceDepth = 0
-        var bracketDepth = 0
-        var inSingle = false
-        var inDouble = false
-        var escaped = false
-
-        fun flush() {
-            val s = sb.toString().trim()
-            if (s.isNotEmpty()) parts += s
-            sb.clear()
-        }
-
-        input.forEach { c ->
-            if (escaped) {
-                sb.append(c)
-                escaped = false
-                return@forEach
-            }
-            when (c) {
-                '\\' -> {
-                    if (inSingle || inDouble) {
-                        sb.append(c)
-                        escaped = true
-                    } else {
-                        sb.append(c)
-                    }
-                }
-                '\'' -> {
-                    sb.append(c)
-                    if (!inDouble) inSingle = !inSingle
-                }
-                '"' -> {
-                    sb.append(c)
-                    if (!inSingle) inDouble = !inDouble
-                }
-                '{' -> {
-                    sb.append(c)
-                    if (!inSingle && !inDouble) braceDepth++
-                }
-                '}' -> {
-                    sb.append(c)
-                    if (!inSingle && !inDouble && braceDepth > 0) braceDepth--
-                }
-                '[' -> {
-                    sb.append(c)
-                    if (!inSingle && !inDouble) bracketDepth++
-                }
-                ']' -> {
-                    sb.append(c)
-                    if (!inSingle && !inDouble && bracketDepth > 0) bracketDepth--
-                }
-                ',' -> {
-                    if (!inSingle && !inDouble && braceDepth == 0 && bracketDepth == 0) {
-                        flush()
-                    } else {
-                        sb.append(c)
-                    }
-                }
-                else -> sb.append(c)
-            }
-        }
-        flush()
-        return parts
-    }
-
-    private fun parseRadioOptionsFromDslLiteral(raw: String): List<RadioOption> {
-        // Some upstream IR generators store strings with escaped quotes (e.g. \"train\")
-        // inside a Kotlin raw string / JSON primitive. Normalize them so the lightweight
-        // DSL parser can still recognize quoted values.
-        val trimmed = raw.trim()
-            .replace("\\\"", "\"")
-            .replace("\\'", "'")
-        if (!trimmed.startsWith("[") || !trimmed.endsWith("]")) return emptyList()
-
-        val inner = trimmed.removePrefix("[").removeSuffix("]").trim()
-        if (inner.isBlank()) return emptyList()
-
-        val items = splitTopLevelCommaSeparated(inner)
-
-        fun extractField(item: String, field: String): String? {
-            val pattern = Regex(
-                """(?is)(?:\"$field\"|$field)\s*:\s*(\"(?:\\\\.|[^\"])*\"|'(?:\\\\.|[^'])*'|[^,}\]]+)"""
-            )
-            val m = pattern.find(item) ?: return null
-            return unquoteString(m.groupValues[1])
-        }
-
-        return items.mapNotNull { itemRaw ->
-            val item = itemRaw.trim()
-            when {
-                item.startsWith("{") && item.endsWith("}") -> {
-                    val value = extractField(item, "value") ?: return@mapNotNull null
-                    val label = extractField(item, "label") ?: value
-                    RadioOption(value = value, label = label)
-                }
-                item.startsWith("\"") || item.startsWith("'") -> {
-                    val v = unquoteString(item)
-                    if (v.isBlank()) null else RadioOption(value = v, label = v)
-                }
-                else -> {
-                    val v = item.trim()
-                    if (v.isBlank()) null else RadioOption(value = v, label = v)
-                }
-            }
-        }
-    }
-
-    private fun parseRadioOptions(optionsElement: JsonElement?): List<RadioOption> {
-        if (optionsElement == null) return emptyList()
-
-        fun fromJsonArray(arr: JsonArray): List<RadioOption> {
-            return arr.mapNotNull { el ->
-                when (el) {
-                    is JsonPrimitive -> {
-                        val v = el.contentOrNull ?: return@mapNotNull null
-                        RadioOption(value = v, label = v)
-                    }
-                    is JsonObject -> {
-                        val v = el["value"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
-                        val l = el["label"]?.jsonPrimitive?.contentOrNull ?: v
-                        RadioOption(value = v, label = l)
-                    }
-                    else -> null
-                }
-            }
-        }
-
-        return when (optionsElement) {
-            is JsonArray -> fromJsonArray(optionsElement)
-            is JsonPrimitive -> {
-                val raw = optionsElement.contentOrNull ?: return emptyList()
-                val trimmed = raw.trim()
-                if (!trimmed.startsWith("[")) return emptyList()
-                try {
-                    val parsed = lenientJson.parseToJsonElement(trimmed)
-                    (parsed as? JsonArray)?.let { fromJsonArray(it) } ?: parseRadioOptionsFromDslLiteral(trimmed)
-                } catch (_: Exception) {
-                    parseRadioOptionsFromDslLiteral(trimmed)
-                }
-            }
-            else -> emptyList()
-        }
-    }
 
     private fun resolveStatePathFromBinding(ir: NanoIR, vararg keys: String): String? {
         val binding = keys.firstNotNullOfOrNull { ir.bindings?.get(it) }
@@ -426,6 +260,10 @@ object NanoInputComponents {
         )
     }
 
+    /**
+     * Renders a select component.
+     * Delegates to [NanoSelectionComponents.RenderSelect]
+     */
     @Composable
     fun RenderSelect(
         ir: NanoIR,
@@ -433,73 +271,13 @@ object NanoInputComponents {
         onAction: (NanoActionIR) -> Unit,
         modifier: Modifier
     ) {
-        val placeholder = ir.props["placeholder"]?.jsonPrimitive?.content ?: "Select..."
-        val statePath = resolveStatePathFromBinding(ir, "value", "bind")
-        val selectedFromState = statePath?.let { state[it]?.toString() }
-        val selectedProp = ir.props["value"]?.jsonPrimitive?.contentOrNull
-        var uncontrolledSelected by remember(statePath, selectedProp) { mutableStateOf(selectedProp ?: "") }
-        val selectedValue = selectedFromState ?: uncontrolledSelected
-        val onChange = ir.actions?.get("onChange")
-        var expanded by remember { mutableStateOf(false) }
-
-        // Parse options - support both string array and object array {value, label}
-        data class SelectOption(val value: String, val label: String)
-        val options: List<SelectOption> = ir.props["options"]?.let { optionsElement ->
-            try {
-                (optionsElement as? JsonArray)?.mapNotNull { el ->
-                    when (el) {
-                        is JsonPrimitive -> {
-                            val v = el.contentOrNull ?: return@mapNotNull null
-                            SelectOption(value = v, label = v)
-                        }
-                        is JsonObject -> {
-                            val v = el["value"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
-                            val l = el["label"]?.jsonPrimitive?.contentOrNull ?: v
-                            SelectOption(value = v, label = l)
-                        }
-                        else -> null
-                    }
-                }
-            } catch (e: Exception) { null }
-        } ?: emptyList()
-
-        // Find the label to display
-        val displayText = if (selectedValue.isNotEmpty()) {
-            options.find { it.value == selectedValue }?.label ?: selectedValue
-        } else {
-            placeholder
-        }
-
-        Box(modifier = modifier.widthIn(min = 120.dp)) {
-            OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) {
-                Text(displayText)
-            }
-            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                options.forEach { option ->
-                    DropdownMenuItem(
-                        text = { Text(option.label) },
-                        onClick = {
-                            expanded = false
-                            if (statePath != null) {
-                                onAction(NanoActionIR(
-                                    type = "stateMutation",
-                                    payload = mapOf(
-                                        "path" to JsonPrimitive(statePath),
-                                        "operation" to JsonPrimitive("SET"),
-                                        "value" to JsonPrimitive(option.value)
-                                    )
-                                ))
-                            } else {
-                                uncontrolledSelected = option.value
-                            }
-                            onChange?.let { onAction(it) }
-                        }
-                    )
-                }
-            }
-        }
+        NanoSelectionComponents.RenderSelect(ir, state, onAction, modifier)
     }
 
+    /**
+     * Renders a date picker component.
+     * Delegates to [NanoDateComponents.RenderDatePicker]
+     */
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     fun RenderDatePicker(
@@ -508,99 +286,13 @@ object NanoInputComponents {
         onAction: (NanoActionIR) -> Unit,
         modifier: Modifier
     ) {
-        val placeholder = ir.props["placeholder"]?.jsonPrimitive?.content ?: "Select date"
-        val statePath = resolveStatePathFromBinding(ir, "value", "bind")
-        val valueFromState = statePath?.let { state[it]?.toString() }
-        val valueProp = ir.props["value"]?.jsonPrimitive?.contentOrNull
-        var uncontrolledValue by remember(statePath, valueProp) { mutableStateOf(valueProp ?: "") }
-        val currentValue = valueFromState ?: uncontrolledValue
-        val onChange = ir.actions?.get("onChange")
-
-        var showDialog by remember { mutableStateOf(false) }
-        val datePickerState = rememberDatePickerState()
-
-        // Display field - use widthIn to allow flexible sizing in HStack while having a reasonable default
-        Box(
-            modifier = modifier
-                .widthIn(min = 120.dp)
-                .clickable { showDialog = true }
-        ) {
-            OutlinedTextField(
-                value = currentValue,
-                onValueChange = { }, // Read-only, click to open dialog
-                placeholder = { Text(placeholder) },
-                leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = "Date") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                readOnly = true,
-                enabled = false,
-                colors = OutlinedTextFieldDefaults.colors(
-                    disabledTextColor = MaterialTheme.colorScheme.onSurface,
-                    disabledBorderColor = MaterialTheme.colorScheme.outline,
-                    disabledLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    disabledPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            )
-        }
-
-        // On Desktop/other non-Android targets, Material3 DatePickerDialog can throw
-        // "layouts are not part of the same hierarchy" due to popup positioning.
-        // Use an inline panel as a safe fallback.
-        if (showDialog) {
-            val onConfirm: () -> Unit = {
-                val selectedDate = datePickerState.selectedDateMillis
-                if (selectedDate != null) {
-                    val dateStr = NanoRenderUtils.formatDateFromMillis(selectedDate)
-                    if (statePath != null) {
-                        onAction(
-                            NanoActionIR(
-                                type = "stateMutation",
-                                payload = mapOf(
-                                    "path" to JsonPrimitive(statePath),
-                                    "operation" to JsonPrimitive("SET"),
-                                    "value" to JsonPrimitive(dateStr)
-                                )
-                            )
-                        )
-                    } else {
-                        uncontrolledValue = dateStr
-                    }
-                    onChange?.let { onAction(it) }
-                }
-                showDialog = false
-            }
-
-            if (Platform.isAndroid) {
-                DatePickerDialog(
-                    onDismissRequest = { showDialog = false },
-                    confirmButton = { TextButton(onClick = onConfirm) { Text("OK") } },
-                    dismissButton = { TextButton(onClick = { showDialog = false }) { Text("Cancel") } }
-                ) {
-                    DatePicker(state = datePickerState)
-                }
-            } else {
-                Surface(
-                    modifier = modifier
-                        .widthIn(min = 120.dp)
-                        .padding(top = 8.dp),
-                    shape = MaterialTheme.shapes.medium,
-                    tonalElevation = 1.dp
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        DatePicker(state = datePickerState)
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End
-                        ) {
-                            TextButton(onClick = { showDialog = false }) { Text("Cancel") }
-                            TextButton(onClick = onConfirm) { Text("OK") }
-                        }
-                    }
-                }
-            }
-        }
+        NanoDateComponents.RenderDatePicker(ir, state, onAction, modifier)
     }
 
+    /**
+     * Renders a radio button component.
+     * Delegates to [NanoSelectionComponents.RenderRadio]
+     */
     @Composable
     fun RenderRadio(
         ir: NanoIR,
@@ -608,40 +300,13 @@ object NanoInputComponents {
         onAction: (NanoActionIR) -> Unit,
         modifier: Modifier
     ) {
-        val option = ir.props["option"]?.jsonPrimitive?.content ?: ""
-        val label = ir.props["label"]?.jsonPrimitive?.content ?: option
-        val statePath = resolveStatePathFromBinding(ir, "value", "bind")
-        val selectedFromState = statePath?.let { state[it]?.toString() }
-        val selectedProp = ir.props["value"]?.jsonPrimitive?.contentOrNull
-        var uncontrolledSelected by remember(statePath, selectedProp) { mutableStateOf(selectedProp ?: "") }
-        val selectedValue = selectedFromState ?: uncontrolledSelected
-        val onChange = ir.actions?.get("onChange")
-        val isSelected = selectedValue == option
-
-        Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
-            RadioButton(
-                selected = isSelected,
-                onClick = {
-                    if (statePath != null) {
-                        onAction(NanoActionIR(
-                            type = "stateMutation",
-                            payload = mapOf(
-                                "path" to JsonPrimitive(statePath),
-                                "operation" to JsonPrimitive("SET"),
-                                "value" to JsonPrimitive(option)
-                            )
-                        ))
-                    } else {
-                        uncontrolledSelected = option
-                    }
-                    onChange?.let { onAction(it) }
-                }
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(label)
-        }
+        NanoSelectionComponents.RenderRadio(ir, state, onAction, modifier)
     }
 
+    /**
+     * Renders a radio group component.
+     * Delegates to [NanoSelectionComponents.RenderRadioGroup]
+     */
     @Composable
     fun RenderRadioGroup(
         ir: NanoIR,
@@ -650,47 +315,7 @@ object NanoInputComponents {
         modifier: Modifier,
         renderNode: @Composable (NanoIR, Map<String, Any>, (NanoActionIR) -> Unit, Modifier) -> Unit
     ) {
-        val children = ir.children.orEmpty()
-        if (children.isNotEmpty()) {
-            Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                children.forEach { child -> renderNode(child, state, onAction, Modifier) }
-            }
-            return
-        }
-
-        val options = parseRadioOptions(ir.props["options"])
-        val statePath = resolveStatePathFromBinding(ir, "value", "bind")
-        val selectedFromState = statePath?.let { state[it]?.toString() }
-        var uncontrolledSelected by remember(statePath) { mutableStateOf("") }
-        val selectedValue = selectedFromState ?: uncontrolledSelected
-
-        Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            options.forEach { option ->
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    RadioButton(
-                        selected = selectedValue == option.value,
-                        onClick = {
-                            if (statePath != null) {
-                                onAction(
-                                    NanoActionIR(
-                                        type = "stateMutation",
-                                        payload = mapOf(
-                                            "path" to JsonPrimitive(statePath),
-                                            "operation" to JsonPrimitive("SET"),
-                                            "value" to JsonPrimitive(option.value)
-                                        )
-                                    )
-                                )
-                            } else {
-                                uncontrolledSelected = option.value
-                            }
-                        }
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(option.label)
-                }
-            }
-        }
+        NanoSelectionComponents.RenderRadioGroup(ir, state, onAction, modifier, renderNode)
     }
 
     @Composable
@@ -896,6 +521,10 @@ object NanoInputComponents {
         }
     }
 
+    /**
+     * Renders a date range picker component.
+     * Delegates to [NanoDateComponents.RenderDateRangePicker]
+     */
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     fun RenderDateRangePicker(
@@ -904,128 +533,6 @@ object NanoInputComponents {
         onAction: (NanoActionIR) -> Unit,
         modifier: Modifier
     ) {
-        // NanoSpec uses bindings.bind for DateRangePicker
-        val statePath = resolveStatePathFromBinding(ir, "bind", "value")
-        val current = state[statePath]
-        val onChange = ir.actions?.get("onChange")
-
-        fun parseTwoDates(value: Any?): Pair<String, String> {
-            return when (value) {
-                is List<*> -> {
-                    val start = value.getOrNull(0)?.toString().orEmpty()
-                    val end = value.getOrNull(1)?.toString().orEmpty()
-                    start to end
-                }
-                is Map<*, *> -> {
-                    val start = value["start"]?.toString().orEmpty()
-                    val end = value["end"]?.toString().orEmpty()
-                    start to end
-                }
-                is String -> {
-                    val parts = value.split("..", "—", " to ", limit = 2)
-                    if (parts.size == 2) parts[0].trim() to parts[1].trim() else "" to ""
-                }
-                else -> "" to ""
-            }
-        }
-
-        val (startStr, endStr) = remember(current) { parseTwoDates(current) }
-        val displayValue = remember(startStr, endStr) {
-            when {
-                startStr.isNotBlank() && endStr.isNotBlank() -> "$startStr .. $endStr"
-                startStr.isNotBlank() -> startStr
-                endStr.isNotBlank() -> endStr
-                else -> ""
-            }
-        }
-
-        var showDialog by remember { mutableStateOf(false) }
-        val dateRangeState = rememberDateRangePickerState()
-
-        // Use widthIn to allow flexible sizing in HStack while having a reasonable default
-        Box(
-            modifier = modifier
-                .widthIn(min = 180.dp)
-                .clickable { showDialog = true }
-        ) {
-            OutlinedTextField(
-                value = displayValue,
-                onValueChange = { },
-                placeholder = { Text("Select date range") },
-                leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = null) },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                readOnly = true,
-                enabled = false,
-                colors = OutlinedTextFieldDefaults.colors(
-                    disabledTextColor = MaterialTheme.colorScheme.onSurface,
-                    disabledBorderColor = MaterialTheme.colorScheme.outline,
-                    disabledLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    disabledPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            )
-        }
-
-        if (showDialog) {
-            val onConfirm: () -> Unit = {
-                val startMillis = dateRangeState.selectedStartDateMillis
-                val endMillis = dateRangeState.selectedEndDateMillis
-
-                if (statePath != null && startMillis != null && endMillis != null) {
-                    val start = NanoRenderUtils.formatDateFromMillis(startMillis)
-                    val end = NanoRenderUtils.formatDateFromMillis(endMillis)
-
-                    val encodedValue = when (current) {
-                        is List<*> -> "[\"$start\", \"$end\"]"
-                        is Map<*, *> -> "{\"start\": \"$start\", \"end\": \"$end\"}"
-                        else -> "$start..$end"
-                    }
-
-                    onAction(
-                        NanoActionIR(
-                            type = "stateMutation",
-                            payload = mapOf(
-                                "path" to JsonPrimitive(statePath),
-                                "operation" to JsonPrimitive("SET"),
-                                "value" to JsonPrimitive(encodedValue)
-                            )
-                        )
-                    )
-
-                    onChange?.let { onAction(it) }
-                }
-
-                showDialog = false
-            }
-
-            if (Platform.isAndroid) {
-                DatePickerDialog(
-                    onDismissRequest = { showDialog = false },
-                    confirmButton = { TextButton(onClick = onConfirm) { Text("OK") } },
-                    dismissButton = { TextButton(onClick = { showDialog = false }) { Text("Cancel") } }
-                ) {
-                    DateRangePicker(state = dateRangeState)
-                }
-            } else {
-                Surface(
-                    modifier = modifier
-                        .widthIn(min = 180.dp)
-                        .padding(top = 8.dp),
-                    shape = MaterialTheme.shapes.medium,
-                    tonalElevation = 1.dp
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        DateRangePicker(state = dateRangeState)
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End
-                        ) {
-                            TextButton(onClick = { showDialog = false }) { Text("Cancel") }
-                            TextButton(onClick = onConfirm) { Text("OK") }
-                        }
-                    }
-                }
-            }
-        }
+        NanoDateComponents.RenderDateRangePicker(ir, state, onAction, modifier)
     }
 }
