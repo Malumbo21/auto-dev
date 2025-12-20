@@ -31,7 +31,7 @@ component Demo:
         assertEquals(1, snapshot["current_day"])
         assertEquals(false, snapshot["show_summary"])
 
-        assertTrue(NanoRenderUtils.evaluateCondition("state.current_day == 1", snapshot))
+        assertTrue(NanoExpressionEvaluator.evaluateCondition("state.current_day == 1", snapshot))
     }
 
     @Test

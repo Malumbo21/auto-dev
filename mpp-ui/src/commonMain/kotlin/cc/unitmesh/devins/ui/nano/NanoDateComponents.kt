@@ -91,7 +91,7 @@ object NanoDateComponents {
             val onConfirm: () -> Unit = {
                 val selectedDate = datePickerState.selectedDateMillis
                 if (selectedDate != null) {
-                    val dateStr = NanoRenderUtils.formatDateFromMillis(selectedDate)
+                    val dateStr = NanoExpressionEvaluator.formatDateFromMillis(selectedDate)
                     if (statePath != null) {
                         onAction(
                             NanoActionIR(
@@ -218,8 +218,8 @@ object NanoDateComponents {
                 val endMillis = dateRangeState.selectedEndDateMillis
 
                 if (statePath != null && startMillis != null && endMillis != null) {
-                    val start = NanoRenderUtils.formatDateFromMillis(startMillis)
-                    val end = NanoRenderUtils.formatDateFromMillis(endMillis)
+                    val start = NanoExpressionEvaluator.formatDateFromMillis(startMillis)
+                    val end = NanoExpressionEvaluator.formatDateFromMillis(endMillis)
 
                     val encodedValue = when (current) {
                         is List<*> -> "[\"$start\", \"$end\"]"

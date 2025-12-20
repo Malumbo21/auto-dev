@@ -20,7 +20,7 @@ import kotlin.math.round
  * Input components for NanoUI Compose renderer.
  * Includes: Input, Checkbox, TextArea, Switch, NumberInput, SmartTextField, Slider
  *
- * Note: 
+ * Note:
  * - Button components have been extracted to [NanoButtonComponents]
  * - Date components (DatePicker, DateRangePicker) have been extracted to [NanoDateComponents]
  * - Selection components (Select, Radio, RadioGroup) have been extracted to [NanoSelectionComponents]
@@ -139,8 +139,8 @@ object NanoInputComponents {
         var uncontrolledChecked by remember(statePath, checkedProp) { mutableStateOf(checkedProp ?: false) }
 
         val checked = checkedFromInList ?: checkedFromState ?: uncontrolledChecked
-        val rawLabel = NanoRenderUtils.resolveStringProp(ir, "label", state)
-        val label = rawLabel.takeIf { it.isNotBlank() }?.let { NanoRenderUtils.interpolateText(it, state) }
+        val rawLabel = NanoExpressionEvaluator.resolveStringProp(ir, "label", state)
+        val label = rawLabel.takeIf { it.isNotBlank() }?.let { NanoExpressionEvaluator.interpolateText(it, state) }
         val onChange = ir.actions?.get("onChange")
 
         Row(

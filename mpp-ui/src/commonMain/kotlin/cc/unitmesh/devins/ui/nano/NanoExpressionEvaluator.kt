@@ -20,7 +20,7 @@ import kotlinx.serialization.json.jsonPrimitive
  * Utility functions for NanoUI rendering.
  * Contains text interpolation, expression evaluation, and styling helpers.
  */
-object NanoRenderUtils {
+object NanoExpressionEvaluator {
 
     private val lenientJson = Json {
         isLenient = true

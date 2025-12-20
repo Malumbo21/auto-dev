@@ -24,10 +24,10 @@ object NanoContentComponents {
 
     @Composable
     fun RenderText(ir: NanoIR, state: Map<String, Any>, modifier: Modifier) {
-        val rawContent = NanoRenderUtils.resolveStringProp(ir, "content", state)
+        val rawContent = NanoExpressionEvaluator.resolveStringProp(ir, "content", state)
 
         // Interpolate {state.xxx} or {state.xxx + 1} expressions in content
-        val content = NanoRenderUtils.interpolateText(rawContent, state)
+        val content = NanoExpressionEvaluator.interpolateText(rawContent, state)
 
         val style = ir.props["style"]?.jsonPrimitive?.content
 
@@ -48,8 +48,8 @@ object NanoContentComponents {
 
     @Composable
     fun RenderBadge(ir: NanoIR, state: Map<String, Any>, modifier: Modifier) {
-        val rawText = NanoRenderUtils.resolveStringProp(ir, "text", state)
-        val text = NanoRenderUtils.interpolateText(rawText, state)
+        val rawText = NanoExpressionEvaluator.resolveStringProp(ir, "text", state)
+        val text = NanoExpressionEvaluator.interpolateText(rawText, state)
         val colorName = ir.props["color"]?.jsonPrimitive?.content
 
         val (bgColor, contentColor) = when (colorName) {

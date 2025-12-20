@@ -1,6 +1,6 @@
 package cc.unitmesh.devins.ui.nano.cli
 
-import cc.unitmesh.devins.ui.nano.NanoRenderUtils
+import cc.unitmesh.devins.ui.nano.NanoExpressionEvaluator
 import cc.unitmesh.xuiper.dsl.NanoDSL
 import cc.unitmesh.xuiper.ir.NanoIR
 import cc.unitmesh.xuiper.state.NanoStateManager
@@ -122,11 +122,11 @@ object NanoDslTextRenderCli {
                 val primitive = value as? JsonPrimitive
                 val stringRaw = primitive?.contentOrNull() ?: return@forEach
 
-                val rendered = NanoRenderUtils.interpolateText(stringRaw, state)
+                val rendered = NanoExpressionEvaluator.interpolateText(stringRaw, state)
                 val templates = extractTemplates(stringRaw)
                 if (templates.isNotEmpty()) {
                     val results = templates.map { expr ->
-                        val result = NanoRenderUtils.evaluateExpression(expr, NanoRenderUtils.getBuiltInVariables() + state)
+                        val result = NanoExpressionEvaluator.evaluateExpression(expr, NanoExpressionEvaluator.getBuiltInVariables() + state)
                         TemplateEval(expr = expr, result = result)
                     }
 

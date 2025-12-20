@@ -30,7 +30,7 @@ import cc.unitmesh.devins.ui.nano.theme.rememberNanoThemeState
  * - [NanoFeedbackComponents] - Modal, Alert, Progress, Spinner
  * - [NanoDataComponents] - DataChart, DataTable
  * - [NanoControlFlowComponents] - Conditional, ForLoop
- * - [NanoRenderUtils] - Helper functions and utilities
+ * - [NanoExpressionEvaluator] - Helper functions and utilities
  */
 object StatefulNanoRenderer {
 

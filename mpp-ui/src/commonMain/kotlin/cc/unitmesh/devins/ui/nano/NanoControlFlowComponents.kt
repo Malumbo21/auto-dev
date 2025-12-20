@@ -27,7 +27,7 @@ object NanoControlFlowComponents {
         renderNode: @Composable (NanoIR, Map<String, Any>, (NanoActionIR) -> Unit, Modifier) -> Unit
     ) {
         val condition = ir.condition
-        val isVisible = NanoRenderUtils.evaluateCondition(condition, state)
+        val isVisible = NanoExpressionEvaluator.evaluateCondition(condition, state)
 
         if (isVisible) {
             Column(modifier = modifier) {
@@ -47,7 +47,7 @@ object NanoControlFlowComponents {
         val loop = ir.loop
         val variable = loop?.variable
         val iterableExpr = loop?.iterable?.trim().orEmpty()
-        val resolved = if (iterableExpr.isNotBlank()) NanoRenderUtils.resolveAny(iterableExpr, state) else null
+        val resolved = if (iterableExpr.isNotBlank()) NanoExpressionEvaluator.resolveAny(iterableExpr, state) else null
         val items: List<Any?> = when (resolved) {
             is List<*> -> resolved
             else -> emptyList()

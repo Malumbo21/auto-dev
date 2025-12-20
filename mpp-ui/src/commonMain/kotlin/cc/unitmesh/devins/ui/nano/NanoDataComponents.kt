@@ -9,7 +9,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -91,7 +90,7 @@ object NanoDataComponents {
             ?: ir.props["y_axis"]?.jsonPrimitive?.content
 
         // Try to resolve data from state if it's a binding
-        val resolvedData = NanoRenderUtils.resolveBindingAny(dataStr, state).toString()
+        val resolvedData = NanoExpressionEvaluator.resolveBindingAny(dataStr, state).toString()
 
         // Build chart code in YAML format
         val chartCode = buildChartCode(chartType, resolvedData, dataStr, xField, yField, ir)
@@ -361,8 +360,8 @@ $bars
         } else null
 
         // Resolve bindings (only for string values that might be state references)
-        val resolvedColumns = resolvedColumnsFromArray ?: NanoRenderUtils.resolveBindingAny(columnsStr, state)
-        val resolvedData = resolvedDataFromArray ?: NanoRenderUtils.resolveBindingAny(dataStr, state)
+        val resolvedColumns = resolvedColumnsFromArray ?: NanoExpressionEvaluator.resolveBindingAny(columnsStr, state)
+        val resolvedData = resolvedDataFromArray ?: NanoExpressionEvaluator.resolveBindingAny(dataStr, state)
 
         // Parse columns and data
         val columnDefs = parseColumnDefs(resolvedColumns ?: columnsStr)

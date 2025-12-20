@@ -85,7 +85,7 @@ fun RenderImageContent(
             isGenerating = true
             errorMessage = null
 
-            val prompt = NanoRenderUtils.extractImagePrompt(originalSrc)
+            val prompt = NanoExpressionEvaluator.extractImagePrompt(originalSrc)
             when (val result = imageGenerationService!!.generateImage(prompt)) {
                 is ImageGenerationResult.Success -> {
                     generatedImageUrl = result.imageUrl

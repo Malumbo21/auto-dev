@@ -49,11 +49,11 @@ object NanoButtonComponents {
         onAction: (NanoActionIR) -> Unit,
         modifier: Modifier
     ) {
-        val rawLabel = NanoRenderUtils.resolveStringProp(ir, "label", state).ifBlank { "Button" }
-        val label = NanoRenderUtils.interpolateText(rawLabel, state)
+        val rawLabel = NanoExpressionEvaluator.resolveStringProp(ir, "label", state).ifBlank { "Button" }
+        val label = NanoExpressionEvaluator.interpolateText(rawLabel, state)
         val intent = ir.props["intent"]?.jsonPrimitive?.content
         val disabledIf = ir.props["disabled_if"]?.jsonPrimitive?.content
-        val isDisabled = !disabledIf.isNullOrBlank() && NanoRenderUtils.evaluateCondition(disabledIf, state)
+        val isDisabled = !disabledIf.isNullOrBlank() && NanoExpressionEvaluator.evaluateCondition(disabledIf, state)
         val onClick = ir.actions?.get("onClick")
 
         // State for dynamic dialog when button has unsupported action
@@ -323,7 +323,7 @@ object NanoButtonComponents {
                 val content = ir.props["content"]?.jsonPrimitive?.content ?: ""
                 val style = ir.props["style"]?.jsonPrimitive?.content
                 Text(
-                    text = NanoRenderUtils.interpolateText(content, state),
+                    text = NanoExpressionEvaluator.interpolateText(content, state),
                     style = when (style) {
                         "h1" -> MaterialTheme.typography.headlineLarge
                         "h2" -> MaterialTheme.typography.headlineMedium

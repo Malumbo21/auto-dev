@@ -6,7 +6,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-class NanoRenderUtilsTest {
+class NanoExpressionEvaluatorTest {
 
     /**
      * Tests text interpolation with state variable substitution
@@ -22,19 +22,19 @@ class NanoRenderUtilsTest {
             "transport" to "mrt"
         )
 
-        assertEquals("Budget: 800", NanoRenderUtils.interpolateText("Budget: \${flightBudget}", state))
-        assertEquals("Budget: 800", NanoRenderUtils.interpolateText("Budget: {flightBudget}", state))
+        assertEquals("Budget: 800", NanoExpressionEvaluator.interpolateText("Budget: \${flightBudget}", state))
+        assertEquals("Budget: 800", NanoExpressionEvaluator.interpolateText("Budget: {flightBudget}", state))
         assertEquals(
             "Total: 2050",
-            NanoRenderUtils.interpolateText(
+            NanoExpressionEvaluator.interpolateText(
                 "Total: \${flightBudget + (accommodationBudget * 5) + foodBudget + activitiesBudget}",
                 state
             )
         )
 
-        assertEquals("Hotel", NanoRenderUtils.interpolateText("{state.accommodation.title()}", state))
-        assertEquals("MRT", NanoRenderUtils.interpolateText("{state.transport.replace('mrt', 'MRT').title()}", state))
-        assertEquals("", NanoRenderUtils.interpolateText("{state.unknown.title()}", state))
+        assertEquals("Hotel", NanoExpressionEvaluator.interpolateText("{state.accommodation.title()}", state))
+        assertEquals("MRT", NanoExpressionEvaluator.interpolateText("{state.transport.replace('mrt', 'MRT').title()}", state))
+        assertEquals("", NanoExpressionEvaluator.interpolateText("{state.unknown.title()}", state))
     }
 
     /**
@@ -49,7 +49,7 @@ class NanoRenderUtilsTest {
             "activitiesBudget" to 300
         )
 
-        val v = NanoRenderUtils.evaluateNumberOrNull(
+        val v = NanoExpressionEvaluator.evaluateNumberOrNull(
             "<< (flightBudget + (accommodationBudget * 5) + foodBudget + activitiesBudget)",
             state
         )
@@ -69,14 +69,14 @@ class NanoRenderUtilsTest {
             "mode" to "primary"
         )
 
-        assertFalse(NanoRenderUtils.evaluateCondition("state.name", state))
-        assertTrue(NanoRenderUtils.evaluateCondition("!state.name", state))
+        assertFalse(NanoExpressionEvaluator.evaluateCondition("state.name", state))
+        assertTrue(NanoExpressionEvaluator.evaluateCondition("!state.name", state))
 
-        assertTrue(NanoRenderUtils.evaluateCondition("state.enabled == true", state))
-        assertTrue(NanoRenderUtils.evaluateCondition("state.count >= 3", state))
-        assertFalse(NanoRenderUtils.evaluateCondition("state.count > 3", state))
-        assertTrue(NanoRenderUtils.evaluateCondition("state.mode == 'primary'", state))
-        assertFalse(NanoRenderUtils.evaluateCondition("state.mode != 'primary'", state))
+        assertTrue(NanoExpressionEvaluator.evaluateCondition("state.enabled == true", state))
+        assertTrue(NanoExpressionEvaluator.evaluateCondition("state.count >= 3", state))
+        assertFalse(NanoExpressionEvaluator.evaluateCondition("state.count > 3", state))
+        assertTrue(NanoExpressionEvaluator.evaluateCondition("state.mode == 'primary'", state))
+        assertFalse(NanoExpressionEvaluator.evaluateCondition("state.mode != 'primary'", state))
     }
 
     @Test
@@ -94,19 +94,19 @@ class NanoRenderUtilsTest {
         )
 
         assertTrue(
-            NanoRenderUtils.evaluateCondition(
+            NanoExpressionEvaluator.evaluateCondition(
                 "state.selectedAirline == \"all\" or flight.airline == state.selectedAirline",
                 state
             )
         )
         assertTrue(
-            NanoRenderUtils.evaluateCondition(
+            NanoExpressionEvaluator.evaluateCondition(
                 "flight.price <= state.priceRange[1]",
                 state
             )
         )
         assertTrue(
-            NanoRenderUtils.evaluateCondition(
+            NanoExpressionEvaluator.evaluateCondition(
                 "state.enabled == true and state.count >= 3",
                 state
             )
@@ -125,8 +125,8 @@ class NanoRenderUtilsTest {
             )
         )
 
-        assertEquals("中国国航", NanoRenderUtils.interpolateText("{flight['airline']}", state))
-        assertEquals("1280", NanoRenderUtils.interpolateText("{flight[\"price\"]}", state))
+        assertEquals("中国国航", NanoExpressionEvaluator.interpolateText("{flight['airline']}", state))
+        assertEquals("1280", NanoExpressionEvaluator.interpolateText("{flight[\"price\"]}", state))
     }
 
     /**
@@ -145,7 +145,7 @@ class NanoRenderUtilsTest {
 
         assertEquals(
             "¥3000",
-            NanoRenderUtils.interpolateText(
+            NanoExpressionEvaluator.interpolateText(
                 "¥{state.budget.transport + state.budget.hotel + state.budget.food + state.budget.tickets}",
                 state
             )
@@ -162,8 +162,8 @@ class NanoRenderUtilsTest {
             "flights" to emptyList<Any>()
         )
 
-        assertFalse(NanoRenderUtils.evaluateCondition("state.selectedFlight", state))
-        assertFalse(NanoRenderUtils.evaluateCondition("state.flights", state))
+        assertFalse(NanoExpressionEvaluator.evaluateCondition("state.selectedFlight", state))
+        assertFalse(NanoExpressionEvaluator.evaluateCondition("state.flights", state))
     }
 
     @Test
@@ -175,7 +175,7 @@ class NanoRenderUtilsTest {
             ]
         """.trimIndent()
 
-        val resolved = NanoRenderUtils.resolveAny(expr, emptyMap())
+        val resolved = NanoExpressionEvaluator.resolveAny(expr, emptyMap())
         assertNotNull(resolved)
 
         val list = resolved as List<*>

@@ -17,18 +17,18 @@ class NanoTextInterpolationTest {
 
         assertEquals(
             "SGD 2000",
-            NanoRenderUtils.interpolateText("SGD {state.budget}", state)
+            NanoExpressionEvaluator.interpolateText("SGD {state.budget}", state)
         )
 
         // Escape $ for Kotlin source
         assertEquals(
             "SGD 2000",
-            NanoRenderUtils.interpolateText("SGD ${'$'}{state.budget}", state)
+            NanoExpressionEvaluator.interpolateText("SGD ${'$'}{state.budget}", state)
         )
 
         assertEquals(
             "2 people",
-            NanoRenderUtils.interpolateText("{state.travelers} people", state)
+            NanoExpressionEvaluator.interpolateText("{state.travelers} people", state)
         )
     }
 
@@ -40,12 +40,12 @@ class NanoTextInterpolationTest {
 
         assertEquals(
             "共 3 条记录",
-            NanoRenderUtils.interpolateText("共 {len(salesData)} 条记录", state)
+            NanoExpressionEvaluator.interpolateText("共 {len(salesData)} 条记录", state)
         )
 
         assertEquals(
             "3 selected",
-            NanoRenderUtils.interpolateText("{len(state.salesData)} selected", state)
+            NanoExpressionEvaluator.interpolateText("{len(state.salesData)} selected", state)
         )
     }
 
@@ -57,15 +57,15 @@ class NanoTextInterpolationTest {
             type = "Badge",
             props = mapOf("text" to JsonPrimitive("SGD {state.budget}"))
         )
-        val rawLiteral = NanoRenderUtils.resolveStringProp(literalBadge, "text", state)
+        val rawLiteral = NanoExpressionEvaluator.resolveStringProp(literalBadge, "text", state)
         assertEquals("SGD {state.budget}", rawLiteral)
-        assertEquals("SGD 2000", NanoRenderUtils.interpolateText(rawLiteral, state))
+        assertEquals("SGD 2000", NanoExpressionEvaluator.interpolateText(rawLiteral, state))
 
         val boundBadge = NanoIR(
             type = "Badge",
             bindings = mapOf("text" to NanoBindingIR(mode = "subscribe", expression = "state.budget"))
         )
-        val rawBound = NanoRenderUtils.resolveStringProp(boundBadge, "text", state)
+        val rawBound = NanoExpressionEvaluator.resolveStringProp(boundBadge, "text", state)
         assertEquals("2000", rawBound)
     }
 
@@ -85,11 +85,11 @@ class NanoTextInterpolationTest {
             )
         )
 
-        assertEquals("护照", NanoRenderUtils.resolveStringProp(checkbox, "label", state))
+        assertEquals("护照", NanoExpressionEvaluator.resolveStringProp(checkbox, "label", state))
 
         // Guardrail: date-like literals must not be treated as arithmetic expressions.
         val text = NanoIR(type = "Text", props = mapOf("content" to JsonPrimitive("2024-06-15")))
-        assertEquals("2024-06-15", NanoRenderUtils.resolveStringProp(text, "content", emptyMap()))
+        assertEquals("2024-06-15", NanoExpressionEvaluator.resolveStringProp(text, "content", emptyMap()))
     }
 
     @Test
@@ -102,8 +102,8 @@ class NanoTextInterpolationTest {
             )
         )
 
-        assertEquals("1", NanoRenderUtils.evaluateExpression("day_plan.day", state))
-        assertEquals("抵达北京", NanoRenderUtils.evaluateExpression("day_plan.title", state))
-        assertEquals("入住酒店", NanoRenderUtils.evaluateExpression("day_plan.activities[0]", state))
+        assertEquals("1", NanoExpressionEvaluator.evaluateExpression("day_plan.day", state))
+        assertEquals("抵达北京", NanoExpressionEvaluator.evaluateExpression("day_plan.title", state))
+        assertEquals("入住酒店", NanoExpressionEvaluator.evaluateExpression("day_plan.activities[0]", state))
     }
 }
