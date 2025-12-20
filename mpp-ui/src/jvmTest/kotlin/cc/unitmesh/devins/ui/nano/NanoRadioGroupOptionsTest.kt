@@ -1,5 +1,6 @@
 package cc.unitmesh.devins.ui.nano
 
+import cc.unitmesh.devins.ui.nano.NanoSelectionComponents
 import cc.unitmesh.xuiper.ir.NanoIR
 import kotlinx.serialization.json.JsonPrimitive
 import kotlin.test.Test
@@ -25,20 +26,11 @@ class NanoRadioGroupOptionsTest {
             )
         )
 
-        val method = NanoInputComponents::class.java.getDeclaredMethod(
-            "parseRadioOptions",
-            kotlinx.serialization.json.JsonElement::class.java
-        )
-        method.isAccessible = true
-
-        val result = method.invoke(NanoInputComponents, ir.props["options"]) as List<*>
+        val result = NanoSelectionComponents.parseOptions(ir.props["options"])
         assertEquals(3, result.size)
 
         val first = result.first()!!
-        val valueField = first::class.java.getDeclaredField("value").also { it.isAccessible = true }
-        val labelField = first::class.java.getDeclaredField("label").also { it.isAccessible = true }
-
-        assertEquals("train", valueField.get(first) as String)
-        assertTrue((labelField.get(first) as String).contains("高铁"))
+        assertEquals("train", first.value)
+        assertTrue(first.label.contains("高铁"))
     }
 }
