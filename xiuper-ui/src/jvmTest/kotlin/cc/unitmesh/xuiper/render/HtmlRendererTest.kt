@@ -392,5 +392,100 @@ component SimpleSlider:
         assertContains(html, "min=\"0.0\"")
         assertContains(html, "max=\"100.0\"")
     }
-}
 
+    // ============================================================================
+    // Image Tests
+    // ============================================================================
+
+    @Test
+    fun `should render image with data URL`() {
+        val ir = NanoIR(
+            type = "Image",
+            props = mapOf(
+                "src" to kotlinx.serialization.json.JsonPrimitive("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUA"),
+                "alt" to kotlinx.serialization.json.JsonPrimitive("Test image")
+            )
+        )
+
+        val html = renderer.renderNode(ir)
+
+        assertContains(html, "<img")
+        assertContains(html, "src=\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUA\"")
+        assertContains(html, "alt=\"Test image\"")
+        assertTrue(html.contains("nano-image"), "Should have nano-image class")
+    }
+
+    @Test
+    fun `should render placeholder for http URL to prevent CORS errors`() {
+        val ir = NanoIR(
+            type = "Image",
+            props = mapOf(
+                "src" to kotlinx.serialization.json.JsonPrimitive("https://example.com/fake-image.jpg"),
+                "alt" to kotlinx.serialization.json.JsonPrimitive("Fake image")
+            )
+        )
+
+        val html = renderer.renderNode(ir)
+
+        // Should NOT render an img tag
+        assertTrue(!html.contains("<img"), "Should not render img tag for http URL")
+        
+        // Should render a placeholder div instead
+        assertContains(html, "nano-image-placeholder")
+        assertContains(html, "placeholder-text")
+        assertContains(html, "🖼️ Image: Fake image")
+        assertContains(html, "data-original-src=\"https://example.com/fake-image.jpg\"")
+    }
+
+    @Test
+    fun `should render placeholder for LLM-generated watermark URL`() {
+        val src = "https://maas-watermark-prod.cn-wlcb.ufileos.com/20251220142749d25e14e8b2c74d00_watermark.png?UCloudPublicKey=TOKEN_75a9ae85-4f15-4045-940f-e94c0f82ae90&Signature=x%2B35HR9q2ZmUzKiq8CSu9l6%2FSUk%3D&Expires=1766816876"
+        val ir = NanoIR(
+            type = "Image",
+            props = mapOf(
+                "src" to kotlinx.serialization.json.JsonPrimitive(src),
+                "aspect" to kotlinx.serialization.json.JsonPrimitive("16/9"),
+                "radius" to kotlinx.serialization.json.JsonPrimitive("md")
+            )
+        )
+
+        val html = renderer.renderNode(ir)
+
+        // Should render placeholder, not actual img tag
+        assertContains(html, "nano-image-placeholder")
+        assertContains(html, "aspect-16-9")
+        assertContains(html, "radius-md")
+        assertTrue(!html.contains("<img"), "Should not render img tag for fake URL")
+    }
+
+    @Test
+    fun `should render placeholder for relative path URL`() {
+        val ir = NanoIR(
+            type = "Image",
+            props = mapOf(
+                "src" to kotlinx.serialization.json.JsonPrimitive("/path/to/image.jpg"),
+                "alt" to kotlinx.serialization.json.JsonPrimitive("Local image")
+            )
+        )
+
+        val html = renderer.renderNode(ir)
+
+        // Should render placeholder for non-data URLs
+        assertContains(html, "nano-image-placeholder")
+        assertContains(html, "🖼️ Image: Local image")
+    }
+
+    @Test
+    fun `should include CSS for image placeholder`() {
+        val ir = NanoIR.vstack(
+            children = listOf(NanoIR(type = "Image"))
+        )
+
+        val html = renderer.render(ir)
+
+        // Should include placeholder CSS
+        assertContains(html, ".nano-image-placeholder")
+        assertContains(html, "border: 2px dashed")
+        assertContains(html, ".placeholder-text")
+    }
+}

@@ -177,6 +177,16 @@ class HtmlRenderer(
         val radius = ir.props["radius"]?.jsonPrimitive?.content ?: "none"
         val aspectClass = aspect?.replace("/", "-") ?: "auto"
         val alt = ir.props["alt"]?.jsonPrimitive?.content ?: "Image"
+        
+        // Prevent browsers from loading fake LLM-generated URLs
+        // Only render images with valid data: URLs
+        if (src.isNotBlank() && !src.trim().startsWith("data:image/", ignoreCase = true)) {
+            // Return a placeholder div instead of an img tag to avoid CORS errors
+            return "<div class=\"nano-image-placeholder aspect-$aspectClass radius-$radius\" data-original-src=\"${escapeHtmlAttr(src)}\">" +
+                   "<span class=\"placeholder-text\">🖼️ Image: $alt</span>" +
+                   "</div>\n"
+        }
+        
         return "<img src=\"$src\" class=\"nano-image aspect-$aspectClass radius-$radius\" alt=\"$alt\">\n"
     }
 
@@ -723,6 +733,21 @@ class HtmlRenderer(
         .intent-error, .intent-danger { background: #B00020; color: white; }
 
         .nano-image { max-width: 100%; height: auto; display: block; }
+        .nano-image-placeholder {
+            max-width: 100%;
+            min-height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #F5F5F5;
+            border: 2px dashed #BDBDBD;
+        }
+        .nano-image-placeholder .placeholder-text {
+            color: #757575;
+            font-size: 0.875rem;
+            text-align: center;
+            padding: 16px;
+        }
         .radius-sm { border-radius: 4px; }
         .radius-md { border-radius: 8px; }
         .radius-lg { border-radius: 16px; }

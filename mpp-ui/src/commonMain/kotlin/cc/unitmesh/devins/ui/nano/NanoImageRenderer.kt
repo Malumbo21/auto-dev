@@ -267,16 +267,13 @@ private fun isDirectImageSrc(src: String): Boolean {
     val trimmed = src.trim()
     if (trimmed.isEmpty()) return false
 
+    // Only allow data: URLs - these are actual embedded base64 images
+    // HTTP/HTTPS URLs from LLM are fake and will cause CORS errors
     if (trimmed.startsWith("data:image/", ignoreCase = true)) return true
-    if (trimmed.startsWith("http://", ignoreCase = true) || trimmed.startsWith("https://", ignoreCase = true)) return true
-    if (trimmed.startsWith("file://", ignoreCase = true)) return true
-
-    val lower = trimmed.lowercase()
-    if (lower.endsWith(".png") || lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".gif") ||
-        lower.endsWith(".webp") || lower.endsWith(".bmp") || lower.endsWith(".svg")
-    ) {
-        return true
-    }
+    
+    // Do NOT allow http/https URLs - LLM generates fake URLs that cause CORS errors
+    // if (trimmed.startsWith("http://", ignoreCase = true) || trimmed.startsWith("https://", ignoreCase = true)) return true
+    // if (trimmed.startsWith("file://", ignoreCase = true)) return true
 
     // Raw base64 payload (no data: prefix). Keep this conservative so normal prompts don't get misdetected.
     if (!trimmed.contains(' ') && trimmed.length >= 256 && BASE64_PAYLOAD_REGEX.matches(trimmed)) return true
@@ -299,7 +296,8 @@ private suspend fun loadImageBytesFromSrc(src: String): ByteArray {
     val trimmed = src.trim()
     return when {
         trimmed.startsWith("data:", ignoreCase = true) -> decodeDataUriToBytes(trimmed)
-        trimmed.startsWith("http://", ignoreCase = true) || trimmed.startsWith("https://", ignoreCase = true) -> downloadImageBytes(trimmed)
+        // Do NOT download http/https URLs - they are fake LLM-generated URLs that cause CORS errors
+        // trimmed.startsWith("http://", ignoreCase = true) || trimmed.startsWith("https://", ignoreCase = true) -> downloadImageBytes(trimmed)
         // Raw base64 without data: prefix
         !trimmed.contains(' ') && trimmed.length >= 256 && BASE64_PAYLOAD_REGEX.matches(trimmed) -> Base64.decode(trimmed)
         else -> error("Unsupported image src: ${trimmed.take(60)}")

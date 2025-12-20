@@ -2,6 +2,8 @@ package cc.unitmesh.agent.subagent
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class ImageSrcExtractTest {
 
@@ -45,4 +47,38 @@ class ImageSrcExtractTest {
 
         assertEquals("Real Product Photo", extractImagePrompt(src, context))
     }
+    
+    @Test
+    fun `isValidImageSrc should return true for data URLs`() {
+        assertTrue(isValidImageSrc("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUA"))
+        assertTrue(isValidImageSrc("data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASA"))
+        assertTrue(isValidImageSrc("  data:image/gif;base64,R0lGODlhAQABAAD  "))
+    }
+    
+    @Test
+    fun `isValidImageSrc should return false for http URLs`() {
+        assertFalse(isValidImageSrc("http://example.com/image.jpg"))
+        assertFalse(isValidImageSrc("https://maas-watermark-prod.cn-wlcb.ufileos.com/image.png"))
+        assertFalse(isValidImageSrc("https://example.com/image.png?token=abc123"))
+    }
+    
+    @Test
+    fun `isValidImageSrc should return false for empty and invalid URLs`() {
+        assertFalse(isValidImageSrc(""))
+        assertFalse(isValidImageSrc("  "))
+        assertFalse(isValidImageSrc("/path/to/image.jpg"))
+        assertFalse(isValidImageSrc("file://image.jpg"))
+    }
+    
+    @Test
+    fun `shouldGenerateImage should return true for http URLs`() {
+        assertTrue(shouldGenerateImage("http://example.com/image.jpg"))
+        assertTrue(shouldGenerateImage("https://example.com/image.png"))
+    }
+    
+    @Test
+    fun `shouldGenerateImage should return false for data URLs`() {
+        assertFalse(shouldGenerateImage("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUA"))
+    }
 }
+
