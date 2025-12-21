@@ -1,0 +1,18 @@
+<idea-plugin>
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- File Type -->
+        <fileType name="NanoDSLFile" 
+                  implementationClass="cc.unitmesh.nanodsl.language.NanoDSLFileType" 
+                  fieldName="INSTANCE"
+                  language="NanoDSL" 
+                  extensions="nanodsl"/>
+
+        <!-- Parser Definition -->
+        <lang.parserDefinition language="NanoDSL"
+                               implementationClass="cc.unitmesh.nanodsl.language.parser.NanoDSLParserDefinition"/>
+
+        <!-- Syntax Highlighter -->
+        <lang.syntaxHighlighterFactory language="NanoDSL"
+                                       implementationClass="cc.unitmesh.nanodsl.language.highlight.NanoDSLSyntaxHighlighterFactory"/>
+    </extensions>
+</idea-plugin>

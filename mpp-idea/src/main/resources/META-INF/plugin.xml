@@ -47,6 +47,9 @@
     <!-- Include DevIn language extensions -->
     <xi:include href="/cc.unitmesh.devti.language.xml" xpointer="xpointer(/idea-plugin/*)"/>
 
+    <!-- Include NanoDSL language extensions -->
+    <xi:include href="/cc.unitmesh.nanodsl.language.xml" xpointer="xpointer(/idea-plugin/*)"/>
+
     <content>
         <!-- language modules -->
         <module name="cc.unitmesh.pycharm"/>
