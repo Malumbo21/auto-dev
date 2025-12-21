@@ -132,6 +132,9 @@ object StatefulNanoRenderer {
             "Badge" -> NanoContentComponents.RenderBadge(ir, state, modifier)
             "Icon" -> NanoContentComponents.RenderIcon(ir, modifier)
             "Divider" -> NanoContentComponents.RenderDivider(modifier)
+            "Code" -> NanoContentComponents.RenderCode(ir, state, modifier)
+            "Link" -> NanoContentComponents.RenderLink(ir, state, modifier)
+            "Blockquote" -> NanoContentComponents.RenderBlockquote(ir, state, modifier)
             // Input
             "Button" -> NanoInputComponents.RenderButton(ir, state, onAction, modifier)
             "Input" -> NanoInputComponents.RenderInput(ir, state, onAction, modifier)

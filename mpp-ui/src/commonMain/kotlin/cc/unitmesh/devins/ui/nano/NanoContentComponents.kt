@@ -1,5 +1,7 @@
 package cc.unitmesh.devins.ui.nano
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -10,7 +12,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.*
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cc.unitmesh.xuiper.ir.NanoIR
@@ -30,6 +35,9 @@ object NanoContentComponents {
         val content = NanoExpressionEvaluator.interpolateText(rawContent, state)
 
         val style = ir.props["style"]?.jsonPrimitive?.content
+        
+        // Check if markdown parsing is enabled (default: true)
+        val enableMarkdown = ir.props["markdown"]?.jsonPrimitive?.content != "false"
 
         val textStyle = when (style) {
             "h1" -> MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold)
@@ -43,7 +51,146 @@ object NanoContentComponents {
             else -> MaterialTheme.typography.bodyMedium
         }
 
-        Text(text = content, style = textStyle, modifier = modifier)
+        if (enableMarkdown) {
+            val annotatedContent = parseMarkdownInline(content, textStyle)
+            Text(text = annotatedContent, style = textStyle, modifier = modifier)
+        } else {
+            Text(text = content, style = textStyle, modifier = modifier)
+        }
+    }
+
+    /**
+     * Parses markdown inline elements and returns an AnnotatedString with appropriate styles.
+     * Supports:
+     * - **bold**
+     * - *italic* or _italic_
+     * - `inline code`
+     * - ~~strikethrough~~
+     * - __underline__
+     * - [link text](url) - displayed as colored/underlined text
+     */
+    private fun parseMarkdownInline(text: String, baseStyle: TextStyle): AnnotatedString {
+        return buildAnnotatedString {
+            var i = 0
+            val len = text.length
+            
+            while (i < len) {
+                when {
+                    // **bold**
+                    text.startsWith("**", i) -> {
+                        val end = text.indexOf("**", i + 2)
+                        if (end != -1) {
+                            val boldText = text.substring(i + 2, end)
+                            withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
+                                append(boldText)
+                            }
+                            i = end + 2
+                        } else {
+                            append(text[i])
+                            i++
+                        }
+                    }
+                    // ~~strikethrough~~
+                    text.startsWith("~~", i) -> {
+                        val end = text.indexOf("~~", i + 2)
+                        if (end != -1) {
+                            val strikeText = text.substring(i + 2, end)
+                            withStyle(SpanStyle(textDecoration = TextDecoration.LineThrough)) {
+                                append(strikeText)
+                            }
+                            i = end + 2
+                        } else {
+                            append(text[i])
+                            i++
+                        }
+                    }
+                    // __underline__
+                    text.startsWith("__", i) -> {
+                        val end = text.indexOf("__", i + 2)
+                        if (end != -1) {
+                            val underlineText = text.substring(i + 2, end)
+                            withStyle(SpanStyle(textDecoration = TextDecoration.Underline)) {
+                                append(underlineText)
+                            }
+                            i = end + 2
+                        } else {
+                            append(text[i])
+                            i++
+                        }
+                    }
+                    // `inline code`
+                    text[i] == '`' -> {
+                        val end = text.indexOf('`', i + 1)
+                        if (end != -1) {
+                            val codeText = text.substring(i + 1, end)
+                            withStyle(
+                                SpanStyle(
+                                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                    background = androidx.compose.ui.graphics.Color(0xFFEEEEEE),
+                                    fontSize = baseStyle.fontSize * 0.9
+                                )
+                            ) {
+                                append(codeText)
+                            }
+                            i = end + 1
+                        } else {
+                            append(text[i])
+                            i++
+                        }
+                    }
+                    // [link text](url)
+                    text[i] == '[' -> {
+                        val endBracket = text.indexOf(']', i + 1)
+                        if (endBracket != -1 && endBracket + 1 < len && text[endBracket + 1] == '(') {
+                            val endParen = text.indexOf(')', endBracket + 2)
+                            if (endParen != -1) {
+                                val linkText = text.substring(i + 1, endBracket)
+                                val url = text.substring(endBracket + 2, endParen)
+                                
+                                // Store the URL as annotation for potential click handling
+                                pushStringAnnotation(tag = "URL", annotation = url)
+                                withStyle(
+                                    SpanStyle(
+                                        color = androidx.compose.ui.graphics.Color(0xFF2196F3),
+                                        textDecoration = TextDecoration.Underline
+                                    )
+                                ) {
+                                    append(linkText)
+                                }
+                                pop()
+                                i = endParen + 1
+                            } else {
+                                append(text[i])
+                                i++
+                            }
+                        } else {
+                            append(text[i])
+                            i++
+                        }
+                    }
+                    // *italic* or _italic_ (must be after ** check)
+                    text[i] == '*' || text[i] == '_' -> {
+                        val delimiter = text[i]
+                        val end = text.indexOf(delimiter, i + 1)
+                        if (end != -1) {
+                            val italicText = text.substring(i + 1, end)
+                            withStyle(SpanStyle(fontStyle = FontStyle.Italic)) {
+                                append(italicText)
+                            }
+                            i = end + 1
+                        } else {
+                            append(text[i])
+                            i++
+                        }
+                    }
+                    // Regular character
+                    else -> {
+                        append(text[i])
+                        i++
+                    }
+                }
+            }
+        }
     }
 
     @Composable
@@ -212,5 +359,161 @@ object NanoContentComponents {
     @Composable
     fun RenderDivider(modifier: Modifier) {
         HorizontalDivider(modifier.padding(vertical = 8.dp))
+    }
+
+    /**
+     * Renders inline code text with monospace font and background styling.
+     * Supports content interpolation and optional color props.
+     */
+    @Composable
+    fun RenderCode(ir: NanoIR, state: Map<String, Any>, modifier: Modifier) {
+        val rawContent = NanoExpressionEvaluator.resolveStringProp(ir, "content", state)
+        val content = NanoExpressionEvaluator.interpolateText(rawContent, state)
+        val colorName = ir.props["color"]?.jsonPrimitive?.content
+        val bgColorName = ir.props["bgColor"]?.jsonPrimitive?.content
+
+        val textColor = when (colorName) {
+            "green" -> MaterialTheme.colorScheme.tertiary
+            "red" -> MaterialTheme.colorScheme.error
+            "blue" -> MaterialTheme.colorScheme.secondary
+            "yellow", "orange" -> MaterialTheme.colorScheme.primary
+            else -> MaterialTheme.colorScheme.onSurface
+        }
+
+        val backgroundColor = when (bgColorName) {
+            "green" -> MaterialTheme.colorScheme.tertiaryContainer
+            "red" -> MaterialTheme.colorScheme.errorContainer
+            "blue" -> MaterialTheme.colorScheme.secondaryContainer
+            "yellow", "orange" -> MaterialTheme.colorScheme.primaryContainer
+            else -> MaterialTheme.colorScheme.surfaceVariant
+        }
+
+        Text(
+            text = content,
+            style = MaterialTheme.typography.bodyMedium.copy(
+                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                fontWeight = FontWeight.Medium
+            ),
+            color = textColor,
+            modifier = modifier
+                .background(
+                    color = backgroundColor,
+                    shape = RoundedCornerShape(4.dp)
+                )
+                .padding(horizontal = 6.dp, vertical = 2.dp)
+        )
+    }
+
+    /**
+     * Renders a clickable hyperlink with optional icon and styling.
+     * Supports content interpolation.
+     */
+    @Composable
+    fun RenderLink(ir: NanoIR, state: Map<String, Any>, modifier: Modifier) {
+        val rawContent = NanoExpressionEvaluator.resolveStringProp(ir, "content", state)
+        val content = NanoExpressionEvaluator.interpolateText(rawContent, state)
+        val rawUrl = ir.props["url"]?.jsonPrimitive?.content ?: ""
+        val resolvedUrl = NanoExpressionEvaluator.interpolateText(rawUrl, state)
+        val colorName = ir.props["color"]?.jsonPrimitive?.content
+        val showIcon = ir.props["showIcon"]?.jsonPrimitive?.content?.toBooleanStrictOrNull() ?: false
+
+        val linkColor = when (colorName) {
+            "primary" -> MaterialTheme.colorScheme.primary
+            "secondary" -> MaterialTheme.colorScheme.secondary
+            "green" -> MaterialTheme.colorScheme.tertiary
+            "red" -> MaterialTheme.colorScheme.error
+            else -> MaterialTheme.colorScheme.primary
+        }
+
+        Row(
+            modifier = modifier.clickable {
+                println("Opening link: $resolvedUrl")
+            },
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Start
+        ) {
+            Text(
+                text = content,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = linkColor,
+                    textDecoration = TextDecoration.Underline
+                )
+            )
+            if (showIcon) {
+                Spacer(modifier = Modifier.width(4.dp))
+                Icon(
+                    imageVector = Icons.Default.OpenInNew,
+                    contentDescription = "External link",
+                    modifier = Modifier.size(14.dp),
+                    tint = linkColor
+                )
+            }
+        }
+    }
+
+    /**
+     * Renders a blockquote with optional attribution.
+     * Supports content interpolation and styling variants.
+     */
+    @Composable
+    fun RenderBlockquote(ir: NanoIR, state: Map<String, Any>, modifier: Modifier) {
+        val rawContent = NanoExpressionEvaluator.resolveStringProp(ir, "content", state)
+        val content = NanoExpressionEvaluator.interpolateText(rawContent, state)
+        val rawAttribution = ir.props["attribution"]?.jsonPrimitive?.content
+        val attribution = rawAttribution?.let { NanoExpressionEvaluator.interpolateText(it, state) }
+        val variant = ir.props["variant"]?.jsonPrimitive?.content
+
+        val borderColor = when (variant) {
+            "warning" -> MaterialTheme.colorScheme.error
+            "success" -> MaterialTheme.colorScheme.tertiary
+            "info" -> MaterialTheme.colorScheme.primary
+            else -> MaterialTheme.colorScheme.outline
+        }
+
+        val backgroundColor = when (variant) {
+            "warning" -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
+            "success" -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f)
+            "info" -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+            else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        }
+
+        Column(
+            modifier = modifier
+                .background(
+                    color = backgroundColor,
+                    shape = RoundedCornerShape(topStart = 8.dp, bottomStart = 8.dp)
+                )
+                .padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(4.dp)
+                    .height(24.dp)
+                    .background(
+                        color = borderColor,
+                        shape = RoundedCornerShape(2.dp)
+                    )
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = content,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontStyle = FontStyle.Italic,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            )
+
+            if (!attribution.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "— $attribution",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                )
+            }
+        }
     }
 }
