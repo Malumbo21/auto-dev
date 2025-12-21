@@ -37,6 +37,17 @@
     MINUS_EQUALS         = '-='
     TIMES_EQUALS         = '*='
     DIV_EQUALS           = '/='
+
+    PLUS                 = '+'
+    MINUS                = '-'
+    STAR                 = '*'
+    SLASH                = '/'
+    LT                   = '<'
+    GT                   = '>'
+    LE                   = '<='
+    GE                   = '>='
+    EQ                   = '=='
+    NE                   = '!='
     
     COMPONENT            = 'component'
     STATE                = 'state'
@@ -69,6 +80,7 @@
     TEXT                 = 'Text'
     IMAGE                = 'Image'
     BADGE                = 'Badge'
+    ICON                 = 'Icon'
     DIVIDER              = 'Divider'
     ALERT                = 'Alert'
     PROGRESS             = 'Progress'
@@ -104,6 +116,10 @@
     FLOAT                = 'float'
     STRING_TYPE          = 'string'
     BOOL                 = 'bool'
+    STR                  = 'str'
+    DICT                 = 'dict'
+    LIST                 = 'List'
+    FALSE                = 'False'
   ]
 }
 
@@ -115,7 +131,7 @@ paramList ::= LPAREN param (COMMA param)* RPAREN
 
 param ::= IDENTIFIER COLON typeRef
 
-typeRef ::= INT | FLOAT | STRING_TYPE | BOOL | IDENTIFIER
+typeRef ::= INT | FLOAT | STRING_TYPE | BOOL | STR | DICT | LIST | IDENTIFIER
 
 componentBody ::= (stateBlock | requestBlock | propertyAssignment | contentBlock | componentInstance | ifBlock | forBlock | NEWLINE | COMMENT)*
 
@@ -139,9 +155,10 @@ componentInstances ::= (componentInstance | NEWLINE | COMMENT)*
 
 componentInstance ::= componentName propList? COLON NEWLINE componentBody
                     | componentName LPAREN argList? RPAREN (COLON NEWLINE componentBody)? NEWLINE?
+                    | DIVIDER NEWLINE?
 
 componentName ::= VSTACK | HSTACK | CARD | SPLITVIEW | GENCANVAS | FORM | MODAL
-                | TEXT | IMAGE | BADGE | DIVIDER | ALERT | PROGRESS | SPINNER | DATACHART | DATATABLE
+                | TEXT | IMAGE | BADGE | ICON | DIVIDER | ALERT | PROGRESS | SPINNER | DATACHART | DATATABLE
                 | BUTTON | INPUT | TEXTAREA | SELECT | CHECKBOX | RADIO | RADIOGROUP | SWITCH
                 | NUMBERINPUT | SMARTTEXTFIELD | SLIDER | DATEPICKER | DATERANGEPICKER
                 | IDENTIFIER
@@ -154,7 +171,7 @@ prop ::= IDENTIFIER EQUALS expr
 
 argList ::= arg (COMMA arg)*
 
-arg ::= expr | prop
+arg ::= prop | expr
 
 ifBlock ::= IF expr COLON NEWLINE componentInstances
 
@@ -162,7 +179,7 @@ forBlock ::= FOR IDENTIFIER IN expr COLON NEWLINE componentInstances
 
 expr ::= primaryExpr (binaryOp primaryExpr)*
 
-primaryExpr ::= STRING | NUMBER | BOOLEAN | dottedIdentifier | actionCall
+primaryExpr ::= STRING | NUMBER | BOOLEAN | FALSE | dottedIdentifier | actionCall | dictLiteral | listLiteral
 
 dottedIdentifier ::= IDENTIFIER (DOT IDENTIFIER)*
 
@@ -170,5 +187,13 @@ actionCall ::= actionName LPAREN argList? RPAREN
 
 actionName ::= NAVIGATE | FETCH | SHOWTOAST | STATEMUTATION
 
+dictLiteral ::= LBRACE (dictEntry (COMMA dictEntry)*)? RBRACE
+
+dictEntry ::= (STRING | IDENTIFIER) COLON expr
+
+listLiteral ::= LBRACKET (expr (COMMA expr)*)? RBRACKET
+
 binaryOp ::= PLUS_EQUALS | MINUS_EQUALS | TIMES_EQUALS | DIV_EQUALS
+           | PLUS | MINUS | STAR | SLASH
+           | LT | GT | LE | GE | EQ | NE
 

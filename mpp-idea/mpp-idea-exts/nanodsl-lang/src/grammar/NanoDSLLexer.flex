@@ -83,6 +83,7 @@ MODAL                    = Modal
 TEXT                     = Text
 IMAGE                    = Image
 BADGE                    = Badge
+ICON                     = Icon
 DIVIDER                  = Divider
 ALERT                    = Alert
 PROGRESS                 = Progress
@@ -123,6 +124,24 @@ INT                      = int
 FLOAT                    = float
 STRING_TYPE              = string
 BOOL                     = bool
+STR                      = str
+DICT                     = dict
+LIST                     = List
+FALSE                    = False
+
+// Arithmetic operators
+PLUS                     = "+"
+MINUS                    = "-"
+STAR                     = "*"
+SLASH                    = "/"
+
+// Comparison operators
+LT                       = "<"
+GT                       = ">"
+LE                       = "<="
+GE                       = ">="
+EQ                       = "=="
+NE                       = "!="
 
 %%
 
@@ -166,6 +185,7 @@ BOOL                     = bool
   {TEXT}                   { return TEXT; }
   {IMAGE}                  { return IMAGE; }
   {BADGE}                  { return BADGE; }
+  {ICON}                   { return ICON; }
   {DIVIDER}                { return DIVIDER; }
   {ALERT}                  { return ALERT; }
   {PROGRESS}               { return PROGRESS; }
@@ -206,14 +226,30 @@ BOOL                     = bool
   {FLOAT}                  { return FLOAT; }
   {STRING_TYPE}            { return STRING_TYPE; }
   {BOOL}                   { return BOOL; }
+  {STR}                    { return STR; }
+  {DICT}                   { return DICT; }
+  {LIST}                   { return LIST; }
+  {FALSE}                  { return FALSE; }
 
-  // Operators
+  // Operators (multi-char first)
   {BIND_READ}              { return BIND_READ; }
   {BIND_WRITE}             { return BIND_WRITE; }
   {PLUS_EQUALS}            { return PLUS_EQUALS; }
   {MINUS_EQUALS}           { return MINUS_EQUALS; }
   {TIMES_EQUALS}           { return TIMES_EQUALS; }
   {DIV_EQUALS}             { return DIV_EQUALS; }
+  {LE}                     { return LE; }
+  {GE}                     { return GE; }
+  {EQ}                     { return EQ; }
+  {NE}                     { return NE; }
+
+  // Single-char arithmetic/comparison operators
+  {PLUS}                   { return PLUS; }
+  {MINUS}                  { return MINUS; }
+  {STAR}                   { return STAR; }
+  {SLASH}                  { return SLASH; }
+  {LT}                     { return LT; }
+  {GT}                     { return GT; }
 
   // Literals
   {BOOLEAN}                { return BOOLEAN; }
