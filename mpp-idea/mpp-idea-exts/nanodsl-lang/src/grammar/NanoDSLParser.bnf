@@ -138,8 +138,7 @@ contentBlock ::= CONTENT COLON NEWLINE componentInstances
 componentInstances ::= (componentInstance | NEWLINE | COMMENT)*
 
 componentInstance ::= componentName propList? COLON NEWLINE componentBody
-                    | componentName LPAREN argList? RPAREN COLON? NEWLINE? componentBody?
-                    | componentName LPAREN argList? RPAREN NEWLINE?
+                    | componentName LPAREN argList? RPAREN (COLON NEWLINE componentBody)? NEWLINE?
 
 componentName ::= VSTACK | HSTACK | CARD | SPLITVIEW | GENCANVAS | FORM | MODAL
                 | TEXT | IMAGE | BADGE | DIVIDER | ALERT | PROGRESS | SPINNER | DATACHART | DATATABLE
@@ -161,11 +160,15 @@ ifBlock ::= IF expr COLON NEWLINE componentInstances
 
 forBlock ::= FOR IDENTIFIER IN expr COLON NEWLINE componentInstances
 
-expr ::= STRING | NUMBER | BOOLEAN | IDENTIFIER (DOT IDENTIFIER)* | actionCall | binaryExpr
+expr ::= primaryExpr (binaryOp primaryExpr)*
+
+primaryExpr ::= STRING | NUMBER | BOOLEAN | dottedIdentifier | actionCall
+
+dottedIdentifier ::= IDENTIFIER (DOT IDENTIFIER)*
 
 actionCall ::= actionName LPAREN argList? RPAREN
 
 actionName ::= NAVIGATE | FETCH | SHOWTOAST | STATEMUTATION
 
-binaryExpr ::= expr (PLUS_EQUALS | MINUS_EQUALS | TIMES_EQUALS | DIV_EQUALS) expr
+binaryOp ::= PLUS_EQUALS | MINUS_EQUALS | TIMES_EQUALS | DIV_EQUALS
 

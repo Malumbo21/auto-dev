@@ -11,6 +11,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.psi.FileViewProvider
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
+import com.intellij.psi.TokenType
 import com.intellij.psi.tree.IFileElementType
 import com.intellij.psi.tree.TokenSet
 
@@ -18,7 +19,7 @@ class NanoDSLParserDefinition : ParserDefinition {
     companion object {
         val FILE = IFileElementType(cc.unitmesh.nanodsl.language.NanoDSLLanguage)
         val COMMENTS = TokenSet.create(NanoDSLTypes.COMMENT)
-        val WHITESPACES = TokenSet.EMPTY
+        val WHITESPACES = TokenSet.create(TokenType.WHITE_SPACE)
     }
 
     override fun createLexer(project: Project?): Lexer = NanoDSLLexerAdapter()

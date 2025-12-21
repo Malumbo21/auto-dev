@@ -16,4 +16,3 @@
                                        implementationClass="cc.unitmesh.nanodsl.language.highlight.NanoDSLSyntaxHighlighterFactory"/>
     </extensions>
 </idea-plugin>
-

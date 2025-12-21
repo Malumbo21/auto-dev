@@ -26,7 +26,7 @@ NUMBER                   = [0-9]+(\.[0-9]+)?
 BOOLEAN                  = true|false
 STRING                   = \"([^\\\"\r\n]|\\[^\r\n])*\"
 COMMENT                  = #[^\r\n]*
-NEWLINE                  = \n | \r | \r\n
+NEWLINE                  = \n|\r|\r\n
 WHITE_SPACE              = [ \t]+
 
 COLON                    = :
