@@ -1,0 +1,22 @@
+<idea-plugin>
+    <id>cc.unitmesh.nanodsl.language.test</id>
+    <name>NanoDSL Language Test</name>
+    <vendor>UnitMesh</vendor>
+
+    <depends>com.intellij.modules.platform</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <fileType name="NanoDSLFile"
+                  implementationClass="cc.unitmesh.nanodsl.language.NanoDSLFileType"
+                  fieldName="INSTANCE"
+                  language="NanoDSL"
+                  extensions="nanodsl"/>
+
+        <lang.parserDefinition language="NanoDSL"
+                               implementationClass="cc.unitmesh.nanodsl.language.parser.NanoDSLParserDefinition"/>
+
+        <lang.syntaxHighlighterFactory language="NanoDSL"
+                                       implementationClass="cc.unitmesh.nanodsl.language.highlight.NanoDSLSyntaxHighlighterFactory"/>
+    </extensions>
+</idea-plugin>
+
