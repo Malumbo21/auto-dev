@@ -5,6 +5,7 @@ import com.intellij.openapi.application.EDT
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.Service.Level
 import com.intellij.openapi.project.Project
+import cc.unitmesh.devins.idea.utils.ComposeSelectionCrashGuard
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.Dispatchers
@@ -22,6 +23,12 @@ import kotlinx.coroutines.CoroutineName
  */
 @Service(Level.PROJECT)
 class CoroutineScopeHolder(private val project: Project) : Disposable {
+
+    init {
+        // Guard against a known Compose selection crash on the EDT when layouts are disposed
+        // during selection/pointer handling (common with rapidly-updating content).
+        ComposeSelectionCrashGuard.install()
+    }
 
     private val parentJob = SupervisorJob()
 

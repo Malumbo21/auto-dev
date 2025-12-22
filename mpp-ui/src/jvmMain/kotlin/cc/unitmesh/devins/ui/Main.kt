@@ -18,10 +18,12 @@ import cc.unitmesh.devins.ui.compose.theme.AutoDevTheme
 import cc.unitmesh.devins.ui.compose.theme.ThemeManager
 import cc.unitmesh.devins.ui.desktop.AutoDevMenuBar
 import cc.unitmesh.devins.ui.desktop.AutoDevTray
+import cc.unitmesh.devins.ui.desktop.ComposeSelectionCrashGuard
 import cc.unitmesh.devins.ui.desktop.DesktopWindowLayout
 
 fun main(args: Array<String>) {
     AutoDevLogger.initialize()
+    ComposeSelectionCrashGuard.install()
     AutoDevLogger.info("AutoDevMain") { "🚀 AutoDev Desktop starting..." }
     AutoDevLogger.info("AutoDevMain") { "📁 Log files location: ${AutoDevLogger.getLogDirectory()}" }
 
