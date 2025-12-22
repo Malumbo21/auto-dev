@@ -17,8 +17,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import cc.unitmesh.devins.ui.nano.NanoColorMapper
 import cc.unitmesh.xuiper.eval.evaluator.NanoExpressionEvaluator
 import cc.unitmesh.xuiper.ir.NanoIR
+import cc.unitmesh.xuiper.props.NanoSizeMapper
 import kotlinx.serialization.json.jsonPrimitive
 
 /**
@@ -65,14 +67,7 @@ object NanoContentComponents {
         val text = NanoExpressionEvaluator.interpolateText(rawText, state)
         val colorName = ir.props["color"]?.jsonPrimitive?.content
 
-        val (bgColor, contentColor) = when (colorName) {
-            // Treat named colors as semantic intents so they can be themed.
-            "green" -> MaterialTheme.colorScheme.tertiaryContainer to MaterialTheme.colorScheme.onTertiaryContainer
-            "red" -> MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
-            "blue" -> MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer
-            "yellow", "orange" -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer
-            else -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer
-        }
+        val (bgColor, contentColor) = NanoColorMapper.mapContainerColors(colorName)
 
         Surface(
             modifier = modifier,
@@ -193,26 +188,8 @@ object NanoContentComponents {
             else -> Icons.Default.Info // Default fallback
         }
 
-        // Map size to dp
-        val iconSize = when (sizeName) {
-            "sm", "small" -> 16.dp
-            "md", "medium" -> 24.dp
-            "lg", "large" -> 32.dp
-            "xl" -> 48.dp
-            else -> 24.dp
-        }
-
-        // Map color name to Color
-        val iconColor = when (colorName) {
-            "primary" -> MaterialTheme.colorScheme.primary
-            "secondary" -> MaterialTheme.colorScheme.secondary
-            // Treat named colors as semantic intents so they can be themed.
-            "green" -> MaterialTheme.colorScheme.tertiary
-            "red" -> MaterialTheme.colorScheme.error
-            "blue" -> MaterialTheme.colorScheme.secondary
-            "yellow", "orange" -> MaterialTheme.colorScheme.primary
-            else -> MaterialTheme.colorScheme.onSurface
-        }
+        val iconSize = NanoSizeMapper.parseIconSize(sizeName).dp
+        val iconColor = NanoColorMapper.mapTextColor(colorName)
 
         Icon(
             imageVector = iconVector,
@@ -238,21 +215,8 @@ object NanoContentComponents {
         val colorName = ir.props["color"]?.jsonPrimitive?.content
         val bgColorName = ir.props["bgColor"]?.jsonPrimitive?.content
 
-        val textColor = when (colorName) {
-            "green" -> MaterialTheme.colorScheme.tertiary
-            "red" -> MaterialTheme.colorScheme.error
-            "blue" -> MaterialTheme.colorScheme.secondary
-            "yellow", "orange" -> MaterialTheme.colorScheme.primary
-            else -> MaterialTheme.colorScheme.onSurface
-        }
-
-        val backgroundColor = when (bgColorName) {
-            "green" -> MaterialTheme.colorScheme.tertiaryContainer
-            "red" -> MaterialTheme.colorScheme.errorContainer
-            "blue" -> MaterialTheme.colorScheme.secondaryContainer
-            "yellow", "orange" -> MaterialTheme.colorScheme.primaryContainer
-            else -> MaterialTheme.colorScheme.surfaceVariant
-        }
+        val textColor = NanoColorMapper.mapTextColor(colorName)
+        val backgroundColor = NanoColorMapper.mapBackgroundColor(bgColorName)
 
         Text(
             text = content,
@@ -283,13 +247,7 @@ object NanoContentComponents {
         val colorName = ir.props["color"]?.jsonPrimitive?.content
         val showIcon = ir.props["showIcon"]?.jsonPrimitive?.content?.toBooleanStrictOrNull() ?: false
 
-        val linkColor = when (colorName) {
-            "primary" -> MaterialTheme.colorScheme.primary
-            "secondary" -> MaterialTheme.colorScheme.secondary
-            "green" -> MaterialTheme.colorScheme.tertiary
-            "red" -> MaterialTheme.colorScheme.error
-            else -> MaterialTheme.colorScheme.primary
-        }
+        val linkColor = NanoColorMapper.mapTextColor(colorName) ?: MaterialTheme.colorScheme.primary
 
         Row(
             modifier = modifier.clickable {

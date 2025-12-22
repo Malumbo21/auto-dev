@@ -32,6 +32,8 @@ import cc.unitmesh.llm.image.ImageGenerationResult
 import cc.unitmesh.llm.image.ImageGenerationService
 import cc.unitmesh.xuiper.eval.evaluator.NanoExpressionEvaluator
 import cc.unitmesh.xuiper.ir.NanoIR
+import cc.unitmesh.xuiper.props.NanoAspectRatioParser
+import cc.unitmesh.xuiper.props.NanoSizeMapper
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import kotlinx.coroutines.Dispatchers
@@ -331,27 +333,8 @@ fun RenderImage(
     val aspectStr = ir.props["aspect"]?.jsonPrimitive?.content
     val radiusStr = ir.props["radius"]?.jsonPrimitive?.content
 
-    val aspectRatio = remember(aspectStr) {
-        val trimmed = aspectStr?.trim().orEmpty()
-        when {
-            trimmed.contains('/') -> {
-                val parts = trimmed.split('/', limit = 2)
-                val a = parts.getOrNull(0)?.trim()?.toFloatOrNull()
-                val b = parts.getOrNull(1)?.trim()?.toFloatOrNull()
-                if (a != null && b != null && b != 0f) a / b else null
-            }
-            trimmed.isNotEmpty() -> trimmed.toFloatOrNull()
-            else -> null
-        }
-    }
-
-    val cornerRadius = when (radiusStr) {
-        "sm" -> 4.dp
-        "md" -> 8.dp
-        "lg" -> 12.dp
-        "xl" -> 16.dp
-        else -> 8.dp
-    }
+    val aspectRatio = remember(aspectStr) { NanoAspectRatioParser.parse(aspectStr) }
+    val cornerRadius = NanoSizeMapper.parseRadius(radiusStr).dp
 
     // Keep the image visually present even when its parent gives it a narrow width
     // (e.g., in HStack with a text column). We compute a single target height based on
