@@ -15,7 +15,12 @@
         <lang.syntaxHighlighterFactory language="NanoDSL"
                                        implementationClass="cc.unitmesh.nanodsl.language.highlight.NanoDSLSyntaxHighlighterFactory"/>
 
-        <!-- Split Editor with Preview -->
-        <fileEditorProvider implementation="cc.unitmesh.nanodsl.language.editor.NanoDSLSplitEditorProvider"/>
+        <!-- Note: Split Editor with Compose Preview is registered in main plugin.xml -->
+        <!-- as it requires Jewel/Compose dependencies from mpp-idea module -->
+    </extensions>
+
+    <!-- NanoDSL Sketch Provider for SketchToolWindow -->
+    <extensions defaultExtensionNs="cc.unitmesh">
+        <langSketchProvider implementation="cc.unitmesh.nanodsl.language.sketch.NanoDSLSketchProvider"/>
     </extensions>
 </idea-plugin>

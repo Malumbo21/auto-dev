@@ -44,11 +44,14 @@ include(
 // - mpp-core: group = "cc.unitmesh"
 // - mpp-codegraph: uses root project name
 // - mpp-viewer: group = "cc.unitmesh.viewer"
+// - xiuper-ui: group = "cc.unitmesh"
 includeBuild("..") {
     dependencySubstitution {
         // Substitute Maven coordinates with project dependencies
         substitute(module("cc.unitmesh:mpp-core")).using(project(":mpp-core")).because("Using local project")
         substitute(module("Xiiu:mpp-codegraph")).using(project(":mpp-codegraph")).because("Using local project")
         substitute(module("cc.unitmesh.viewer:mpp-viewer")).using(project(":mpp-viewer")).because("Using local project")
+        // xiuper-ui for NanoDSL parsing and IR generation
+        substitute(module("cc.unitmesh:xiuper-ui")).using(project(":xiuper-ui")).because("Using local project for NanoDSL parsing")
     }
 }

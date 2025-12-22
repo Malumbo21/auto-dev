@@ -15,6 +15,8 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonPrimitive
+import kotlin.collections.get
+import kotlin.math.abs
 
 /**
  * Utility functions for NanoUI rendering.
@@ -343,7 +345,7 @@ object NanoExpressionEvaluator {
 
     private fun normalizeNumberString(value: Double): String {
         val asLong = value.toLong()
-        return if (kotlin.math.abs(value - asLong.toDouble()) < 1e-9) asLong.toString() else value.toString()
+        return if (abs(value - asLong.toDouble()) < 1e-9) asLong.toString() else value.toString()
     }
 
     private fun resolveIdentifierAny(identifier: String, state: Map<String, Any>): Any? {
@@ -512,7 +514,7 @@ object NanoExpressionEvaluator {
                     value *= parseFactor()
                 } else if (match('/')) {
                     val rhs = parseFactor()
-                    value = if (kotlin.math.abs(rhs) < 1e-12) 0.0 else value / rhs
+                    value = if (abs(rhs) < 1e-12) 0.0 else value / rhs
                 } else {
                     break
                 }

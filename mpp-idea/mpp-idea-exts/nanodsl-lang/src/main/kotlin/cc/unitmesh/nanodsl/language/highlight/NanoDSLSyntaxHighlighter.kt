@@ -31,14 +31,14 @@ class NanoDSLSyntaxHighlighter : SyntaxHighlighterBase() {
         // Request properties - orange for API-related properties
         val REQUEST_PROP: TextAttributesKey = createTextAttributesKey("NANODSL_REQUEST_PROP", DefaultLanguageHighlighterColors.METADATA)
 
-        // Layout components - blue for structural elements
-        val LAYOUT_COMPONENT: TextAttributesKey = createTextAttributesKey("NANODSL_LAYOUT_COMPONENT", DefaultLanguageHighlighterColors.CLASS_NAME)
+        // Layout components - static field style for structural elements
+        val LAYOUT_COMPONENT: TextAttributesKey = createTextAttributesKey("NANODSL_LAYOUT_COMPONENT", DefaultLanguageHighlighterColors.STATIC_FIELD)
 
-        // Display components - green for visual elements
-        val DISPLAY_COMPONENT: TextAttributesKey = createTextAttributesKey("NANODSL_DISPLAY_COMPONENT", DefaultLanguageHighlighterColors.INTERFACE_NAME)
+        // Display components - static field style for visual elements
+        val DISPLAY_COMPONENT: TextAttributesKey = createTextAttributesKey("NANODSL_DISPLAY_COMPONENT", DefaultLanguageHighlighterColors.STATIC_FIELD)
 
-        // Input components - yellow/gold for interactive elements
-        val INPUT_COMPONENT: TextAttributesKey = createTextAttributesKey("NANODSL_INPUT_COMPONENT", DefaultLanguageHighlighterColors.INSTANCE_FIELD)
+        // Input components - static field style for interactive elements
+        val INPUT_COMPONENT: TextAttributesKey = createTextAttributesKey("NANODSL_INPUT_COMPONENT", DefaultLanguageHighlighterColors.STATIC_FIELD)
 
         // Actions - red/coral for action triggers
         val ACTION: TextAttributesKey = createTextAttributesKey("NANODSL_ACTION", DefaultLanguageHighlighterColors.STATIC_METHOD)

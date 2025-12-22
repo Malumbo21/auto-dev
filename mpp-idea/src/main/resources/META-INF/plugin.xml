@@ -39,6 +39,9 @@
                     anchor="right"
                     secondary="false"
                     icon="cc.unitmesh.devins.idea.AutoDevIcons.ToolWindow"/>
+
+        <!-- NanoDSL Split Editor with Compose Preview -->
+        <fileEditorProvider implementation="cc.unitmesh.devins.idea.editor.NanoDSLComposeSplitEditorProvider"/>
     </extensions>
 
     <!-- Include core extensions and extension points -->

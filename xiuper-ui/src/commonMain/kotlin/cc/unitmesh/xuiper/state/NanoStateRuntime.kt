@@ -1,9 +1,8 @@
-package cc.unitmesh.devins.ui.nano
+package cc.unitmesh.xuiper.state
 
 import cc.unitmesh.xuiper.action.MutationOp
 import cc.unitmesh.xuiper.ir.NanoActionIR
 import cc.unitmesh.xuiper.ir.NanoIR
-import cc.unitmesh.xuiper.state.NanoState
 import cc.unitmesh.yaml.YamlUtils
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -24,6 +23,13 @@ import kotlin.math.round
  * - Cross-platform: commonMain implementation
  * - Testable: no Compose dependency
  * - Compatible: accepts both `state.xxx` and `xxx` mutation paths
+ *
+ * This class is the bridge between:
+ * - NanoIR (JSON-serializable IR format)
+ * - NanoActionIR (JSON-serializable action format)
+ * - NanoState (reactive state container)
+ *
+ * For higher-level API using sealed class NanoAction, see [NanoStateManager].
  */
 class NanoStateRuntime(
     private val ir: NanoIR
@@ -72,40 +78,46 @@ class NanoStateRuntime(
                     ?: raw?.let { parseBoolLoose(it) }
                     ?: false
                 "str" -> raw ?: ""
-                "list" -> {
-                    when (defaultValue) {
-                        is JsonArray -> defaultValue.map { jsonElementToRuntimeValue(it) }
-                        is JsonPrimitive -> {
-                            val parsed = parseStructuredDefault(defaultValue.content)
-                            if (parsed is List<*>) parsed else emptyList<Any>()
-                        }
-                        is JsonObject -> emptyList<Any>()
-                        null -> emptyList<Any>()
-                        else -> {
-                            val parsed = parseStructuredDefault(defaultValue.toString())
-                            if (parsed is List<*>) parsed else emptyList<Any>()
-                        }
-                    }
-                }
-                "dict", "map", "object" -> {
-                    when (defaultValue) {
-                        is JsonObject -> defaultValue.entries.associate { (k, v) -> k to jsonElementToRuntimeValue(v) }
-                        is JsonPrimitive -> {
-                            val parsed = parseStructuredDefault(defaultValue.content)
-                            if (parsed is Map<*, *>) parsed else emptyMap<String, Any>()
-                        }
-                        is JsonArray -> emptyMap<String, Any>()
-                        null -> emptyMap<String, Any>()
-                        else -> {
-                            val parsed = parseStructuredDefault(defaultValue.toString())
-                            if (parsed is Map<*, *>) parsed else emptyMap<String, Any>()
-                        }
-                    }
-                }
+                "list" -> parseListDefault(defaultValue)
+                "dict", "map", "object" -> parseMapDefault(defaultValue)
                 else -> primitive?.content ?: defaultValue?.toString().orEmpty()
             }
         }
         return result
+    }
+
+    private fun parseListDefault(defaultValue: JsonElement?): List<Any?> {
+        return when (defaultValue) {
+            is JsonArray -> defaultValue.map { jsonElementToRuntimeValue(it) }
+            is JsonPrimitive -> {
+                val parsed = parseStructuredDefault(defaultValue.content)
+                if (parsed is List<*>) parsed else emptyList()
+            }
+            is JsonObject -> emptyList()
+            null -> emptyList()
+            else -> {
+                val parsed = parseStructuredDefault(defaultValue.toString())
+                if (parsed is List<*>) parsed else emptyList()
+            }
+        }
+    }
+
+    private fun parseMapDefault(defaultValue: JsonElement?): Map<String, Any?> {
+        return when (defaultValue) {
+            is JsonObject -> defaultValue.entries.associate { (k, v) -> k to jsonElementToRuntimeValue(v) }
+            is JsonPrimitive -> {
+                val parsed = parseStructuredDefault(defaultValue.content)
+                @Suppress("UNCHECKED_CAST")
+                if (parsed is Map<*, *>) parsed as Map<String, Any?> else emptyMap()
+            }
+            is JsonArray -> emptyMap()
+            null -> emptyMap()
+            else -> {
+                val parsed = parseStructuredDefault(defaultValue.toString())
+                @Suppress("UNCHECKED_CAST")
+                if (parsed is Map<*, *>) parsed as Map<String, Any?> else emptyMap()
+            }
+        }
     }
 
     private fun jsonElementToRuntimeValue(el: JsonElement?): Any? {

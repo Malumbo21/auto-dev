@@ -5,11 +5,10 @@ import javax.swing.Icon
 
 object NanoDSLFileType : LanguageFileType(NanoDSLLanguage) {
     override fun getName(): String = "NanoDSL"
-    
-    override fun getDescription(): String = "NanoDSL Language File"
-    
-    override fun getDefaultExtension(): String = "nanodsl"
-    
-    override fun getIcon(): Icon? = null
-}
 
+    override fun getDescription(): String = "NanoDSL Language File"
+
+    override fun getDefaultExtension(): String = "nanodsl"
+
+    override fun getIcon(): Icon = NanoDSLIcons.DEFAULT
+}

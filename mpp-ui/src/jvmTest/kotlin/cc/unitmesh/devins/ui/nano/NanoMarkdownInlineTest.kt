@@ -24,11 +24,11 @@ component Demo:
 
         val ir = NanoDSL.toIR(source)
         assertNotNull(ir)
-        
+
         val textNode = ir.children?.firstOrNull()?.children?.firstOrNull()
         assertNotNull(textNode)
         assertEquals("Text", textNode.type)
-        
+
         val content = textNode.props["content"]?.toString()?.trim('"')
         assertTrue(content?.contains("**bold**") == true)
     }
@@ -44,7 +44,7 @@ component Demo:
 
         val ir = NanoDSL.toIR(source)
         assertNotNull(ir)
-        
+
         val texts = ir.children?.firstOrNull()?.children?.filter { it.type == "Text" }
         assertEquals(2, texts?.size)
     }
@@ -59,7 +59,7 @@ component Demo:
 
         val ir = NanoDSL.toIR(source)
         assertNotNull(ir)
-        
+
         val textNode = ir.children?.firstOrNull()?.children?.firstOrNull()
         val content = textNode?.props?.get("content")?.toString()?.trim('"')
         assertTrue(content?.contains("`print()`") == true)
@@ -75,7 +75,7 @@ component Demo:
 
         val ir = NanoDSL.toIR(source)
         assertNotNull(ir)
-        
+
         val textNode = ir.children?.firstOrNull()?.children?.firstOrNull()
         val content = textNode?.props?.get("content")?.toString()?.trim('"')
         assertTrue(content?.contains("~~deleted~~") == true)
@@ -91,7 +91,7 @@ component Demo:
 
         val ir = NanoDSL.toIR(source)
         assertNotNull(ir)
-        
+
         val textNode = ir.children?.firstOrNull()?.children?.firstOrNull()
         val content = textNode?.props?.get("content")?.toString()?.trim('"')
         assertTrue(content?.contains("__underlined__") == true)
@@ -107,7 +107,7 @@ component Demo:
 
         val ir = NanoDSL.toIR(source)
         assertNotNull(ir)
-        
+
         val textNode = ir.children?.firstOrNull()?.children?.firstOrNull()
         val content = textNode?.props?.get("content")?.toString()?.trim('"')
         assertTrue(content?.contains("[our website](https://example.com)") == true)
@@ -123,7 +123,7 @@ component Demo:
 
         val ir = NanoDSL.toIR(source)
         assertNotNull(ir)
-        
+
         val textNode = ir.children?.firstOrNull()?.children?.firstOrNull()
         val content = textNode?.props?.get("content")?.toString()?.trim('"')
         assertNotNull(content)
@@ -143,7 +143,7 @@ component Demo:
 
         val ir = NanoDSL.toIR(source)
         assertNotNull(ir)
-        
+
         val textNode = ir.children?.firstOrNull()?.children?.firstOrNull()
         assertNotNull(textNode)
         // Just verify the node exists and has content
@@ -157,14 +157,14 @@ component Demo:
 component Demo:
     state:
         username: string = "Alice"
-    
+
     VStack:
         Text("Welcome **{state.username}**!")
         """.trimIndent()
 
         val ir = NanoDSL.toIR(source)
         assertNotNull(ir)
-        
+
         val textNode = ir.children?.firstOrNull()?.children?.firstOrNull()
         val content = textNode?.props?.get("content")?.toString()?.trim('"')
         assertTrue(content?.contains("**{state.username}**") == true)
@@ -182,10 +182,10 @@ component Demo:
 
         val ir = NanoDSL.toIR(source)
         assertNotNull(ir)
-        
+
         val texts = ir.children?.firstOrNull()?.children?.filter { it.type == "Text" }
         assertEquals(3, texts?.size)
-        
+
         assertEquals("h1", texts?.get(0)?.props?.get("style")?.toString()?.trim('"'))
         assertEquals("body", texts?.get(1)?.props?.get("style")?.toString()?.trim('"'))
         assertEquals("caption", texts?.get(2)?.props?.get("style")?.toString()?.trim('"'))
@@ -194,7 +194,7 @@ component Demo:
     @Test
     fun `NanoExpressionEvaluator should handle markdown content with interpolation`() {
         val state = mapOf("name" to "Alice", "status" to "active")
-        
+
         val ir = NanoIR(
             type = "Text",
             props = mapOf(
@@ -202,10 +202,10 @@ component Demo:
                 "markdown" to JsonPrimitive("true")
             )
         )
-        
+
         val rawContent = NanoExpressionEvaluator.resolveStringProp(ir, "content", state)
         val interpolated = NanoExpressionEvaluator.interpolateText(rawContent, state)
-        
+
         assertEquals("User **Alice** is *active*", interpolated)
     }
 
@@ -221,7 +221,7 @@ component Demo:
 
         val ir = NanoDSL.toIR(source)
         assertNotNull(ir)
-        
+
         val texts = ir.children?.firstOrNull()?.children?.filter { it.type == "Text" }
         assertEquals(3, texts?.size)
     }
@@ -236,7 +236,7 @@ component Demo:
 
         val ir = NanoDSL.toIR(source)
         assertNotNull(ir)
-        
+
         val textNode = ir.children?.firstOrNull()?.children?.firstOrNull()
         val content = textNode?.props?.get("content")?.toString()?.trim('"')
         assertNotNull(content)
@@ -256,7 +256,7 @@ component Demo:
 
         val ir = NanoDSL.toIR(source)
         assertNotNull(ir)
-        
+
         val texts = ir.children?.firstOrNull()?.children?.filter { it.type == "Text" }
         assertEquals(3, texts?.size)
     }
@@ -275,7 +275,7 @@ component Demo:
 
         val ir = NanoDSL.toIR(source)
         assertNotNull(ir)
-        
+
         val texts = ir.children?.firstOrNull()?.children?.filter { it.type == "Text" }
         assertEquals(5, texts?.size)
     }
@@ -287,7 +287,7 @@ component RichTextDemo:
     state:
         docUrl: string = "https://docs.example.com"
         version: string = "v2.0"
-    
+
     VStack(spacing="md"):
         Text("# Documentation", style="h1")
         Text("See [the docs]({state.docUrl}) for **{state.version}** release notes")
@@ -298,10 +298,10 @@ component RichTextDemo:
 
         val ir = NanoDSL.toIR(source)
         assertNotNull(ir)
-        
+
         val texts = ir.children?.firstOrNull()?.children?.filter { it.type == "Text" }
         assertEquals(5, texts?.size)
-        
+
         // Verify state exists
         assertNotNull(ir.state)
     }

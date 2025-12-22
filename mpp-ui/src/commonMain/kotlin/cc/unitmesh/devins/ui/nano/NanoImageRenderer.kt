@@ -270,7 +270,7 @@ private fun isDirectImageSrc(src: String): Boolean {
     // Only allow data: URLs - these are actual embedded base64 images
     // HTTP/HTTPS URLs from LLM are fake and will cause CORS errors
     if (trimmed.startsWith("data:image/", ignoreCase = true)) return true
-    
+
     // Do NOT allow http/https URLs - LLM generates fake URLs that cause CORS errors
     // if (trimmed.startsWith("http://", ignoreCase = true) || trimmed.startsWith("https://", ignoreCase = true)) return true
     // if (trimmed.startsWith("file://", ignoreCase = true)) return true

@@ -426,6 +426,26 @@ project(":") {
         // Note: ComposeCharts library cannot be used due to ClassLoader conflicts with IntelliJ's Compose runtime
         // Chart rendering is implemented manually using Compose Canvas API
 
+        // xiuper-ui for NanoDSL parsing and IR generation (used by NanoDSL preview editor)
+        // Only the JVM target is used, Compose dependencies are excluded to avoid ClassLoader conflicts
+        implementation("cc.unitmesh:xiuper-ui") {
+            // Exclude Compose dependencies - we use IntelliJ's bundled Compose via Jewel
+            exclude(group = "org.jetbrains.compose")
+            exclude(group = "org.jetbrains.compose.runtime")
+            exclude(group = "org.jetbrains.compose.foundation")
+            exclude(group = "org.jetbrains.compose.material3")
+            exclude(group = "org.jetbrains.compose.material")
+            exclude(group = "org.jetbrains.compose.ui")
+            exclude(group = "org.jetbrains.skiko")
+            // Exclude kotlinx libraries - IntelliJ provides its own
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core-jvm")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json-jvm")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-core")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-core-jvm")
+        }
+
         testImplementation(kotlin("test"))
     }
 
