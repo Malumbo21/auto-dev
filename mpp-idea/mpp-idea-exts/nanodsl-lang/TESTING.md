@@ -59,7 +59,9 @@ Based on `xiuper-ui/testcases/expect/`, the following test cases have been imple
 - ✅ Comments (`#`)
 - ✅ Identifiers and dotted identifiers
 - ✅ Components: `Icon`, standalone `Divider`
-- ✅ Types: `int`, `float`, `string`, `bool`, `str`, `dict`, `List`
+- ✅ Types: `int`, `float`, `string`, `bool`, `str`, `dict`, `List`, `Map`
+- ✅ Boolean literals: `True`, `False`
+- ✅ F-strings: `f"Hello {name}"`
 
 ### Parser
 - ✅ Component declarations with optional parameters
@@ -69,9 +71,12 @@ Based on `xiuper-ui/testcases/expect/`, the following test cases have been imple
 - ✅ Component instances (with and without arguments)
 - ✅ Event handlers
 - ✅ Control flow (if/for blocks)
-- ✅ Expressions (primary, binary, action calls)
+- ✅ Expressions (primary, binary, action calls, function calls)
 - ✅ Dict literals (`{...}`)
 - ✅ List literals (`[...]`)
+- ✅ Generic types (`List[Task]`, `Map[str, int]`)
+- ✅ Function calls (`len(state.password)`)
+- ✅ Assignment expressions (`state.value = True`)
 - ✅ No left recursion (fixed via `primaryExpr (binaryOp primaryExpr)*`)
 
 ## Known Issues

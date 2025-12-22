@@ -127,7 +127,12 @@ BOOL                     = bool
 STR                      = str
 DICT                     = dict
 LIST                     = List
+MAP                      = Map
 FALSE                    = False
+TRUE                     = True
+
+// F-string prefix
+FSTRING                  = f\"[^\"]*\"
 
 // Arithmetic operators
 PLUS                     = "+"
@@ -229,7 +234,12 @@ NE                       = "!="
   {STR}                    { return STR; }
   {DICT}                   { return DICT; }
   {LIST}                   { return LIST; }
+  {MAP}                    { return MAP; }
   {FALSE}                  { return FALSE; }
+  {TRUE}                   { return TRUE; }
+
+  // F-string (must be before STRING)
+  {FSTRING}                { return FSTRING; }
 
   // Operators (multi-char first)
   {BIND_READ}              { return BIND_READ; }

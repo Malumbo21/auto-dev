@@ -119,7 +119,10 @@
     STR                  = 'str'
     DICT                 = 'dict'
     LIST                 = 'List'
+    MAP                  = 'Map'
     FALSE                = 'False'
+    TRUE                 = 'True'
+    FSTRING              = 'regexp:f"[^"]*"'
   ]
 }
 
@@ -131,7 +134,11 @@ paramList ::= LPAREN param (COMMA param)* RPAREN
 
 param ::= IDENTIFIER COLON typeRef
 
-typeRef ::= INT | FLOAT | STRING_TYPE | BOOL | STR | DICT | LIST | IDENTIFIER
+typeRef ::= genericType | simpleType
+
+simpleType ::= INT | FLOAT | STRING_TYPE | BOOL | STR | DICT | LIST | MAP | IDENTIFIER
+
+genericType ::= (LIST | MAP | IDENTIFIER) LBRACKET typeRef (COMMA typeRef)* RBRACKET
 
 componentBody ::= (stateBlock | requestBlock | propertyAssignment | contentBlock | componentInstance | ifBlock | forBlock | NEWLINE | COMMENT)*
 
@@ -179,9 +186,11 @@ forBlock ::= FOR IDENTIFIER IN expr COLON NEWLINE componentInstances
 
 expr ::= primaryExpr (binaryOp primaryExpr)*
 
-primaryExpr ::= STRING | NUMBER | BOOLEAN | FALSE | dottedIdentifier | actionCall | dictLiteral | listLiteral
+primaryExpr ::= STRING | FSTRING | NUMBER | BOOLEAN | FALSE | TRUE | functionCall | dottedIdentifier | actionCall | dictLiteral | listLiteral
 
 dottedIdentifier ::= IDENTIFIER (DOT IDENTIFIER)*
+
+functionCall ::= IDENTIFIER LPAREN argList? RPAREN
 
 actionCall ::= actionName LPAREN argList? RPAREN
 
@@ -196,4 +205,5 @@ listLiteral ::= LBRACKET (expr (COMMA expr)*)? RBRACKET
 binaryOp ::= PLUS_EQUALS | MINUS_EQUALS | TIMES_EQUALS | DIV_EQUALS
            | PLUS | MINUS | STAR | SLASH
            | LT | GT | LE | GE | EQ | NE
+           | EQUALS
 
