@@ -2,10 +2,10 @@ package cc.unitmesh.devins.ui.nano
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import cc.unitmesh.xuiper.components.input.SelectOption
-import cc.unitmesh.xuiper.components.input.SelectionUtils
 import cc.unitmesh.xuiper.ir.NanoActionIR
 import cc.unitmesh.xuiper.ir.NanoIR
+import cc.unitmesh.xuiper.props.NanoOption
+import cc.unitmesh.xuiper.props.NanoOptionParser
 import kotlinx.serialization.json.JsonElement
 
 /**
@@ -13,7 +13,7 @@ import kotlinx.serialization.json.JsonElement
  * Includes: Select, Radio, RadioGroup with shared option parsing logic.
  *
  * This object now delegates to [Material3SelectionRenderer] for actual rendering,
- * and uses [SelectionUtils] from xiuper-ui for parsing logic.
+ * and uses [NanoOptionParser] from xiuper-ui for parsing logic.
  *
  * The parsing utilities are exposed for backward compatibility with existing tests.
  */
@@ -25,10 +25,10 @@ object NanoSelectionComponents {
      * - JsonArray of objects: [{"value": "a", "label": "Option A"}]
      * - JsonPrimitive (string) containing JSON or DSL format
      *
-     * Delegates to [SelectionUtils.parseOptions] from xiuper-ui.
+     * Delegates to [NanoOptionParser.parse] from xiuper-ui.
      */
-    fun parseOptions(optionsElement: JsonElement?): List<SelectOption> {
-        return SelectionUtils.parseOptions(optionsElement)
+    fun parseOptions(optionsElement: JsonElement?): List<NanoOption> {
+        return NanoOptionParser.parse(optionsElement)
     }
 
     /**

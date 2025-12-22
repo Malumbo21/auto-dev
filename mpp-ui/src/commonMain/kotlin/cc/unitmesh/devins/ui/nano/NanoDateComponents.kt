@@ -12,6 +12,7 @@ import cc.unitmesh.agent.Platform
 import cc.unitmesh.xuiper.eval.evaluator.NanoExpressionEvaluator
 import cc.unitmesh.xuiper.ir.NanoActionIR
 import cc.unitmesh.xuiper.ir.NanoIR
+import cc.unitmesh.xuiper.props.NanoBindingResolver
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
@@ -22,26 +23,6 @@ import kotlinx.serialization.json.jsonPrimitive
  */
 object NanoDateComponents {
 
-    private fun resolveStatePathFromBinding(ir: NanoIR, vararg keys: String): String? {
-        val binding = keys.firstNotNullOfOrNull { ir.bindings?.get(it) }
-        val exprFromBinding = binding?.expression?.trim()
-        val exprFromProp = keys.firstNotNullOfOrNull { key ->
-            ir.props[key]?.jsonPrimitive?.contentOrNull?.trim()
-        }
-
-        val rawExpr = (exprFromBinding ?: exprFromProp)?.trim() ?: return null
-        val withoutMode = when {
-            rawExpr.startsWith(":=") -> rawExpr.removePrefix(":=").trim()
-            rawExpr.startsWith("<<") -> rawExpr.removePrefix("<<").trim()
-            else -> rawExpr
-        }
-
-        val normalized = if (withoutMode.startsWith("state.")) withoutMode.removePrefix("state.") else withoutMode
-        // Only treat simple identifiers or dotted paths as a writable state path.
-        // This prevents expressions like '"x" in state.items' from being treated as a path.
-        return normalized.takeIf { it.matches(Regex("[A-Za-z_]\\w*(\\.[A-Za-z_]\\w*)*")) }
-    }
-
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     fun RenderDatePicker(
@@ -51,7 +32,7 @@ object NanoDateComponents {
         modifier: Modifier
     ) {
         val placeholder = ir.props["placeholder"]?.jsonPrimitive?.content ?: "Select date"
-        val statePath = resolveStatePathFromBinding(ir, "value", "bind")
+        val statePath = NanoBindingResolver.resolveStatePath(ir, "value", "bind")
         val valueFromState = statePath?.let { state[it]?.toString() }
         val valueProp = ir.props["value"]?.jsonPrimitive?.contentOrNull
         var uncontrolledValue by remember(statePath, valueProp) { mutableStateOf(valueProp ?: "") }
@@ -152,7 +133,7 @@ object NanoDateComponents {
         modifier: Modifier
     ) {
         // NanoSpec uses bindings.bind for DateRangePicker
-        val statePath = resolveStatePathFromBinding(ir, "bind", "value")
+        val statePath = NanoBindingResolver.resolveStatePath(ir, "bind", "value")
         val current = state[statePath]
         val onChange = ir.actions?.get("onChange")
 

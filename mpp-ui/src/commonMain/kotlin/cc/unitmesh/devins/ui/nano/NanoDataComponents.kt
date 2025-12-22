@@ -19,6 +19,8 @@ import cc.unitmesh.devins.ui.compose.sketch.chart.isChartAvailable
 import cc.unitmesh.xuiper.eval.evaluator.NanoExpressionEvaluator
 import cc.unitmesh.xuiper.ir.NanoActionIR
 import cc.unitmesh.xuiper.ir.NanoIR
+import cc.unitmesh.xuiper.props.NanoOptionWithMeta
+import cc.unitmesh.xuiper.props.NanoOptionWithMetaParser
 import cc.unitmesh.yaml.YamlUtils
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
@@ -399,7 +401,7 @@ $bars
                 ) {
                     effectiveColumnDefs.forEach { column ->
                         Text(
-                            text = column.title,
+                            text = column.label,
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier
@@ -438,63 +440,55 @@ $bars
     }
 
     /**
-     * Column definition for DataTable
+     * Infer column definitions from data when columns are not explicitly specified.
+     * Uses [NanoOptionWithMeta] where value=key and label=title.
      */
-    private data class ColumnDef(
-        val key: String,
-        val title: String,
-        val sortable: Boolean = false,
-        val format: String? = null
-    )
-
-    private fun inferColumnsFromData(resolvedData: Any?): List<ColumnDef> {
+    private fun inferColumnsFromData(resolvedData: Any?): List<NanoOptionWithMeta> {
         val first = (resolvedData as? List<*>)?.firstOrNull() as? Map<*, *> ?: return emptyList()
         return first.keys
             .mapNotNull { it?.toString() }
             .filter { it.isNotBlank() }
-            .map { key -> ColumnDef(key = key, title = key) }
+            .map { key -> NanoOptionWithMeta.simple(key) }
     }
 
     /**
-     * Parse column definitions from various formats
+     * Parse column definitions from various formats using [NanoOptionWithMetaParser].
+     *
      * Supports:
      * - Simple string: "col1,col2,col3"
-     * - JSON array of objects: [{"key": "product", "title": "Product Name"}]
+     * - JSON array of objects: [{"key": "product", "title": "Product Name", "sortable": true}]
      * - JSON array of strings: ["col1", "col2"]
+     *
+     * Note: Uses value=key and label=title mapping.
      */
-    private fun parseColumnDefs(columnsData: Any?): List<ColumnDef> {
+    private fun parseColumnDefs(columnsData: Any?): List<NanoOptionWithMeta> {
         return when (columnsData) {
+            is kotlinx.serialization.json.JsonElement -> NanoOptionWithMetaParser.parse(columnsData)
+            is String -> NanoOptionWithMetaParser.parseString(columnsData)
             is List<*> -> {
-                // List of column definitions
+                // Convert List to NanoOptionWithMeta manually for non-JSON lists
                 columnsData.mapNotNull { item ->
                     when (item) {
                         is Map<*, *> -> {
-                            val key = item["key"]?.toString() ?: return@mapNotNull null
-                            val title = item["title"]?.toString() ?: key
-                            val sortable = item["sortable"] as? Boolean ?: false
-                            val format = item["format"]?.toString()
-                            ColumnDef(key, title, sortable, format)
+                            val key = item["key"]?.toString()
+                                ?: item["value"]?.toString()
+                                ?: return@mapNotNull null
+                            val title = item["title"]?.toString()
+                                ?: item["label"]?.toString()
+                                ?: key
+                            val meta = mutableMapOf<String, Any?>()
+                            item.forEach { (k, v) ->
+                                val keyStr = k?.toString() ?: return@forEach
+                                if (keyStr !in setOf("key", "value", "title", "label")) {
+                                    meta[keyStr] = v
+                                }
+                            }
+                            NanoOptionWithMeta(value = key, label = title, meta = meta)
                         }
-                        is String -> ColumnDef(item, item)
+                        is String -> NanoOptionWithMeta.simple(item)
                         else -> null
                     }
                 }
-            }
-            is String -> {
-                // Try JSON array format first
-                try {
-                    val parsed = YamlUtils.load(columnsData) as? List<*>
-                    if (parsed != null) {
-                        return parseColumnDefs(parsed)
-                    }
-                } catch (e: Exception) {
-                    // Fall through to simple format
-                }
-                // Simple comma-separated format
-                columnsData.split(",").map {
-                    val trimmed = it.trim()
-                    ColumnDef(trimmed, trimmed)
-                }.filter { it.key.isNotEmpty() }
             }
             else -> emptyList()
         }
@@ -523,7 +517,9 @@ $bars
     }
 
     /**
-     * Parse rows from resolved data or string format
+     * Parse rows from resolved data or string format.
+     * Uses [NanoOptionWithMeta] where value=key and meta["format"] for formatting.
+     *
      * Supports:
      * - List of objects (from state)
      * - JSON arrays
@@ -532,15 +528,16 @@ $bars
     private fun parseRowsFromData(
         resolvedData: Any?,
         dataStr: String?,
-        columnDefs: List<ColumnDef>
+        columnDefs: List<NanoOptionWithMeta>
     ): List<List<String>> {
         // If resolved data is a list of objects, extract values by column keys
         if (resolvedData is List<*>) {
             return resolvedData.mapNotNull { row ->
                 if (row is Map<*, *>) {
                     columnDefs.map { colDef ->
-                        val value = row[colDef.key]
-                        formatCellValue(value, colDef.format)
+                        val value = row[colDef.value]  // value = key
+                        val format = colDef.getMeta<String>("format")
+                        formatCellValue(value, format)
                     }
                 } else null
             }

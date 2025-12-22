@@ -11,6 +11,7 @@ import androidx.compose.ui.unit.dp
 import cc.unitmesh.xuiper.eval.evaluator.NanoExpressionEvaluator
 import cc.unitmesh.xuiper.ir.NanoActionIR
 import cc.unitmesh.xuiper.ir.NanoIR
+import cc.unitmesh.xuiper.props.NanoBindingResolver
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
@@ -27,26 +28,6 @@ import kotlin.math.round
  * - Selection components (Select, Radio, RadioGroup) have been extracted to [NanoSelectionComponents]
  */
 object NanoInputComponents {
-
-    private fun resolveStatePathFromBinding(ir: NanoIR, vararg keys: String): String? {
-        val binding = keys.firstNotNullOfOrNull { ir.bindings?.get(it) }
-        val exprFromBinding = binding?.expression?.trim()
-        val exprFromProp = keys.firstNotNullOfOrNull { key ->
-            ir.props[key]?.jsonPrimitive?.contentOrNull?.trim()
-        }
-
-        val rawExpr = (exprFromBinding ?: exprFromProp)?.trim() ?: return null
-        val withoutMode = when {
-            rawExpr.startsWith(":=") -> rawExpr.removePrefix(":=").trim()
-            rawExpr.startsWith("<<") -> rawExpr.removePrefix("<<").trim()
-            else -> rawExpr
-        }
-
-        val normalized = if (withoutMode.startsWith("state.")) withoutMode.removePrefix("state.") else withoutMode
-        // Only treat simple identifiers or dotted paths as a writable state path.
-        // This prevents expressions like '"x" in state.items' from being treated as a path.
-        return normalized.takeIf { it.matches(Regex("[A-Za-z_]\\w*(\\.[A-Za-z_]\\w*)*")) }
-    }
 
     private data class InListExpression(val item: String, val listPath: String)
 
@@ -89,7 +70,7 @@ object NanoInputComponents {
         modifier: Modifier
     ) {
         val placeholder = ir.props["placeholder"]?.jsonPrimitive?.content ?: ""
-        val statePath = resolveStatePathFromBinding(ir, "value", "bind")
+        val statePath = NanoBindingResolver.resolveStatePath(ir, "value", "bind")
         val onChange = ir.actions?.get("onChange")
 
         var value by remember(statePath, state[statePath]) {
@@ -128,7 +109,7 @@ object NanoInputComponents {
         val checkedBindingExpr = ir.bindings?.get("checked")?.expression
         val inList = checkedBindingExpr?.let { parseInListExpression(it) }
 
-        val statePath = resolveStatePathFromBinding(ir, "checked", "bind", "value")
+        val statePath = NanoBindingResolver.resolveStatePath(ir, "checked", "bind", "value")
         val checkedFromState = statePath?.let { state[it] as? Boolean }
 
         val checkedFromInList = inList?.let { parsed ->
@@ -232,7 +213,7 @@ object NanoInputComponents {
     ) {
         val placeholder = ir.props["placeholder"]?.jsonPrimitive?.content ?: ""
         val rows = ir.props["rows"]?.jsonPrimitive?.intOrNull ?: 4
-        val statePath = resolveStatePathFromBinding(ir, "value", "bind")
+        val statePath = NanoBindingResolver.resolveStatePath(ir, "value", "bind")
         val onChange = ir.actions?.get("onChange")
 
         var value by remember(statePath, state[statePath]) {
@@ -327,7 +308,7 @@ object NanoInputComponents {
         modifier: Modifier
     ) {
         val label = ir.props["label"]?.jsonPrimitive?.content
-        val statePath = resolveStatePathFromBinding(ir, "checked", "value", "bind")
+        val statePath = NanoBindingResolver.resolveStatePath(ir, "checked", "value", "bind")
         val checkedFromState = statePath?.let { state[it] as? Boolean }
         val checkedProp = (
             ir.props["checked"]?.jsonPrimitive?.contentOrNull
@@ -370,7 +351,7 @@ object NanoInputComponents {
         modifier: Modifier
     ) {
         val placeholder = ir.props["placeholder"]?.jsonPrimitive?.content ?: ""
-        val statePath = resolveStatePathFromBinding(ir, "value", "bind")
+        val statePath = NanoBindingResolver.resolveStatePath(ir, "value", "bind")
         val valueFromState = statePath?.let { (state[it] as? Number)?.toString() ?: state[it]?.toString() }
         val valueProp = ir.props["value"]?.jsonPrimitive?.contentOrNull
         var uncontrolledValue by remember(statePath, valueProp) { mutableStateOf(valueProp ?: "") }
@@ -414,7 +395,7 @@ object NanoInputComponents {
         val label = ir.props["label"]?.jsonPrimitive?.content
         val placeholder = ir.props["placeholder"]?.jsonPrimitive?.content ?: ""
         // NanoSpec uses bindings.bind for SmartTextField (keep compatibility with older value)
-        val statePath = resolveStatePathFromBinding(ir, "value", "bind")
+        val statePath = NanoBindingResolver.resolveStatePath(ir, "value", "bind")
         val currentValue = state[statePath]?.toString() ?: ""
         val onChange = ir.actions?.get("onChange")
 
@@ -451,7 +432,7 @@ object NanoInputComponents {
         val max = ir.props["max"]?.jsonPrimitive?.content?.toFloatOrNull() ?: 100f
         val step = ir.props["step"]?.jsonPrimitive?.content?.toFloatOrNull()
         // NanoSpec uses bindings.bind for Slider (keep compatibility with older value)
-        val statePath = resolveStatePathFromBinding(ir, "value", "bind")
+        val statePath = NanoBindingResolver.resolveStatePath(ir, "value", "bind")
         val rawStateValue = statePath?.let { state[it] }
         val currentValue = ((rawStateValue as? Number)?.toFloat() ?: min).coerceIn(min, max)
         val onChange = ir.actions?.get("onChange")

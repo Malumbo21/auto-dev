@@ -6,7 +6,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import cc.unitmesh.xuiper.components.input.SelectOption
 import cc.unitmesh.xuiper.ir.NanoActionIR
 import cc.unitmesh.xuiper.ir.NanoIR
 import cc.unitmesh.xuiper.render.NanoSelectionRenderer
@@ -17,7 +16,7 @@ import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * Material3 Compose implementation of selection components.
- * 
+ *
  * Uses utilities from [NanoSelectionRenderer] for parsing and state resolution,
  * and renders using Material3 Compose components.
  */
