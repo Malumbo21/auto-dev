@@ -15,7 +15,11 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import cc.unitmesh.xuiper.ir.NanoActionIR
 import cc.unitmesh.xuiper.ir.NanoIR
+import cc.unitmesh.xuiper.props.CardProps
+import cc.unitmesh.xuiper.props.HStackProps
 import cc.unitmesh.xuiper.props.NanoSpacingUtils
+import cc.unitmesh.xuiper.props.SplitViewProps
+import cc.unitmesh.xuiper.props.VStackProps
 import kotlinx.serialization.json.jsonPrimitive
 
 /**
@@ -32,11 +36,11 @@ object NanoLayoutComponents {
         modifier: Modifier,
         renderNode: @Composable (NanoIR, Map<String, Any>, (NanoActionIR) -> Unit, Modifier) -> Unit
     ) {
-        val spacing = ir.props["spacing"]?.jsonPrimitive?.content?.toSpacing() ?: 8.dp
+        val props = VStackProps.parse(ir)
+        val spacing = props.spacing.dp
         val padding = ir.props["padding"]?.jsonPrimitive?.content?.toPadding()
-        val align = ir.props["align"]?.jsonPrimitive?.content
 
-        val horizontalAlignment = when (align) {
+        val horizontalAlignment = when (props.align) {
             "center" -> Alignment.CenterHorizontally
             "start" -> Alignment.Start
             "end" -> Alignment.End
@@ -62,13 +66,13 @@ object NanoLayoutComponents {
         modifier: Modifier,
         renderNode: @Composable (NanoIR, Map<String, Any>, (NanoActionIR) -> Unit, Modifier) -> Unit
     ) {
-        val spacing = ir.props["spacing"]?.jsonPrimitive?.content?.toSpacing() ?: 8.dp
+        val props = HStackProps.parse(ir)
+        val spacing = props.spacing.dp
         val padding = ir.props["padding"]?.jsonPrimitive?.content?.toPadding()
-        val align = ir.props["align"]?.jsonPrimitive?.content
-        val justify = ir.props["justify"]?.jsonPrimitive?.content
-        val wrap = ir.props["wrap"]?.jsonPrimitive?.content
+        val justify = props.justify
+        val explicitWrap = props.wrap
 
-        val verticalAlignment = when (align) {
+        val verticalAlignment = when (props.align) {
             "center" -> Alignment.CenterVertically
             "start", "top" -> Alignment.Top
             "end", "bottom" -> Alignment.Bottom
@@ -93,8 +97,6 @@ object NanoLayoutComponents {
         // When mixing Image + VStack in a horizontal layout, Row can squeeze text into 1-char columns.
         // FlowRow lets the VStack wrap below the image when space is tight.
         val shouldWrap = containsImage && containsVStack
-
-        val explicitWrap = wrap == "wrap" || wrap == "true"
 
         // Count VStack/Card children to determine if we should auto-distribute space
         val vstackOrCardChildren = children.count {
@@ -180,14 +182,16 @@ object NanoLayoutComponents {
         modifier: Modifier,
         renderNode: @Composable (NanoIR, Map<String, Any>, (NanoActionIR) -> Unit, Modifier) -> Unit
     ) {
-        val padding = ir.props["padding"]?.jsonPrimitive?.content?.toPadding() ?: 16.dp
-        val shadow = ir.props["shadow"]?.jsonPrimitive?.content
+        val props = CardProps.parse(ir)
+        val padding = props.padding.dp
+        val shadowDp = props.shadow
 
-        val elevation = when (shadow) {
-            "sm" -> CardDefaults.cardElevation(defaultElevation = 2.dp)
-            "md" -> CardDefaults.cardElevation(defaultElevation = 4.dp)
-            "lg" -> CardDefaults.cardElevation(defaultElevation = 8.dp)
-            else -> CardDefaults.cardElevation()
+        val elevation = when {
+            shadowDp <= 1 -> CardDefaults.cardElevation(defaultElevation = 1.dp)
+            shadowDp <= 2 -> CardDefaults.cardElevation(defaultElevation = 2.dp)
+            shadowDp <= 4 -> CardDefaults.cardElevation(defaultElevation = 4.dp)
+            shadowDp <= 8 -> CardDefaults.cardElevation(defaultElevation = 8.dp)
+            else -> CardDefaults.cardElevation(defaultElevation = shadowDp.dp)
         }
 
         Card(modifier = modifier.fillMaxWidth(), elevation = elevation) {
@@ -234,11 +238,11 @@ object NanoLayoutComponents {
         modifier: Modifier,
         renderNode: @Composable (NanoIR, Map<String, Any>, (NanoActionIR) -> Unit, Modifier) -> Unit
     ) {
-        val ratio = ir.props["ratio"]?.jsonPrimitive?.content?.toFloatOrNull() ?: 0.5f
+        val props = SplitViewProps.parse(ir)
         val children = ir.children.orEmpty()
 
         BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
-            val safeRatio = ratio.coerceIn(0.1f, 0.9f)
+            val safeRatio = props.ratio.coerceIn(0.1f, 0.9f)
 
             // On narrow screens, a split view becomes two cramped columns. Stack instead.
             if (maxWidth < 720.dp) {
