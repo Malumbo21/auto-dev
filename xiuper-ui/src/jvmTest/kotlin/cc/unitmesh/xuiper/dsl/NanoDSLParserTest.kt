@@ -11,6 +11,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class NanoDSLParserTest {
@@ -513,5 +514,110 @@ component TripPlanner:
         assertTrue(first is JsonObject)
         val v = (first as JsonObject)["value"]!!.jsonPrimitive.content
         assertTrue(v == "hotel")
+    }
+
+    /**
+     * Test TravelPlan DSL from count-issue.dsl:
+     * - str type alias for string
+     * - dict type for state with dict literal initialization
+     * - Icon component
+     * - standalone Divider (without parentheses)
+     * - arithmetic expression in Text (state.budget.transport + ...)
+     * - color property
+     */
+    @Test
+    fun `should parse TravelPlan with dict state, Icon, Divider and arithmetic expression`() {
+        val source = loadResourceText("nanodsl/count-issue.dsl")
+
+        val result = NanoDSL.parse(source)
+
+        // Check component name
+        assertEquals("TravelPlan", result.name)
+
+        // Check state with str and dict types
+        assertNotNull(result.state)
+        val state = result.state!!
+
+        // Check str type
+        val transport = state.variables.find { it.name == "transport" }
+        assertNotNull(transport)
+        assertEquals("str", transport!!.type)
+        assertEquals("train", transport.defaultValue)
+
+        // Check dict type with dict literal default
+        val budget = state.variables.find { it.name == "budget" }
+        assertNotNull(budget)
+        assertEquals("dict", budget!!.type)
+        assertTrue(budget.defaultValue!!.contains("transport"))
+        assertTrue(budget.defaultValue!!.contains("800"))
+
+        // Check children structure
+        val vstack = result.children[0] as NanoNode.VStack
+        assertEquals("lg", vstack.spacing)
+
+        val card = vstack.children[0] as NanoNode.Card
+        assertEquals("md", card.padding)
+        assertEquals("sm", card.shadow)
+    }
+
+    /**
+     * Test Icon component parsing
+     */
+    @Test
+    fun `should parse Icon component with size and color`() {
+        val source = """
+component IconTest:
+    HStack:
+        Icon("home", size="lg", color="primary")
+        Icon("settings", size="md")
+        Icon("user")
+        """.trimIndent()
+
+        val result = NanoDSL.parse(source)
+
+        val hstack = result.children[0] as NanoNode.HStack
+        assertEquals(3, hstack.children.size)
+
+        val icon1 = hstack.children[0] as NanoNode.Icon
+        assertEquals("home", icon1.name)
+        assertEquals("lg", icon1.size)
+        assertEquals("primary", icon1.color)
+
+        val icon2 = hstack.children[1] as NanoNode.Icon
+        assertEquals("settings", icon2.name)
+        assertEquals("md", icon2.size)
+        assertNull(icon2.color)
+
+        val icon3 = hstack.children[2] as NanoNode.Icon
+        assertEquals("user", icon3.name)
+        assertNull(icon3.size)
+        assertNull(icon3.color)
+    }
+
+    /**
+     * Test standalone Divider (without parentheses)
+     */
+    @Test
+    fun `should parse standalone Divider without parentheses`() {
+        val source = """
+component DividerTest:
+    VStack:
+        Text("Section 1")
+        Divider
+        Text("Section 2")
+        Divider
+        Text("Section 3")
+        """.trimIndent()
+
+        val result = NanoDSL.parse(source)
+
+        val vstack = result.children[0] as NanoNode.VStack
+        assertEquals(5, vstack.children.size)
+
+        assertTrue(vstack.children[0] is NanoNode.Text)
+        assertTrue(vstack.children[1] is NanoNode.Divider)
+        assertTrue(vstack.children[2] is NanoNode.Text)
+        assertTrue(vstack.children[3] is NanoNode.Divider)
+        assertTrue(vstack.children[4] is NanoNode.Text)
     }
 }

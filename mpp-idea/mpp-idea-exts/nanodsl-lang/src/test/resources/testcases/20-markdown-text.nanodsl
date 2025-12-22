@@ -1,0 +1,53 @@
+component MarkdownTextDemo:
+    state:
+        username: string = "Alice"
+        code_snippet: string = "`console.log('Hello')`"
+
+    VStack(spacing="md", padding="lg"):
+        Text("Markdown Text Features", style="h1")
+        Divider()
+        
+        Text("Basic Styling", style="h2")
+        Text("This text contains **bold** formatting")
+        Text("This text contains *italic* formatting")
+        Text("This text contains _also italic_ formatting")
+        Text("This text contains __underlined__ text")
+        Text("This text contains ~~strikethrough~~ text")
+        
+        Divider()
+        
+        Text("Code Examples", style="h2")
+        Text("Use the `print()` function to display output")
+        Text("The variable `x = 10` stores an integer")
+        Text("Run {state.code_snippet} in your browser console")
+        
+        Divider()
+        
+        Text("Links", style="h2")
+        Text("Visit [our documentation](https://example.com/docs) for more info")
+        Text("Check out [GitHub](https://github.com) for source code")
+        Text("Contact us at [email@example.com](mailto:email@example.com)")
+        
+        Divider()
+        
+        Text("Mixed Formatting", style="h2")
+        Text("This has **bold**, *italic*, `code`, ~~strikethrough~~, and [links](https://example.com)")
+        Text("**Bold text with *italic inside* and `code`**")
+        Text("*Italic text with **bold inside** and `code`*")
+        Text("You can also use `code with **bold**` inside")
+        
+        Divider()
+        
+        Text("Real-World Examples", style="h2")
+        Text("Welcome **{state.username}**! Your session is *active*.", style="body")
+        Text("To install, run: `npm install @package/name`", style="caption")
+        Text("~~Deprecated~~ Use the new `newFunction()` instead", style="body")
+        Text("See [API Reference](https://api.example.com) for __detailed documentation__")
+        
+        Divider()
+        
+        Text("Disable Markdown", style="h2")
+        Text("This **will not** be bold", markdown="false")
+        Text("This *will not* be italic", markdown="false")
+        Text("This `will not` be code", markdown="false")
+

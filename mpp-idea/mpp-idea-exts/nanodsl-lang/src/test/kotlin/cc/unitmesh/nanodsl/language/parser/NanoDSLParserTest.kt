@@ -5,46 +5,187 @@ import com.intellij.psi.PsiErrorElement
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.testFramework.fixtures.LightJavaCodeInsightFixtureTestCase
 
+/**
+ * Parser tests for NanoDSL language.
+ * Tests are organized into:
+ * 1. Testcase files from xiuper-ui/testcases/expect/ (01-20)
+ * 2. Additional feature-specific tests for new grammar features
+ */
 class NanoDSLParserTest : LightJavaCodeInsightFixtureTestCase() {
 
-    fun testSimpleCard() {
-        val code = """
-            component GreetingCard:
-                Card(padding="md"):
-                    VStack(spacing="sm"):
-                        Text("Hello!", style="h2")
-                        Text("Welcome to our app", style="body")
-        """.trimIndent()
+    private fun loadTestcaseFile(filename: String): String {
+        val stream = javaClass.classLoader.getResourceAsStream("testcases/$filename")
+            ?: error("Test resource not found: testcases/$filename")
+        return stream.bufferedReader().use { it.readText() }
+    }
 
+    private fun assertNoParsingErrors(code: String, testName: String) {
         val file = myFixture.configureByText("test.nanodsl", code) as NanoDSLFile
         assertNotNull(file)
-
-        // Verify no parsing errors
         val errors = PsiTreeUtil.findChildrenOfType(file, PsiErrorElement::class.java)
-        assertTrue("Should have no parsing errors, but found: ${errors.map { it.errorDescription }}", errors.isEmpty())
+        assertTrue(
+            "[$testName] Should have no parsing errors, but found: ${errors.map { it.errorDescription }}",
+            errors.isEmpty()
+        )
     }
-    
-    fun testCounterCard() {
+
+    // ========== Testcase Files (01-20) ==========
+
+    fun test01SimpleCard() {
+        val code = loadTestcaseFile("01-simple-card.nanodsl")
+        assertNoParsingErrors(code, "01-simple-card")
+    }
+
+    fun test02ProductCard() {
+        val code = loadTestcaseFile("02-product-card.nanodsl")
+        assertNoParsingErrors(code, "02-product-card")
+    }
+
+    fun test03CounterCard() {
+        val code = loadTestcaseFile("03-counter-card.nanodsl")
+        assertNoParsingErrors(code, "03-counter-card")
+    }
+
+    fun test04LoginForm() {
+        val code = loadTestcaseFile("04-login-form.nanodsl")
+        assertNoParsingErrors(code, "04-login-form")
+    }
+
+    fun test05TaskList() {
+        val code = loadTestcaseFile("05-task-list.nanodsl")
+        assertNoParsingErrors(code, "05-task-list")
+    }
+
+    fun test06UserProfile() {
+        val code = loadTestcaseFile("06-user-profile.nanodsl")
+        assertNoParsingErrors(code, "06-user-profile")
+    }
+
+    fun test07HttpRequestForm() {
+        val code = loadTestcaseFile("07-http-request-form.nanodsl")
+        assertNoParsingErrors(code, "07-http-request-form")
+    }
+
+    fun test08NestedConditionals() {
+        val code = loadTestcaseFile("08-nested-conditionals.nanodsl")
+        assertNoParsingErrors(code, "08-nested-conditionals")
+    }
+
+    fun test09NestedLoops() {
+        val code = loadTestcaseFile("09-nested-loops.nanodsl")
+        assertNoParsingErrors(code, "09-nested-loops")
+    }
+
+    fun test10ComplexState() {
+        val code = loadTestcaseFile("10-complex-state.nanodsl")
+        assertNoParsingErrors(code, "10-complex-state")
+    }
+
+    fun test11MultiActionSequence() {
+        val code = loadTestcaseFile("11-multi-action-sequence.nanodsl")
+        assertNoParsingErrors(code, "11-multi-action-sequence")
+    }
+
+    fun test12DashboardLayout() {
+        val code = loadTestcaseFile("12-dashboard-layout.nanodsl")
+        assertNoParsingErrors(code, "12-dashboard-layout")
+    }
+
+    fun test13FormValidation() {
+        val code = loadTestcaseFile("13-form-validation.nanodsl")
+        assertNoParsingErrors(code, "13-form-validation")
+    }
+
+    fun test14PaginationList() {
+        val code = loadTestcaseFile("14-pagination-list.nanodsl")
+        assertNoParsingErrors(code, "14-pagination-list")
+    }
+
+    fun test15ShoppingCart() {
+        val code = loadTestcaseFile("15-shopping-cart.nanodsl")
+        assertNoParsingErrors(code, "15-shopping-cart")
+    }
+
+    fun test16MultiPageNavigation() {
+        val code = loadTestcaseFile("16-multi-page-navigation.nanodsl")
+        assertNoParsingErrors(code, "16-multi-page-navigation")
+    }
+
+    fun test17ParameterizedRoute() {
+        val code = loadTestcaseFile("17-parameterized-route.nanodsl")
+        assertNoParsingErrors(code, "17-parameterized-route")
+    }
+
+    fun test18SearchWithQuery() {
+        val code = loadTestcaseFile("18-search-with-query.nanodsl")
+        assertNoParsingErrors(code, "18-search-with-query")
+    }
+
+    fun test19ConditionalNavigation() {
+        val code = loadTestcaseFile("19-conditional-navigation.nanodsl")
+        assertNoParsingErrors(code, "19-conditional-navigation")
+    }
+
+    fun test20MarkdownText() {
+        val code = loadTestcaseFile("20-markdown-text.nanodsl")
+        assertNoParsingErrors(code, "20-markdown-text")
+    }
+
+    // ========== Additional Feature Tests ==========
+
+    /**
+     * Test TravelPlan DSL with:
+     * - str type alias
+     * - dict type for state
+     * - dict literals
+     * - Icon component
+     * - standalone Divider
+     * - arithmetic operators (+)
+     * - color property
+     */
+    fun testTravelPlanBudget() {
         val code = """
-            component CounterCard:
+            component TravelPlan:
                 state:
-                    count: int = 1
-                    price: float = 99.0
+                    transport: str = "train"
+                    days: int = 3
+                    budget: dict = {"transport": 800, "hotel": 1200, "food": 600, "tickets": 400}
+                    checklist: dict = {"id": true, "clothes": false, "medicine": false, "camera": false}
+                    notes: str = ""
 
-                Card:
-                    padding: "lg"
-                    content:
-                        VStack:
-                            Text(content << f"Total: ${'$'}{state.count * state.price}")
+                VStack(spacing="lg"):
+                    Card(padding="md", shadow="sm"):
+                        Text("预算估算", style="h3")
+                        VStack(spacing="sm"):
+                            HStack(justify="between"):
+                                HStack:
+                                    Icon("train", size="sm")
+                                    Text("交通", style="body")
+                                Text("¥800", style="body")
 
-                            HStack:
-                                Button("-"):
-                                    on_click: state.count -= 1
+                            HStack(justify="between"):
+                                HStack:
+                                    Icon("hotel", size="sm")
+                                    Text("住宿", style="body")
+                                Text("¥1200", style="body")
 
-                                Input(value := state.count)
+                            HStack(justify="between"):
+                                HStack:
+                                    Icon("restaurant", size="sm")
+                                    Text("餐饮", style="body")
+                                Text("¥600", style="body")
 
-                                Button("+"):
-                                    on_click: state.count += 1
+                            HStack(justify="between"):
+                                HStack:
+                                    Icon("confirmation-number", size="sm")
+                                    Text("门票", style="body")
+                                Text("¥400", style="body")
+
+                            Divider
+
+                            HStack(justify="between"):
+                                Text("总计", style="h3")
+                                Text("¥3000", style="h3", color="danger")
         """.trimIndent()
 
         val file = myFixture.configureByText("test.nanodsl", code) as NanoDSLFile
@@ -54,33 +195,16 @@ class NanoDSLParserTest : LightJavaCodeInsightFixtureTestCase() {
         assertTrue("Should have no parsing errors, but found: ${errors.map { it.errorDescription }}", errors.isEmpty())
     }
 
-    fun testLoginForm() {
+    /**
+     * Test dict literal in state initialization
+     */
+    fun testDictLiteralInState() {
         val code = """
-            component LoginForm:
+            component TestDict:
                 state:
-                    email: string = ""
-                    password: string = ""
-                    is_loading: bool = false
+                    config: dict = {"key1": "value1", "key2": 123, "key3": true}
 
-                Card:
-                    padding: "lg"
-                    shadow: "md"
-                    content:
-                        VStack(spacing="md"):
-                            Text("Sign In", style="h2")
-
-                            Input(value := state.email, placeholder="Email")
-                            Input(value := state.password, placeholder="Password", type="password")
-
-                            Button("Login", intent="primary"):
-                                on_click:
-                                    state.is_loading = true
-                                    Fetch(url="/api/login", method="POST")
-
-                            HStack(justify="center"):
-                                Text("Don't have an account?", style="caption")
-                                Button("Sign Up", intent="secondary"):
-                                    on_click: Navigate(to="/signup")
+                Text("Test")
         """.trimIndent()
 
         val file = myFixture.configureByText("test.nanodsl", code) as NanoDSLFile
@@ -90,52 +214,134 @@ class NanoDSLParserTest : LightJavaCodeInsightFixtureTestCase() {
         assertTrue("Should have no parsing errors, but found: ${errors.map { it.errorDescription }}", errors.isEmpty())
     }
 
-    fun testProductCard() {
+    /**
+     * Test list literal in state initialization
+     */
+    fun testListLiteralInState() {
         val code = """
-            component ProductCard(item: Product):
-                padding: "md"
-                shadow: "sm"
-
-                content:
-                    VStack(spacing="sm"):
-                        Image(src=item.image, aspect=16/9, radius="md")
-
-                        HStack(align="center", justify="between"):
-                            Text(item.title, style="h3")
-                            if item.is_new:
-                                Badge("New", color="green")
-
-                        Text(item.description, style="body", limit=2)
-
-                        HStack(spacing="sm"):
-                            Text(f"${'$'}{item.price}", style="h3")
-                            Button("Add to Cart", intent="primary", icon="cart")
-        """.trimIndent()
-
-        val file = myFixture.configureByText("test.nanodsl", code) as NanoDSLFile
-        assertNotNull(file)
-
-        val errors = PsiTreeUtil.findChildrenOfType(file, PsiErrorElement::class.java)
-        assertTrue("Should have no parsing errors, but found: ${errors.map { it.errorDescription }}", errors.isEmpty())
-    }
-
-    fun testTaskList() {
-        val code = """
-            component TaskList:
+            component TestList:
                 state:
-                    tasks: list = []
-                    new_task: string = ""
+                    items: List = ["item1", "item2", "item3"]
+                    numbers: List = [1, 2, 3, 4, 5]
 
-                VStack(spacing="md"):
-                    HStack(spacing="sm"):
-                        Input(value := state.new_task, placeholder="Add a task")
-                        Button("Add"):
-                            on_click: state.tasks += state.new_task
+                Text("Test")
+        """.trimIndent()
 
-                    for task in state.tasks:
-                        HStack(spacing="sm"):
-                            Checkbox(checked := task.done)
-                            Text(task.title)
+        val file = myFixture.configureByText("test.nanodsl", code) as NanoDSLFile
+        assertNotNull(file)
+
+        val errors = PsiTreeUtil.findChildrenOfType(file, PsiErrorElement::class.java)
+        assertTrue("Should have no parsing errors, but found: ${errors.map { it.errorDescription }}", errors.isEmpty())
+    }
+
+    /**
+     * Test arithmetic expressions
+     */
+    fun testArithmeticExpressions() {
+        val code = """
+            component Calculator:
+                state:
+                    a: int = 10
+                    b: int = 20
+
+                VStack:
+                    Text("Sum")
+                    if state.a + state.b > 25:
+                        Text("Large sum")
+                    if state.a * state.b >= 200:
+                        Text("Large product")
+        """.trimIndent()
+
+        val file = myFixture.configureByText("test.nanodsl", code) as NanoDSLFile
+        assertNotNull(file)
+
+        val errors = PsiTreeUtil.findChildrenOfType(file, PsiErrorElement::class.java)
+        assertTrue("Should have no parsing errors, but found: ${errors.map { it.errorDescription }}", errors.isEmpty())
+    }
+
+    /**
+     * Test Icon component
+     */
+    fun testIconComponent() {
+        val code = """
+            component IconTest:
+                HStack:
+                    Icon("home", size="lg", color="primary")
+                    Icon("settings", size="md")
+                    Icon("user")
+        """.trimIndent()
+
+        val file = myFixture.configureByText("test.nanodsl", code) as NanoDSLFile
+        assertNotNull(file)
+
+        val errors = PsiTreeUtil.findChildrenOfType(file, PsiErrorElement::class.java)
+        assertTrue("Should have no parsing errors, but found: ${errors.map { it.errorDescription }}", errors.isEmpty())
+    }
+
+    /**
+     * Test standalone Divider (without parentheses)
+     */
+    fun testStandaloneDivider() {
+        val code = """
+            component DividerTest:
+                VStack:
+                    Text("Section 1")
+                    Divider
+                    Text("Section 2")
+                    Divider
+                    Text("Section 3")
+        """.trimIndent()
+
+        val file = myFixture.configureByText("test.nanodsl", code) as NanoDSLFile
+        assertNotNull(file)
+
+        val errors = PsiTreeUtil.findChildrenOfType(file, PsiErrorElement::class.java)
+        assertTrue("Should have no parsing errors, but found: ${errors.map { it.errorDescription }}", errors.isEmpty())
+    }
+
+    /**
+     * Test str type alias
+     */
+    fun testStrTypeAlias() {
+        val code = """
+            component StrTest:
+                state:
+                    name: str = "John"
+                    message: str = ""
+
+                Input(value := state.name, placeholder="Enter name")
+        """.trimIndent()
+
+        val file = myFixture.configureByText("test.nanodsl", code) as NanoDSLFile
+        assertNotNull(file)
+
+        val errors = PsiTreeUtil.findChildrenOfType(file, PsiErrorElement::class.java)
+        assertTrue("Should have no parsing errors, but found: ${errors.map { it.errorDescription }}", errors.isEmpty())
+    }
+
+    /**
+     * Test comparison operators
+     */
+    fun testComparisonOperators() {
+        val code = """
+            component ComparisonTest:
+                state:
+                    count: int = 5
+                    limit: int = 10
+
+                VStack:
+                    if state.count < state.limit:
+                        Text("Under limit")
+                    if state.count <= state.limit:
+                        Text("At or under limit")
+                    if state.count == 5:
+                        Text("Exactly 5")
+                    if state.count != 0:
+                        Text("Not zero")
+                    if state.count >= 1:
+                        Text("At least 1")
+                    if state.count > 0:
+                        Text("Positive")
         """.trimIndent()
 
         val file = myFixture.configureByText("test.nanodsl", code) as NanoDSLFile
