@@ -6,12 +6,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import cc.unitmesh.xuiper.action.NanoActionFactory
 import cc.unitmesh.xuiper.ir.NanoActionIR
 import cc.unitmesh.xuiper.ir.NanoIR
-import cc.unitmesh.xuiper.render.NanoSelectionRenderer
 import cc.unitmesh.xuiper.render.toSelectionState
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 
 /**
@@ -20,7 +18,7 @@ import kotlinx.serialization.json.jsonPrimitive
  * Uses utilities from [NanoSelectionRenderer] for parsing and state resolution,
  * and renders using Material3 Compose components.
  */
-object Material3SelectionRenderer {
+object NanoSelectionRenderer {
 
     @Composable
     fun RenderSelect(
@@ -151,18 +149,7 @@ object Material3SelectionRenderer {
         onAction: (NanoActionIR) -> Unit,
         onUncontrolled: () -> Unit
     ) {
-        if (statePath != null) {
-            onAction(NanoActionIR(
-                type = "stateMutation",
-                payload = mapOf(
-                    "path" to JsonPrimitive(statePath),
-                    "operation" to JsonPrimitive("SET"),
-                    "value" to JsonPrimitive(value)
-                )
-            ))
-        } else {
-            onUncontrolled()
-        }
+        NanoActionFactory.dispatchSelection(statePath, value, onAction, onUncontrolled)
     }
 }
 

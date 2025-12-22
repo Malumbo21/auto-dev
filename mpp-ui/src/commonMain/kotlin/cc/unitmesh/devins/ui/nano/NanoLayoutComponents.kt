@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import cc.unitmesh.xuiper.ir.NanoActionIR
 import cc.unitmesh.xuiper.ir.NanoIR
+import cc.unitmesh.xuiper.props.NanoSpacingUtils
 import kotlinx.serialization.json.jsonPrimitive
 
 /**
@@ -261,27 +262,13 @@ object NanoLayoutComponents {
 
 
 /**
- * Convert spacing string to Dp value
+ * Convert spacing string to Dp value.
+ * Delegates to [NanoSpacingUtils.parseSpacing] for parsing.
  */
-fun String.toSpacing(): Dp = when (this) {
-    "xs" -> 4.dp
-    "sm" -> 8.dp
-    "md" -> 16.dp
-    "lg" -> 24.dp
-    "xl" -> 32.dp
-    "none" -> 0.dp
-    else -> 8.dp
-}
+fun String.toSpacing(): Dp = NanoSpacingUtils.parseSpacing(this).dp
 
 /**
- * Convert padding string to Dp value
+ * Convert padding string to Dp value.
+ * Delegates to [NanoSpacingUtils.parsePadding] for parsing.
  */
-fun String.toPadding(): Dp = when (this) {
-    "xs" -> 4.dp
-    "sm" -> 8.dp
-    "md" -> 16.dp
-    "lg" -> 24.dp
-    "xl" -> 32.dp
-    "none" -> 0.dp
-    else -> 16.dp
-}
+fun String.toPadding(): Dp = NanoSpacingUtils.parsePadding(this).dp

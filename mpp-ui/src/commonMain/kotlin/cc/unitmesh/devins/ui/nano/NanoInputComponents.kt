@@ -8,11 +8,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import cc.unitmesh.xuiper.action.NanoActionFactory
 import cc.unitmesh.xuiper.eval.evaluator.NanoExpressionEvaluator
 import cc.unitmesh.xuiper.ir.NanoActionIR
 import cc.unitmesh.xuiper.ir.NanoIR
 import cc.unitmesh.xuiper.props.NanoBindingResolver
-import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonPrimitive
@@ -81,16 +81,7 @@ object NanoInputComponents {
             value = value,
             onValueChange = { newValue ->
                 value = newValue
-                if (statePath != null) {
-                    onAction(NanoActionIR(
-                        type = "stateMutation",
-                        payload = mapOf(
-                            "path" to JsonPrimitive(statePath),
-                            "operation" to JsonPrimitive("SET"),
-                            "value" to JsonPrimitive(newValue)
-                        )
-                    ))
-                }
+                statePath?.let { onAction(NanoActionFactory.set(it, newValue)) }
                 onChange?.let { onAction(it) }
             },
             placeholder = { Text(placeholder) },
@@ -135,29 +126,14 @@ object NanoInputComponents {
                 onCheckedChange = { newValue ->
                     when {
                         inList != null -> {
-                            onAction(
-                                NanoActionIR(
-                                    type = "stateMutation",
-                                    payload = mapOf(
-                                        "path" to JsonPrimitive(inList.listPath),
-                                        "operation" to JsonPrimitive(if (newValue) "APPEND" else "REMOVE"),
-                                        "value" to JsonPrimitive(inList.item)
-                                    )
-                                )
-                            )
+                            val action = if (newValue) {
+                                NanoActionFactory.append(inList.listPath, inList.item)
+                            } else {
+                                NanoActionFactory.remove(inList.listPath, inList.item)
+                            }
+                            onAction(action)
                         }
-                        statePath != null -> {
-                            onAction(
-                                NanoActionIR(
-                                    type = "stateMutation",
-                                    payload = mapOf(
-                                        "path" to JsonPrimitive(statePath),
-                                        "operation" to JsonPrimitive("SET"),
-                                        "value" to JsonPrimitive(newValue.toString())
-                                    )
-                                )
-                            )
-                        }
+                        statePath != null -> onAction(NanoActionFactory.set(statePath, newValue))
                         else -> uncontrolledChecked = newValue
                     }
                     onChange?.let { onAction(it) }
@@ -172,29 +148,14 @@ object NanoInputComponents {
                         val toggled = !checked
                         when {
                             inList != null -> {
-                                onAction(
-                                    NanoActionIR(
-                                        type = "stateMutation",
-                                        payload = mapOf(
-                                            "path" to JsonPrimitive(inList.listPath),
-                                            "operation" to JsonPrimitive(if (toggled) "APPEND" else "REMOVE"),
-                                            "value" to JsonPrimitive(inList.item)
-                                        )
-                                    )
-                                )
+                                val action = if (toggled) {
+                                    NanoActionFactory.append(inList.listPath, inList.item)
+                                } else {
+                                    NanoActionFactory.remove(inList.listPath, inList.item)
+                                }
+                                onAction(action)
                             }
-                            statePath != null -> {
-                                onAction(
-                                    NanoActionIR(
-                                        type = "stateMutation",
-                                        payload = mapOf(
-                                            "path" to JsonPrimitive(statePath),
-                                            "operation" to JsonPrimitive("SET"),
-                                            "value" to JsonPrimitive(toggled.toString())
-                                        )
-                                    )
-                                )
-                            }
+                            statePath != null -> onAction(NanoActionFactory.set(statePath, toggled))
                             else -> uncontrolledChecked = toggled
                         }
                         onChange?.let { onAction(it) }
@@ -224,16 +185,7 @@ object NanoInputComponents {
             value = value,
             onValueChange = { newValue ->
                 value = newValue
-                if (statePath != null) {
-                    onAction(NanoActionIR(
-                        type = "stateMutation",
-                        payload = mapOf(
-                            "path" to JsonPrimitive(statePath),
-                            "operation" to JsonPrimitive("SET"),
-                            "value" to JsonPrimitive(newValue)
-                        )
-                    ))
-                }
+                statePath?.let { onAction(NanoActionFactory.set(it, newValue)) }
                 onChange?.let { onAction(it) }
             },
             placeholder = { Text(placeholder) },
@@ -326,14 +278,7 @@ object NanoInputComponents {
                 checked = isChecked,
                 onCheckedChange = { newValue ->
                     if (statePath != null) {
-                        onAction(NanoActionIR(
-                            type = "stateMutation",
-                            payload = mapOf(
-                                "path" to JsonPrimitive(statePath),
-                                "operation" to JsonPrimitive("SET"),
-                                "value" to JsonPrimitive(newValue.toString())
-                            )
-                        ))
+                        onAction(NanoActionFactory.set(statePath, newValue))
                     } else {
                         uncontrolledChecked = newValue
                     }
@@ -364,16 +309,7 @@ object NanoInputComponents {
                 if (!newValue.matches(Regex("-?\\d*\\.?\\d*"))) return@OutlinedTextField
 
                 if (statePath != null) {
-                    onAction(
-                        NanoActionIR(
-                            type = "stateMutation",
-                            payload = mapOf(
-                                "path" to JsonPrimitive(statePath),
-                                "operation" to JsonPrimitive("SET"),
-                                "value" to JsonPrimitive(newValue)
-                            )
-                        )
-                    )
+                    onAction(NanoActionFactory.set(statePath, newValue))
                 } else {
                     uncontrolledValue = newValue
                 }
@@ -402,16 +338,7 @@ object NanoInputComponents {
         OutlinedTextField(
             value = currentValue,
             onValueChange = { newValue ->
-                if (statePath != null) {
-                    onAction(NanoActionIR(
-                        type = "stateMutation",
-                        payload = mapOf(
-                            "path" to JsonPrimitive(statePath),
-                            "operation" to JsonPrimitive("SET"),
-                            "value" to JsonPrimitive(newValue)
-                        )
-                    ))
-                }
+                statePath?.let { onAction(NanoActionFactory.set(it, newValue)) }
                 onChange?.let { onAction(it) }
             },
             label = label?.let { { Text(it) } },
@@ -485,14 +412,7 @@ object NanoInputComponents {
                             is Int -> newValue.toInt().toString()
                             else -> newValue.toString()
                         }
-                        onAction(NanoActionIR(
-                            type = "stateMutation",
-                            payload = mapOf(
-                                "path" to JsonPrimitive(statePath),
-                                "operation" to JsonPrimitive("SET"),
-                                "value" to JsonPrimitive(encoded)
-                            )
-                        ))
+                        onAction(NanoActionFactory.set(statePath, encoded))
                     }
                     onChange?.let { onAction(it) }
                 },

@@ -12,7 +12,7 @@ import kotlinx.serialization.json.JsonElement
  * Selection components for NanoUI Compose renderer.
  * Includes: Select, Radio, RadioGroup with shared option parsing logic.
  *
- * This object now delegates to [Material3SelectionRenderer] for actual rendering,
+ * This object now delegates to [NanoSelectionRenderer] for actual rendering,
  * and uses [NanoOptionParser] from xiuper-ui for parsing logic.
  *
  * The parsing utilities are exposed for backward compatibility with existing tests.
@@ -33,7 +33,7 @@ object NanoSelectionComponents {
 
     /**
      * Render a dropdown select component.
-     * Delegates to [Material3SelectionRenderer.RenderSelect].
+     * Delegates to [NanoSelectionRenderer.RenderSelect].
      */
     @Composable
     fun RenderSelect(
@@ -42,12 +42,12 @@ object NanoSelectionComponents {
         onAction: (NanoActionIR) -> Unit,
         modifier: Modifier
     ) {
-        Material3SelectionRenderer.RenderSelect(ir, state, onAction, modifier)
+        NanoSelectionRenderer.RenderSelect(ir, state, onAction, modifier)
     }
 
     /**
      * Render a single radio button component.
-     * Delegates to [Material3SelectionRenderer.RenderRadio].
+     * Delegates to [NanoSelectionRenderer.RenderRadio].
      */
     @Composable
     fun RenderRadio(
@@ -56,12 +56,12 @@ object NanoSelectionComponents {
         onAction: (NanoActionIR) -> Unit,
         modifier: Modifier
     ) {
-        Material3SelectionRenderer.RenderRadio(ir, state, onAction, modifier)
+        NanoSelectionRenderer.RenderRadio(ir, state, onAction, modifier)
     }
 
     /**
      * Render a radio group component.
-     * Delegates to [Material3SelectionRenderer.RenderRadioGroup].
+     * Delegates to [NanoSelectionRenderer.RenderRadioGroup].
      */
     @Composable
     fun RenderRadioGroup(
@@ -71,7 +71,7 @@ object NanoSelectionComponents {
         modifier: Modifier,
         renderNode: @Composable (NanoIR, Map<String, Any>, (NanoActionIR) -> Unit, Modifier) -> Unit
     ) {
-        Material3SelectionRenderer.RenderRadioGroup(ir, state, onAction, modifier, renderNode)
+        NanoSelectionRenderer.RenderRadioGroup(ir, state, onAction, modifier, renderNode)
     }
 }
 

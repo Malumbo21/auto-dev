@@ -9,11 +9,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import cc.unitmesh.agent.Platform
+import cc.unitmesh.xuiper.action.NanoActionFactory
 import cc.unitmesh.xuiper.eval.evaluator.NanoExpressionEvaluator
 import cc.unitmesh.xuiper.ir.NanoActionIR
 import cc.unitmesh.xuiper.ir.NanoIR
 import cc.unitmesh.xuiper.props.NanoBindingResolver
-import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 
@@ -75,16 +75,7 @@ object NanoDateComponents {
                 if (selectedDate != null) {
                     val dateStr = NanoExpressionEvaluator.formatDateFromMillis(selectedDate)
                     if (statePath != null) {
-                        onAction(
-                            NanoActionIR(
-                                type = "stateMutation",
-                                payload = mapOf(
-                                    "path" to JsonPrimitive(statePath),
-                                    "operation" to JsonPrimitive("SET"),
-                                    "value" to JsonPrimitive(dateStr)
-                                )
-                            )
-                        )
+                        onAction(NanoActionFactory.set(statePath, dateStr))
                     } else {
                         uncontrolledValue = dateStr
                     }
@@ -209,17 +200,7 @@ object NanoDateComponents {
                         else -> "$start..$end"
                     }
 
-                    onAction(
-                        NanoActionIR(
-                            type = "stateMutation",
-                            payload = mapOf(
-                                "path" to JsonPrimitive(statePath),
-                                "operation" to JsonPrimitive("SET"),
-                                "value" to JsonPrimitive(encodedValue)
-                            )
-                        )
-                    )
-
+                    onAction(NanoActionFactory.set(statePath, encodedValue))
                     onChange?.let { onAction(it) }
                 }
 
