@@ -21,7 +21,16 @@ object NanoExpressionEvaluator {
         allowStructuredMapKeys = true
     }
 
-    private fun jsonElementToRuntimeValue(el: JsonElement?): Any? {
+    /**
+     * Convert a JsonElement to a Kotlin runtime value.
+     *
+     * - JsonPrimitive -> Boolean, Int, Double, or String
+     * - JsonArray -> List<Any?>
+     * - JsonObject -> Map<String, Any?>
+     *
+     * This is useful for converting JSON data from NanoDSL props to Kotlin collections.
+     */
+    fun jsonElementToRuntimeValue(el: JsonElement?): Any? {
         return when (el) {
             null -> null
             is JsonPrimitive -> el.booleanOrNull ?: el.intOrNull ?: el.content.toDoubleOrNull() ?: el.content

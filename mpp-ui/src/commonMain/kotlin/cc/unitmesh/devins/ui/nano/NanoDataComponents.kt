@@ -19,13 +19,15 @@ import cc.unitmesh.devins.ui.compose.sketch.chart.isChartAvailable
 import cc.unitmesh.xuiper.eval.evaluator.NanoExpressionEvaluator
 import cc.unitmesh.xuiper.ir.NanoActionIR
 import cc.unitmesh.xuiper.ir.NanoIR
+import cc.unitmesh.xuiper.props.NanoFormatUtils
 import cc.unitmesh.xuiper.props.NanoOptionWithMeta
 import cc.unitmesh.xuiper.props.NanoOptionWithMetaParser
+import cc.unitmesh.xuiper.render.NanoChartCodeBuilder
 import cc.unitmesh.yaml.YamlUtils
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
-import kotlin.math.pow
-import kotlin.math.round
 
 /**
  * Data visualization components for NanoUI Compose renderer.
@@ -33,51 +35,20 @@ import kotlin.math.round
  */
 object NanoDataComponents {
 
-    private fun formatFixed(num: Double, decimals: Int): String {
-        if (decimals <= 0) return round(num).toLong().toString()
-
-        val factor = 10.0.pow(decimals.toDouble())
-        val rounded = round(num * factor) / factor
-        val parts = rounded.toString().split('.', limit = 2)
-        val intPart = parts[0]
-        val fracPart = (parts.getOrNull(1) ?: "")
-            .padEnd(decimals, '0')
-            .take(decimals)
-
-        return "$intPart.$fracPart"
-    }
+    /**
+     * Convert a JsonElement to a Kotlin runtime value.
+     * Delegates to [NanoExpressionEvaluator.jsonElementToRuntimeValue].
+     */
+    private fun jsonElementToValue(element: JsonElement?): Any? =
+        NanoExpressionEvaluator.jsonElementToRuntimeValue(element)
 
     /**
-     * Convert a JsonArray to a Kotlin List, recursively converting nested elements.
+     * Convert a JsonArray to a Kotlin List.
+     * Delegates to [NanoExpressionEvaluator.jsonElementToRuntimeValue].
      */
-    private fun jsonArrayToList(jsonArray: kotlinx.serialization.json.JsonArray): List<Any?> {
-        return jsonArray.map { element ->
-            when (element) {
-                is kotlinx.serialization.json.JsonPrimitive -> {
-                    element.contentOrNull ?: element.toString()
-                }
-                is kotlinx.serialization.json.JsonArray -> jsonArrayToList(element)
-                is kotlinx.serialization.json.JsonObject -> jsonObjectToMap(element)
-                else -> element.toString()
-            }
-        }
-    }
-
-    /**
-     * Convert a JsonObject to a Kotlin Map, recursively converting nested elements.
-     */
-    private fun jsonObjectToMap(jsonObject: kotlinx.serialization.json.JsonObject): Map<String, Any?> {
-        return jsonObject.mapValues { (_, value) ->
-            when (value) {
-                is kotlinx.serialization.json.JsonPrimitive -> {
-                    value.contentOrNull ?: value.toString()
-                }
-                is kotlinx.serialization.json.JsonArray -> jsonArrayToList(value)
-                is kotlinx.serialization.json.JsonObject -> jsonObjectToMap(value)
-                else -> value.toString()
-            }
-        }
-    }
+    @Suppress("UNCHECKED_CAST")
+    private fun jsonArrayToList(jsonArray: JsonArray): List<Any?> =
+        jsonElementToValue(jsonArray) as? List<Any?> ?: emptyList()
 
     /**
      * Render a data chart using the ChartBlockRenderer.
@@ -111,7 +82,8 @@ object NanoDataComponents {
     }
 
     /**
-     * Build chart code in YAML format for ChartBlockRenderer
+     * Build chart code in YAML format for ChartBlockRenderer.
+     * Delegates to [NanoChartCodeBuilder] for chart generation.
      */
     private fun buildChartCode(
         chartType: String,
@@ -125,174 +97,26 @@ object NanoDataComponents {
 
         // If resolvedData is a list of objects, build chart from it
         if (resolvedData is List<*>) {
-            val inferred = inferXYFields(resolvedData)
-            return buildChartCodeFromObjectList(
+            return NanoChartCodeBuilder.buildFromDataList(
                 chartType = chartType,
                 title = title,
                 dataList = resolvedData,
-                xField = xField ?: inferred.first,
-                yField = yField ?: inferred.second
+                xField = xField,
+                yField = yField
             )
         }
 
         // If data is already in YAML/JSON format, try to use it directly
         if (dataStr != null && (dataStr.trim().startsWith("{") || dataStr.contains(":"))) {
             return try {
-                // Try parsing as chart config
                 val config = ChartParser.parse(dataStr)
-                if (config != null) {
-                    return dataStr
-                }
-                // Otherwise build from scratch
-                buildDefaultChartCode(chartType, title, dataStr)
+                if (config != null) dataStr else NanoChartCodeBuilder.buildDefaultChart(chartType, title)
             } catch (e: Exception) {
-                buildDefaultChartCode(chartType, title, dataStr)
+                NanoChartCodeBuilder.buildDefaultChart(chartType, title)
             }
         }
 
-        return buildDefaultChartCode(chartType, title, dataStr ?: "")
-    }
-
-    /**
-     * Build chart code from a list of objects (e.g., from state)
-     */
-    private fun buildChartCodeFromObjectList(
-        chartType: String,
-        title: String,
-        dataList: List<*>,
-        xField: String,
-        yField: String
-    ): String {
-        return when (chartType.lowercase()) {
-            "pie" -> {
-                val items = dataList.mapNotNull { item ->
-                    if (item is Map<*, *>) {
-                        val label = item[xField]?.toString() ?: item["label"]?.toString() ?: "Unknown"
-                        val value = (item[yField] ?: item["value"])?.toString()?.toDoubleOrNull() ?: 0.0
-                        "    - label: \"$label\"\n      value: $value"
-                    } else null
-                }.joinToString("\n")
-
-                """
-                type: pie
-                title: $title
-                data:
-                  items:
-$items
-                """.trimIndent()
-            }
-
-            "line" -> {
-                val labels = dataList.mapNotNull { item ->
-                    if (item is Map<*, *>) item[xField]?.toString() else null
-                }.joinToString(", ") { "\"$it\"" }
-
-                val values = dataList.mapNotNull { item ->
-                    if (item is Map<*, *>) {
-                        (item[yField])?.toString()?.toDoubleOrNull()
-                    } else null
-                }.joinToString(", ")
-
-                """
-                type: line
-                title: $title
-                data:
-                  lines:
-                    - label: "Data"
-                      values: [$values]
-                """.trimIndent()
-            }
-
-            "column", "bar" -> {
-                val bars = dataList.mapNotNull { item ->
-                    if (item is Map<*, *>) {
-                        val label = item[xField]?.toString() ?: "Unknown"
-                        val value = (item[yField])?.toString()?.toDoubleOrNull() ?: 0.0
-                        "        - label: \"$label\"\n          value: $value"
-                    } else null
-                }.joinToString("\n")
-
-                """
-                type: column
-                title: $title
-                data:
-                  bars:
-                    - label: "Data"
-                      values:
-$bars
-                """.trimIndent()
-            }
-
-            else -> buildDefaultChartCode(chartType, title, "")
-        }
-    }
-
-    /**
-     * Infer x/y field names from a list of object rows.
-     * Minimal heuristics for common NanoDSL outputs.
-     */
-    private fun inferXYFields(dataList: List<*>): Pair<String, String> {
-        val first = dataList.firstOrNull() as? Map<*, *> ?: return "x" to "y"
-        val keys = first.keys.mapNotNull { it?.toString() }.toSet()
-
-        return when {
-            "name" in keys && "value" in keys -> "name" to "value"
-            "label" in keys && "value" in keys -> "label" to "value"
-            "month" in keys && "sales" in keys -> "month" to "sales"
-            "date" in keys && "sales" in keys -> "date" to "sales"
-            else -> "x" to "y"
-        }
-    }
-
-    /**
-     * Build default chart code with simple data format
-     */
-    private fun buildDefaultChartCode(chartType: String, title: String, data: String): String {
-        return when (chartType.lowercase()) {
-            "pie" -> """
-                type: pie
-                title: $title
-                data:
-                  items:
-                    - label: "Item 1"
-                      value: 30
-                    - label: "Item 2"
-                      value: 50
-                    - label: "Item 3"
-                      value: 20
-            """.trimIndent()
-
-            "line" -> """
-                type: line
-                title: $title
-                data:
-                  lines:
-                    - label: "Series 1"
-                      values: [10, 20, 15, 25, 30]
-            """.trimIndent()
-
-            "column", "bar" -> """
-                type: column
-                title: $title
-                data:
-                  bars:
-                    - label: "Group 1"
-                      values:
-                        - label: "A"
-                          value: 10
-                        - label: "B"
-                          value: 20
-            """.trimIndent()
-
-            else -> """
-                type: line
-                title: $title
-                data:
-                  lines:
-                    - label: "Data"
-                      values: [0, 0, 0]
-            """.trimIndent()
-        }
+        return NanoChartCodeBuilder.buildDefaultChart(chartType, title)
     }
 
     /**
@@ -548,23 +372,11 @@ $bars
     }
 
     /**
-     * Format cell value according to column format
+     * Format cell value according to column format.
+     * Delegates to [NanoFormatUtils.formatCellValue].
      */
-    private fun formatCellValue(value: Any?, format: String?): String {
-        if (value == null) return ""
-
-        return when (format?.lowercase()) {
-            "currency" -> {
-                val num = value.toString().toDoubleOrNull()
-                if (num != null) "$${formatFixed(num, 2)}" else value.toString()
-            }
-            "percent" -> {
-                val num = value.toString().toDoubleOrNull()
-                if (num != null) "${formatFixed(num, 1)}%" else value.toString()
-            }
-            else -> value.toString()
-        }
-    }
+    private fun formatCellValue(value: Any?, format: String?): String =
+        NanoFormatUtils.formatCellValue(value, format)
 
     /**
      * Parse rows from string format (legacy method).
