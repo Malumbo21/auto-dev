@@ -658,43 +658,6 @@ object NanoExpressionEvaluator {
     }
 
     /**
-     * Get default value for a variable based on its name.
-     * Provides sensible defaults when variables are not found.
-     */
-    fun getDefaultForVariable(varName: String): Int {
-        return when {
-            varName.contains("day", ignoreCase = true) -> 1
-            varName.contains("month", ignoreCase = true) -> 1
-            varName.contains("year", ignoreCase = true) -> 2024
-            varName.contains("count", ignoreCase = true) -> 0
-            varName.contains("index", ignoreCase = true) -> 0
-            varName.contains("page", ignoreCase = true) -> 1
-            varName.contains("step", ignoreCase = true) -> 1
-            varName.contains("quantity", ignoreCase = true) -> 1
-            varName.contains("amount", ignoreCase = true) -> 0
-            varName.contains("price", ignoreCase = true) -> 0
-            varName.contains("total", ignoreCase = true) -> 0
-            else -> 0
-        }
-    }
-
-    /**
-     * Resolve a binding value from state
-     */
-    fun resolveBindingValue(value: String?, state: Map<String, Any>): String? {
-        if (value == null) return null
-
-        val trimmed = value.trim()
-        val normalized = if (trimmed.startsWith("<<")) trimmed.removePrefix("<<").trim() else trimmed
-        if (normalized.startsWith("state.")) {
-            val path = normalized.removePrefix("state.")
-            return state[path]?.toString()
-        }
-
-        return value
-    }
-
-    /**
      * Resolve a binding value from state, returning the underlying value (List/Map/Number/etc).
      * Supports both `state.xxx` and subscribe form `<< state.xxx`.
      */
