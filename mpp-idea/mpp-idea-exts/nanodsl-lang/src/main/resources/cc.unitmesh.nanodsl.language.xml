@@ -1,10 +1,10 @@
 <idea-plugin>
     <extensions defaultExtensionNs="com.intellij">
         <!-- File Type -->
-        <fileType name="NanoDSLFile" 
-                  implementationClass="cc.unitmesh.nanodsl.language.NanoDSLFileType" 
+        <fileType name="NanoDSLFile"
+                  implementationClass="cc.unitmesh.nanodsl.language.NanoDSLFileType"
                   fieldName="INSTANCE"
-                  language="NanoDSL" 
+                  language="NanoDSL"
                   extensions="nanodsl"/>
 
         <!-- Parser Definition -->
@@ -14,5 +14,8 @@
         <!-- Syntax Highlighter -->
         <lang.syntaxHighlighterFactory language="NanoDSL"
                                        implementationClass="cc.unitmesh.nanodsl.language.highlight.NanoDSLSyntaxHighlighterFactory"/>
+
+        <!-- Split Editor with Preview -->
+        <fileEditorProvider implementation="cc.unitmesh.nanodsl.language.editor.NanoDSLSplitEditorProvider"/>
     </extensions>
 </idea-plugin>
