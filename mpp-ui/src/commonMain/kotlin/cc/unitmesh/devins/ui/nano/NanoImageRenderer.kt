@@ -30,6 +30,7 @@ import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.devins.ui.compose.icons.AutoDevComposeIcons
 import cc.unitmesh.llm.image.ImageGenerationResult
 import cc.unitmesh.llm.image.ImageGenerationService
+import cc.unitmesh.xuiper.eval.evaluator.NanoExpressionEvaluator
 import cc.unitmesh.xuiper.ir.NanoIR
 import io.ktor.client.request.*
 import io.ktor.client.statement.*

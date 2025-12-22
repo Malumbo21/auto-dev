@@ -15,6 +15,7 @@ import cc.unitmesh.agent.subagent.NanoDSLAgent
 import cc.unitmesh.agent.subagent.NanoDSLContext
 import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.xuiper.eval.evaluator.NanoExpressionEvaluator
 import cc.unitmesh.xuiper.ir.NanoActionIR
 import cc.unitmesh.xuiper.ir.NanoIR
 import kotlinx.serialization.json.Json

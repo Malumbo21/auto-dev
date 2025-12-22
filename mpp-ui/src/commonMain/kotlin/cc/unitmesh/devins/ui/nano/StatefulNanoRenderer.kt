@@ -31,7 +31,7 @@ import cc.unitmesh.devins.ui.nano.theme.rememberNanoThemeState
  * - [NanoFeedbackComponents] - Modal, Alert, Progress, Spinner
  * - [NanoDataComponents] - DataChart, DataTable
  * - [NanoControlFlowComponents] - Conditional, ForLoop
- * - [NanoExpressionEvaluator] - Helper functions and utilities
+ * - [cc.unitmesh.xuiper.eval.evaluator.NanoExpressionEvaluator] - Helper functions and utilities
  */
 object StatefulNanoRenderer {
 

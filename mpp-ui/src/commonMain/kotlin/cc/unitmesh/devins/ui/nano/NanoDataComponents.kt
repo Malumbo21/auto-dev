@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import cc.unitmesh.devins.ui.compose.sketch.chart.ChartBlockRenderer
 import cc.unitmesh.devins.ui.compose.sketch.chart.ChartParser
 import cc.unitmesh.devins.ui.compose.sketch.chart.isChartAvailable
+import cc.unitmesh.xuiper.eval.evaluator.NanoExpressionEvaluator
 import cc.unitmesh.xuiper.ir.NanoActionIR
 import cc.unitmesh.xuiper.ir.NanoIR
 import cc.unitmesh.yaml.YamlUtils

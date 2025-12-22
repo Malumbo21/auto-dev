@@ -1,21 +1,11 @@
-package cc.unitmesh.devins.ui.nano
+package cc.unitmesh.xuiper.eval.evaluator
 
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import cc.unitmesh.xuiper.ir.NanoIR
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.booleanOrNull
-import kotlinx.serialization.json.intOrNull
-import kotlinx.serialization.json.jsonPrimitive
-import kotlin.collections.get
+import kotlinx.serialization.json.*
 import kotlin.math.abs
 
 /**
@@ -113,7 +103,7 @@ object NanoExpressionEvaluator {
      */
     fun getBuiltInVariables(): Map<String, Any> {
         val now = Clock.System.now()
-        val localDateTime = now.toLocalDateTime(TimeZone.currentSystemDefault())
+        val localDateTime = now.toLocalDateTime(TimeZone.Companion.currentSystemDefault())
         return mapOf(
             "currentYear" to localDateTime.year,
             "currentMonth" to localDateTime.monthNumber,
@@ -949,8 +939,8 @@ object NanoExpressionEvaluator {
      * Material3 DatePicker returns UTC millis at midnight
      */
     fun formatDateFromMillis(millis: Long): String {
-        val instant = Instant.fromEpochMilliseconds(millis)
-        val localDate = instant.toLocalDateTime(TimeZone.UTC).date
+        val instant = Instant.Companion.fromEpochMilliseconds(millis)
+        val localDate = instant.toLocalDateTime(TimeZone.Companion.UTC).date
         return buildString {
             append(localDate.year.toString().padStart(4, '0'))
             append('-')
@@ -980,32 +970,4 @@ object NanoExpressionEvaluator {
         // Fallback
         return "high quality image"
     }
-}
-
-// Utility extension functions for styling
-
-/**
- * Convert spacing string to Dp value
- */
-fun String.toSpacing(): Dp = when (this) {
-    "xs" -> 4.dp
-    "sm" -> 8.dp
-    "md" -> 16.dp
-    "lg" -> 24.dp
-    "xl" -> 32.dp
-    "none" -> 0.dp
-    else -> 8.dp
-}
-
-/**
- * Convert padding string to Dp value
- */
-fun String.toPadding(): Dp = when (this) {
-    "xs" -> 4.dp
-    "sm" -> 8.dp
-    "md" -> 16.dp
-    "lg" -> 24.dp
-    "xl" -> 32.dp
-    "none" -> 0.dp
-    else -> 16.dp
 }

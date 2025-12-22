@@ -11,6 +11,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import cc.unitmesh.xuiper.ir.NanoActionIR
 import cc.unitmesh.xuiper.ir.NanoIR
@@ -256,4 +257,31 @@ object NanoLayoutComponents {
             }
         }
     }
+}
+
+
+/**
+ * Convert spacing string to Dp value
+ */
+fun String.toSpacing(): Dp = when (this) {
+    "xs" -> 4.dp
+    "sm" -> 8.dp
+    "md" -> 16.dp
+    "lg" -> 24.dp
+    "xl" -> 32.dp
+    "none" -> 0.dp
+    else -> 8.dp
+}
+
+/**
+ * Convert padding string to Dp value
+ */
+fun String.toPadding(): Dp = when (this) {
+    "xs" -> 4.dp
+    "sm" -> 8.dp
+    "md" -> 16.dp
+    "lg" -> 24.dp
+    "xl" -> 32.dp
+    "none" -> 0.dp
+    else -> 16.dp
 }

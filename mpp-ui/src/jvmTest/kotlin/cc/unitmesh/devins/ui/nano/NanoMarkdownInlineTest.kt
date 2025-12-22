@@ -1,6 +1,7 @@
 package cc.unitmesh.devins.ui.nano
 
 import cc.unitmesh.xuiper.dsl.NanoDSL
+import cc.unitmesh.xuiper.eval.evaluator.NanoExpressionEvaluator
 import cc.unitmesh.xuiper.ir.NanoIR
 import kotlinx.serialization.json.JsonPrimitive
 import org.junit.Test

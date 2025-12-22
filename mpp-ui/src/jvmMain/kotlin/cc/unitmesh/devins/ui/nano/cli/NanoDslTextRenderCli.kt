@@ -1,6 +1,6 @@
 package cc.unitmesh.devins.ui.nano.cli
 
-import cc.unitmesh.devins.ui.nano.NanoExpressionEvaluator
+import cc.unitmesh.xuiper.eval.evaluator.NanoExpressionEvaluator
 import cc.unitmesh.xuiper.dsl.NanoDSL
 import cc.unitmesh.xuiper.ir.NanoIR
 import cc.unitmesh.xuiper.state.NanoStateManager
