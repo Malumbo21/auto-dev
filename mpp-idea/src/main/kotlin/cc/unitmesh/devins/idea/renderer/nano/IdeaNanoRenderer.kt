@@ -40,6 +40,7 @@ import org.jetbrains.jewel.ui.component.CircularProgressIndicator
  * - Layout: VStack, HStack, Card, Form, Component
  * - Content: Text, Badge, Icon, Divider
  * - Input: Button, Checkbox
+ * - Selection: Select, Radio, RadioGroup (via [JewelSelectionRenderer])
  * - Feedback: Alert, Progress, Spinner
  */
 object IdeaNanoRenderer {
@@ -127,6 +128,12 @@ object IdeaNanoRenderer {
             // Input
             "Button" -> RenderButton(ir, state, onAction, modifier)
             "Checkbox" -> RenderCheckbox(ir, state, onAction, modifier)
+            // Selection (using JewelSelectionRenderer)
+            "Select" -> JewelSelectionRenderer.RenderSelect(ir, state, onAction, modifier)
+            "Radio" -> JewelSelectionRenderer.RenderRadio(ir, state, onAction, modifier)
+            "RadioGroup" -> JewelSelectionRenderer.RenderRadioGroup(ir, state, onAction, modifier) { child, s, a, m ->
+                RenderNode(child, s, a, m)
+            }
             // Feedback
             "Alert" -> RenderAlert(ir, modifier)
             "Progress" -> RenderProgress(ir, state, modifier)
