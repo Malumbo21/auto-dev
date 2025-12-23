@@ -140,7 +140,6 @@ fun Preview_TerminalOutputItem_Success() {
     MaterialTheme {
         Surface {
             TerminalOutputItem(
-                command = "ls -la",
                 output = "file1\nfile2\nfile3",
                 exitCode = 0,
                 executionTimeMs = 42L
@@ -155,7 +154,6 @@ fun Preview_TerminalOutputItem_Failure() {
     MaterialTheme {
         Surface {
             TerminalOutputItem(
-                command = "cat missing-file.txt",
                 output = "cat: missing-file.txt: No such file or directory",
                 exitCode = 1,
                 executionTimeMs = 10L

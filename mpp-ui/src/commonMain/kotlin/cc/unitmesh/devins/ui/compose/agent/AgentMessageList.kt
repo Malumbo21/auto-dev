@@ -215,11 +215,9 @@ fun RenderMessageItem(
 
         is TimelineItem.TerminalOutputItem -> {
             TerminalOutputItem(
-                command = timelineItem.command,
                 output = timelineItem.output,
                 exitCode = timelineItem.exitCode,
-                executionTimeMs = timelineItem.executionTimeMs,
-                onExpand = onExpand
+                executionTimeMs = timelineItem.executionTimeMs
             )
         }
 

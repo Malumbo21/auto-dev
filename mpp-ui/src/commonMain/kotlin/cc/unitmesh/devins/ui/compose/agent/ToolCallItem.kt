@@ -36,6 +36,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import cc.unitmesh.agent.Platform
 import cc.unitmesh.agent.tool.ToolType
 import cc.unitmesh.agent.tool.impl.docql.DocQLSearchStats
 import cc.unitmesh.devins.ui.compose.agent.knowledge.DocQLDetailDialog
@@ -139,7 +140,7 @@ fun ToolItem(
                         val query = docqlStats.query.take(30).let {
                             if (docqlStats.query.length > 30) "$it..." else it
                         }
-                        if (query.isNotEmpty()) "DocQL - $query"  else "DocQL"
+                        if (query.isNotEmpty()) "DocQL - $query" else "DocQL"
                     }
 
                     else -> toolName
@@ -450,19 +451,19 @@ fun formatOutput(output: String): String {
 
 @Composable
 fun TerminalOutputItem(
-    command: String,
     output: String,
     exitCode: Int,
-    executionTimeMs: Long,
-    onExpand: () -> Unit = {}
+    executionTimeMs: Long
 ) {
-    var expanded by remember { mutableStateOf(exitCode != 0) } // Auto-expand on error
-
-    LaunchedEffect(expanded) {
-        if (expanded) {
-            onExpand()
-        }
-    }
+    var expanded by remember {
+        mutableStateOf(
+            when {
+                Platform.isJvm -> false
+                exitCode != 0 -> true
+                else -> false
+            }
+        )
+    } // Auto-expand on error
     val isSuccess = exitCode == 0
 
     Surface(
