@@ -15,15 +15,29 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import cc.unitmesh.agent.tool.shell.ShellSessionManager
+import cc.unitmesh.devins.ui.compose.icons.AutoDevComposeIcons
 import cc.unitmesh.devins.ui.compose.terminal.ProcessTtyConnector
 import cc.unitmesh.devins.ui.compose.terminal.TerminalWidget
 import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
-import cc.unitmesh.devins.ui.desktop.copyToSystemClipboard
 import cc.unitmesh.devins.ui.compose.terminal.PlatformTerminalDisplay
+import com.jediterm.terminal.ui.JediTermWidget
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.channels.Channel
+import java.awt.event.ActionEvent
+import java.awt.event.InputEvent
+import java.awt.event.KeyEvent
+import javax.swing.AbstractAction
+import javax.swing.KeyStroke
 
 /**
  * JVM implementation of LiveTerminalItem.
@@ -46,23 +60,99 @@ actual fun LiveTerminalItem(
     output: String?
 ) {
     var expanded by remember { mutableStateOf(true) } // Auto-expand live terminal
-    val process =
-        remember(ptyHandle) {
-            if (ptyHandle is Process) {
-                ptyHandle
-            } else {
-                null
+    val clipboardManager = LocalClipboardManager.current
+    val coroutineScope = rememberCoroutineScope()
+
+    // Mirror PTY output into ShellSessionManager so ToolOrchestrator can capture the final output
+    // without double-reading the same PTY stream.
+    val outputChannel = remember(sessionId) { Channel<String>(capacity = Channel.UNLIMITED) }
+    var managedSession by remember {
+        mutableStateOf<cc.unitmesh.agent.tool.shell.ManagedSession?>(null)
+    }
+
+    LaunchedEffect(sessionId) {
+        managedSession = ShellSessionManager.getSession(sessionId)
+    }
+
+    LaunchedEffect(managedSession, outputChannel) {
+        val session = managedSession ?: return@LaunchedEffect
+        withContext(Dispatchers.IO) {
+            for (chunk in outputChannel) {
+                session.appendOutput(chunk)
             }
         }
+    }
+
+    LaunchedEffect(exitCode) {
+        // Stop mirroring once the session is completed and the final output is captured.
+        if (exitCode != null) {
+            outputChannel.close()
+        }
+    }
+
+    DisposableEffect(outputChannel) {
+        onDispose {
+            outputChannel.close()
+        }
+    }
+
+    val process = remember(ptyHandle) { ptyHandle as? Process }
 
     // Create TtyConnector from the process
     val ttyConnector =
-        remember(process) {
-            process?.let { ProcessTtyConnector(it) }
+        remember(process, outputChannel) {
+            process?.let {
+                ProcessTtyConnector(
+                    process = it,
+                    onReadChunk = { chunk -> outputChannel.trySend(chunk) }
+                )
+            }
         }
 
     // Determine if running: if exitCode is provided, it's completed
     val isRunning = exitCode == null && (process?.isAlive == true)
+
+    val interrupt: () -> Unit = {
+        try {
+            // Ctrl+C (ETX) - terminal break / SIGINT
+            ttyConnector?.write(byteArrayOf(3))
+        } catch (_: Exception) {
+            // Best-effort fallback
+            try {
+                process?.outputStream?.write(byteArrayOf(3))
+                process?.outputStream?.flush()
+            } catch (_: Exception) {
+                // Ignore
+            }
+        }
+    }
+
+    val stop: () -> Unit = {
+        // Mark cancel so ToolOrchestrator can label the completion correctly.
+        ShellSessionManager.markSessionCancelledByUser(sessionId)
+
+        // Try graceful interrupt first, then force-kill if still running.
+        interrupt()
+        coroutineScope.launch(Dispatchers.IO) {
+            delay(1500)
+            if (process?.isAlive == true) {
+                process.destroyForcibly()
+            }
+        }
+    }
+
+    val copyCurrentOutput: () -> Unit = {
+        coroutineScope.launch {
+            val textToCopy = when {
+                exitCode != null -> output.orEmpty()
+                managedSession != null -> withContext(Dispatchers.IO) { managedSession?.getOutput().orEmpty() }
+                else -> ""
+            }
+            if (textToCopy.isNotEmpty()) {
+                clipboardManager.setText(AnnotatedString(textToCopy))
+            }
+        }
+    }
 
     Card(
         colors =
@@ -165,19 +255,30 @@ actual fun LiveTerminalItem(
                     }
                 }
 
-                // Copy full output after completion (PTY view is transient)
-                if (exitCode != null && !output.isNullOrEmpty()) {
-                    TextButton(
-                        onClick = { copyToSystemClipboard(output) },
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                        modifier = Modifier.height(20.dp)
+                if (isRunning) {
+                    IconButton(
+                        onClick = stop,
+                        modifier = Modifier.size(24.dp)
                     ) {
-                        Text(
-                            text = "Copy",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontSize = 10.sp
+                        Icon(
+                            imageVector = AutoDevComposeIcons.Stop,
+                            contentDescription = "Terminate",
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(18.dp)
                         )
                     }
+                }
+
+                IconButton(
+                    onClick = copyCurrentOutput,
+                    modifier = Modifier.size(24.dp)
+                ) {
+                    Icon(
+                        imageVector = AutoDevComposeIcons.ContentCopy,
+                        contentDescription = "Copy output",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
                 }
             }
 
@@ -222,7 +323,11 @@ actual fun LiveTerminalItem(
 
                     TerminalWidget(
                         ttyConnector = ttyConnector,
-                        modifier = Modifier.fillMaxWidth().height(terminalHeight)
+                        modifier = Modifier.fillMaxWidth().height(terminalHeight),
+                        onTerminalReady = { widget ->
+                            widget.requestFocusInWindow()
+                            installCtrlCInterrupt(widget, onInterrupt = interrupt)
+                        }
                     )
                 } else {
                     Card(
@@ -242,4 +347,23 @@ actual fun LiveTerminalItem(
             }
         }
     }
+}
+
+private fun installCtrlCInterrupt(
+    widget: JediTermWidget,
+    onInterrupt: () -> Unit
+) {
+    // Ensure Ctrl+C behaves like a terminal break (SIGINT) even if focus/shortcuts are inconsistent.
+    val keyStroke = KeyStroke.getKeyStroke(KeyEvent.VK_C, InputEvent.CTRL_DOWN_MASK)
+    val actionKey = "autodev.terminal.interrupt"
+
+    widget.inputMap.put(keyStroke, actionKey)
+    widget.actionMap.put(
+        actionKey,
+        object : AbstractAction() {
+            override fun actionPerformed(e: ActionEvent?) {
+                onInterrupt()
+            }
+        }
+    )
 }

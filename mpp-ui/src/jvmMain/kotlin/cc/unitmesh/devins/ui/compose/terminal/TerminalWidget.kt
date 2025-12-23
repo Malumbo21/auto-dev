@@ -92,7 +92,13 @@ class ComposeTerminalSettingsProvider(
  */
 class ProcessTtyConnector(
     private val process: Process,
-    private val charset: Charset = Charsets.UTF_8
+    private val charset: Charset = Charsets.UTF_8,
+    /**
+     * Optional hook for mirroring terminal output (PTY stream) to another consumer.
+     *
+     * Important: This must be non-blocking. It is called on JediTerm's reader thread.
+     */
+    private val onReadChunk: ((String) -> Unit)? = null
 ) : TtyConnector {
     @Volatile
     private var closed = false
@@ -106,9 +112,13 @@ class ProcessTtyConnector(
 
             if (bytesRead <= 0) return bytesRead
 
-            val chars = String(bytes, 0, bytesRead, charset).toCharArray()
-            System.arraycopy(chars, 0, buf, offset, chars.size.coerceAtMost(length))
-            chars.size
+            val chunk = String(bytes, 0, bytesRead, charset)
+            onReadChunk?.invoke(chunk)
+
+            val chars = chunk.toCharArray()
+            val copied = chars.size.coerceAtMost(length)
+            System.arraycopy(chars, 0, buf, offset, copied)
+            copied
         } catch (e: IOException) {
             if (!closed) throw e
             -1
