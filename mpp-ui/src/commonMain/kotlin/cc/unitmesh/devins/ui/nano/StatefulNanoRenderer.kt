@@ -13,6 +13,7 @@ import cc.unitmesh.devins.ui.nano.theme.LocalNanoThemeApplied
 import cc.unitmesh.devins.ui.nano.theme.ProvideNanoTheme
 import cc.unitmesh.devins.ui.nano.theme.rememberNanoThemeState
 import cc.unitmesh.xuiper.render.stateful.StatefulNanoSession
+import cc.unitmesh.xuiper.render.stateful.StatefulNanoTreeDispatcher
 
 /**
  * Stateful NanoUI Compose Renderer
@@ -101,72 +102,64 @@ object StatefulNanoRenderer {
             session.flow(key).collectAsState().value
         }
 
-        val snapshot = session.snapshot()
-        val handleAction: (NanoActionIR) -> Unit = { action -> session.apply(action) }
+        val dispatcher = remember {
+            StatefulNanoTreeDispatcher<Modifier, @Composable () -> Unit> { node, state, onAction, nodeModifier, renderChild ->
+                val renderNode: @Composable (NanoIR, Map<String, Any>, (NanoActionIR) -> Unit, Modifier) -> Unit =
+                    { childIr, _, _, childModifier ->
+                        renderChild(childIr, childModifier).invoke()
+                    }
 
-        RenderNode(ir, snapshot, handleAction, modifier)
-    }
-
-    @Composable
-    private fun RenderNode(
-        ir: NanoIR,
-        state: Map<String, Any>,
-        onAction: (NanoActionIR) -> Unit,
-        modifier: Modifier = Modifier
-    ) {
-        // Create a composable lambda for recursive rendering
-        val renderNode: @Composable (NanoIR, Map<String, Any>, (NanoActionIR) -> Unit, Modifier) -> Unit =
-            { childIr, childState, childOnAction, childModifier ->
-                RenderNode(childIr, childState, childOnAction, childModifier)
+                when (node.type) {
+                    // Layout
+                    "VStack" -> ({ NanoLayoutComponents.RenderVStack(node, state, onAction, nodeModifier, renderNode) })
+                    "HStack" -> ({ NanoLayoutComponents.RenderHStack(node, state, onAction, nodeModifier, renderNode) })
+                    // Container
+                    "Card" -> ({ NanoLayoutComponents.RenderCard(node, state, onAction, nodeModifier, renderNode) })
+                    "Form" -> ({ NanoLayoutComponents.RenderForm(node, state, onAction, nodeModifier, renderNode) })
+                    // Content
+                    "Text" -> ({ NanoContentComponents.RenderText(node, state, nodeModifier) })
+                    "Image" -> ({ RenderImage(node, nodeModifier) })
+                    "Badge" -> ({ NanoContentComponents.RenderBadge(node, state, nodeModifier) })
+                    "Icon" -> ({ NanoContentComponents.RenderIcon(node, nodeModifier) })
+                    "Divider" -> ({ NanoContentComponents.RenderDivider(nodeModifier) })
+                    "Code" -> ({ NanoContentComponents.RenderCode(node, state, nodeModifier) })
+                    "Link" -> ({ NanoContentComponents.RenderLink(node, state, nodeModifier) })
+                    "Blockquote" -> ({ NanoContentComponents.RenderBlockquote(node, state, nodeModifier) })
+                    // Input
+                    "Button" -> ({ NanoInputComponents.RenderButton(node, state, onAction, nodeModifier) })
+                    "Input" -> ({ NanoInputComponents.RenderInput(node, state, onAction, nodeModifier) })
+                    "Checkbox" -> ({ NanoInputComponents.RenderCheckbox(node, state, onAction, nodeModifier) })
+                    "TextArea" -> ({ NanoInputComponents.RenderTextArea(node, state, onAction, nodeModifier) })
+                    "Select" -> ({ NanoInputComponents.RenderSelect(node, state, onAction, nodeModifier) })
+                    // P0: Core Form Input Components
+                    "DatePicker" -> ({ NanoInputComponents.RenderDatePicker(node, state, onAction, nodeModifier) })
+                    "Radio" -> ({ NanoInputComponents.RenderRadio(node, state, onAction, nodeModifier) })
+                    "RadioGroup" -> ({ NanoInputComponents.RenderRadioGroup(node, state, onAction, nodeModifier, renderNode) })
+                    "Switch" -> ({ NanoInputComponents.RenderSwitch(node, state, onAction, nodeModifier) })
+                    "NumberInput" -> ({ NanoInputComponents.RenderNumberInput(node, state, onAction, nodeModifier) })
+                    // P0: Feedback Components
+                    "Modal" -> ({ NanoFeedbackComponents.RenderModal(node, state, onAction, nodeModifier, renderNode) })
+                    "Alert" -> ({ NanoFeedbackComponents.RenderAlert(node, nodeModifier, onAction) })
+                    "Progress" -> ({ NanoFeedbackComponents.RenderProgress(node, state, nodeModifier) })
+                    "Spinner" -> ({ NanoFeedbackComponents.RenderSpinner(node, nodeModifier) })
+                    // Tier 1-3: GenUI Components
+                    "SplitView" -> ({ NanoLayoutComponents.RenderSplitView(node, state, onAction, nodeModifier, renderNode) })
+                    "SmartTextField" -> ({ NanoInputComponents.RenderSmartTextField(node, state, onAction, nodeModifier) })
+                    "Slider" -> ({ NanoInputComponents.RenderSlider(node, state, onAction, nodeModifier) })
+                    "DateRangePicker" -> ({ NanoInputComponents.RenderDateRangePicker(node, state, onAction, nodeModifier) })
+                    "DataChart" -> ({ NanoDataComponents.RenderDataChart(node, state, nodeModifier) })
+                    "DataTable" -> ({ NanoDataComponents.RenderDataTable(node, state, onAction, nodeModifier) })
+                    // Control Flow
+                    "Conditional" -> ({ NanoControlFlowComponents.RenderConditional(node, state, onAction, nodeModifier, renderNode) })
+                    "ForLoop" -> ({ NanoControlFlowComponents.RenderForLoop(node, state, onAction, nodeModifier, renderNode) })
+                    // Meta
+                    "Component" -> ({ NanoLayoutComponents.RenderComponent(node, state, onAction, nodeModifier, renderNode) })
+                    else -> ({ NanoControlFlowComponents.RenderUnknown(node, nodeModifier) })
+                }
             }
-
-        when (ir.type) {
-            // Layout
-            "VStack" -> NanoLayoutComponents.RenderVStack(ir, state, onAction, modifier, renderNode)
-            "HStack" -> NanoLayoutComponents.RenderHStack(ir, state, onAction, modifier, renderNode)
-            // Container
-            "Card" -> NanoLayoutComponents.RenderCard(ir, state, onAction, modifier, renderNode)
-            "Form" -> NanoLayoutComponents.RenderForm(ir, state, onAction, modifier, renderNode)
-            // Content
-            "Text" -> NanoContentComponents.RenderText(ir, state, modifier)
-            "Image" -> RenderImage(ir, modifier)
-            "Badge" -> NanoContentComponents.RenderBadge(ir, state, modifier)
-            "Icon" -> NanoContentComponents.RenderIcon(ir, modifier)
-            "Divider" -> NanoContentComponents.RenderDivider(modifier)
-            "Code" -> NanoContentComponents.RenderCode(ir, state, modifier)
-            "Link" -> NanoContentComponents.RenderLink(ir, state, modifier)
-            "Blockquote" -> NanoContentComponents.RenderBlockquote(ir, state, modifier)
-            // Input
-            "Button" -> NanoInputComponents.RenderButton(ir, state, onAction, modifier)
-            "Input" -> NanoInputComponents.RenderInput(ir, state, onAction, modifier)
-            "Checkbox" -> NanoInputComponents.RenderCheckbox(ir, state, onAction, modifier)
-            "TextArea" -> NanoInputComponents.RenderTextArea(ir, state, onAction, modifier)
-            "Select" -> NanoInputComponents.RenderSelect(ir, state, onAction, modifier)
-            // P0: Core Form Input Components
-            "DatePicker" -> NanoInputComponents.RenderDatePicker(ir, state, onAction, modifier)
-            "Radio" -> NanoInputComponents.RenderRadio(ir, state, onAction, modifier)
-            "RadioGroup" -> NanoInputComponents.RenderRadioGroup(ir, state, onAction, modifier, renderNode)
-            "Switch" -> NanoInputComponents.RenderSwitch(ir, state, onAction, modifier)
-            "NumberInput" -> NanoInputComponents.RenderNumberInput(ir, state, onAction, modifier)
-            // P0: Feedback Components
-            "Modal" -> NanoFeedbackComponents.RenderModal(ir, state, onAction, modifier, renderNode)
-            "Alert" -> NanoFeedbackComponents.RenderAlert(ir, modifier, onAction)
-            "Progress" -> NanoFeedbackComponents.RenderProgress(ir, state, modifier)
-            "Spinner" -> NanoFeedbackComponents.RenderSpinner(ir, modifier)
-            // Tier 1-3: GenUI Components
-            "SplitView" -> NanoLayoutComponents.RenderSplitView(ir, state, onAction, modifier, renderNode)
-            "SmartTextField" -> NanoInputComponents.RenderSmartTextField(ir, state, onAction, modifier)
-            "Slider" -> NanoInputComponents.RenderSlider(ir, state, onAction, modifier)
-            "DateRangePicker" -> NanoInputComponents.RenderDateRangePicker(ir, state, onAction, modifier)
-            "DataChart" -> NanoDataComponents.RenderDataChart(ir, state, modifier)
-            "DataTable" -> NanoDataComponents.RenderDataTable(ir, state, onAction, modifier)
-            // Control Flow
-            "Conditional" -> NanoControlFlowComponents.RenderConditional(ir, state, onAction, modifier, renderNode)
-            "ForLoop" -> NanoControlFlowComponents.RenderForLoop(ir, state, onAction, modifier, renderNode)
-            // Meta
-            "Component" -> NanoLayoutComponents.RenderComponent(ir, state, onAction, modifier, renderNode)
-            else -> NanoControlFlowComponents.RenderUnknown(ir, modifier)
         }
+
+        dispatcher.render(session, ir, modifier).invoke()
     }
 }
 
