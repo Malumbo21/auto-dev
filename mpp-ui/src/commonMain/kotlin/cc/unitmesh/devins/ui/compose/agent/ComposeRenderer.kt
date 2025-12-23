@@ -780,7 +780,8 @@ class ComposeRenderer : BaseRenderer() {
             // Replace with updated item containing exit code and execution time
             _timeline[index] = existingItem.copy(
                 exitCode = exitCode,
-                executionTimeMs = executionTimeMs
+                executionTimeMs = executionTimeMs,
+                output = output
             )
         }
 

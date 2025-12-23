@@ -9,6 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import cc.unitmesh.devins.ui.compose.terminal.PlatformTerminalDisplay
 
 /**
  * JS implementation of LiveTerminalItem.
@@ -60,12 +61,20 @@ actual fun LiveTerminalItem(
             )
 
             Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "ℹ️ Live terminal output is not available on this platform. The command output will appear after completion.",
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodySmall
-            )
+
+            if (exitCode != null && !output.isNullOrEmpty()) {
+                PlatformTerminalDisplay(
+                    output = output,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)
+                )
+            } else {
+                Text(
+                    text = "ℹ️ Live terminal output is not available on this platform. The command output will appear after completion.",
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
         }
     }
 }

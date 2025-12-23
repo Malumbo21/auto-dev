@@ -804,7 +804,7 @@ class JewelRenderer(
         _timeline.update { currentTimeline ->
             currentTimeline.map { item ->
                 if (item is TimelineItem.LiveTerminalItem && item.sessionId == sessionId) {
-                    item.copy(exitCode = exitCode, executionTimeMs = executionTimeMs)
+                    item.copy(exitCode = exitCode, executionTimeMs = executionTimeMs, output = output)
                 } else {
                     item
                 }

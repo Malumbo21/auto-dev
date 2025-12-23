@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -21,6 +22,8 @@ import androidx.compose.ui.unit.sp
 import cc.unitmesh.devins.ui.compose.terminal.ProcessTtyConnector
 import cc.unitmesh.devins.ui.compose.terminal.TerminalWidget
 import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
+import cc.unitmesh.devins.ui.desktop.copyToSystemClipboard
+import cc.unitmesh.devins.ui.compose.terminal.PlatformTerminalDisplay
 
 /**
  * JVM implementation of LiveTerminalItem.
@@ -161,6 +164,21 @@ actual fun LiveTerminalItem(
                         }
                     }
                 }
+
+                // Copy full output after completion (PTY view is transient)
+                if (exitCode != null && !output.isNullOrEmpty()) {
+                    TextButton(
+                        onClick = { copyToSystemClipboard(output) },
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                        modifier = Modifier.height(20.dp)
+                    ) {
+                        Text(
+                            text = "Copy",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontSize = 10.sp
+                        )
+                    }
+                }
             }
 
             // Working directory - only show when expanded and exists
@@ -178,7 +196,28 @@ actual fun LiveTerminalItem(
             if (expanded) {
                 Spacer(modifier = Modifier.height(4.dp))
 
-                if (ttyConnector != null) {
+                // When completed, render captured output instead of the live PTY terminal.
+                // The PTY-backed terminal is ephemeral and may appear empty after process exit.
+                if (exitCode != null) {
+                    val finalOutput = output ?: ""
+                    if (finalOutput.isNotEmpty()) {
+                        SelectionContainer {
+                            PlatformTerminalDisplay(
+                                output = finalOutput,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    } else {
+                        Text(
+                            text = "(no output captured)",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            style = MaterialTheme.typography.bodySmall,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 11.sp,
+                            modifier = Modifier.padding(start = 30.dp, top = 4.dp)
+                        )
+                    }
+                } else if (ttyConnector != null) {
                     val terminalHeight = 60.dp
 
                     TerminalWidget(
