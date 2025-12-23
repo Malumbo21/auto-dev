@@ -787,36 +787,56 @@ class ComposeRenderer : BaseRenderer() {
 
         // Also notify any waiting coroutines via the session result channel
         sessionResultChannels[sessionId]?.let { channel ->
-            val result = if (exitCode == 0) {
-                cc.unitmesh.agent.tool.ToolResult.Success(
-                    content = output ?: "",
-                    metadata = mapOf(
-                        "exit_code" to exitCode.toString(),
-                        "execution_time_ms" to executionTimeMs.toString()
+            // Check cancelledByUser first to handle cancelled commands even if exitCode is 0
+            val result = when {
+                cancelledByUser -> {
+                    val errorMessage =
+                        buildString {
+                            appendLine("⚠️ Command cancelled by user")
+                            appendLine()
+                            appendLine("Exit code: $exitCode (SIGKILL)")
+                            appendLine()
+                            if (!output.isNullOrEmpty()) {
+                                appendLine("Output before cancellation:")
+                                appendLine(output)
+                            } else {
+                                appendLine("(no output captured before cancellation)")
+                            }
+                        }
+                    cc.unitmesh.agent.tool.ToolResult.Error(
+                        message = errorMessage,
+                        errorType = "CANCELLED_BY_USER",
+                        metadata = mapOf(
+                            "exit_code" to exitCode.toString(),
+                            "execution_time_ms" to executionTimeMs.toString(),
+                            "output" to (output ?: ""),
+                            "cancelled" to "true"
+                        )
                     )
-                )
-            } else {
-                // Distinguish between user cancellation and other failures
-                val errorMessage = if (cancelledByUser) {
-                    "Command cancelled by user"
-                } else {
-                    "Command failed with exit code: $exitCode"
                 }
-                val errorType = if (cancelledByUser) {
-                    "CANCELLED_BY_USER"
-                } else {
-                    cc.unitmesh.agent.tool.ToolErrorType.COMMAND_FAILED.code
-                }
-                cc.unitmesh.agent.tool.ToolResult.Error(
-                    message = errorMessage,
-                    errorType = errorType,
-                    metadata = mapOf(
-                        "exit_code" to exitCode.toString(),
-                        "execution_time_ms" to executionTimeMs.toString(),
-                        "output" to (output ?: ""),
-                        "cancelled" to cancelledByUser.toString()
+
+                exitCode == 0 -> {
+                    cc.unitmesh.agent.tool.ToolResult.Success(
+                        content = output ?: "",
+                        metadata = mapOf(
+                            "exit_code" to exitCode.toString(),
+                            "execution_time_ms" to executionTimeMs.toString()
+                        )
                     )
-                )
+                }
+
+                else -> {
+                    cc.unitmesh.agent.tool.ToolResult.Error(
+                        message = "Command failed with exit code: $exitCode\n${output ?: ""}",
+                        errorType = cc.unitmesh.agent.tool.ToolErrorType.COMMAND_FAILED.code,
+                        metadata = mapOf(
+                            "exit_code" to exitCode.toString(),
+                            "execution_time_ms" to executionTimeMs.toString(),
+                            "output" to (output ?: ""),
+                            "cancelled" to "false"
+                        )
+                    )
+                }
             }
             channel.trySend(result)
             sessionResultChannels.remove(sessionId)
@@ -848,7 +868,13 @@ class ComposeRenderer : BaseRenderer() {
                 )
             } else {
                 cc.unitmesh.agent.tool.ToolResult.Error(
-                    message = "Command failed with exit code: ${existingItem.exitCode}",
+                    message = buildString {
+                        appendLine("Command failed with exit code: ${existingItem.exitCode}")
+                        if (!existingItem.output.isNullOrEmpty()) {
+                            appendLine()
+                            appendLine(existingItem.output)
+                        }
+                    },
                     metadata = mapOf(
                         "exit_code" to existingItem.exitCode.toString(),
                         "execution_time_ms" to (existingItem.executionTimeMs ?: 0L).toString()
