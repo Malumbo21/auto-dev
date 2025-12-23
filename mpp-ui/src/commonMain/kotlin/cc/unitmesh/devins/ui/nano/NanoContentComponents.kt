@@ -54,7 +54,12 @@ object NanoContentComponents {
         }
 
         if (enableMarkdown) {
-            val annotatedContent = parseMarkdownInline(content, textStyle)
+            val annotatedContent = parseMarkdownInline(
+                text = content,
+                baseStyle = textStyle,
+                linkColor = MaterialTheme.colorScheme.primary,
+                codeBackground = MaterialTheme.colorScheme.surfaceVariant
+            )
             Text(text = annotatedContent, style = textStyle, modifier = modifier)
         } else {
             Text(text = content, style = textStyle, modifier = modifier)

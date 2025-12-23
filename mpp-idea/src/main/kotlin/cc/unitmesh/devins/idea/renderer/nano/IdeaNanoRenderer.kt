@@ -12,10 +12,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import cc.unitmesh.xuiper.state.NanoStateRuntime
 import cc.unitmesh.xuiper.ir.NanoActionIR
 import cc.unitmesh.xuiper.ir.NanoIR
 import cc.unitmesh.xuiper.dsl.NanoDSL
+import cc.unitmesh.xuiper.render.stateful.StatefulNanoSession
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.doubleOrNull
@@ -84,24 +84,23 @@ object IdeaNanoRenderer {
         ir: NanoIR,
         modifier: Modifier = Modifier
     ) {
-        // Use NanoStateRuntime for state management (same as StatefulNanoRenderer)
-        val runtimeResult = remember(ir) { runCatching { NanoStateRuntime(ir) } }
-        val runtime = runtimeResult.getOrNull()
-        val runtimeError = runtimeResult.exceptionOrNull()
+        val sessionResult = remember(ir) { StatefulNanoSession.create(ir) }
+        val session = sessionResult.getOrNull()
+        val runtimeError = sessionResult.exceptionOrNull()
 
-        if (runtime == null) {
+        if (session == null) {
             RenderError("Init failed: ${runtimeError?.message ?: "Unknown error"}", modifier)
             return
         }
 
         // Subscribe to declared state keys for recomposition
-        val observedKeys = remember(runtime) { runtime.declaredKeys.toList().sorted() }
+        val observedKeys = remember(session) { session.observedKeys }
         observedKeys.forEach { key ->
-            runtime.state.flow(key).collectAsState().value
+            session.flow(key).collectAsState().value
         }
 
-        val snapshot = runtime.snapshot()
-        val handleAction: (NanoActionIR) -> Unit = { action -> runtime.apply(action) }
+        val snapshot = session.snapshot()
+        val handleAction: (NanoActionIR) -> Unit = { action -> session.apply(action) }
 
         RenderNode(ir, snapshot, handleAction, modifier)
     }

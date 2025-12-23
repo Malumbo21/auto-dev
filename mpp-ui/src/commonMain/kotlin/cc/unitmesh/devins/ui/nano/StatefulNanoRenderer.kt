@@ -8,11 +8,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import cc.unitmesh.xuiper.ir.NanoActionIR
 import cc.unitmesh.xuiper.ir.NanoIR
-import cc.unitmesh.xuiper.state.NanoStateRuntime
 import cc.unitmesh.devins.ui.nano.theme.NanoThemeState
 import cc.unitmesh.devins.ui.nano.theme.LocalNanoThemeApplied
 import cc.unitmesh.devins.ui.nano.theme.ProvideNanoTheme
 import cc.unitmesh.devins.ui.nano.theme.rememberNanoThemeState
+import cc.unitmesh.xuiper.render.stateful.StatefulNanoSession
 
 /**
  * Stateful NanoUI Compose Renderer
@@ -74,11 +74,11 @@ object StatefulNanoRenderer {
         // Recreated when IR changes (e.g. live preview re-parses NanoDSL).
         // NOTE: Compose doesn't allow try/catch around composable invocations, so we catch
         // failures in non-composable initialization here to keep UI alive.
-        val runtimeResult = remember(ir) { runCatching { NanoStateRuntime(ir) } }
-        val runtime = runtimeResult.getOrNull()
-        val runtimeError = runtimeResult.exceptionOrNull()
+        val sessionResult = remember(ir) { StatefulNanoSession.create(ir) }
+        val session = sessionResult.getOrNull()
+        val runtimeError = sessionResult.exceptionOrNull()
 
-        if (runtime == null) {
+        if (session == null) {
             println("StatefulNanoRenderer init error: $runtimeError")
             Surface(
                 modifier = modifier,
@@ -96,13 +96,13 @@ object StatefulNanoRenderer {
         // Subscribe to declared state keys so Compose recomposes when they change.
         // IMPORTANT: we must *read* the collected State's `.value` so Compose tracks it.
         // Use a stable key order to keep hook ordering deterministic across recompositions.
-        val observedKeys = remember(runtime) { runtime.declaredKeys.toList().sorted() }
+        val observedKeys = remember(session) { session.observedKeys }
         observedKeys.forEach { key ->
-            runtime.state.flow(key).collectAsState().value
+            session.flow(key).collectAsState().value
         }
 
-        val snapshot = runtime.snapshot()
-        val handleAction: (NanoActionIR) -> Unit = { action -> runtime.apply(action) }
+        val snapshot = session.snapshot()
+        val handleAction: (NanoActionIR) -> Unit = { action -> session.apply(action) }
 
         RenderNode(ir, snapshot, handleAction, modifier)
     }

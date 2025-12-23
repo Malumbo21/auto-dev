@@ -1,6 +1,5 @@
 package cc.unitmesh.devins.ui.nano
 
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
@@ -10,6 +9,8 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.graphics.Color
+import cc.unitmesh.xuiper.text.MarkdownInline
 
 /**
  * Parses markdown inline elements and returns an AnnotatedString with appropriate styles.
@@ -21,125 +22,62 @@ import androidx.compose.ui.text.withStyle
  * - __underline__
  * - [link text](url) - displayed as colored/underlined text
  */
-fun parseMarkdownInline(text: String, baseStyle: TextStyle): AnnotatedString {
+fun parseMarkdownInline(
+    text: String,
+    baseStyle: TextStyle,
+    linkColor: Color,
+    codeBackground: Color
+): AnnotatedString {
     return buildAnnotatedString {
-        var i = 0
-        val len = text.length
-
-        while (i < len) {
+        MarkdownInline.parse(text).forEach { span ->
+            val style = span.style
+            val url = style.linkUrl
             when {
-                // **bold**
-                text.startsWith("**", i) -> {
-                    val end = text.indexOf("**", i + 2)
-                    if (end != -1) {
-                        val boldText = text.substring(i + 2, end)
-                        withStyle(SpanStyle(fontWeight = FontWeight.Companion.Bold)) {
-                            append(boldText)
-                        }
-                        i = end + 2
-                    } else {
-                        append(text[i])
-                        i++
+                url != null -> {
+                    pushStringAnnotation(tag = "URL", annotation = url)
+                    withStyle(
+                        SpanStyle(
+                            color = linkColor,
+                            textDecoration = TextDecoration.Underline
+                        )
+                    ) {
+                        append(span.text)
                     }
+                    pop()
                 }
-                // ~~strikethrough~~
-                text.startsWith("~~", i) -> {
-                    val end = text.indexOf("~~", i + 2)
-                    if (end != -1) {
-                        val strikeText = text.substring(i + 2, end)
-                        withStyle(SpanStyle(textDecoration = TextDecoration.Companion.LineThrough)) {
-                            append(strikeText)
-                        }
-                        i = end + 2
-                    } else {
-                        append(text[i])
-                        i++
-                    }
-                }
-                // __underline__
-                text.startsWith("__", i) -> {
-                    val end = text.indexOf("__", i + 2)
-                    if (end != -1) {
-                        val underlineText = text.substring(i + 2, end)
-                        withStyle(SpanStyle(textDecoration = TextDecoration.Companion.Underline)) {
-                            append(underlineText)
-                        }
-                        i = end + 2
-                    } else {
-                        append(text[i])
-                        i++
-                    }
-                }
-                // `inline code`
-                text[i] == '`' -> {
-                    val end = text.indexOf('`', i + 1)
-                    if (end != -1) {
-                        val codeText = text.substring(i + 1, end)
-                        withStyle(
-                            SpanStyle(
-                                fontFamily = FontFamily.Companion.Monospace,
-                                background = Color(0xFFEEEEEE),
-                                fontSize = baseStyle.fontSize * 0.9
-                            )
-                        ) {
-                            append(codeText)
-                        }
-                        i = end + 1
-                    } else {
-                        append(text[i])
-                        i++
-                    }
-                }
-                // [link text](url)
-                text[i] == '[' -> {
-                    val endBracket = text.indexOf(']', i + 1)
-                    if (endBracket != -1 && endBracket + 1 < len && text[endBracket + 1] == '(') {
-                        val endParen = text.indexOf(')', endBracket + 2)
-                        if (endParen != -1) {
-                            val linkText = text.substring(i + 1, endBracket)
-                            val url = text.substring(endBracket + 2, endParen)
 
-                            // Store the URL as annotation for potential click handling
-                            pushStringAnnotation(tag = "URL", annotation = url)
-                            withStyle(
-                                SpanStyle(
-                                    color = Color(0xFF2196F3),
-                                    textDecoration = TextDecoration.Companion.Underline
+                style.code -> {
+                    withStyle(
+                        SpanStyle(
+                            fontFamily = FontFamily.Monospace,
+                            background = codeBackground,
+                            fontSize = baseStyle.fontSize * 0.9
+                        )
+                    ) {
+                        append(span.text)
+                    }
+                }
+
+                style.bold || style.italic || style.underline || style.strikethrough -> {
+                    withStyle(
+                        SpanStyle(
+                            fontWeight = if (style.bold) FontWeight.Bold else null,
+                            fontStyle = if (style.italic) FontStyle.Italic else null,
+                            textDecoration = when {
+                                style.underline && style.strikethrough -> TextDecoration.combine(
+                                    listOf(TextDecoration.Underline, TextDecoration.LineThrough)
                                 )
-                            ) {
-                                append(linkText)
+                                style.underline -> TextDecoration.Underline
+                                style.strikethrough -> TextDecoration.LineThrough
+                                else -> null
                             }
-                            pop()
-                            i = endParen + 1
-                        } else {
-                            append(text[i])
-                            i++
-                        }
-                    } else {
-                        append(text[i])
-                        i++
+                        )
+                    ) {
+                        append(span.text)
                     }
                 }
-                // *italic* or _italic_ (must be after ** check)
-                text[i] == '*' || text[i] == '_' -> {
-                    val delimiter = text[i]
-                    val end = text.indexOf(delimiter, i + 1)
-                    if (end != -1) {
-                        val italicText = text.substring(i + 1, end)
-                        withStyle(SpanStyle(fontStyle = FontStyle.Companion.Italic)) {
-                            append(italicText)
-                        }
-                        i = end + 1
-                    } else {
-                        append(text[i])
-                        i++
-                    }
-                }
-                // Regular character
-                else -> {
-                    append(text[i])
-                    i++
-                }
+
+                else -> append(span.text)
             }
         }
     }
