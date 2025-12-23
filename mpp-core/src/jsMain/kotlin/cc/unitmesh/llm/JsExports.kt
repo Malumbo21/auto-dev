@@ -83,24 +83,21 @@ class JsKoogLLMService(config: JsModelConfig, compressionConfig: JsCompressionCo
         onComplete: (() -> Unit)? = null,
         compileDevIns: Boolean = true
     ): Promise<Unit> {
-        return Promise { resolve, reject ->
-            GlobalScope.launch {
-                try {
-                    val messages = historyMessages.map { it.toKotlinMessage() }
-                    service.streamPrompt(userPrompt, EmptyFileSystem(), messages, compileDevIns)
-                        .catch { error ->
-                            onError?.invoke(error)
-                            reject(error)
-                        }
-                        .collect { chunk ->
-                            onChunk(chunk)
-                        }
-                    onComplete?.invoke()
-                    resolve(Unit)
-                } catch (e: Throwable) {
-                    onError?.invoke(e)
-                    reject(e)
-                }
+        return GlobalScope.promise {
+            try {
+                val messages = historyMessages.map { it.toKotlinMessage() }
+                service.streamPrompt(userPrompt, EmptyFileSystem(), messages, compileDevIns)
+                    .catch { error ->
+                        onError?.invoke(error)
+                        throw error
+                    }
+                    .collect { chunk ->
+                        onChunk(chunk)
+                    }
+                onComplete?.invoke()
+            } catch (e: Throwable) {
+                onError?.invoke(e)
+                throw e
             }
         }
     }
