@@ -20,23 +20,28 @@ data class TerminalScrollbarColors(
  * - Rounded thumb with transparency
  * - Hover & press feedback
  * - Auto-hide track (only thumb visible)
+ * - Dynamic theme support via color provider
  *
  * Note: This class is open to allow anonymous subclass creation like IDEA's JBScrollBar.
  */
 open class ModernTerminalScrollBar(
     orientation: Int,
-    private val colors: TerminalScrollbarColors?
+    private val colorsProvider: () -> TerminalScrollbarColors?
 ) : JScrollBar(orientation) {
     // Keep dimensions conservative: visible enough to grab, still minimal.
     private val trackThicknessPx = 10
     private val thumbMarginPx = 2
+
+    /**
+     * Secondary constructor for backward compatibility with static colors.
+     */
+    constructor(orientation: Int, colors: TerminalScrollbarColors?) : this(orientation, { colors })
 
     init {
         isOpaque = false
         putClientProperty("JComponent.sizeVariant", "mini")
         unitIncrement = 4
         blockIncrement = 48
-        colors?.let { background = it.track }
     }
 
     override fun getPreferredSize(): Dimension {
@@ -55,7 +60,7 @@ open class ModernTerminalScrollBar(
                 private var pressing = false
 
                 override fun configureScrollBarColors() {
-                    colors?.let {
+                    colorsProvider()?.let {
                         thumbColor = it.thumb
                         trackColor = it.track
                     }
@@ -85,7 +90,8 @@ open class ModernTerminalScrollBar(
 
                 override fun paintThumb(g: Graphics, c: JComponent, thumbBounds: Rectangle) {
                     if (thumbBounds.isEmpty) return
-                    val thumbColors = colors ?: return super.paintThumb(g, c, thumbBounds)
+                    // Get colors dynamically to support theme changes
+                    val thumbColors = colorsProvider() ?: return super.paintThumb(g, c, thumbBounds)
 
                     val g2 = g as Graphics2D
                     g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
@@ -122,6 +128,25 @@ open class ModernTerminalScrollBar(
                         arc,
                         arc
                     )
+                }
+
+                override fun createDecreaseButton(orientation: Int): JButton {
+                    return createZeroSizeButton()
+                }
+
+                override fun createIncreaseButton(orientation: Int): JButton {
+                    return createZeroSizeButton()
+                }
+
+                private fun createZeroSizeButton(): JButton {
+                    return JButton().apply {
+                        preferredSize = Dimension(0, 0)
+                        minimumSize = Dimension(0, 0)
+                        maximumSize = Dimension(0, 0)
+                        isFocusable = false
+                        isBorderPainted = false
+                        isContentAreaFilled = false
+                    }
                 }
 
                 override fun createTrackListener(): TrackListener {

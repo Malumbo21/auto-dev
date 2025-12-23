@@ -184,18 +184,20 @@ class ProcessTtyConnector(
  * Following IDEA's pattern: createScrollBar() is called during parent constructor,
  * so we use a lazy approach to access terminal panel colors after initialization.
  * Uses ultra-thin, semi-transparent scrollbar for modern look.
+ * Supports dynamic theme changes via color provider.
  */
 class AutoDevTerminalWidget(
     settingsProvider: ComposeTerminalSettingsProvider,
-    private val scrollbarColors: TerminalScrollbarColors
+    private val scrollbarColorsProvider: () -> TerminalScrollbarColors
 ) : JediTermWidget(settingsProvider) {
     override fun createScrollBar(): JScrollBar {
         // Like JBTerminalWidget, create scrollbar that adapts to terminal panel background
         // Use anonymous class like IDEA does to access terminalPanel after initialization
+        // Pass color provider for dynamic theme support
         val bar =
             object : ModernTerminalScrollBar(
                 VERTICAL,
-                scrollbarColors
+                scrollbarColorsProvider
             ) {
                 override fun getBackground(): java.awt.Color {
                     // Return terminal panel background like JBScrollBar does
@@ -267,12 +269,25 @@ fun TerminalWidget(
 
     fun Color.toAwtColor(): java.awt.Color = java.awt.Color(this.toArgb(), true)
 
-    val scrollbarColors = remember(backgroundColor, scrollbarThumbColor, cursorColor) {
+    // Use mutable state to track current theme colors for dynamic updates
+    var currentBackgroundColor by remember { mutableStateOf(backgroundColor) }
+    var currentScrollbarThumbColor by remember { mutableStateOf(scrollbarThumbColor) }
+    var currentCursorColor by remember { mutableStateOf(cursorColor) }
+
+    // Update colors when theme changes
+    LaunchedEffect(backgroundColor, scrollbarThumbColor, cursorColor) {
+        currentBackgroundColor = backgroundColor
+        currentScrollbarThumbColor = scrollbarThumbColor
+        currentCursorColor = cursorColor
+    }
+
+    // Create color provider lambda that captures current colors
+    val scrollbarColorsProvider: () -> TerminalScrollbarColors = {
         TerminalScrollbarColors(
-            track = backgroundColor.copy(alpha = 0f).toAwtColor(),
-            thumb = scrollbarThumbColor.toAwtColor(),
-            thumbHover = scrollbarThumbColor.toAwtColor(),
-            thumbPressed = cursorColor.toAwtColor()
+            track = currentBackgroundColor.copy(alpha = 0f).toAwtColor(),
+            thumb = currentScrollbarThumbColor.toAwtColor(),
+            thumbHover = currentScrollbarThumbColor.toAwtColor(),
+            thumbPressed = currentCursorColor.toAwtColor()
         )
     }
 
@@ -289,9 +304,8 @@ fun TerminalWidget(
                     terminalFont = terminalFont
                 )
 
-            // Create custom terminal widget with overridden createScrollBar()
-            // No need to pass colors - widget will extract from settingsProvider
-            val widget = AutoDevTerminalWidget(settingsProvider, scrollbarColors)
+            // Create custom terminal widget with color provider for dynamic theme support
+            val widget = AutoDevTerminalWidget(settingsProvider, scrollbarColorsProvider)
 
             // Set size constraints
             widget.preferredSize = Dimension(800, 400)
