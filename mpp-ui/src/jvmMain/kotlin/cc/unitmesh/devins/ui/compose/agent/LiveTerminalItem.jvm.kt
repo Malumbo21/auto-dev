@@ -1,29 +1,49 @@
 package cc.unitmesh.devins.ui.compose.agent
 
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.hoverable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.*
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import cc.unitmesh.agent.tool.shell.ShellSessionManager
 import cc.unitmesh.devins.ui.compose.icons.AutoDevComposeIcons
 import cc.unitmesh.devins.ui.compose.terminal.ProcessTtyConnector
+import cc.unitmesh.devins.ui.compose.terminal.TerminalOutputDisplay
 import cc.unitmesh.devins.ui.compose.terminal.TerminalWidget
 import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
 import cc.unitmesh.devins.ui.compose.terminal.PlatformTerminalDisplay
@@ -35,9 +55,10 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.channels.Channel
 import java.awt.event.ActionEvent
 import java.awt.event.InputEvent
-import java.awt.event.KeyEvent
+import java.awt.event.KeyEvent as AwtKeyEvent
 import javax.swing.AbstractAction
 import javax.swing.KeyStroke
+import kotlin.math.abs
 
 /**
  * JVM implementation of LiveTerminalItem.
@@ -60,8 +81,14 @@ actual fun LiveTerminalItem(
     output: String?
 ) {
     var expanded by remember { mutableStateOf(true) } // Auto-expand live terminal
+    var showFullscreen by remember { mutableStateOf(false) }
     val clipboardManager = LocalClipboardManager.current
     val coroutineScope = rememberCoroutineScope()
+
+    // Resizable terminal height (dp) for the embedded terminal widget
+    var terminalHeightDp by rememberSaveable(sessionId) { mutableStateOf(160f) }
+    val minTerminalHeightDp = 80f
+    val maxTerminalHeightDp = 520f
 
     // Mirror PTY output into ShellSessionManager so ToolOrchestrator can capture the final output
     // without double-reading the same PTY stream.
@@ -151,6 +178,29 @@ actual fun LiveTerminalItem(
             if (textToCopy.isNotEmpty()) {
                 clipboardManager.setText(AnnotatedString(textToCopy))
             }
+        }
+    }
+
+    // Live output snapshot for fullscreen dialog (polled from ShellSessionManager)
+    var fullscreenOutput by remember(sessionId) { mutableStateOf("") }
+    LaunchedEffect(showFullscreen, isRunning, exitCode, managedSession, output) {
+        if (!showFullscreen) return@LaunchedEffect
+
+        // Completed: use the captured output immediately
+        if (exitCode != null) {
+            fullscreenOutput = output.orEmpty()
+            return@LaunchedEffect
+        }
+
+        // Running: poll session output for a lightweight viewer
+        var lastLen = -1
+        while (showFullscreen && exitCode == null) {
+            val text = withContext(Dispatchers.IO) { managedSession?.getOutput().orEmpty() }
+            if (text.length != lastLen) {
+                fullscreenOutput = text
+                lastLen = text.length
+            }
+            delay(200)
         }
     }
 
@@ -280,6 +330,18 @@ actual fun LiveTerminalItem(
                         modifier = Modifier.size(18.dp)
                     )
                 }
+
+                IconButton(
+                    onClick = { showFullscreen = true },
+                    modifier = Modifier.size(24.dp)
+                ) {
+                    Icon(
+                        imageVector = AutoDevComposeIcons.Fullscreen,
+                        contentDescription = "Fullscreen",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
             }
 
             // Working directory - only show when expanded and exists
@@ -294,55 +356,247 @@ actual fun LiveTerminalItem(
                 )
             }
 
-            if (expanded) {
-                Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
-                // When completed, render captured output instead of the live PTY terminal.
-                // The PTY-backed terminal is ephemeral and may appear empty after process exit.
-                if (exitCode != null) {
-                    val finalOutput = output ?: ""
-                    if (finalOutput.isNotEmpty()) {
-                        SelectionContainer {
-                            PlatformTerminalDisplay(
-                                output = finalOutput,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-                    } else {
-                        Text(
-                            text = "(no output captured)",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                            style = MaterialTheme.typography.bodySmall,
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 11.sp,
-                            modifier = Modifier.padding(start = 30.dp, top = 4.dp)
-                        )
+            // Running terminal: keep the Swing terminal mounted even when collapsed so PTY output
+            // continues to be mirrored into ShellSessionManager.
+            if (exitCode == null && ttyConnector != null) {
+                val effectiveHeight: Dp = if (expanded) terminalHeightDp.dp else 1.dp
+                val effectiveAlpha = if (expanded) 1f else 0f
+
+                TerminalWidget(
+                    ttyConnector = ttyConnector,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(effectiveHeight)
+                        .alpha(effectiveAlpha),
+                    onTerminalReady = { widget ->
+                        widget.requestFocusInWindow()
+                        installCtrlCInterrupt(widget, onInterrupt = interrupt)
                     }
-                } else if (ttyConnector != null) {
-                    val terminalHeight = 60.dp
+                )
 
-                    TerminalWidget(
-                        ttyConnector = ttyConnector,
-                        modifier = Modifier.fillMaxWidth().height(terminalHeight),
-                        onTerminalReady = { widget ->
-                            widget.requestFocusInWindow()
-                            installCtrlCInterrupt(widget, onInterrupt = interrupt)
+                if (expanded) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    TerminalResizeHandle(
+                        onDragDeltaDp = { deltaDp ->
+                            val newHeight = (terminalHeightDp + deltaDp).coerceIn(minTerminalHeightDp, maxTerminalHeightDp)
+                            if (abs(newHeight - terminalHeightDp) > 0.5f) {
+                                terminalHeightDp = newHeight
+                            }
                         }
                     )
-                } else {
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            text = "⚠️ Failed to connect to terminal process",
-                            modifier = Modifier.padding(8.dp),
-                            color = MaterialTheme.colorScheme.onErrorContainer,
-                            style = MaterialTheme.typography.bodyMedium
+                }
+            }
+
+            // Completed: render captured output (only when expanded)
+            if (expanded && exitCode != null) {
+                val finalOutput = output ?: ""
+                if (finalOutput.isNotEmpty()) {
+                    SelectionContainer {
+                        PlatformTerminalDisplay(
+                            output = finalOutput,
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
+                } else {
+                    Text(
+                        text = "(no output captured)",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 11.sp,
+                        modifier = Modifier.padding(start = 30.dp, top = 4.dp)
+                    )
+                }
+            }
+
+            // Error (no process handle)
+            if (expanded && exitCode == null && ttyConnector == null) {
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "⚠️ Failed to connect to terminal process",
+                        modifier = Modifier.padding(8.dp),
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+        }
+    }
+
+    if (showFullscreen) {
+        LiveTerminalFullscreenDialog(
+            title = command,
+            isRunning = isRunning,
+            output = fullscreenOutput,
+            onCopy = copyCurrentOutput,
+            onStop = stop,
+            onClose = { showFullscreen = false }
+        )
+    }
+}
+
+@Composable
+private fun TerminalResizeHandle(
+    onDragDeltaDp: (deltaDp: Float) -> Unit
+) {
+    var isDragging by remember { mutableStateOf(false) }
+    val interactionSource = remember { MutableInteractionSource() }
+    val isHovered by interactionSource.collectIsHoveredAsState()
+
+    val alpha by animateFloatAsState(
+        targetValue = when {
+            isDragging -> 1f
+            isHovered -> 0.8f
+            else -> 0.4f
+        },
+        animationSpec = tween(durationMillis = 150),
+        label = "terminalResizeAlpha"
+    )
+
+    Box(
+        modifier = Modifier
+            .height(4.dp)
+            .fillMaxWidth()
+            .hoverable(interactionSource)
+            .pointerHoverIcon(PointerIcon.Crosshair)
+            .pointerInput(Unit) {
+                detectDragGestures(
+                    onDragStart = { isDragging = true },
+                    onDragEnd = { isDragging = false },
+                    onDragCancel = { isDragging = false }
+                ) { change, dragAmount ->
+                    change.consume()
+                    onDragDeltaDp(dragAmount.y)
+                }
+            }
+    ) {
+        Spacer(
+            modifier = Modifier
+                .fillMaxSize()
+                .alpha(alpha)
+                .background(MaterialTheme.colorScheme.outlineVariant)
+        )
+    }
+}
+
+@Composable
+private fun LiveTerminalFullscreenDialog(
+    title: String,
+    isRunning: Boolean,
+    output: String,
+    onCopy: () -> Unit,
+    onStop: () -> Unit,
+    onClose: () -> Unit
+) {
+    val focusRequester = remember { FocusRequester() }
+    val scrollState = rememberScrollState()
+
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+    }
+
+    Dialog(
+        onDismissRequest = onClose,
+        properties = DialogProperties(
+            dismissOnBackPress = true,
+            dismissOnClickOutside = false,
+            usePlatformDefaultWidth = false
+        )
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth(0.95f)
+                .fillMaxHeight(0.95f)
+                .focusRequester(focusRequester)
+                .onPreviewKeyEvent { event ->
+                    when {
+                        event.type == KeyEventType.KeyDown && event.key == Key.Escape -> {
+                            onClose(); true
+                        }
+                        event.type == KeyEventType.KeyDown &&
+                            event.key == Key.W &&
+                            (event.isCtrlPressed || event.isMetaPressed) -> {
+                            onClose(); true
+                        }
+                        else -> false
+                    }
+                },
+            shape = MaterialTheme.shapes.large,
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 6.dp
+        ) {
+            Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = AutoDevComposeIcons.Terminal,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontFamily = FontFamily.Monospace,
+                        maxLines = 1,
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    if (isRunning) {
+                        IconButton(onClick = onStop, modifier = Modifier.size(32.dp)) {
+                            Icon(
+                                imageVector = AutoDevComposeIcons.Stop,
+                                contentDescription = "Terminate",
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+
+                    IconButton(onClick = onCopy, modifier = Modifier.size(32.dp)) {
+                        Icon(
+                            imageVector = AutoDevComposeIcons.ContentCopy,
+                            contentDescription = "Copy output",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    IconButton(onClick = onClose, modifier = Modifier.size(32.dp)) {
+                        Icon(
+                            imageVector = AutoDevComposeIcons.Close,
+                            contentDescription = "Close",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                val maxChars = 200_000
+                val displayText = if (output.length > maxChars) {
+                    "(truncated to last ${maxChars} chars)\n\n" + output.takeLast(maxChars)
+                } else output
+
+                Box(modifier = Modifier.fillMaxSize()) {
+                    TerminalOutputDisplay(
+                        output = displayText.ifEmpty { "(no output)" },
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(scrollState)
+                    )
                 }
             }
         }
@@ -354,7 +608,7 @@ private fun installCtrlCInterrupt(
     onInterrupt: () -> Unit
 ) {
     // Ensure Ctrl+C behaves like a terminal break (SIGINT) even if focus/shortcuts are inconsistent.
-    val keyStroke = KeyStroke.getKeyStroke(KeyEvent.VK_C, InputEvent.CTRL_DOWN_MASK)
+    val keyStroke = KeyStroke.getKeyStroke(AwtKeyEvent.VK_C, InputEvent.CTRL_DOWN_MASK)
     val actionKey = "autodev.terminal.interrupt"
 
     widget.inputMap.put(keyStroke, actionKey)

@@ -186,7 +186,8 @@ class ProcessTtyConnector(
  * Uses ultra-thin, semi-transparent scrollbar for modern look.
  */
 class AutoDevTerminalWidget(
-    settingsProvider: ComposeTerminalSettingsProvider
+    settingsProvider: ComposeTerminalSettingsProvider,
+    private val scrollbarColors: TerminalScrollbarColors
 ) : JediTermWidget(settingsProvider) {
     override fun createScrollBar(): JScrollBar {
         // Like JBTerminalWidget, create scrollbar that adapts to terminal panel background
@@ -194,12 +195,7 @@ class AutoDevTerminalWidget(
         val bar =
             object : ModernTerminalScrollBar(
                 VERTICAL,
-                TerminalScrollbarColors(
-                    track = java.awt.Color(0, 0, 0, 0), // Fully transparent track
-                    thumb = java.awt.Color(128, 128, 128), // Gray thumb (alpha applied in paint)
-                    thumbHover = java.awt.Color(160, 160, 160), // Lighter gray on hover
-                    thumbPressed = java.awt.Color(180, 180, 180) // Even lighter when pressed
-                )
+                scrollbarColors
             ) {
                 override fun getBackground(): java.awt.Color {
                     // Return terminal panel background like JBScrollBar does
@@ -260,12 +256,24 @@ fun TerminalWidget(
     val foregroundColor = MaterialTheme.colorScheme.onSurface
     val selectionColor = MaterialTheme.colorScheme.primaryContainer
     val cursorColor = MaterialTheme.colorScheme.primary
+    val scrollbarThumbColor = MaterialTheme.colorScheme.onSurfaceVariant
     val terminalFont = remember { loadTerminalFont() }
 
     DisposableEffect(Unit) {
         onDispose {
             terminalWidget?.close()
         }
+    }
+
+    fun Color.toAwtColor(): java.awt.Color = java.awt.Color(this.toArgb(), true)
+
+    val scrollbarColors = remember(backgroundColor, scrollbarThumbColor, cursorColor) {
+        TerminalScrollbarColors(
+            track = backgroundColor.copy(alpha = 0f).toAwtColor(),
+            thumb = scrollbarThumbColor.toAwtColor(),
+            thumbHover = scrollbarThumbColor.toAwtColor(),
+            thumbPressed = cursorColor.toAwtColor()
+        )
     }
 
     SwingPanel(
@@ -283,7 +291,7 @@ fun TerminalWidget(
 
             // Create custom terminal widget with overridden createScrollBar()
             // No need to pass colors - widget will extract from settingsProvider
-            val widget = AutoDevTerminalWidget(settingsProvider)
+            val widget = AutoDevTerminalWidget(settingsProvider, scrollbarColors)
 
             // Set size constraints
             widget.preferredSize = Dimension(800, 400)

@@ -16,7 +16,7 @@ data class TerminalScrollbarColors(
 
 /**
  * A modern, minimal scrollbar inspired by IntelliJ's JBScrollBar styling.
- * - Ultra-thin design (6px width)
+ * - Thin design (theme-friendly, 10px track by default)
  * - Rounded thumb with transparency
  * - Hover & press feedback
  * - Auto-hide track (only thumb visible)
@@ -27,12 +27,25 @@ open class ModernTerminalScrollBar(
     orientation: Int,
     private val colors: TerminalScrollbarColors?
 ) : JScrollBar(orientation) {
+    // Keep dimensions conservative: visible enough to grab, still minimal.
+    private val trackThicknessPx = 10
+    private val thumbMarginPx = 2
+
     init {
         isOpaque = false
         putClientProperty("JComponent.sizeVariant", "mini")
         unitIncrement = 4
         blockIncrement = 48
         colors?.let { background = it.track }
+    }
+
+    override fun getPreferredSize(): Dimension {
+        val size = super.getPreferredSize()
+        return if (orientation == VERTICAL) {
+            Dimension(trackThicknessPx, size.height)
+        } else {
+            Dimension(size.width, trackThicknessPx)
+        }
     }
 
     override fun updateUI() {
@@ -48,10 +61,22 @@ open class ModernTerminalScrollBar(
                     }
                 }
 
-                // Ultra-thin scrollbar (6px width)
-                override fun getMaximumThumbSize(): Dimension = Dimension(6, 6)
+                override fun getMaximumThumbSize(): Dimension {
+                    return if (scrollbar.orientation == VERTICAL) {
+                        Dimension(trackThicknessPx, Int.MAX_VALUE)
+                    } else {
+                        Dimension(Int.MAX_VALUE, trackThicknessPx)
+                    }
+                }
 
-                override fun getMinimumThumbSize(): Dimension = Dimension(6, 6)
+                override fun getMinimumThumbSize(): Dimension {
+                    // Give the thumb a minimum length so it's always grabbable.
+                    return if (scrollbar.orientation == VERTICAL) {
+                        Dimension(trackThicknessPx, 24)
+                    } else {
+                        Dimension(24, trackThicknessPx)
+                    }
+                }
 
                 override fun paintTrack(g: Graphics, c: JComponent, trackBounds: Rectangle) {
                     // Don't paint track - auto-hide for cleaner look
@@ -76,24 +101,24 @@ open class ModernTerminalScrollBar(
                     // Apply transparency: more opaque on hover/press
                     val alpha =
                         when {
-                            pressing -> 200
-                            hovering -> 160
-                            else -> 100
+                            pressing -> 220
+                            hovering -> 180
+                            else -> 120
                         }
 
                     g2.color = Color(baseColor.red, baseColor.green, baseColor.blue, alpha)
 
-                    // Draw ultra-thin rounded thumb (4px width with 1px margin on each side)
-                    val arc = 4
-                    val margin = 1
-                    val thumbWidth = 4
-                    val thumbX = thumbBounds.x + (thumbBounds.width - thumbWidth) / 2
+                    // Draw rounded thumb inside track bounds
+                    val margin = thumbMarginPx.coerceAtMost((thumbBounds.width / 3).coerceAtLeast(1))
+                    val w = (thumbBounds.width - margin * 2).coerceAtLeast(2)
+                    val h = (thumbBounds.height - margin * 2).coerceAtLeast(2)
+                    val arc = minOf(w, 10)
 
                     g2.fillRoundRect(
-                        thumbX,
+                        thumbBounds.x + margin,
                         thumbBounds.y + margin,
-                        thumbWidth,
-                        thumbBounds.height - margin * 2,
+                        w,
+                        h,
                         arc,
                         arc
                     )
