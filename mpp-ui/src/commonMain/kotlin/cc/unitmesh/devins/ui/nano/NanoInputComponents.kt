@@ -12,10 +12,11 @@ import cc.unitmesh.xuiper.action.NanoActionFactory
 import cc.unitmesh.xuiper.eval.evaluator.NanoExpressionEvaluator
 import cc.unitmesh.xuiper.ir.NanoActionIR
 import cc.unitmesh.xuiper.ir.NanoIR
+import cc.unitmesh.xuiper.ir.booleanProp
+import cc.unitmesh.xuiper.ir.doubleProp
+import cc.unitmesh.xuiper.ir.intProp
+import cc.unitmesh.xuiper.ir.stringProp
 import cc.unitmesh.xuiper.props.NanoBindingResolver
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.intOrNull
-import kotlinx.serialization.json.jsonPrimitive
 import kotlin.math.round
 
 /**
@@ -69,7 +70,7 @@ object NanoInputComponents {
         onAction: (NanoActionIR) -> Unit,
         modifier: Modifier
     ) {
-        val placeholder = ir.props["placeholder"]?.jsonPrimitive?.content ?: ""
+        val placeholder = ir.stringProp("placeholder") ?: ""
         val statePath = NanoBindingResolver.resolveStatePath(ir, "value", "bind")
         val onChange = ir.actions?.get("onChange")
 
@@ -108,7 +109,7 @@ object NanoInputComponents {
             list?.contains(parsed.item) == true
         }
 
-        val checkedProp = ir.props["checked"]?.jsonPrimitive?.contentOrNull?.toBooleanStrictOrNull()
+        val checkedProp = ir.booleanProp("checked")
         var uncontrolledChecked by remember(statePath, checkedProp) { mutableStateOf(checkedProp ?: false) }
 
         val checked = checkedFromInList ?: checkedFromState ?: uncontrolledChecked
@@ -172,8 +173,8 @@ object NanoInputComponents {
         onAction: (NanoActionIR) -> Unit,
         modifier: Modifier
     ) {
-        val placeholder = ir.props["placeholder"]?.jsonPrimitive?.content ?: ""
-        val rows = ir.props["rows"]?.jsonPrimitive?.intOrNull ?: 4
+        val placeholder = ir.stringProp("placeholder") ?: ""
+        val rows = ir.intProp("rows") ?: 4
         val statePath = NanoBindingResolver.resolveStatePath(ir, "value", "bind")
         val onChange = ir.actions?.get("onChange")
 
@@ -259,13 +260,10 @@ object NanoInputComponents {
         onAction: (NanoActionIR) -> Unit,
         modifier: Modifier
     ) {
-        val label = ir.props["label"]?.jsonPrimitive?.content
+        val label = ir.stringProp("label")
         val statePath = NanoBindingResolver.resolveStatePath(ir, "checked", "value", "bind")
         val checkedFromState = statePath?.let { state[it] as? Boolean }
-        val checkedProp = (
-            ir.props["checked"]?.jsonPrimitive?.contentOrNull
-                ?: ir.props["value"]?.jsonPrimitive?.contentOrNull
-        )?.toBooleanStrictOrNull()
+        val checkedProp = ir.booleanProp("checked") ?: ir.booleanProp("value")
         var uncontrolledChecked by remember(statePath, checkedProp) { mutableStateOf(checkedProp ?: false) }
         val isChecked = checkedFromState ?: uncontrolledChecked
         val onChange = ir.actions?.get("onChange")
@@ -295,10 +293,10 @@ object NanoInputComponents {
         onAction: (NanoActionIR) -> Unit,
         modifier: Modifier
     ) {
-        val placeholder = ir.props["placeholder"]?.jsonPrimitive?.content ?: ""
+        val placeholder = ir.stringProp("placeholder") ?: ""
         val statePath = NanoBindingResolver.resolveStatePath(ir, "value", "bind")
         val valueFromState = statePath?.let { (state[it] as? Number)?.toString() ?: state[it]?.toString() }
-        val valueProp = ir.props["value"]?.jsonPrimitive?.contentOrNull
+        val valueProp = ir.stringProp("value")
         var uncontrolledValue by remember(statePath, valueProp) { mutableStateOf(valueProp ?: "") }
         val currentValue = valueFromState ?: uncontrolledValue
         val onChange = ir.actions?.get("onChange")
@@ -328,8 +326,8 @@ object NanoInputComponents {
         onAction: (NanoActionIR) -> Unit,
         modifier: Modifier
     ) {
-        val label = ir.props["label"]?.jsonPrimitive?.content
-        val placeholder = ir.props["placeholder"]?.jsonPrimitive?.content ?: ""
+        val label = ir.stringProp("label")
+        val placeholder = ir.stringProp("placeholder") ?: ""
         // NanoSpec uses bindings.bind for SmartTextField (keep compatibility with older value)
         val statePath = NanoBindingResolver.resolveStatePath(ir, "value", "bind")
         val currentValue = state[statePath]?.toString() ?: ""
@@ -354,10 +352,10 @@ object NanoInputComponents {
         onAction: (NanoActionIR) -> Unit,
         modifier: Modifier
     ) {
-        val label = ir.props["label"]?.jsonPrimitive?.content
-        val min = ir.props["min"]?.jsonPrimitive?.content?.toFloatOrNull() ?: 0f
-        val max = ir.props["max"]?.jsonPrimitive?.content?.toFloatOrNull() ?: 100f
-        val step = ir.props["step"]?.jsonPrimitive?.content?.toFloatOrNull()
+        val label = ir.stringProp("label")
+        val min = ir.doubleProp("min")?.toFloat() ?: 0f
+        val max = ir.doubleProp("max")?.toFloat() ?: 100f
+        val step = ir.doubleProp("step")?.toFloat()
         // NanoSpec uses bindings.bind for Slider (keep compatibility with older value)
         val statePath = NanoBindingResolver.resolveStatePath(ir, "value", "bind")
         val rawStateValue = statePath?.let { state[it] }

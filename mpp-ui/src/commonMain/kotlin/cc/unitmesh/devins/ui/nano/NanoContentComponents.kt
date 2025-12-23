@@ -20,8 +20,9 @@ import androidx.compose.ui.unit.sp
 import cc.unitmesh.devins.ui.nano.NanoColorMapper
 import cc.unitmesh.xuiper.eval.evaluator.NanoExpressionEvaluator
 import cc.unitmesh.xuiper.ir.NanoIR
+import cc.unitmesh.xuiper.ir.booleanProp
+import cc.unitmesh.xuiper.ir.stringProp
 import cc.unitmesh.xuiper.props.NanoSizeMapper
-import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * Content components for NanoUI Compose renderer.
@@ -36,10 +37,10 @@ object NanoContentComponents {
         // Interpolate {state.xxx} or {state.xxx + 1} expressions in content
         val content = NanoExpressionEvaluator.interpolateText(rawContent, state)
 
-        val style = ir.props["style"]?.jsonPrimitive?.content
+        val style = ir.stringProp("style")
 
         // Check if markdown parsing is enabled (default: true)
-        val enableMarkdown = ir.props["markdown"]?.jsonPrimitive?.content != "false"
+        val enableMarkdown = ir.stringProp("markdown") != "false"
 
         val textStyle = when (style) {
             "h1" -> MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold)
@@ -70,7 +71,7 @@ object NanoContentComponents {
     fun RenderBadge(ir: NanoIR, state: Map<String, Any>, modifier: Modifier) {
         val rawText = NanoExpressionEvaluator.resolveStringProp(ir, "text", state)
         val text = NanoExpressionEvaluator.interpolateText(rawText, state)
-        val colorName = ir.props["color"]?.jsonPrimitive?.content
+        val colorName = ir.stringProp("color")
 
         val (bgColor, contentColor) = NanoColorMapper.mapContainerColors(colorName)
 
@@ -91,9 +92,9 @@ object NanoContentComponents {
 
     @Composable
     fun RenderIcon(ir: NanoIR, modifier: Modifier) {
-        val iconName = ir.props["name"]?.jsonPrimitive?.content ?: ""
-        val sizeName = ir.props["size"]?.jsonPrimitive?.content
-        val colorName = ir.props["color"]?.jsonPrimitive?.content
+        val iconName = ir.stringProp("name") ?: ""
+        val sizeName = ir.stringProp("size")
+        val colorName = ir.stringProp("color")
 
         val normalizedName = iconName.trim().lowercase().replace('_', '-')
 
@@ -217,8 +218,8 @@ object NanoContentComponents {
     fun RenderCode(ir: NanoIR, state: Map<String, Any>, modifier: Modifier) {
         val rawContent = NanoExpressionEvaluator.resolveStringProp(ir, "content", state)
         val content = NanoExpressionEvaluator.interpolateText(rawContent, state)
-        val colorName = ir.props["color"]?.jsonPrimitive?.content
-        val bgColorName = ir.props["bgColor"]?.jsonPrimitive?.content
+        val colorName = ir.stringProp("color")
+        val bgColorName = ir.stringProp("bgColor")
 
         val textColor = NanoColorMapper.mapTextColor(colorName)
         val backgroundColor = NanoColorMapper.mapBackgroundColor(bgColorName)
@@ -247,10 +248,10 @@ object NanoContentComponents {
     fun RenderLink(ir: NanoIR, state: Map<String, Any>, modifier: Modifier) {
         val rawContent = NanoExpressionEvaluator.resolveStringProp(ir, "content", state)
         val content = NanoExpressionEvaluator.interpolateText(rawContent, state)
-        val rawUrl = ir.props["url"]?.jsonPrimitive?.content ?: ""
+        val rawUrl = ir.stringProp("url") ?: ""
         val resolvedUrl = NanoExpressionEvaluator.interpolateText(rawUrl, state)
-        val colorName = ir.props["color"]?.jsonPrimitive?.content
-        val showIcon = ir.props["showIcon"]?.jsonPrimitive?.content?.toBooleanStrictOrNull() ?: false
+        val colorName = ir.stringProp("color")
+        val showIcon = ir.booleanProp("showIcon") ?: false
 
         val linkColor = NanoColorMapper.mapTextColor(colorName) ?: MaterialTheme.colorScheme.primary
 
@@ -288,9 +289,9 @@ object NanoContentComponents {
     fun RenderBlockquote(ir: NanoIR, state: Map<String, Any>, modifier: Modifier) {
         val rawContent = NanoExpressionEvaluator.resolveStringProp(ir, "content", state)
         val content = NanoExpressionEvaluator.interpolateText(rawContent, state)
-        val rawAttribution = ir.props["attribution"]?.jsonPrimitive?.content
+        val rawAttribution = ir.stringProp("attribution")
         val attribution = rawAttribution?.let { NanoExpressionEvaluator.interpolateText(it, state) }
-        val variant = ir.props["variant"]?.jsonPrimitive?.content
+        val variant = ir.stringProp("variant")
 
         val borderColor = when (variant) {
             "warning" -> MaterialTheme.colorScheme.error

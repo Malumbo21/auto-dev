@@ -9,8 +9,8 @@ import androidx.compose.ui.unit.dp
 import cc.unitmesh.xuiper.action.NanoActionFactory
 import cc.unitmesh.xuiper.ir.NanoActionIR
 import cc.unitmesh.xuiper.ir.NanoIR
+import cc.unitmesh.xuiper.ir.stringProp
 import cc.unitmesh.xuiper.render.toSelectionState
-import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * Material3 Compose implementation of selection components.
@@ -27,7 +27,7 @@ object NanoSelectionRenderer {
         onAction: (NanoActionIR) -> Unit,
         modifier: Modifier = Modifier
     ) {
-        val placeholder = ir.props["placeholder"]?.jsonPrimitive?.content ?: "Select..."
+        val placeholder = ir.stringProp("placeholder") ?: "Select..."
         val selectionState = ir.toSelectionState(state)
         var uncontrolledSelected by remember(selectionState.statePath, selectionState.selectedValue) {
             mutableStateOf(selectionState.selectedValue)
@@ -73,8 +73,8 @@ object NanoSelectionRenderer {
         onAction: (NanoActionIR) -> Unit,
         modifier: Modifier = Modifier
     ) {
-        val option = ir.props["option"]?.jsonPrimitive?.content ?: ""
-        val label = ir.props["label"]?.jsonPrimitive?.content ?: option
+        val option = ir.stringProp("option") ?: ""
+        val label = ir.stringProp("label") ?: option
         val selectionState = ir.toSelectionState(state)
         var uncontrolledSelected by remember(selectionState.statePath, selectionState.selectedValue) {
             mutableStateOf(selectionState.selectedValue)

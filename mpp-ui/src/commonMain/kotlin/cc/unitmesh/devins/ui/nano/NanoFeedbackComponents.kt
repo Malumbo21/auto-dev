@@ -18,8 +18,8 @@ import cc.unitmesh.xuiper.action.NanoActionFactory
 import cc.unitmesh.xuiper.eval.evaluator.NanoExpressionEvaluator
 import cc.unitmesh.xuiper.ir.NanoActionIR
 import cc.unitmesh.xuiper.ir.NanoIR
-import kotlinx.serialization.json.booleanOrNull
-import kotlinx.serialization.json.jsonPrimitive
+import cc.unitmesh.xuiper.ir.booleanProp
+import cc.unitmesh.xuiper.ir.stringProp
 
 /**
  * Feedback components for NanoUI Compose renderer.
@@ -37,8 +37,8 @@ object NanoFeedbackComponents {
         modifier: Modifier,
         renderNode: @Composable (NanoIR, Map<String, Any>, (NanoActionIR) -> Unit, Modifier) -> Unit
     ) {
-        val rawTitle = ir.props["title"]?.jsonPrimitive?.content
-        val closable = ir.props["closable"]?.jsonPrimitive?.booleanOrNull ?: true
+        val rawTitle = ir.stringProp("title")
+        val closable = ir.booleanProp("closable") ?: true
 
         // NanoSpec uses bindings.open for Modal
         val binding = ir.bindings?.get("open")
@@ -144,9 +144,9 @@ object NanoFeedbackComponents {
         modifier: Modifier,
         onAction: (NanoActionIR) -> Unit = {}
     ) {
-        val type = ir.props["type"]?.jsonPrimitive?.content ?: "info"
-        val rawMessage = ir.props["message"]?.jsonPrimitive?.content ?: ""
-        val closable = ir.props["closable"]?.jsonPrimitive?.booleanOrNull ?: false
+        val type = ir.stringProp("type") ?: "info"
+        val rawMessage = ir.stringProp("message") ?: ""
+        val closable = ir.booleanProp("closable") ?: false
         val onCloseAction = ir.actions?.get("onClose")
 
         // Optional LLM fallback if message is missing
@@ -219,9 +219,9 @@ object NanoFeedbackComponents {
 
     @Composable
     fun RenderProgress(ir: NanoIR, state: Map<String, Any>, modifier: Modifier) {
-        val valueStr = ir.props["value"]?.jsonPrimitive?.content
-        val maxStr = ir.props["max"]?.jsonPrimitive?.content
-        val showText = ir.props["showText"]?.jsonPrimitive?.booleanOrNull ?: true
+        val valueStr = ir.stringProp("value")
+        val maxStr = ir.stringProp("max")
+        val showText = ir.booleanProp("showText") ?: true
 
             // Resolve binding / expression values
             val value = NanoExpressionEvaluator.evaluateNumberOrNull(valueStr, state)?.toFloat() ?: 0f
@@ -246,7 +246,7 @@ object NanoFeedbackComponents {
 
     @Composable
     fun RenderSpinner(ir: NanoIR, modifier: Modifier) {
-        val text = ir.props["text"]?.jsonPrimitive?.content
+        val text = ir.stringProp("text")
 
         Row(
             modifier = modifier,

@@ -13,9 +13,8 @@ import cc.unitmesh.xuiper.action.NanoActionFactory
 import cc.unitmesh.xuiper.eval.evaluator.NanoExpressionEvaluator
 import cc.unitmesh.xuiper.ir.NanoActionIR
 import cc.unitmesh.xuiper.ir.NanoIR
+import cc.unitmesh.xuiper.ir.stringProp
 import cc.unitmesh.xuiper.props.NanoBindingResolver
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * Date picker components for NanoUI Compose renderer.
@@ -31,10 +30,10 @@ object NanoDateComponents {
         onAction: (NanoActionIR) -> Unit,
         modifier: Modifier
     ) {
-        val placeholder = ir.props["placeholder"]?.jsonPrimitive?.content ?: "Select date"
+        val placeholder = ir.stringProp("placeholder") ?: "Select date"
         val statePath = NanoBindingResolver.resolveStatePath(ir, "value", "bind")
         val valueFromState = statePath?.let { state[it]?.toString() }
-        val valueProp = ir.props["value"]?.jsonPrimitive?.contentOrNull
+        val valueProp = ir.stringProp("value")
         var uncontrolledValue by remember(statePath, valueProp) { mutableStateOf(valueProp ?: "") }
         val currentValue = valueFromState ?: uncontrolledValue
         val onChange = ir.actions?.get("onChange")

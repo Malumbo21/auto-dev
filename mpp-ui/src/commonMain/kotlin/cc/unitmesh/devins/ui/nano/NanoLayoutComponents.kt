@@ -15,12 +15,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import cc.unitmesh.xuiper.ir.NanoActionIR
 import cc.unitmesh.xuiper.ir.NanoIR
-import cc.unitmesh.xuiper.props.CardProps
-import cc.unitmesh.xuiper.props.HStackProps
+import cc.unitmesh.xuiper.ir.stringProp
 import cc.unitmesh.xuiper.props.NanoSpacingUtils
-import cc.unitmesh.xuiper.props.SplitViewProps
-import cc.unitmesh.xuiper.props.VStackProps
-import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * Layout components for NanoUI Compose renderer.
@@ -36,11 +32,11 @@ object NanoLayoutComponents {
         modifier: Modifier,
         renderNode: @Composable (NanoIR, Map<String, Any>, (NanoActionIR) -> Unit, Modifier) -> Unit
     ) {
-        val props = VStackProps.parse(ir)
-        val spacing = props.spacing.dp
-        val padding = ir.props["padding"]?.jsonPrimitive?.content?.toPadding()
+        val spacing = ir.stringProp("spacing")?.toSpacing() ?: 8.dp
+        val padding = ir.stringProp("padding")?.toPadding()
+        val align = ir.stringProp("align")
 
-        val horizontalAlignment = when (props.align) {
+        val horizontalAlignment = when (align) {
             "center" -> Alignment.CenterHorizontally
             "start" -> Alignment.Start
             "end" -> Alignment.End
@@ -66,13 +62,13 @@ object NanoLayoutComponents {
         modifier: Modifier,
         renderNode: @Composable (NanoIR, Map<String, Any>, (NanoActionIR) -> Unit, Modifier) -> Unit
     ) {
-        val props = HStackProps.parse(ir)
-        val spacing = props.spacing.dp
-        val padding = ir.props["padding"]?.jsonPrimitive?.content?.toPadding()
-        val justify = props.justify
-        val explicitWrap = props.wrap
+        val spacing = ir.stringProp("spacing")?.toSpacing() ?: 8.dp
+        val padding = ir.stringProp("padding")?.toPadding()
+        val align = ir.stringProp("align")
+        val justify = ir.stringProp("justify")
+        val wrap = ir.stringProp("wrap")
 
-        val verticalAlignment = when (props.align) {
+        val verticalAlignment = when (align) {
             "center" -> Alignment.CenterVertically
             "start", "top" -> Alignment.Top
             "end", "bottom" -> Alignment.Bottom
@@ -97,6 +93,8 @@ object NanoLayoutComponents {
         // When mixing Image + VStack in a horizontal layout, Row can squeeze text into 1-char columns.
         // FlowRow lets the VStack wrap below the image when space is tight.
         val shouldWrap = containsImage && containsVStack
+
+        val explicitWrap = wrap == "wrap" || wrap == "true"
 
         // Count VStack/Card children to determine if we should auto-distribute space
         val vstackOrCardChildren = children.count {
@@ -147,8 +145,8 @@ object NanoLayoutComponents {
                     return@forEach
                 }
                 // Check if child has explicit flex/weight property
-                val childFlex = child.props["flex"]?.jsonPrimitive?.content?.toFloatOrNull()
-                val childWeight = child.props["weight"]?.jsonPrimitive?.content?.toFloatOrNull()
+                val childFlex = child.stringProp("flex")?.toFloatOrNull()
+                val childWeight = child.stringProp("weight")?.toFloatOrNull()
                 val weight = childFlex ?: childWeight
 
                 if (weight != null && weight > 0f) {
@@ -182,16 +180,14 @@ object NanoLayoutComponents {
         modifier: Modifier,
         renderNode: @Composable (NanoIR, Map<String, Any>, (NanoActionIR) -> Unit, Modifier) -> Unit
     ) {
-        val props = CardProps.parse(ir)
-        val padding = props.padding.dp
-        val shadowDp = props.shadow
+        val padding = ir.stringProp("padding")?.toPadding() ?: 16.dp
+        val shadow = ir.stringProp("shadow")
 
-        val elevation = when {
-            shadowDp <= 1 -> CardDefaults.cardElevation(defaultElevation = 1.dp)
-            shadowDp <= 2 -> CardDefaults.cardElevation(defaultElevation = 2.dp)
-            shadowDp <= 4 -> CardDefaults.cardElevation(defaultElevation = 4.dp)
-            shadowDp <= 8 -> CardDefaults.cardElevation(defaultElevation = 8.dp)
-            else -> CardDefaults.cardElevation(defaultElevation = shadowDp.dp)
+        val elevation = when (shadow) {
+            "sm" -> CardDefaults.cardElevation(defaultElevation = 2.dp)
+            "md" -> CardDefaults.cardElevation(defaultElevation = 4.dp)
+            "lg" -> CardDefaults.cardElevation(defaultElevation = 8.dp)
+            else -> CardDefaults.cardElevation()
         }
 
         Card(modifier = modifier.fillMaxWidth(), elevation = elevation) {
@@ -238,11 +234,11 @@ object NanoLayoutComponents {
         modifier: Modifier,
         renderNode: @Composable (NanoIR, Map<String, Any>, (NanoActionIR) -> Unit, Modifier) -> Unit
     ) {
-        val props = SplitViewProps.parse(ir)
+        val ratio = ir.stringProp("ratio")?.toFloatOrNull() ?: 0.5f
         val children = ir.children.orEmpty()
 
         BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
-            val safeRatio = props.ratio.coerceIn(0.1f, 0.9f)
+            val safeRatio = ratio.coerceIn(0.1f, 0.9f)
 
             // On narrow screens, a split view becomes two cramped columns. Stack instead.
             if (maxWidth < 720.dp) {

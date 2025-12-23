@@ -32,6 +32,8 @@ import cc.unitmesh.llm.image.ImageGenerationResult
 import cc.unitmesh.llm.image.ImageGenerationService
 import cc.unitmesh.xuiper.eval.evaluator.NanoExpressionEvaluator
 import cc.unitmesh.xuiper.ir.NanoIR
+import cc.unitmesh.xuiper.ir.intProp
+import cc.unitmesh.xuiper.ir.stringProp
 import cc.unitmesh.xuiper.props.NanoAspectRatioParser
 import cc.unitmesh.xuiper.props.NanoSizeMapper
 import io.ktor.client.request.*
@@ -327,11 +329,11 @@ fun RenderImage(
     ir: NanoIR,
     modifier: Modifier
 ) {
-     val originalSrc = ir.props["src"]?.jsonPrimitive?.content ?: ""
+     val originalSrc = ir.stringProp("src") ?: ""
 
-    val widthPx = ir.props["width"]?.jsonPrimitive?.content?.toIntOrNull()
-    val aspectStr = ir.props["aspect"]?.jsonPrimitive?.content
-    val radiusStr = ir.props["radius"]?.jsonPrimitive?.content
+    val widthPx = ir.intProp("width")
+    val aspectStr = ir.stringProp("aspect")
+    val radiusStr = ir.stringProp("radius")
 
     val aspectRatio = remember(aspectStr) { NanoAspectRatioParser.parse(aspectStr) }
     val cornerRadius = NanoSizeMapper.parseRadius(radiusStr).dp

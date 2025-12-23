@@ -19,6 +19,7 @@ import cc.unitmesh.devins.ui.compose.sketch.chart.isChartAvailable
 import cc.unitmesh.xuiper.eval.evaluator.NanoExpressionEvaluator
 import cc.unitmesh.xuiper.ir.NanoActionIR
 import cc.unitmesh.xuiper.ir.NanoIR
+import cc.unitmesh.xuiper.ir.stringProp
 import cc.unitmesh.xuiper.props.NanoFormatUtils
 import cc.unitmesh.xuiper.props.NanoOptionWithMeta
 import cc.unitmesh.xuiper.props.NanoOptionWithMetaParser
@@ -56,12 +57,12 @@ object NanoDataComponents {
      */
     @Composable
     fun RenderDataChart(ir: NanoIR, state: Map<String, Any>, modifier: Modifier) {
-        val chartType = ir.props["type"]?.jsonPrimitive?.content ?: "line"
-        val dataStr = ir.props["data"]?.jsonPrimitive?.content
-        val xField = ir.props["xField"]?.jsonPrimitive?.content
-            ?: ir.props["x_axis"]?.jsonPrimitive?.content
-        val yField = ir.props["yField"]?.jsonPrimitive?.content
-            ?: ir.props["y_axis"]?.jsonPrimitive?.content
+        val chartType = ir.stringProp("type") ?: "line"
+        val dataStr = ir.stringProp("data")
+        val xField = ir.stringProp("xField")
+            ?: ir.stringProp("x_axis")
+        val yField = ir.stringProp("yField")
+            ?: ir.stringProp("y_axis")
 
         // Try to resolve data from state if it's a binding
         val resolvedData = NanoExpressionEvaluator.resolveBindingAny(dataStr, state).toString()
@@ -93,7 +94,7 @@ object NanoDataComponents {
         yField: String?,
         ir: NanoIR
     ): String {
-        val title = ir.props["title"]?.jsonPrimitive?.content ?: "Data Chart"
+        val title = ir.stringProp("title") ?: "Data Chart"
 
         // If resolvedData is a list of objects, build chart from it
         if (resolvedData is List<*>) {

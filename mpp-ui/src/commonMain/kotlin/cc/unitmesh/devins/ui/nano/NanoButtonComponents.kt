@@ -18,9 +18,9 @@ import cc.unitmesh.llm.KoogLLMService
 import cc.unitmesh.xuiper.eval.evaluator.NanoExpressionEvaluator
 import cc.unitmesh.xuiper.ir.NanoActionIR
 import cc.unitmesh.xuiper.ir.NanoIR
+import cc.unitmesh.xuiper.ir.stringProp
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * Button components for NanoUI Compose renderer.
@@ -52,8 +52,8 @@ object NanoButtonComponents {
     ) {
         val rawLabel = NanoExpressionEvaluator.resolveStringProp(ir, "label", state).ifBlank { "Button" }
         val label = NanoExpressionEvaluator.interpolateText(rawLabel, state)
-        val intent = ir.props["intent"]?.jsonPrimitive?.content
-        val disabledIf = ir.props["disabled_if"]?.jsonPrimitive?.content
+        val intent = ir.stringProp("intent")
+        val disabledIf = ir.stringProp("disabled_if")
         val isDisabled = !disabledIf.isNullOrBlank() && NanoExpressionEvaluator.evaluateCondition(disabledIf, state)
         val onClick = ir.actions?.get("onClick")
 
@@ -321,8 +321,8 @@ object NanoButtonComponents {
                 }
             }
             "Text" -> {
-                val content = ir.props["content"]?.jsonPrimitive?.content ?: ""
-                val style = ir.props["style"]?.jsonPrimitive?.content
+                val content = ir.stringProp("content") ?: ""
+                val style = ir.stringProp("style")
                 Text(
                     text = NanoExpressionEvaluator.interpolateText(content, state),
                     style = when (style) {
@@ -335,8 +335,8 @@ object NanoButtonComponents {
                 )
             }
             "Button" -> {
-                val label = ir.props["label"]?.jsonPrimitive?.content ?: "Button"
-                val intent = ir.props["intent"]?.jsonPrimitive?.content
+                val label = ir.stringProp("label") ?: "Button"
+                val intent = ir.stringProp("intent")
                 val onClick = ir.actions?.get("onClick")
 
                 if (intent == "secondary") {
