@@ -11,16 +11,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import cc.unitmesh.xuiper.action.NanoActionFactory
 import cc.unitmesh.xuiper.ir.NanoActionIR
 import cc.unitmesh.xuiper.ir.NanoIR
-import cc.unitmesh.xuiper.render.NanoSelectionRenderer
+import cc.unitmesh.xuiper.ir.stringProp
 import cc.unitmesh.xuiper.render.toSelectionState
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonPrimitive
 import org.jetbrains.jewel.foundation.theme.JewelTheme
 import org.jetbrains.jewel.ui.component.PopupMenu
 import org.jetbrains.jewel.ui.component.RadioButtonRow
@@ -41,7 +38,7 @@ object JewelSelectionRenderer {
         onAction: (NanoActionIR) -> Unit,
         modifier: Modifier = Modifier
     ) {
-        val placeholder = ir.props["placeholder"]?.jsonPrimitive?.content ?: "Select..."
+        val placeholder = ir.stringProp("placeholder") ?: "Select..."
         val selectionState = ir.toSelectionState(state)
         var uncontrolledSelected by remember(selectionState.statePath, selectionState.selectedValue) {
             mutableStateOf(selectionState.selectedValue)
@@ -137,8 +134,8 @@ object JewelSelectionRenderer {
         onAction: (NanoActionIR) -> Unit,
         modifier: Modifier = Modifier
     ) {
-        val option = ir.props["option"]?.jsonPrimitive?.content ?: ""
-        val label = ir.props["label"]?.jsonPrimitive?.content ?: option
+        val option = ir.stringProp("option") ?: ""
+        val label = ir.stringProp("label") ?: option
         val selectionState = ir.toSelectionState(state)
         var uncontrolledSelected by remember(selectionState.statePath, selectionState.selectedValue) {
             mutableStateOf(selectionState.selectedValue)
@@ -211,18 +208,7 @@ object JewelSelectionRenderer {
         onAction: (NanoActionIR) -> Unit,
         onUncontrolled: () -> Unit
     ) {
-        if (statePath != null) {
-            onAction(NanoActionIR(
-                type = "stateMutation",
-                payload = mapOf(
-                    "path" to JsonPrimitive(statePath),
-                    "operation" to JsonPrimitive("SET"),
-                    "value" to JsonPrimitive(value)
-                )
-            ))
-        } else {
-            onUncontrolled()
-        }
+        NanoActionFactory.dispatchSelection(statePath, value, onAction, onUncontrolled)
     }
 }
 
