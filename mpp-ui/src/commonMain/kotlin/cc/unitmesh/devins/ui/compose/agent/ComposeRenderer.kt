@@ -449,6 +449,13 @@ class ComposeRenderer : BaseRenderer() {
 
         // For shell commands, use special terminal output rendering
         val toolType = toolName.toToolType()
+        val stillRunning = metadata["stillRunning"] == "true"
+        if (toolType == ToolType.Shell && stillRunning) {
+            // Don't convert to TerminalOutputItem on initial timeout.
+            // Live output is already shown via LiveTerminalItem; keep the tool call in "executing" state.
+            _currentToolCall = null
+            return
+        }
         if (toolType == ToolType.Shell && output != null) {
             // Try to extract shell result information
             val exitCode = liveExitCode ?: (if (success) 0 else 1)
@@ -893,7 +900,39 @@ class ComposeRenderer : BaseRenderer() {
             }
         } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
             sessionResultChannels.remove(sessionId)
-            cc.unitmesh.agent.tool.ToolResult.Error("Session timed out after ${timeoutMs}ms")
+            // Session is likely still running (e.g. long-running server). Return Pending with an output snapshot
+            // so the executor can include it in the prompt.
+            val runningItem = _timeline.find {
+                it is TimelineItem.LiveTerminalItem && it.sessionId == sessionId
+            } as? TimelineItem.LiveTerminalItem
+
+            val command = runningItem?.command?.ifBlank { "unknown" } ?: "unknown"
+
+            val rawOutput = try {
+                val session = cc.unitmesh.agent.tool.shell.ShellSessionManager.getSession(sessionId)
+                session?.getOutput().orEmpty()
+            } catch (_: Exception) {
+                ""
+            }
+
+            val cleanOutput = cc.unitmesh.agent.tool.shell.AnsiStripper.stripAndNormalize(rawOutput)
+            val outputLength = cleanOutput.length
+            val maxChars = 4000
+            val snippet = if (outputLength > maxChars) cleanOutput.takeLast(maxChars) else cleanOutput
+
+            cc.unitmesh.agent.tool.ToolResult.Pending(
+                sessionId = sessionId,
+                toolName = "shell",
+                command = command,
+                message = "Process still running after ${timeoutMs}ms",
+                metadata = mapOf(
+                    "sessionId" to sessionId,
+                    "command" to command,
+                    "elapsed_ms" to timeoutMs.toString(),
+                    "partial_output" to snippet,
+                    "output_length" to outputLength.toString()
+                )
+            )
         }
     }
 

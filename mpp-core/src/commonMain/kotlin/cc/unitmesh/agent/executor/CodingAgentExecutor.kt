@@ -432,6 +432,15 @@ class CodingAgentExecutor(
                 // Process is still running after initial timeout
                 // Return a special result to inform the AI
                 val elapsedSeconds = (Clock.System.now().toEpochMilliseconds() - startTime) / 1000
+                val partialOutput = initialResult.metadata["partial_output"] ?: ""
+                val outputLength = initialResult.metadata["output_length"]?.toIntOrNull()
+                val maxOutputChars = 4000
+                val outputSnippet =
+                    if (partialOutput.length > maxOutputChars) {
+                        partialOutput.takeLast(maxOutputChars)
+                    } else {
+                        partialOutput
+                    }
                 val stillRunningMessage = buildString {
                     appendLine("⏳ Process is still running after ${elapsedSeconds}s")
                     appendLine("Command: $command")
@@ -441,6 +450,13 @@ class CodingAgentExecutor(
                     appendLine("1. Continue with other tasks while waiting")
                     appendLine("2. Check the terminal output in the UI for real-time progress")
                     appendLine("3. The result will be available when the process completes")
+
+                    if (outputSnippet.isNotBlank()) {
+                        appendLine()
+                        val lengthHint = outputLength?.let { " (last ${outputSnippet.length} chars of $it)" } ?: ""
+                        appendLine("Output so far$lengthHint:")
+                        appendLine(outputSnippet)
+                    }
                 }
 
                 // Return as a "success" with the still-running message
@@ -455,7 +471,9 @@ class CodingAgentExecutor(
                             "status" to "still_running",
                             "sessionId" to sessionId,
                             "command" to command,
-                            "elapsedSeconds" to elapsedSeconds.toString()
+                            "elapsedSeconds" to elapsedSeconds.toString(),
+                            "partial_output" to outputSnippet,
+                            "output_length" to (outputLength?.toString() ?: "")
                         )
                     ),
                     startTime = startTime,
@@ -464,7 +482,11 @@ class CodingAgentExecutor(
                     metadata = mapOf(
                         "sessionId" to sessionId,
                         "isAsync" to "true",
-                        "stillRunning" to "true"
+                        "stillRunning" to "true",
+                        // Mark as live session to avoid long-content rewriting. Live output is already visible in UI.
+                        "isLiveSession" to "true",
+                        "partial_output" to outputSnippet,
+                        "output_length" to (outputLength?.toString() ?: "")
                     )
                 )
             }
