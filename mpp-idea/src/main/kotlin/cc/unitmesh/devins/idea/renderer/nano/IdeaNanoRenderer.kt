@@ -14,11 +14,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cc.unitmesh.xuiper.ir.NanoActionIR
 import cc.unitmesh.xuiper.ir.NanoIR
+import cc.unitmesh.xuiper.ir.booleanProp
+import cc.unitmesh.xuiper.ir.doubleProp
+import cc.unitmesh.xuiper.ir.stringProp
 import cc.unitmesh.xuiper.dsl.NanoDSL
+import cc.unitmesh.xuiper.eval.evaluator.NanoExpressionEvaluator
+import cc.unitmesh.xuiper.props.NanoSpacingUtils
 import cc.unitmesh.xuiper.render.stateful.StatefulNanoSession
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.booleanOrNull
-import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.intOrNull
 import org.jetbrains.jewel.foundation.theme.JewelTheme
 import org.jetbrains.jewel.ui.component.Text
@@ -142,41 +145,9 @@ object IdeaNanoRenderer {
         }
     }
 
-    // Helper to get string prop
-    private fun NanoIR.getStringProp(key: String): String? {
-        val element = props[key] ?: return null
-        return if (element is JsonPrimitive) element.content else element.toString()
-    }
-
-    // Helper to get int prop
-    private fun NanoIR.getIntProp(key: String): Int? {
-        val element = props[key] ?: return null
-        return if (element is JsonPrimitive) element.intOrNull else null
-    }
-
-    // Helper to get boolean prop
-    private fun NanoIR.getBoolProp(key: String): Boolean? {
-        val element = props[key] ?: return null
-        return if (element is JsonPrimitive) element.booleanOrNull else null
-    }
-
-    // Helper to get double prop
-    private fun NanoIR.getDoubleProp(key: String): Double? {
-        val element = props[key] ?: return null
-        return if (element is JsonPrimitive) element.doubleOrNull else null
-    }
-
-    // Helper to resolve bindings in text
-    private fun resolveBindings(text: String, state: Map<String, Any>): String {
-        var result = text
-        // Replace ${state.key} patterns with actual values
-        val pattern = Regex("""\$\{state\.(\w+)\}""")
-        pattern.findAll(text).forEach { match ->
-            val key = match.groupValues[1]
-            val value = state[key]?.toString() ?: ""
-            result = result.replace(match.value, value)
-        }
-        return result
+    private fun resolveText(ir: NanoIR, propKey: String, state: Map<String, Any>): String {
+        val raw = NanoExpressionEvaluator.resolveStringProp(ir, propKey, state)
+        return NanoExpressionEvaluator.interpolateText(raw, state)
     }
 
     // ==================== Layout Components ====================
@@ -188,7 +159,7 @@ object IdeaNanoRenderer {
         onAction: (NanoActionIR) -> Unit,
         modifier: Modifier
     ) {
-        val spacing = ir.getStringProp("spacing")?.toSpacing() ?: 8.dp
+        val spacing = NanoSpacingUtils.parseSpacing(ir.stringProp("spacing"), default = 8).dp
 
         Column(
             modifier = modifier,
@@ -207,8 +178,8 @@ object IdeaNanoRenderer {
         onAction: (NanoActionIR) -> Unit,
         modifier: Modifier
     ) {
-        val spacing = ir.getStringProp("spacing")?.toSpacing() ?: 8.dp
-        val justify = ir.getStringProp("justify") ?: "start"
+        val spacing = NanoSpacingUtils.parseSpacing(ir.stringProp("spacing"), default = 8).dp
+        val justify = ir.stringProp("justify") ?: "start"
 
         Row(
             modifier = modifier,
@@ -235,7 +206,7 @@ object IdeaNanoRenderer {
         onAction: (NanoActionIR) -> Unit,
         modifier: Modifier
     ) {
-        val padding = ir.getStringProp("padding")?.toSpacing() ?: 16.dp
+        val padding = NanoSpacingUtils.parsePadding(ir.stringProp("padding"), default = 16).dp
 
         Box(
             modifier = modifier
@@ -287,9 +258,8 @@ object IdeaNanoRenderer {
 
     @Composable
     private fun RenderText(ir: NanoIR, state: Map<String, Any>, modifier: Modifier) {
-        val rawContent = ir.getStringProp("content") ?: ""
-        val content = resolveBindings(rawContent, state)
-        val style = ir.getStringProp("style") ?: "body"
+        val content = resolveText(ir, propKey = "content", state = state)
+        val style = ir.stringProp("style") ?: "body"
 
         Text(
             text = content,
@@ -312,9 +282,8 @@ object IdeaNanoRenderer {
 
     @Composable
     private fun RenderBadge(ir: NanoIR, state: Map<String, Any>, modifier: Modifier) {
-        val rawContent = ir.getStringProp("content") ?: ""
-        val content = resolveBindings(rawContent, state)
-        val variant = ir.getStringProp("variant") ?: "default"
+        val content = resolveText(ir, propKey = "content", state = state)
+        val variant = ir.stringProp("variant") ?: "default"
 
         val bgColor = when (variant) {
             "success" -> Color(0xFF81C784).copy(alpha = 0.2f)
@@ -340,7 +309,7 @@ object IdeaNanoRenderer {
 
     @Composable
     private fun RenderIcon(ir: NanoIR, modifier: Modifier) {
-        val name = ir.getStringProp("name") ?: "circle"
+        val name = ir.stringProp("name") ?: "circle"
         // Simple icon representation using emoji/text
         val iconText = when (name) {
             "check" -> "✓"
@@ -378,9 +347,8 @@ object IdeaNanoRenderer {
         onAction: (NanoActionIR) -> Unit,
         modifier: Modifier
     ) {
-        val rawLabel = ir.getStringProp("label") ?: "Button"
-        val label = resolveBindings(rawLabel, state)
-        val variant = ir.getStringProp("variant") ?: "primary"
+        val label = resolveText(ir, propKey = "label", state = state).ifBlank { "Button" }
+        val variant = ir.stringProp("variant") ?: "primary"
 
         val onClick: () -> Unit = {
             ir.actions?.get("onClick")?.let { onAction(it) }
@@ -404,9 +372,9 @@ object IdeaNanoRenderer {
         onAction: (NanoActionIR) -> Unit,
         modifier: Modifier
     ) {
-        val label = ir.getStringProp("label") ?: ""
+        val label = resolveText(ir, propKey = "label", state = state)
         val bindPath = ir.bindings?.get("checked")?.expression?.removePrefix("state.")
-        val initialChecked = bindPath?.let { state[it] as? Boolean } ?: ir.getBoolProp("checked") ?: false
+        val initialChecked = bindPath?.let { state[it] as? Boolean } ?: ir.booleanProp("checked") ?: false
         var checked by remember(initialChecked) { mutableStateOf(initialChecked) }
 
         Row(
@@ -431,8 +399,8 @@ object IdeaNanoRenderer {
 
     @Composable
     private fun RenderAlert(ir: NanoIR, modifier: Modifier) {
-        val message = ir.getStringProp("message") ?: ir.getStringProp("content") ?: ""
-        val variant = ir.getStringProp("variant") ?: "info"
+        val message = ir.stringProp("message") ?: ir.stringProp("content") ?: ""
+        val variant = ir.stringProp("variant") ?: "info"
 
         val (bgColor, borderColor) = when (variant) {
             "success" -> Color(0xFF81C784).copy(alpha = 0.1f) to Color(0xFF81C784).copy(alpha = 0.3f)
@@ -458,8 +426,8 @@ object IdeaNanoRenderer {
         // Check for binding first
         val bindPath = ir.bindings?.get("value")?.expression?.removePrefix("state.")
         val boundValue = bindPath?.let { (state[it] as? Number)?.toFloat() }
-        val value = boundValue ?: ir.getDoubleProp("value")?.toFloat() ?: 0f
-        val max = ir.getDoubleProp("max")?.toFloat() ?: 100f
+        val value = boundValue ?: ir.doubleProp("value")?.toFloat() ?: 0f
+        val max = ir.doubleProp("max")?.toFloat() ?: 100f
         val progress = (value / max).coerceIn(0f, 1f)
 
         Box(
@@ -529,15 +497,5 @@ object IdeaNanoRenderer {
         }
     }
 
-    // ==================== Helper Functions ====================
-
-    private fun String.toSpacing() = when (this) {
-        "xs" -> 4.dp
-        "sm" -> 8.dp
-        "md" -> 16.dp
-        "lg" -> 24.dp
-        "xl" -> 32.dp
-        else -> toIntOrNull()?.dp ?: 8.dp
-    }
 }
 
