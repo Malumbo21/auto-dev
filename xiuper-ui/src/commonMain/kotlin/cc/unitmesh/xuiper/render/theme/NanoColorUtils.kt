@@ -42,9 +42,11 @@ object NanoColorUtils {
      */
     fun toHexString(color: Long, includeAlpha: Boolean = false): String {
         return if (includeAlpha) {
-            "#%08X".format(color.toInt())
+            val hex = (color.toInt().toUInt()).toString(16).uppercase().padStart(8, '0')
+            "#$hex"
         } else {
-            "#%06X".format((color and 0xFFFFFF).toInt())
+            val hex = ((color and 0xFFFFFF).toInt().toUInt()).toString(16).uppercase().padStart(6, '0')
+            "#$hex"
         }
     }
 
