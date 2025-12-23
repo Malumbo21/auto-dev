@@ -13,15 +13,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
+import cc.unitmesh.xuiper.render.theme.NanoColorUtils
+import cc.unitmesh.xuiper.render.theme.NanoThemeFamily
 
 internal val LocalNanoThemeApplied = staticCompositionLocalOf { false }
-
-@Immutable
-enum class NanoThemeFamily {
-    BANK_BLACK_GOLD,
-    TRAVEL_AIRBNB,
-    CUSTOM
-}
 
 @Stable
 class NanoThemeState internal constructor(
@@ -39,7 +34,7 @@ class NanoThemeState internal constructor(
     var customSeedHex by mutableStateOf(customSeedHex)
 
     val customSeedColorOrNull: Color?
-        get() = parseHexColorOrNull(customSeedHex)
+        get() = NanoColorUtils.parseHexColorOrNull(customSeedHex)?.let { Color(it) }
 }
 
 @Composable
@@ -62,8 +57,9 @@ fun ProvideNanoTheme(
         NanoThemeFamily.BANK_BLACK_GOLD -> if (isDark) NanoBuiltInDesignSystems.BankBlackGold.dark else NanoBuiltInDesignSystems.BankBlackGold.light
         NanoThemeFamily.TRAVEL_AIRBNB -> if (isDark) NanoBuiltInDesignSystems.TravelAirbnb.dark else NanoBuiltInDesignSystems.TravelAirbnb.light
         NanoThemeFamily.CUSTOM -> {
-            val seed = state.customSeedColorOrNull ?: Color(0xFF6366F1)
-            nanoColorSchemeFromSeed(seed, dark = isDark)
+            val seedHex = NanoColorUtils.parseHexColorOrNull(state.customSeedHex) ?: 0xFF6366F1
+            val tokens = NanoColorUtils.generateFromSeed(seedHex, dark = isDark)
+            tokens.toColorScheme(dark = isDark)
         }
     }
 

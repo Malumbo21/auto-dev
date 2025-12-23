@@ -35,7 +35,7 @@ import cc.unitmesh.devins.ui.nano.StatefulNanoRenderer
 import cc.unitmesh.devins.ui.platform.createFileChooser
 import cc.unitmesh.xuiper.dsl.NanoDSL
 import cc.unitmesh.xuiper.ir.NanoIR
-import cc.unitmesh.devins.ui.nano.theme.NanoThemeFamily
+import cc.unitmesh.xuiper.render.theme.NanoThemeFamily
 import cc.unitmesh.devins.ui.nano.theme.ProvideNanoTheme
 import cc.unitmesh.devins.ui.nano.theme.parseHexColorOrNull
 import cc.unitmesh.devins.ui.nano.theme.rememberNanoThemeState

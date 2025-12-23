@@ -1,36 +1,7 @@
 package cc.unitmesh.devins.ui.nano.theme
 
-import com.charleskorn.kaml.Yaml
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
-
-/**
- * Nano theme configuration model.
- *
- * This is designed for future YAML-driven theming.
- * For now it intentionally supports a minimal, stable subset:
- * - Built-in family selection
- * - Dark/light mode flag
- * - Custom seed color (hex)
- */
-@Serializable
-data class NanoThemeConfig(
-    @SerialName("family")
-    val family: NanoThemeFamily? = null,
-    @SerialName("dark")
-    val dark: Boolean? = null,
-    @SerialName("customSeedHex")
-    val customSeedHex: String? = null
-)
-
-/**
- * Parse YAML into [NanoThemeConfig]. Returns null when parsing fails.
- */
-fun parseNanoThemeConfigYamlOrNull(yaml: String): NanoThemeConfig? {
-    return runCatching {
-        Yaml.default.decodeFromString(NanoThemeConfig.serializer(), yaml)
-    }.getOrNull()
-}
+import cc.unitmesh.xuiper.render.theme.NanoThemeConfig
+import cc.unitmesh.xuiper.render.theme.parseNanoThemeConfigYamlOrNull
 
 /**
  * Apply a config onto an existing [NanoThemeState].
@@ -41,4 +12,13 @@ fun NanoThemeConfig.applyTo(state: NanoThemeState) {
     family?.let { state.family = it }
     dark?.let { state.dark = it }
     customSeedHex?.let { state.customSeedHex = it }
+}
+
+/**
+ * Parse YAML config and apply to state.
+ */
+fun applyNanoThemeConfigYaml(yaml: String, state: NanoThemeState): Boolean {
+    val config = parseNanoThemeConfigYamlOrNull(yaml) ?: return false
+    config.applyTo(state)
+    return true
 }
