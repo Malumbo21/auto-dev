@@ -23,10 +23,12 @@ data class TerminalScrollbarColors(
  * - Dynamic theme support via color provider
  *
  * Note: This class is open to allow anonymous subclass creation like IDEA's JBScrollBar.
+ * Note: colorsProvider is nullable because updateUI() is called during parent constructor
+ * before field initialization.
  */
 open class ModernTerminalScrollBar(
     orientation: Int,
-    private val colorsProvider: () -> TerminalScrollbarColors?
+    private val colorsProvider: (() -> TerminalScrollbarColors?)? = null
 ) : JScrollBar(orientation) {
     // Keep dimensions conservative: visible enough to grab, still minimal.
     private val trackThicknessPx = 10
@@ -60,7 +62,8 @@ open class ModernTerminalScrollBar(
                 private var pressing = false
 
                 override fun configureScrollBarColors() {
-                    colorsProvider()?.let {
+                    // colorsProvider may be null during parent constructor call
+                    colorsProvider?.invoke()?.let {
                         thumbColor = it.thumb
                         trackColor = it.track
                     }
@@ -91,7 +94,8 @@ open class ModernTerminalScrollBar(
                 override fun paintThumb(g: Graphics, c: JComponent, thumbBounds: Rectangle) {
                     if (thumbBounds.isEmpty) return
                     // Get colors dynamically to support theme changes
-                    val thumbColors = colorsProvider() ?: return super.paintThumb(g, c, thumbBounds)
+                    // colorsProvider may be null during parent constructor call
+                    val thumbColors = colorsProvider?.invoke() ?: return super.paintThumb(g, c, thumbBounds)
 
                     val g2 = g as Graphics2D
                     g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)

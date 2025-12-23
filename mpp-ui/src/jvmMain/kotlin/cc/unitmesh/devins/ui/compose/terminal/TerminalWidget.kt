@@ -180,24 +180,33 @@ class ProcessTtyConnector(
  */
 
 /**
+ * Holder for scrollbar colors provider to work around JediTermWidget constructor timing.
+ * createScrollBar() is called during parent constructor before field initialization,
+ * so we need a mutable holder that can be set after construction.
+ */
+class ScrollbarColorsHolder {
+    var provider: (() -> TerminalScrollbarColors)? = null
+}
+
+/**
  * Custom JediTermWidget that overrides scrollbar creation like IDEA's JBTerminalWidget.
  * Following IDEA's pattern: createScrollBar() is called during parent constructor,
- * so we use a lazy approach to access terminal panel colors after initialization.
+ * so we use a holder approach to access colors after initialization.
  * Uses ultra-thin, semi-transparent scrollbar for modern look.
  * Supports dynamic theme changes via color provider.
  */
 class AutoDevTerminalWidget(
     settingsProvider: ComposeTerminalSettingsProvider,
-    private val scrollbarColorsProvider: () -> TerminalScrollbarColors
+    private val colorsHolder: ScrollbarColorsHolder
 ) : JediTermWidget(settingsProvider) {
     override fun createScrollBar(): JScrollBar {
         // Like JBTerminalWidget, create scrollbar that adapts to terminal panel background
         // Use anonymous class like IDEA does to access terminalPanel after initialization
-        // Pass color provider for dynamic theme support
+        // Use holder to get colors - may be null during parent constructor, but will be set after
         val bar =
             object : ModernTerminalScrollBar(
                 VERTICAL,
-                scrollbarColorsProvider
+                { colorsHolder.provider?.invoke() }
             ) {
                 override fun getBackground(): java.awt.Color {
                     // Return terminal panel background like JBScrollBar does
@@ -291,6 +300,10 @@ fun TerminalWidget(
         )
     }
 
+    // Create holder for colors provider - needed because createScrollBar() is called during parent constructor
+    val colorsHolder = remember { ScrollbarColorsHolder() }
+    colorsHolder.provider = scrollbarColorsProvider
+
     SwingPanel(
         modifier = modifier,
         background = backgroundColor,
@@ -304,8 +317,8 @@ fun TerminalWidget(
                     terminalFont = terminalFont
                 )
 
-            // Create custom terminal widget with color provider for dynamic theme support
-            val widget = AutoDevTerminalWidget(settingsProvider, scrollbarColorsProvider)
+            // Create custom terminal widget with colors holder for dynamic theme support
+            val widget = AutoDevTerminalWidget(settingsProvider, colorsHolder)
 
             // Set size constraints
             widget.preferredSize = Dimension(800, 400)
