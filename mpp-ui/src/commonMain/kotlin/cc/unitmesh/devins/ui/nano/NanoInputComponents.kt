@@ -195,64 +195,6 @@ object NanoInputComponents {
         )
     }
 
-    /**
-     * Renders a select component.
-     * Delegates to [NanoSelectionComponents.RenderSelect]
-     */
-    @Composable
-    fun RenderSelect(
-        ir: NanoIR,
-        state: Map<String, Any>,
-        onAction: (NanoActionIR) -> Unit,
-        modifier: Modifier
-    ) {
-        NanoSelectionComponents.RenderSelect(ir, state, onAction, modifier)
-    }
-
-    /**
-     * Renders a date picker component.
-     * Delegates to [NanoDateComponents.RenderDatePicker]
-     */
-    @OptIn(ExperimentalMaterial3Api::class)
-    @Composable
-    fun RenderDatePicker(
-        ir: NanoIR,
-        state: Map<String, Any>,
-        onAction: (NanoActionIR) -> Unit,
-        modifier: Modifier
-    ) {
-        NanoDateComponents.RenderDatePicker(ir, state, onAction, modifier)
-    }
-
-    /**
-     * Renders a radio button component.
-     * Delegates to [NanoSelectionComponents.RenderRadio]
-     */
-    @Composable
-    fun RenderRadio(
-        ir: NanoIR,
-        state: Map<String, Any>,
-        onAction: (NanoActionIR) -> Unit,
-        modifier: Modifier
-    ) {
-        NanoSelectionComponents.RenderRadio(ir, state, onAction, modifier)
-    }
-
-    /**
-     * Renders a radio group component.
-     * Delegates to [NanoSelectionComponents.RenderRadioGroup]
-     */
-    @Composable
-    fun RenderRadioGroup(
-        ir: NanoIR,
-        state: Map<String, Any>,
-        onAction: (NanoActionIR) -> Unit,
-        modifier: Modifier,
-        renderNode: @Composable (NanoIR, Map<String, Any>, (NanoActionIR) -> Unit, Modifier) -> Unit
-    ) {
-        NanoSelectionComponents.RenderRadioGroup(ir, state, onAction, modifier, renderNode)
-    }
-
     @Composable
     fun RenderSwitch(
         ir: NanoIR,

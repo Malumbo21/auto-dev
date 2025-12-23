@@ -178,19 +178,27 @@ object ComposeNanoRegistry {
     }
 
     private val selectRenderer: ComposeRenderer = NanoNodeRenderer { ctx ->
-        { NanoInputComponents.RenderSelect(ctx.node, ctx.state, ctx.onAction, ctx.payload) }
+        {
+            NanoSelectionRenderer.RenderSelect(ctx.node, ctx.state, ctx.onAction, ctx.payload)
+        }
     }
 
     private val datePickerRenderer: ComposeRenderer = NanoNodeRenderer { ctx ->
-        { NanoInputComponents.RenderDatePicker(ctx.node, ctx.state, ctx.onAction, ctx.payload) }
+        {
+            NanoDateComponents.RenderDatePicker(ctx.node, ctx.state, ctx.onAction, ctx.payload)
+        }
     }
 
     private val radioRenderer: ComposeRenderer = NanoNodeRenderer { ctx ->
-        { NanoInputComponents.RenderRadio(ctx.node, ctx.state, ctx.onAction, ctx.payload) }
+        {
+            NanoSelectionRenderer.RenderRadio(ctx.node, ctx.state, ctx.onAction, ctx.payload)
+        }
     }
 
     private val radioGroupRenderer: ComposeRenderer = NanoNodeRenderer { ctx ->
-        { NanoInputComponents.RenderRadioGroup(ctx.node, ctx.state, ctx.onAction, ctx.payload, ctx.toRenderNode()) }
+        {
+            NanoSelectionRenderer.RenderRadioGroup(ctx.node, ctx.state, ctx.onAction, ctx.payload, ctx.toRenderNode())
+        }
     }
 
     private val switchRenderer: ComposeRenderer = NanoNodeRenderer { ctx ->

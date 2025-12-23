@@ -1,7 +1,7 @@
 package cc.unitmesh.devins.ui.nano
 
-import cc.unitmesh.devins.ui.nano.NanoSelectionComponents
 import cc.unitmesh.xuiper.ir.NanoIR
+import cc.unitmesh.xuiper.props.NanoOptionParser
 import kotlinx.serialization.json.JsonPrimitive
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -26,7 +26,7 @@ class NanoRadioGroupOptionsTest {
             )
         )
 
-        val result = NanoSelectionComponents.parseOptions(ir.props["options"])
+        val result = NanoOptionParser.parse(ir.props["options"])
         assertEquals(3, result.size)
 
         val first = result.first()!!
