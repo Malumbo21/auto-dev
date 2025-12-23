@@ -1,37 +1,57 @@
-package cc.unitmesh.devins.ui.nano
+package cc.unitmesh.devins.ui.nano.components.layout
 
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.VerticalDivider
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import cc.unitmesh.xuiper.ir.NanoActionIR
-import cc.unitmesh.xuiper.ir.NanoIR
+import cc.unitmesh.devins.ui.nano.ComposeNodeContext
+import cc.unitmesh.devins.ui.nano.toLegacyRenderNode
 import cc.unitmesh.xuiper.ir.stringProp
 import cc.unitmesh.xuiper.props.NanoSpacingUtils
+import cc.unitmesh.xuiper.render.stateful.NanoNodeRenderer
 
 /**
  * Layout components for NanoUI Compose renderer.
  * Includes: VStack, HStack, Card, Form, Component, SplitView
+ *
+ * All components use the unified NanoNodeContext interface.
  */
-object NanoLayoutComponents {
+object LayoutComponents {
+
+    val vstackRenderer = NanoNodeRenderer<Modifier, @Composable () -> Unit> { ctx ->
+        { RenderVStack(ctx) }
+    }
+
+    val hstackRenderer = NanoNodeRenderer<Modifier, @Composable () -> Unit> { ctx ->
+        { RenderHStack(ctx) }
+    }
+
+    val cardRenderer = NanoNodeRenderer<Modifier, @Composable () -> Unit> { ctx ->
+        { RenderCard(ctx) }
+    }
+
+    val formRenderer = NanoNodeRenderer<Modifier, @Composable () -> Unit> { ctx ->
+        { RenderForm(ctx) }
+    }
+
+    val componentRenderer = NanoNodeRenderer<Modifier, @Composable () -> Unit> { ctx ->
+        { RenderComponent(ctx) }
+    }
+
+    val splitViewRenderer = NanoNodeRenderer<Modifier, @Composable () -> Unit> { ctx ->
+        { RenderSplitView(ctx) }
+    }
 
     @Composable
-    fun RenderVStack(
-        ir: NanoIR,
-        state: Map<String, Any>,
-        onAction: (NanoActionIR) -> Unit,
-        modifier: Modifier,
-        renderNode: @Composable (NanoIR, Map<String, Any>, (NanoActionIR) -> Unit, Modifier) -> Unit
-    ) {
+    fun RenderVStack(ctx: ComposeNodeContext) {
+        val ir = ctx.node
         val spacing = ir.stringProp("spacing")?.toSpacing() ?: 8.dp
         val padding = ir.stringProp("padding")?.toPadding()
         val align = ir.stringProp("align")
@@ -40,28 +60,25 @@ object NanoLayoutComponents {
             "center" -> Alignment.CenterHorizontally
             "start" -> Alignment.Start
             "end" -> Alignment.End
-            "stretch" -> Alignment.Start // Column doesn't have stretch, default to Start
+            "stretch" -> Alignment.Start
             else -> Alignment.Start
         }
 
-        val finalModifier = if (padding != null) modifier.padding(padding) else modifier
+        val finalModifier = if (padding != null) ctx.payload.padding(padding) else ctx.payload
         Column(
             modifier = finalModifier,
             verticalArrangement = Arrangement.spacedBy(spacing),
             horizontalAlignment = horizontalAlignment
         ) {
-            ir.children?.forEach { child -> renderNode(child, state, onAction, Modifier) }
+            ir.children?.forEach { child ->
+                ctx.renderChild(child, Modifier).invoke()
+            }
         }
     }
 
     @Composable
-    fun RenderHStack(
-        ir: NanoIR,
-        state: Map<String, Any>,
-        onAction: (NanoActionIR) -> Unit,
-        modifier: Modifier,
-        renderNode: @Composable (NanoIR, Map<String, Any>, (NanoActionIR) -> Unit, Modifier) -> Unit
-    ) {
+    fun RenderHStack(ctx: ComposeNodeContext) {
+        val ir = ctx.node
         val spacing = ir.stringProp("spacing")?.toSpacing() ?: 8.dp
         val padding = ir.stringProp("padding")?.toPadding()
         val align = ir.stringProp("align")
@@ -83,31 +100,21 @@ object NanoLayoutComponents {
             else -> Arrangement.spacedBy(spacing)
         }
 
-        // Apply fillMaxWidth when justify is specified to make space distribution work
-        val baseModifier = if (justify != null) modifier.fillMaxWidth() else modifier
+        val baseModifier = if (justify != null) ctx.payload.fillMaxWidth() else ctx.payload
         val finalModifier = if (padding != null) baseModifier.padding(padding) else baseModifier
 
         val children = ir.children.orEmpty()
         val containsImage = remember(children) { children.any { it.type == "Image" } }
         val containsVStack = remember(children) { children.any { it.type == "VStack" } }
-        // When mixing Image + VStack in a horizontal layout, Row can squeeze text into 1-char columns.
-        // FlowRow lets the VStack wrap below the image when space is tight.
         val shouldWrap = containsImage && containsVStack
-
         val explicitWrap = wrap == "wrap" || wrap == "true"
 
-        // Count VStack/Card children to determine if we should auto-distribute space
-        val vstackOrCardChildren = children.count {
-            it.type == "VStack" || it.type == "Card"
-        }
+        val vstackOrCardChildren = children.count { it.type == "VStack" || it.type == "Card" }
         val shouldAutoDistribute = vstackOrCardChildren >= 2
 
-
-        // Types that should receive equal weight when in HStack with justify="between"
         val flexibleInputTypes = setOf(
             "DatePicker", "DateRangePicker", "Input", "TextArea", "Select", "Slider"
         )
-        // Count flexible input children for auto-distribution in justify="between" scenarios
         val flexibleInputChildren = children.count { it.type in flexibleInputTypes }
         val shouldDistributeInputs = justify == "between" && flexibleInputChildren >= 2
 
@@ -119,17 +126,14 @@ object NanoLayoutComponents {
                 verticalArrangement = Arrangement.spacedBy(spacing)
             ) {
                 children.forEach { child ->
-                    // Checkbox groups are commonly authored as HStack(wrap="wrap"); treat them as block items.
                     val childModifier = if (explicitWrap && child.type == "Checkbox") Modifier.fillMaxWidth() else Modifier
-                    renderNode(child, state, onAction, childModifier)
+                    ctx.renderChild(child, childModifier).invoke()
                 }
             }
             return
         }
 
         Row(
-            // When a Divider appears in a horizontal layout, render it as a vertical divider.
-            // Intrinsic height lets VerticalDivider fill the row height without stealing width.
             modifier = if (children.any { it.type == "Divider" }) finalModifier.height(IntrinsicSize.Min) else finalModifier,
             horizontalArrangement = horizontalArrangement,
             verticalAlignment = verticalAlignment
@@ -137,49 +141,38 @@ object NanoLayoutComponents {
             children.forEach { child ->
                 if (child.type == "Divider") {
                     VerticalDivider(
-                        modifier = Modifier
-                            .fillMaxHeight()
-                            .width(1.dp),
+                        modifier = Modifier.fillMaxHeight().width(1.dp),
                         color = MaterialTheme.colorScheme.outlineVariant
                     )
                     return@forEach
                 }
-                // Check if child has explicit flex/weight property
+
                 val childFlex = child.stringProp("flex")?.toFloatOrNull()
                 val childWeight = child.stringProp("weight")?.toFloatOrNull()
                 val weight = childFlex ?: childWeight
 
                 if (weight != null && weight > 0f) {
-                    // Explicit weight specified
                     Box(modifier = Modifier.weight(weight).wrapContentHeight(unbounded = true)) {
-                        renderNode(child, state, onAction, Modifier)
+                        ctx.renderChild(child, Modifier).invoke()
                     }
                 } else if (shouldAutoDistribute && (child.type == "VStack" || child.type == "Card")) {
-                    // VStack/Card in HStack with multiple siblings should share space equally
                     Box(modifier = Modifier.weight(1f).wrapContentHeight(unbounded = true)) {
-                        renderNode(child, state, onAction, Modifier)
+                        ctx.renderChild(child, Modifier).invoke()
                     }
                 } else if (shouldDistributeInputs && child.type in flexibleInputTypes) {
-                    // Input components in HStack with justify="between" should share space equally
                     Box(modifier = Modifier.weight(1f).wrapContentHeight(unbounded = true)) {
-                        renderNode(child, state, onAction, Modifier.fillMaxWidth())
+                        ctx.renderChild(child, Modifier.fillMaxWidth()).invoke()
                     }
                 } else {
-                    // Default: size to content
-                    renderNode(child, state, onAction, Modifier)
+                    ctx.renderChild(child, Modifier).invoke()
                 }
             }
         }
     }
 
     @Composable
-    fun RenderCard(
-        ir: NanoIR,
-        state: Map<String, Any>,
-        onAction: (NanoActionIR) -> Unit,
-        modifier: Modifier,
-        renderNode: @Composable (NanoIR, Map<String, Any>, (NanoActionIR) -> Unit, Modifier) -> Unit
-    ) {
+    fun RenderCard(ctx: ComposeNodeContext) {
+        val ir = ctx.node
         val padding = ir.stringProp("padding")?.toPadding() ?: 16.dp
         val shadow = ir.stringProp("shadow")
 
@@ -190,69 +183,60 @@ object NanoLayoutComponents {
             else -> CardDefaults.cardElevation()
         }
 
-        Card(modifier = modifier.fillMaxWidth(), elevation = elevation) {
+        Card(modifier = ctx.payload.fillMaxWidth(), elevation = elevation) {
             Column(
                 modifier = Modifier.padding(padding),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                ir.children?.forEach { child -> renderNode(child, state, onAction, Modifier) }
+                ctx.node.children?.forEach { child ->
+                    ctx.renderChild(child, Modifier).invoke()
+                }
             }
         }
     }
 
     @Composable
-    fun RenderForm(
-        ir: NanoIR,
-        state: Map<String, Any>,
-        onAction: (NanoActionIR) -> Unit,
-        modifier: Modifier,
-        renderNode: @Composable (NanoIR, Map<String, Any>, (NanoActionIR) -> Unit, Modifier) -> Unit
-    ) {
-        Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            ir.children?.forEach { child -> renderNode(child, state, onAction, Modifier) }
+    fun RenderForm(ctx: ComposeNodeContext) {
+        Column(
+            modifier = ctx.payload.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            ctx.node.children?.forEach { child ->
+                ctx.renderChild(child, Modifier).invoke()
+            }
         }
     }
 
     @Composable
-    fun RenderComponent(
-        ir: NanoIR,
-        state: Map<String, Any>,
-        onAction: (NanoActionIR) -> Unit,
-        modifier: Modifier,
-        renderNode: @Composable (NanoIR, Map<String, Any>, (NanoActionIR) -> Unit, Modifier) -> Unit
-    ) {
-        Column(modifier = modifier) {
-            ir.children?.forEach { child -> renderNode(child, state, onAction, Modifier) }
+    fun RenderComponent(ctx: ComposeNodeContext) {
+        Column(modifier = ctx.payload) {
+            ctx.node.children?.forEach { child ->
+                ctx.renderChild(child, Modifier).invoke()
+            }
         }
     }
 
     @Composable
-    fun RenderSplitView(
-        ir: NanoIR,
-        state: Map<String, Any>,
-        onAction: (NanoActionIR) -> Unit,
-        modifier: Modifier,
-        renderNode: @Composable (NanoIR, Map<String, Any>, (NanoActionIR) -> Unit, Modifier) -> Unit
-    ) {
+    fun RenderSplitView(ctx: ComposeNodeContext) {
+        val ir = ctx.node
         val ratio = ir.stringProp("ratio")?.toFloatOrNull() ?: 0.5f
         val children = ir.children.orEmpty()
 
-        BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+        BoxWithConstraints(modifier = ctx.payload.fillMaxWidth()) {
             val safeRatio = ratio.coerceIn(0.1f, 0.9f)
 
-            // On narrow screens, a split view becomes two cramped columns. Stack instead.
             if (maxWidth < 720.dp) {
                 Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    children.firstOrNull()?.let { renderNode(it, state, onAction, Modifier.fillMaxWidth()) }
-                    children.getOrNull(1)?.let { renderNode(it, state, onAction, Modifier.fillMaxWidth()) }
+                    children.firstOrNull()?.let { ctx.renderChild(it, Modifier.fillMaxWidth()).invoke() }
+                    children.getOrNull(1)?.let { ctx.renderChild(it, Modifier.fillMaxWidth()).invoke() }
                 }
             } else {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     Box(modifier = Modifier.weight(safeRatio)) {
-                        children.firstOrNull()?.let { renderNode(it, state, onAction, Modifier.fillMaxWidth()) }
+                        children.firstOrNull()?.let { ctx.renderChild(it, Modifier.fillMaxWidth()).invoke() }
                     }
                     Box(modifier = Modifier.weight(1f - safeRatio)) {
-                        children.getOrNull(1)?.let { renderNode(it, state, onAction, Modifier.fillMaxWidth()) }
+                        children.getOrNull(1)?.let { ctx.renderChild(it, Modifier.fillMaxWidth()).invoke() }
                     }
                 }
             }
@@ -260,15 +244,12 @@ object NanoLayoutComponents {
     }
 }
 
-
 /**
  * Convert spacing string to Dp value.
- * Delegates to [NanoSpacingUtils.parseSpacing] for parsing.
  */
 fun String.toSpacing(): Dp = NanoSpacingUtils.parseSpacing(this).dp
 
 /**
  * Convert padding string to Dp value.
- * Delegates to [NanoSpacingUtils.parsePadding] for parsing.
  */
 fun String.toPadding(): Dp = NanoSpacingUtils.parsePadding(this).dp

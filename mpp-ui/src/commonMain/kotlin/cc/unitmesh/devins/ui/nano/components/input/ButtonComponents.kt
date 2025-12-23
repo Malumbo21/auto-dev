@@ -1,4 +1,4 @@
-package cc.unitmesh.devins.ui.nano
+package cc.unitmesh.devins.ui.nano.components.input
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -14,67 +14,54 @@ import androidx.compose.ui.window.Dialog
 import cc.unitmesh.agent.subagent.NanoDSLAgent
 import cc.unitmesh.agent.subagent.NanoDSLContext
 import cc.unitmesh.config.ConfigManager
+import cc.unitmesh.devins.ui.nano.ComposeNodeContext
+import cc.unitmesh.devins.ui.nano.NanoPropsResolver
 import cc.unitmesh.llm.KoogLLMService
 import cc.unitmesh.xuiper.eval.evaluator.NanoExpressionEvaluator
 import cc.unitmesh.xuiper.ir.NanoActionIR
 import cc.unitmesh.xuiper.ir.NanoIR
 import cc.unitmesh.xuiper.ir.stringProp
+import cc.unitmesh.xuiper.render.stateful.NanoNodeRenderer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 
 /**
  * Button components for NanoUI Compose renderer.
- * Includes: Button, DynamicButtonDialog, RenderGeneratedContent
+ * Includes: Button with dynamic dialog support
+ *
+ * All components use the unified NanoNodeContext interface.
  */
-object NanoButtonComponents {
+object ButtonComponents {
 
-    private val lenientJson = Json {
-        isLenient = true
-        ignoreUnknownKeys = true
+    val buttonRenderer = NanoNodeRenderer<Modifier, @Composable () -> Unit> { ctx ->
+        { RenderButton(ctx) }
     }
 
     /**
      * Check if an action type is supported by NanoStateRuntime.
-     * Currently only "sequence" and "stateMutation" are handled.
-     * Other action types (ShowToast, Navigate, Fetch, etc.) are not implemented
-     * in the Compose renderer and should trigger dynamic dialog generation.
      */
     fun isActionSupported(action: NanoActionIR): Boolean {
         return action.type in setOf("sequence", "stateMutation")
     }
 
     @Composable
-    fun RenderButton(
-        ir: NanoIR,
-        state: Map<String, Any>,
-        onAction: (NanoActionIR) -> Unit,
-        modifier: Modifier
-    ) {
-        val rawLabel = NanoExpressionEvaluator.resolveStringProp(ir, "label", state).ifBlank { "Button" }
-        val label = NanoExpressionEvaluator.interpolateText(rawLabel, state)
+    fun RenderButton(ctx: ComposeNodeContext) {
+        val ir = ctx.node
+        val rawLabel = NanoPropsResolver.resolveString(ir, "label", ctx.state).ifBlank { "Button" }
+        val label = rawLabel
         val intent = ir.stringProp("intent")
         val disabledIf = ir.stringProp("disabled_if")
-        val isDisabled = !disabledIf.isNullOrBlank() && NanoExpressionEvaluator.evaluateCondition(disabledIf, state)
+        val isDisabled = !disabledIf.isNullOrBlank() && NanoExpressionEvaluator.evaluateCondition(disabledIf, ctx.state)
         val onClick = ir.actions?.get("onClick")
 
-        // State for dynamic dialog when button has unsupported action
         var showDynamicDialog by remember { mutableStateOf(false) }
 
         val handleClick: () -> Unit = {
             if (!isDisabled) {
                 when {
-                    onClick == null -> {
-                        // No onClick action defined - show dynamic dialog
-                        showDynamicDialog = true
-                    }
-                    isActionSupported(onClick) -> {
-                        // Supported action - execute it
-                        onAction(onClick)
-                    }
-                    else -> {
-                        // Unsupported action type (ShowToast, Navigate, etc.) - show dynamic dialog
-                        showDynamicDialog = true
-                    }
+                    onClick == null -> showDynamicDialog = true
+                    isActionSupported(onClick) -> ctx.onAction(onClick)
+                    else -> showDynamicDialog = true
                 }
             }
         }
@@ -83,7 +70,7 @@ object NanoButtonComponents {
             "secondary" -> OutlinedButton(
                 onClick = handleClick,
                 enabled = !isDisabled,
-                modifier = modifier
+                modifier = ctx.payload
             ) {
                 Text(label)
             }
@@ -96,30 +83,25 @@ object NanoButtonComponents {
                     onClick = handleClick,
                     enabled = !isDisabled,
                     colors = colors,
-                    modifier = modifier
+                    modifier = ctx.payload
                 ) {
                     Text(label)
                 }
             }
         }
 
-        // Dynamic dialog for buttons without onClick action
         if (showDynamicDialog) {
             DynamicButtonDialog(
                 buttonLabel = label,
-                state = state,
+                state = ctx.state,
                 onDismiss = { showDynamicDialog = false },
-                onAction = onAction
+                onAction = ctx.onAction
             )
         }
     }
 
-    /**
-     * Dynamic dialog that generates content using NanoDSLAgent when a button
-     * without an onClick action is clicked.
-     */
     @Composable
-    fun DynamicButtonDialog(
+    private fun DynamicButtonDialog(
         buttonLabel: String,
         state: Map<String, Any>,
         onDismiss: () -> Unit,
@@ -130,7 +112,6 @@ object NanoButtonComponents {
         var isLoading by remember { mutableStateOf(true) }
         var errorMessage by remember { mutableStateOf<String?>(null) }
 
-        // Initialize LLM service
         LaunchedEffect(Unit) {
             try {
                 val wrapper = ConfigManager.load()
@@ -147,7 +128,6 @@ object NanoButtonComponents {
             }
         }
 
-        // Generate dialog content using NanoDSLAgent
         LaunchedEffect(llmService) {
             val service = llmService ?: return@LaunchedEffect
 
@@ -164,7 +144,7 @@ object NanoButtonComponents {
 
                 val agent = NanoDSLAgent(service, maxRetries = 1)
                 val context = NanoDSLContext(description = description)
-                val result = agent.execute(context) { /* ignore progress */ }
+                val result = agent.execute(context) { }
 
                 if (result.success) {
                     val irJson = result.metadata["irJson"]
@@ -172,7 +152,6 @@ object NanoButtonComponents {
                         try {
                             generatedIR = Json.decodeFromString<NanoIR>(irJson)
                         } catch (e: Exception) {
-                            // If IR parsing fails, create a simple text response
                             generatedIR = NanoIR(
                                 type = "VStack",
                                 props = mapOf("spacing" to JsonPrimitive("md")),
@@ -185,7 +164,6 @@ object NanoButtonComponents {
                             )
                         }
                     } else {
-                        // No IR JSON, show content as text
                         generatedIR = NanoIR(
                             type = "VStack",
                             props = mapOf("spacing" to JsonPrimitive("md")),
@@ -209,14 +187,11 @@ object NanoButtonComponents {
 
         Dialog(onDismissRequest = onDismiss) {
             Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
                 shape = RoundedCornerShape(12.dp),
                 tonalElevation = 6.dp
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    // Header
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
@@ -228,16 +203,12 @@ object NanoButtonComponents {
                             modifier = Modifier.weight(1f)
                         )
                         IconButton(onClick = onDismiss) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Close"
-                            )
+                            Icon(imageVector = Icons.Default.Close, contentDescription = "Close")
                         }
                     }
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Content
                     when {
                         isLoading -> {
                             Row(
@@ -258,43 +229,25 @@ object NanoButtonComponents {
                             )
                         }
                         generatedIR != null -> {
-                            // Render the generated NanoIR content
-                            RenderGeneratedContent(
-                                ir = generatedIR!!,
-                                state = state,
-                                onAction = onAction
-                            )
+                            RenderGeneratedContent(ir = generatedIR!!, state = state, onAction = onAction)
                         }
                         else -> {
-                            Text(
-                                text = "No content available",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
+                            Text(text = "No content available", style = MaterialTheme.typography.bodyMedium)
                         }
                     }
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Close button
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End
-                    ) {
-                        OutlinedButton(onClick = onDismiss) {
-                            Text("Close")
-                        }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        OutlinedButton(onClick = onDismiss) { Text("Close") }
                     }
                 }
             }
         }
     }
 
-    /**
-     * Render generated NanoIR content within the dialog.
-     * This is a simplified renderer for dialog content.
-     */
     @Composable
-    fun RenderGeneratedContent(
+    private fun RenderGeneratedContent(
         ir: NanoIR,
         state: Map<String, Any>,
         onAction: (NanoActionIR) -> Unit
@@ -305,9 +258,7 @@ object NanoButtonComponents {
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    ir.children?.forEach { child ->
-                        RenderGeneratedContent(child, state, onAction)
-                    }
+                    ir.children?.forEach { child -> RenderGeneratedContent(child, state, onAction) }
                 }
             }
             "HStack" -> {
@@ -315,9 +266,7 @@ object NanoButtonComponents {
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    ir.children?.forEach { child ->
-                        RenderGeneratedContent(child, state, onAction)
-                    }
+                    ir.children?.forEach { child -> RenderGeneratedContent(child, state, onAction) }
                 }
             }
             "Text" -> {
@@ -340,32 +289,23 @@ object NanoButtonComponents {
                 val onClick = ir.actions?.get("onClick")
 
                 if (intent == "secondary") {
-                    OutlinedButton(onClick = { onClick?.let { onAction(it) } }) {
-                        Text(label)
-                    }
+                    OutlinedButton(onClick = { onClick?.let { onAction(it) } }) { Text(label) }
                 } else {
-                    Button(onClick = { onClick?.let { onAction(it) } }) {
-                        Text(label)
-                    }
+                    Button(onClick = { onClick?.let { onAction(it) } }) { Text(label) }
                 }
             }
             "Card" -> {
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(12.dp)) {
-                        ir.children?.forEach { child ->
-                            RenderGeneratedContent(child, state, onAction)
-                        }
+                        ir.children?.forEach { child -> RenderGeneratedContent(child, state, onAction) }
                     }
                 }
             }
             else -> {
-                // For unknown types, try to render children or show type name
                 val children = ir.children
                 if (!children.isNullOrEmpty()) {
                     Column {
-                        children.forEach { child ->
-                            RenderGeneratedContent(child, state, onAction)
-                        }
+                        children.forEach { child -> RenderGeneratedContent(child, state, onAction) }
                     }
                 } else {
                     Text(
@@ -378,4 +318,3 @@ object NanoButtonComponents {
         }
     }
 }
-

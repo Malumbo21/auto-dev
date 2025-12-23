@@ -1,4 +1,4 @@
-package cc.unitmesh.devins.ui.nano
+package cc.unitmesh.devins.ui.nano.components.input
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -6,34 +6,43 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import cc.unitmesh.devins.ui.nano.ComposeNodeContext
+import cc.unitmesh.devins.ui.nano.toLegacyRenderNode
 import cc.unitmesh.xuiper.action.NanoActionFactory
-import cc.unitmesh.xuiper.ir.NanoActionIR
-import cc.unitmesh.xuiper.ir.NanoIR
 import cc.unitmesh.xuiper.ir.stringProp
+import cc.unitmesh.xuiper.render.stateful.NanoNodeRenderer
 import cc.unitmesh.xuiper.render.toSelectionState
 
 /**
- * Material3 Compose implementation of selection components.
+ * Selection components for NanoUI Compose renderer.
+ * Includes: Select, Radio, RadioGroup
  *
- * Uses utilities from [NanoSelectionRenderer] for parsing and state resolution,
- * and renders using Material3 Compose components.
+ * All components use the unified NanoNodeContext interface.
  */
-object NanoSelectionRenderer {
+object SelectionComponents {
+
+    val selectRenderer = NanoNodeRenderer<Modifier, @Composable () -> Unit> { ctx ->
+        { RenderSelect(ctx) }
+    }
+
+    val radioRenderer = NanoNodeRenderer<Modifier, @Composable () -> Unit> { ctx ->
+        { RenderRadio(ctx) }
+    }
+
+    val radioGroupRenderer = NanoNodeRenderer<Modifier, @Composable () -> Unit> { ctx ->
+        { RenderRadioGroup(ctx) }
+    }
 
     @Composable
-    fun RenderSelect(
-        ir: NanoIR,
-        state: Map<String, Any>,
-        onAction: (NanoActionIR) -> Unit,
-        modifier: Modifier = Modifier
-    ) {
+    fun RenderSelect(ctx: ComposeNodeContext) {
+        val ir = ctx.node
         val placeholder = ir.stringProp("placeholder") ?: "Select..."
-        val selectionState = ir.toSelectionState(state)
+        val selectionState = ir.toSelectionState(ctx.state)
         var uncontrolledSelected by remember(selectionState.statePath, selectionState.selectedValue) {
             mutableStateOf(selectionState.selectedValue)
         }
         val selectedValue = if (selectionState.statePath != null) {
-            state[selectionState.statePath]?.toString() ?: uncontrolledSelected
+            ctx.state[selectionState.statePath]?.toString() ?: uncontrolledSelected
         } else {
             uncontrolledSelected
         }
@@ -45,7 +54,7 @@ object NanoSelectionRenderer {
             placeholder
         }
 
-        Box(modifier = modifier.widthIn(min = 120.dp)) {
+        Box(modifier = ctx.payload.widthIn(min = 120.dp)) {
             OutlinedButton(onClick = { expanded = true }, modifier = Modifier.fillMaxWidth()) {
                 Text(displayText)
             }
@@ -55,10 +64,10 @@ object NanoSelectionRenderer {
                         text = { Text(option.label) },
                         onClick = {
                             expanded = false
-                            dispatchSelection(selectionState.statePath, option.value, onAction) {
+                            NanoActionFactory.dispatchSelection(selectionState.statePath, option.value, ctx.onAction) {
                                 uncontrolledSelected = option.value
                             }
-                            selectionState.onChange?.let { onAction(it) }
+                            selectionState.onChange?.let { ctx.onAction(it) }
                         }
                     )
                 }
@@ -67,33 +76,29 @@ object NanoSelectionRenderer {
     }
 
     @Composable
-    fun RenderRadio(
-        ir: NanoIR,
-        state: Map<String, Any>,
-        onAction: (NanoActionIR) -> Unit,
-        modifier: Modifier = Modifier
-    ) {
+    fun RenderRadio(ctx: ComposeNodeContext) {
+        val ir = ctx.node
         val option = ir.stringProp("option") ?: ""
         val label = ir.stringProp("label") ?: option
-        val selectionState = ir.toSelectionState(state)
+        val selectionState = ir.toSelectionState(ctx.state)
         var uncontrolledSelected by remember(selectionState.statePath, selectionState.selectedValue) {
             mutableStateOf(selectionState.selectedValue)
         }
         val selectedValue = if (selectionState.statePath != null) {
-            state[selectionState.statePath]?.toString() ?: uncontrolledSelected
+            ctx.state[selectionState.statePath]?.toString() ?: uncontrolledSelected
         } else {
             uncontrolledSelected
         }
         val isSelected = selectedValue == option
 
-        Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+        Row(modifier = ctx.payload, verticalAlignment = Alignment.CenterVertically) {
             RadioButton(
                 selected = isSelected,
                 onClick = {
-                    dispatchSelection(selectionState.statePath, option, onAction) {
+                    NanoActionFactory.dispatchSelection(selectionState.statePath, option, ctx.onAction) {
                         uncontrolledSelected = option
                     }
-                    selectionState.onChange?.let { onAction(it) }
+                    selectionState.onChange?.let { ctx.onAction(it) }
                 }
             )
             Spacer(modifier = Modifier.width(8.dp))
@@ -102,36 +107,36 @@ object NanoSelectionRenderer {
     }
 
     @Composable
-    fun RenderRadioGroup(
-        ir: NanoIR,
-        state: Map<String, Any>,
-        onAction: (NanoActionIR) -> Unit,
-        modifier: Modifier = Modifier,
-        renderNode: @Composable (NanoIR, Map<String, Any>, (NanoActionIR) -> Unit, Modifier) -> Unit
-    ) {
+    fun RenderRadioGroup(ctx: ComposeNodeContext) {
+        val ir = ctx.node
         val children = ir.children.orEmpty()
+
+        // If has children, render them
         if (children.isNotEmpty()) {
-            Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                children.forEach { child -> renderNode(child, state, onAction, Modifier) }
+            Column(modifier = ctx.payload, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                children.forEach { child ->
+                    ctx.renderChild(child, Modifier).invoke()
+                }
             }
             return
         }
 
-        val selectionState = ir.toSelectionState(state)
+        // Otherwise render from options
+        val selectionState = ir.toSelectionState(ctx.state)
         var uncontrolledSelected by remember(selectionState.statePath) { mutableStateOf("") }
         val selectedValue = if (selectionState.statePath != null) {
-            state[selectionState.statePath]?.toString() ?: uncontrolledSelected
+            ctx.state[selectionState.statePath]?.toString() ?: uncontrolledSelected
         } else {
             uncontrolledSelected
         }
 
-        Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(modifier = ctx.payload, verticalArrangement = Arrangement.spacedBy(8.dp)) {
             selectionState.options.forEach { option ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     RadioButton(
                         selected = selectedValue == option.value,
                         onClick = {
-                            dispatchSelection(selectionState.statePath, option.value, onAction) {
+                            NanoActionFactory.dispatchSelection(selectionState.statePath, option.value, ctx.onAction) {
                                 uncontrolledSelected = option.value
                             }
                         }
@@ -142,14 +147,4 @@ object NanoSelectionRenderer {
             }
         }
     }
-
-    private fun dispatchSelection(
-        statePath: String?,
-        value: String,
-        onAction: (NanoActionIR) -> Unit,
-        onUncontrolled: () -> Unit
-    ) {
-        NanoActionFactory.dispatchSelection(statePath, value, onAction, onUncontrolled)
-    }
 }
-

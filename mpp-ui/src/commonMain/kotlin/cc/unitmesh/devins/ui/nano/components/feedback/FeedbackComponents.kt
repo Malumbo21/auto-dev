@@ -1,4 +1,4 @@
-package cc.unitmesh.devins.ui.nano
+package cc.unitmesh.devins.ui.nano.components.feedback
 
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -13,48 +13,61 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import cc.unitmesh.config.ConfigManager
+import cc.unitmesh.devins.ui.nano.ComposeNodeContext
+import cc.unitmesh.devins.ui.nano.NanoPropsResolver
+import cc.unitmesh.devins.ui.nano.renderAllChildren
 import cc.unitmesh.llm.KoogLLMService
 import cc.unitmesh.xuiper.action.NanoActionFactory
 import cc.unitmesh.xuiper.eval.evaluator.NanoExpressionEvaluator
-import cc.unitmesh.xuiper.ir.NanoActionIR
-import cc.unitmesh.xuiper.ir.NanoIR
 import cc.unitmesh.xuiper.ir.booleanProp
 import cc.unitmesh.xuiper.ir.stringProp
+import cc.unitmesh.xuiper.render.stateful.NanoNodeRenderer
 
 /**
  * Feedback components for NanoUI Compose renderer.
  * Includes: Modal, Alert, Progress, Spinner
  *
- * Note: DataChart and DataTable have been moved to [NanoDataComponents]
+ * All components use the unified NanoNodeContext interface.
  */
-object NanoFeedbackComponents {
+object FeedbackComponents {
+
+    val modalRenderer = NanoNodeRenderer<Modifier, @Composable () -> Unit> { ctx ->
+        { RenderModal(ctx) }
+    }
+
+    val alertRenderer = NanoNodeRenderer<Modifier, @Composable () -> Unit> { ctx ->
+        { RenderAlert(ctx) }
+    }
+
+    val progressRenderer = NanoNodeRenderer<Modifier, @Composable () -> Unit> { ctx ->
+        { RenderProgress(ctx) }
+    }
+
+    val spinnerRenderer = NanoNodeRenderer<Modifier, @Composable () -> Unit> { ctx ->
+        { RenderSpinner(ctx) }
+    }
 
     @Composable
-    fun RenderModal(
-        ir: NanoIR,
-        state: Map<String, Any>,
-        onAction: (NanoActionIR) -> Unit,
-        modifier: Modifier,
-        renderNode: @Composable (NanoIR, Map<String, Any>, (NanoActionIR) -> Unit, Modifier) -> Unit
-    ) {
+    fun RenderModal(ctx: ComposeNodeContext) {
+        val ir = ctx.node
         val rawTitle = ir.stringProp("title")
         val closable = ir.booleanProp("closable") ?: true
 
         // NanoSpec uses bindings.open for Modal
         val binding = ir.bindings?.get("open")
         val statePath = binding?.expression?.removePrefix("state.")
-        val isOpen = statePath?.let { state[it] as? Boolean } ?: true
+        val isOpen = statePath?.let { ctx.state[it] as? Boolean } ?: true
 
         val onCloseAction = ir.actions?.get("onClose")
 
         fun closeModal() {
             when {
-                onCloseAction != null -> onAction(onCloseAction)
-                statePath != null -> onAction(NanoActionFactory.set(statePath, false))
+                onCloseAction != null -> ctx.onAction(onCloseAction)
+                statePath != null -> ctx.onAction(NanoActionFactory.set(statePath, false))
             }
         }
 
-        // Optional LLM fallback if Modal has no title and no children (content missing)
+        // Optional LLM fallback if Modal has no title and no children
         var llmService by remember { mutableStateOf<KoogLLMService?>(null) }
         var generatedTitle by remember(ir.type, ir.props) { mutableStateOf<String?>(null) }
         var generatedBody by remember(ir.type, ir.props) { mutableStateOf<String?>(null) }
@@ -73,7 +86,7 @@ object NanoFeedbackComponents {
 
         LaunchedEffect(isOpen, rawTitle, ir.children, llmService) {
             val service = llmService
-            if (isOpen && rawTitle.isNullOrBlank() && (ir.children.isNullOrEmpty()) && generatedTitle == null && service != null) {
+            if (isOpen && rawTitle.isNullOrBlank() && ir.children.isNullOrEmpty() && generatedTitle == null && service != null) {
                 val prompt = "Generate a short modal dialog title and one-sentence body for a UI. Return as: Title: ...\\nBody: ..."
                 val response = service.sendPrompt(prompt)
                 val titleLine = response.lineSequence().firstOrNull { it.trim().startsWith("Title:") }
@@ -90,7 +103,7 @@ object NanoFeedbackComponents {
                 }
             ) {
                 Surface(
-                    modifier = modifier
+                    modifier = ctx.payload
                         .fillMaxWidth()
                         .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp)),
                     shape = RoundedCornerShape(12.dp),
@@ -125,7 +138,7 @@ object NanoFeedbackComponents {
 
                         val children = ir.children
                         if (!children.isNullOrEmpty()) {
-                            children.forEach { child -> renderNode(child, state, onAction, Modifier) }
+                            ctx.renderAllChildren()
                         } else {
                             val body = generatedBody
                             if (!body.isNullOrBlank()) {
@@ -139,13 +152,10 @@ object NanoFeedbackComponents {
     }
 
     @Composable
-    fun RenderAlert(
-        ir: NanoIR,
-        modifier: Modifier,
-        onAction: (NanoActionIR) -> Unit = {}
-    ) {
+    fun RenderAlert(ctx: ComposeNodeContext) {
+        val ir = ctx.node
         val type = ir.stringProp("type") ?: "info"
-        val rawMessage = ir.stringProp("message") ?: ""
+        val rawMessage = NanoPropsResolver.resolveString(ir, "message", ctx.state)
         val closable = ir.booleanProp("closable") ?: false
         val onCloseAction = ir.actions?.get("onClose")
 
@@ -174,10 +184,9 @@ object NanoFeedbackComponents {
             }
         }
 
-        val message = if (rawMessage.isNotBlank()) rawMessage else (generatedMessage ?: "")
+        val message = rawMessage.ifBlank { generatedMessage ?: "" }
 
         val (backgroundColor, borderColor) = when (type) {
-            // Treat alert types as semantic intents from the active theme.
             "success" -> MaterialTheme.colorScheme.tertiaryContainer to MaterialTheme.colorScheme.tertiary
             "warning" -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.primary
             "error" -> MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.error
@@ -191,7 +200,7 @@ object NanoFeedbackComponents {
         }
 
         Surface(
-            modifier = modifier
+            modifier = ctx.payload
                 .fillMaxWidth()
                 .border(1.dp, borderColor, RoundedCornerShape(8.dp)),
             color = backgroundColor,
@@ -207,7 +216,7 @@ object NanoFeedbackComponents {
                 if (closable) {
                     IconButton(
                         onClick = {
-                            if (onCloseAction != null) onAction(onCloseAction)
+                            if (onCloseAction != null) ctx.onAction(onCloseAction)
                         }
                     ) {
                         Icon(Icons.Default.Close, contentDescription = "Close", tint = borderColor)
@@ -217,18 +226,20 @@ object NanoFeedbackComponents {
         }
     }
 
+
     @Composable
-    fun RenderProgress(ir: NanoIR, state: Map<String, Any>, modifier: Modifier) {
+    fun RenderProgress(ctx: ComposeNodeContext) {
+        val ir = ctx.node
         val valueStr = ir.stringProp("value")
         val maxStr = ir.stringProp("max")
         val showText = ir.booleanProp("showText") ?: true
 
-            // Resolve binding / expression values
-            val value = NanoExpressionEvaluator.evaluateNumberOrNull(valueStr, state)?.toFloat() ?: 0f
-            val max = NanoExpressionEvaluator.evaluateNumberOrNull(maxStr, state)?.toFloat() ?: 100f
+        // Resolve binding / expression values
+        val value = NanoExpressionEvaluator.evaluateNumberOrNull(valueStr, ctx.state)?.toFloat() ?: 0f
+        val max = NanoExpressionEvaluator.evaluateNumberOrNull(maxStr, ctx.state)?.toFloat() ?: 100f
         val progress = if (max > 0f) (value / max).coerceIn(0f, 1f) else 0f
 
-        Column(modifier = modifier.fillMaxWidth()) {
+        Column(modifier = ctx.payload.fillMaxWidth()) {
             LinearProgressIndicator(
                 progress = { progress },
                 modifier = Modifier.fillMaxWidth().height(8.dp),
@@ -245,11 +256,12 @@ object NanoFeedbackComponents {
     }
 
     @Composable
-    fun RenderSpinner(ir: NanoIR, modifier: Modifier) {
+    fun RenderSpinner(ctx: ComposeNodeContext) {
+        val ir = ctx.node
         val text = ir.stringProp("text")
 
         Row(
-            modifier = modifier,
+            modifier = ctx.payload,
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center
         ) {

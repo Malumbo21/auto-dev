@@ -10,7 +10,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
- * Tests for markdown inline parsing functionality in NanoContentComponents.RenderText
+ * Tests for markdown inline parsing functionality in ContentComponents.RenderText
  * These tests verify the DSL parsing and IR structure, not the visual rendering.
  */
 class NanoMarkdownInlineTest {
