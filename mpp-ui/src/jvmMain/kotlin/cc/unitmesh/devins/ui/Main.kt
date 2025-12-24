@@ -6,9 +6,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.*
+import cc.unitmesh.agent.AgentType
 import cc.unitmesh.agent.Platform
 import cc.unitmesh.agent.logging.AutoDevLogger
 import cc.unitmesh.devins.ui.compose.DesktopAutoDevApp
@@ -20,6 +22,8 @@ import cc.unitmesh.devins.ui.desktop.AutoDevMenuBar
 import cc.unitmesh.devins.ui.desktop.AutoDevTray
 import cc.unitmesh.devins.ui.desktop.ComposeSelectionCrashGuard
 import cc.unitmesh.devins.ui.desktop.DesktopWindowLayout
+import cc.unitmesh.devins.ui.desktop.UnitFileHandler
+import kotlinx.coroutines.runBlocking
 
 fun main(args: Array<String>) {
     AutoDevLogger.initialize()
@@ -31,6 +35,15 @@ fun main(args: Array<String>) {
     // 检查是否跳过启动动画（通过命令行参数）
     val skipSplash = args.contains("--skip-splash")
 
+    // Check if launched with a .unit file
+    val hasUnitFile = UnitFileHandler.hasUnitFile(args)
+    if (hasUnitFile) {
+        AutoDevLogger.info("AutoDevMain") { "📦 Launched with .unit file" }
+        runBlocking {
+            UnitFileHandler.processArgs(args)
+        }
+    }
+
     application {
         val trayState = rememberTrayState()
         var isWindowVisible by remember { mutableStateOf(true) }
@@ -40,7 +53,10 @@ fun main(args: Array<String>) {
         // Cache prefersReducedMotion result to avoid repeated system calls
         val reducedMotion = remember { Platform.prefersReducedMotion() }
 
-        val uiState = rememberDesktopUiState()
+        // Set initial agent type to ARTIFACT if launched with .unit file
+        val initialAgentType = if (hasUnitFile) AgentType.ARTIFACT else AgentType.CODING
+
+        val uiState = rememberDesktopUiState(initialAgentType = initialAgentType)
 
         val windowState =
             rememberWindowState(

@@ -12,11 +12,11 @@ import kotlinx.coroutines.launch
  * Desktop UI State ViewModel
  * 管理桌面端 UI 的所有状态，同步全局 UIStateManager
  */
-class DesktopUiState {
+class DesktopUiState(initialAgentType: AgentType = AgentType.CODING) {
     private val scope = CoroutineScope(Dispatchers.Default)
 
     // Agent Type
-    var currentAgentType by mutableStateOf(AgentType.CODING)
+    var currentAgentType by mutableStateOf(initialAgentType)
 
     // Sidebar & TreeView - 从全局状态读取
     val showSessionSidebar: Boolean
@@ -84,8 +84,10 @@ class DesktopUiState {
 
 /**
  * Remember DesktopUiState across recompositions
+ *
+ * @param initialAgentType Initial agent type (default: CODING, or ARTIFACT when opening .unit file)
  */
 @Composable
-fun rememberDesktopUiState(): DesktopUiState {
-    return remember { DesktopUiState() }
+fun rememberDesktopUiState(initialAgentType: AgentType = AgentType.CODING): DesktopUiState {
+    return remember { DesktopUiState(initialAgentType) }
 }

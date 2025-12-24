@@ -507,10 +507,61 @@ compose.desktop {
 
             modules("java.naming", "java.sql")
 
+            // File associations for .unit artifact bundles
+            fileAssociation(
+                mimeType = "application/x-autodev-unit",
+                extension = "unit",
+                description = "AutoDev Unit Bundle"
+            )
+
             // Custom app icon
             macOS {
                 bundleID = "cc.unitmesh.devins.desktop"
                 iconFile.set(project.file("src/jvmMain/resources/icon.icns"))
+
+                // macOS-specific: register UTI for .unit files
+                infoPlist {
+                    extraKeysRawXml = """
+                        <key>CFBundleDocumentTypes</key>
+                        <array>
+                            <dict>
+                                <key>CFBundleTypeName</key>
+                                <string>AutoDev Unit Bundle</string>
+                                <key>CFBundleTypeRole</key>
+                                <string>Editor</string>
+                                <key>LSHandlerRank</key>
+                                <string>Owner</string>
+                                <key>LSItemContentTypes</key>
+                                <array>
+                                    <string>cc.unitmesh.devins.unit</string>
+                                </array>
+                            </dict>
+                        </array>
+                        <key>UTExportedTypeDeclarations</key>
+                        <array>
+                            <dict>
+                                <key>UTTypeIdentifier</key>
+                                <string>cc.unitmesh.devins.unit</string>
+                                <key>UTTypeDescription</key>
+                                <string>AutoDev Unit Bundle</string>
+                                <key>UTTypeConformsTo</key>
+                                <array>
+                                    <string>public.data</string>
+                                    <string>public.archive</string>
+                                </array>
+                                <key>UTTypeTagSpecification</key>
+                                <dict>
+                                    <key>public.filename-extension</key>
+                                    <array>
+                                        <string>unit</string>
+                                    </array>
+                                    <key>public.mime-type</key>
+                                    <string>application/x-autodev-unit</string>
+                                </dict>
+                            </dict>
+                        </array>
+                    """
+                }
             }
             windows {
                 menuGroup = "AutoDev"
