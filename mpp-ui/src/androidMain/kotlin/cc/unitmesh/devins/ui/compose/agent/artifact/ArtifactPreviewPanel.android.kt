@@ -4,14 +4,14 @@ import android.webkit.ConsoleMessage
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 import cc.unitmesh.agent.ArtifactAgent
 
 /**
- * Android implementation of ArtifactPreviewPanel using WebView
+ * Android implementation of ArtifactPreviewPanel using native WebView.
  */
 @Composable
 actual fun ArtifactPreviewPanel(
@@ -19,44 +19,58 @@ actual fun ArtifactPreviewPanel(
     onConsoleLog: (String, String) -> Unit,
     modifier: Modifier
 ) {
+    val htmlContent = remember(artifact.content) {
+        artifact.content
+    }
+
     AndroidView(
-        modifier = modifier.fillMaxSize(),
         factory = { context ->
             WebView(context).apply {
-                settings.javaScriptEnabled = true
-                settings.domStorageEnabled = true
-                settings.allowFileAccess = false
-                
                 webViewClient = WebViewClient()
-                
-                // Capture console.log
                 webChromeClient = object : WebChromeClient() {
                     override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
-                        consoleMessage?.let {
-                            val level = when (it.messageLevel()) {
+                        consoleMessage?.let { msg ->
+                            val level = when (msg.messageLevel()) {
                                 ConsoleMessage.MessageLevel.ERROR -> "error"
                                 ConsoleMessage.MessageLevel.WARNING -> "warn"
-                                ConsoleMessage.MessageLevel.LOG -> "log"
                                 ConsoleMessage.MessageLevel.TIP -> "info"
-                                ConsoleMessage.MessageLevel.DEBUG -> "log"
                                 else -> "log"
                             }
-                            onConsoleLog(level, it.message())
+                            onConsoleLog(level, msg.message())
                         }
                         return true
                     }
+                }
+                settings.apply {
+                    javaScriptEnabled = true
+                    domStorageEnabled = true
+                    allowFileAccess = true
+                    loadWithOverviewMode = true
+                    useWideViewPort = true
                 }
             }
         },
         update = { webView ->
             webView.loadDataWithBaseURL(
                 null,
-                artifact.content,
+                htmlContent,
                 "text/html",
                 "UTF-8",
                 null
             )
-        }
+        },
+        modifier = modifier
     )
 }
 
+/**
+ * Export artifact implementation for Android
+ * TODO: Implement using Android's share intent or file picker
+ */
+actual fun exportArtifact(
+    artifact: ArtifactAgent.Artifact,
+    onNotification: (String, String) -> Unit
+) {
+    // TODO: Implement Android export using share intent or SAF
+    onNotification("info", "Export not yet implemented for Android")
+}

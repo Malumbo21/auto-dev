@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -19,8 +18,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cc.unitmesh.agent.ArtifactAgent
-import cc.unitmesh.devins.ui.base.VerticalResizableSplitPane
+import cc.unitmesh.agent.Platform
+import cc.unitmesh.devins.editor.EditorCallbacks
+import cc.unitmesh.devins.llm.ChatHistoryManager
+import cc.unitmesh.devins.ui.base.ResizableSplitPane
+import cc.unitmesh.devins.ui.compose.agent.AgentMessageList
+import cc.unitmesh.devins.ui.compose.editor.DevInEditorInput
 import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
+import cc.unitmesh.devins.workspace.WorkspaceManager
 import cc.unitmesh.llm.KoogLLMService
 import kotlinx.coroutines.launch
 
@@ -28,72 +33,67 @@ import kotlinx.coroutines.launch
  * ArtifactPage - Page for generating and previewing artifacts
  *
  * Layout:
- * - Left: Chat interface for artifact generation
+ * - Left: Chat interface (reuses AgentMessageList and DevInEditorInput)
  * - Right (when artifact generated):
  *   - Top: WebView preview of generated HTML
  *   - Bottom: Console output panel
+ *
+ * This page follows the same architecture as CodingAgentPage, reusing:
+ * - ComposeRenderer for state management
+ * - AgentMessageList for message display
+ * - DevInEditorInput for user input
  */
 @Composable
 fun ArtifactPage(
     llmService: KoogLLMService?,
     modifier: Modifier = Modifier,
     onBack: () -> Unit = {},
-    onNotification: (String, String) -> Unit = { _, _ -> }
+    onNotification: (String, String) -> Unit = { _, _ -> },
+    chatHistoryManager: ChatHistoryManager? = null
 ) {
     val scope = rememberCoroutineScope()
+    val currentWorkspace by WorkspaceManager.workspaceFlow.collectAsState()
 
-    // State
-    var inputText by remember { mutableStateOf("") }
-    var isGenerating by remember { mutableStateOf(false) }
+    // Create ViewModel following CodingAgentViewModel pattern
+    val viewModel = remember(llmService, chatHistoryManager) {
+        ArtifactAgentViewModel(
+            llmService = llmService,
+            chatHistoryManager = chatHistoryManager
+        )
+    }
+
+    // State for artifact preview
     var currentArtifact by remember { mutableStateOf<ArtifactAgent.Artifact?>(null) }
-    var responseText by remember { mutableStateOf("") }
     var consoleLogs by remember { mutableStateOf<List<ConsoleLogItem>>(emptyList()) }
     var showPreview by remember { mutableStateOf(false) }
 
-    // Agent instance
-    val artifactAgent = remember(llmService) {
-        llmService?.let { ArtifactAgent(it) }
+    // Listen for artifact events from renderer
+    LaunchedEffect(viewModel.lastArtifact) {
+        viewModel.lastArtifact?.let { artifact ->
+            currentArtifact = artifact
+            showPreview = true
+            onNotification("success", "Artifact generated: ${artifact.title}")
+            consoleLogs = consoleLogs + ConsoleLogItem(
+                level = "info",
+                message = "Artifact loaded: ${artifact.title}",
+                timestamp = kotlinx.datetime.Clock.System.now().toEpochMilliseconds()
+            )
+        }
     }
 
-    fun handleGenerate() {
-        if (inputText.isBlank() || isGenerating || artifactAgent == null) return
-
-        scope.launch {
-            isGenerating = true
-            responseText = ""
-            consoleLogs = emptyList()
-
-            try {
-                val result = artifactAgent.generate(inputText) { chunk ->
-                    responseText += chunk
-                }
-
-                if (result.success && result.artifacts.isNotEmpty()) {
-                    currentArtifact = result.artifacts.first()
-                    showPreview = true
-                    onNotification("success", "Artifact generated: ${result.artifacts.first().title}")
-
-                    // Add initial console log
-                    consoleLogs = consoleLogs + ConsoleLogItem(
-                        level = "info",
-                        message = "Artifact loaded: ${result.artifacts.first().title}",
-                        timestamp = kotlinx.datetime.Clock.System.now().toEpochMilliseconds()
-                    )
-                } else {
-                    result.error?.let { errorMsg ->
-                        onNotification("error", errorMsg)
-                    }
-                }
-            } catch (e: Exception) {
-                onNotification("error", "Generation failed: ${e.message}")
-            } finally {
-                isGenerating = false
+    // Create callbacks for DevInEditorInput
+    val callbacks = remember(viewModel) {
+        object : EditorCallbacks {
+            override fun onSubmit(text: String) {
+                viewModel.executeTask(text)
             }
         }
     }
 
+    val isDesktop = Platform.isJvm && !Platform.isAndroid
+
     Row(modifier = modifier.fillMaxSize()) {
-        // Left panel: Chat interface
+        // Left panel: Chat interface (reuses existing components)
         Column(
             modifier = Modifier
                 .weight(if (showPreview) 0.4f else 1f)
@@ -105,98 +105,85 @@ fun ArtifactPage(
                 onBack = onBack,
                 showPreview = showPreview,
                 onTogglePreview = { showPreview = !showPreview },
-                hasArtifact = currentArtifact != null
+                hasArtifact = currentArtifact != null,
+                onClear = {
+                    viewModel.clearMessages()
+                    currentArtifact = null
+                    showPreview = false
+                    consoleLogs = emptyList()
+                },
+                onExport = currentArtifact?.let { artifact ->
+                    { onExportArtifact(artifact, onNotification) }
+                }
             )
 
-            // Response area
-            if (responseText.isNotEmpty()) {
-                LazyColumn(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    state = rememberLazyListState()
-                ) {
-                    item {
-                        Text(
-                            text = responseText,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                    }
-                }
-            } else {
-                // Welcome message
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .padding(24.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Code,
-                            contentDescription = null,
-                            modifier = Modifier.size(64.dp),
-                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
-                        )
-                        Text(
-                            text = "AutoDev Artifact",
-                            style = MaterialTheme.typography.headlineSmall,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                        Text(
-                            text = "Generate interactive HTML/JS artifacts",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
-                        )
-                        
-                        // Quick prompts
-                        Column(
-                            modifier = Modifier.padding(top = 16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            QuickPromptChip("Create a todo list app") {
-                                inputText = "Create a todo list app with add, delete, and local storage"
-                            }
-                            QuickPromptChip("Build a calculator") {
-                                inputText = "Create a calculator widget with basic operations"
-                            }
-                            QuickPromptChip("Make a dashboard") {
-                                inputText = "Create an analytics dashboard with stat cards and a chart"
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Input area
-            ArtifactInput(
-                text = inputText,
-                onTextChange = { inputText = it },
-                onSubmit = { handleGenerate() },
-                isGenerating = isGenerating,
+            // Chat message list - reuses AgentMessageList from CodingAgentPage
+            AgentMessageList(
+                renderer = viewModel.renderer,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(12.dp)
+                    .weight(1f),
+                onOpenFileViewer = null // Artifact mode doesn't need file viewer
+            )
+
+            // Input area - reuses DevInEditorInput
+            DevInEditorInput(
+                initialText = "",
+                placeholder = "Describe what you want to create (e.g., 'Create a todo list app')...",
+                callbacks = callbacks,
+                completionManager = currentWorkspace?.completionManager,
+                isCompactMode = true,
+                isExecuting = viewModel.isExecuting,
+                onStopClick = { viewModel.cancelTask() },
+                renderer = viewModel.renderer,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .imePadding()
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
             )
         }
 
         // Right panel: Preview (when artifact is generated)
         if (showPreview && currentArtifact != null) {
-            VerticalResizableSplitPane(
-                modifier = Modifier
-                    .weight(0.6f)
-                    .fillMaxHeight(),
-                initialSplitRatio = 0.7f,
-                minRatio = 0.3f,
-                maxRatio = 0.9f,
-                top = {
-                    // WebView preview (expect/actual pattern - platform specific)
+            if (isDesktop) {
+                // Desktop: Use resizable split pane
+                ResizableSplitPane(
+                    modifier = Modifier
+                        .weight(0.6f)
+                        .fillMaxHeight(),
+                    initialSplitRatio = 0.7f,
+                    minRatio = 0.3f,
+                    maxRatio = 0.9f,
+                    first = {
+                        // WebView preview (expect/actual pattern - platform specific)
+                        ArtifactPreviewPanel(
+                            artifact = currentArtifact!!,
+                            onConsoleLog = { level, message ->
+                                consoleLogs = consoleLogs + ConsoleLogItem(
+                                    level = level,
+                                    message = message,
+                                    timestamp = kotlinx.datetime.Clock.System.now().toEpochMilliseconds()
+                                )
+                            },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    },
+                    second = {
+                        // Console output panel
+                        ConsolePanel(
+                            logs = consoleLogs,
+                            onClear = { consoleLogs = emptyList() },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                )
+            } else {
+                // Mobile: Simple vertical layout
+                Column(
+                    modifier = Modifier
+                        .weight(0.6f)
+                        .fillMaxHeight()
+                ) {
                     ArtifactPreviewPanel(
                         artifact = currentArtifact!!,
                         onConsoleLog = { level, message ->
@@ -206,28 +193,46 @@ fun ArtifactPage(
                                 timestamp = kotlinx.datetime.Clock.System.now().toEpochMilliseconds()
                             )
                         },
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier.weight(0.7f).fillMaxWidth()
                     )
-                },
-                bottom = {
-                    // Console output panel
                     ConsolePanel(
                         logs = consoleLogs,
                         onClear = { consoleLogs = emptyList() },
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier.weight(0.3f).fillMaxWidth()
                     )
                 }
-            )
+            }
         }
     }
 }
+
+/**
+ * Export artifact to file
+ */
+private fun onExportArtifact(
+    artifact: ArtifactAgent.Artifact,
+    onNotification: (String, String) -> Unit
+) {
+    // Platform-specific export will be handled by expect/actual
+    exportArtifact(artifact, onNotification)
+}
+
+/**
+ * Platform-specific export function
+ */
+expect fun exportArtifact(
+    artifact: ArtifactAgent.Artifact,
+    onNotification: (String, String) -> Unit
+)
 
 @Composable
 private fun ArtifactTopBar(
     onBack: () -> Unit,
     showPreview: Boolean,
     onTogglePreview: () -> Unit,
-    hasArtifact: Boolean
+    hasArtifact: Boolean,
+    onClear: () -> Unit,
+    onExport: (() -> Unit)?
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -257,97 +262,38 @@ private fun ArtifactTopBar(
                 )
             }
 
-            if (hasArtifact) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                // Clear button
+                IconButton(onClick = onClear) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Clear"
+                    )
+                }
+
+                if (hasArtifact) {
+                    // Toggle preview
                     IconButton(onClick = onTogglePreview) {
                         Icon(
                             imageVector = if (showPreview) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                             contentDescription = if (showPreview) "Hide Preview" else "Show Preview"
                         )
                     }
-                    IconButton(onClick = { /* TODO: Export */ }) {
-                        Icon(
-                            imageVector = Icons.Default.Download,
-                            contentDescription = "Export"
-                        )
+                    // Export
+                    onExport?.let { export ->
+                        IconButton(onClick = export) {
+                            Icon(
+                                imageVector = Icons.Default.Download,
+                                contentDescription = "Export"
+                            )
+                        }
                     }
                 }
             }
         }
     }
-}
-
-@Composable
-private fun ArtifactInput(
-    text: String,
-    onTextChange: (String) -> Unit,
-    onSubmit: () -> Unit,
-    isGenerating: Boolean,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(8.dp),
-            verticalAlignment = Alignment.Bottom,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            OutlinedTextField(
-                value = text,
-                onValueChange = onTextChange,
-                modifier = Modifier.weight(1f),
-                placeholder = { Text("Describe what you want to create...") },
-                maxLines = 4,
-                enabled = !isGenerating,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
-                )
-            )
-
-            FilledIconButton(
-                onClick = onSubmit,
-                enabled = text.isNotBlank() && !isGenerating
-            ) {
-                if (isGenerating) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        strokeWidth = 2.dp
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Default.Send,
-                        contentDescription = "Generate"
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun QuickPromptChip(
-    text: String,
-    onClick: () -> Unit
-) {
-    SuggestionChip(
-        onClick = onClick,
-        label = { Text(text, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-        icon = {
-            Icon(
-                imageVector = Icons.Default.AutoAwesome,
-                contentDescription = null,
-                modifier = Modifier.size(16.dp)
-            )
-        }
-    )
 }
 
 /**
@@ -473,4 +419,3 @@ data class ConsoleLogItem(
     val message: String,
     val timestamp: Long
 )
-

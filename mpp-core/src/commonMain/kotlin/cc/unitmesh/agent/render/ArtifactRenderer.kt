@@ -62,6 +62,24 @@ interface ArtifactRenderer : CodingAgentRenderer {
     }
 
     /**
+     * Add a console log message to the artifact's console output.
+     * Simplified method for adding logs without artifact identifier.
+     *
+     * @param message The log message
+     * @param level The log level (e.g., "log", "info", "warn", "error")
+     */
+    fun addArtifactConsoleLog(message: String, level: String = "log") {
+        // Default: no-op
+    }
+
+    /**
+     * Clear all artifact console logs.
+     */
+    fun clearArtifactConsoleLogs() {
+        // Default: no-op
+    }
+
+    /**
      * Get all console logs for an artifact.
      *
      * @param identifier The artifact identifier
