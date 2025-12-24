@@ -3,6 +3,7 @@ package cc.unitmesh.devins.ui.compose.agent
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import cc.unitmesh.agent.AgentType
+import cc.unitmesh.devins.ui.compose.agent.artifact.ArtifactPage
 import cc.unitmesh.devins.ui.compose.agent.chatdb.ChatDBPage
 import cc.unitmesh.devins.ui.compose.agent.codereview.CodeReviewPage
 import cc.unitmesh.devins.ui.compose.agent.webedit.WebEditPage
@@ -132,6 +133,17 @@ fun AgentInterfaceRouter(
 
         AgentType.WEB_EDIT -> {
             WebEditPage(
+                llmService = llmService,
+                modifier = modifier,
+                onBack = {
+                    onAgentTypeChange(AgentType.CODING)
+                },
+                onNotification = onNotification
+            )
+        }
+
+        AgentType.ARTIFACT -> {
+            ArtifactPage(
                 llmService = llmService,
                 modifier = modifier,
                 onBack = {

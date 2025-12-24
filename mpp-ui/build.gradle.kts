@@ -991,3 +991,29 @@ tasks.register<JavaExec>("runNanoDSLDemo") {
     classpath = kotlin.jvm().compilations.getByName("main").runtimeDependencyFiles +
             files(kotlin.jvm().compilations.getByName("main").output.classesDirs)
 }
+
+// Task to run Artifact CLI (HTML/JS artifact generation testing)
+tasks.register<JavaExec>("runArtifactCli") {
+    group = "application"
+    description = "Run Artifact Agent CLI for testing HTML/JS artifact generation"
+
+    val jvmCompilation = kotlin.jvm().compilations.getByName("main")
+    classpath(jvmCompilation.output, configurations["jvmRuntimeClasspath"])
+    mainClass.set("cc.unitmesh.server.cli.ArtifactCli")
+
+    // Pass properties
+    if (project.hasProperty("artifactPrompt")) {
+        systemProperty("artifactPrompt", project.property("artifactPrompt") as String)
+    }
+    if (project.hasProperty("artifactScenario")) {
+        systemProperty("artifactScenario", project.property("artifactScenario") as String)
+    }
+    if (project.hasProperty("artifactOutput")) {
+        systemProperty("artifactOutput", project.property("artifactOutput") as String)
+    }
+    if (project.hasProperty("artifactLanguage")) {
+        systemProperty("artifactLanguage", project.property("artifactLanguage") as String)
+    }
+
+    standardInput = System.`in`
+}
