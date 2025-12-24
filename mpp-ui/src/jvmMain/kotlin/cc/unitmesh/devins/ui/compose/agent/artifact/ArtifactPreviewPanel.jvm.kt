@@ -470,27 +470,88 @@ private fun saveArtifactFile(artifact: ArtifactAgent.Artifact) {
 
 /**
  * Export artifact implementation for JVM
+ * Supports both .html (raw) and .unit (bundle with metadata) formats
  */
 actual fun exportArtifact(
     artifact: ArtifactAgent.Artifact,
     onNotification: (String, String) -> Unit
 ) {
     try {
+        val sanitizedName = artifact.title.replace(Regex("[^a-zA-Z0-9\\-_ ]"), "").replace(" ", "_")
+
         val fileChooser = JFileChooser().apply {
             dialogTitle = "Export Artifact"
-            selectedFile = File("${artifact.title.replace(" ", "_")}.html")
-            fileFilter = FileNameExtensionFilter("HTML Files", "html", "htm")
+            selectedFile = File("$sanitizedName.unit")
+
+            // Add filter for .unit bundle format (recommended)
+            addChoosableFileFilter(FileNameExtensionFilter("AutoDev Unit Bundle (*.unit)", "unit"))
+            // Add filter for raw HTML
+            addChoosableFileFilter(FileNameExtensionFilter("HTML Files (*.html)", "html", "htm"))
+
+            fileFilter = getChoosableFileFilters()[1] // Default to .unit
         }
 
         if (fileChooser.showSaveDialog(null) == JFileChooser.APPROVE_OPTION) {
             var file = fileChooser.selectedFile
-            if (!file.name.endsWith(".html") && !file.name.endsWith(".htm")) {
-                file = File(file.absolutePath + ".html")
+            val selectedFilter = fileChooser.fileFilter
+
+            // Determine format based on filter or extension
+            val isUnitFormat = when {
+                file.name.endsWith(".unit") -> true
+                file.name.endsWith(".html") || file.name.endsWith(".htm") -> false
+                selectedFilter.description.contains("unit", ignoreCase = true) -> {
+                    file = File(file.absolutePath + ".unit")
+                    true
+                }
+                else -> {
+                    file = File(file.absolutePath + ".html")
+                    false
+                }
             }
-            file.writeText(artifact.content)
-            onNotification("success", "Artifact exported to ${file.absolutePath}")
+
+            if (isUnitFormat) {
+                // Export as .unit bundle
+                exportAsUnitBundle(artifact, file, onNotification)
+            } else {
+                // Export as raw HTML
+                file.writeText(artifact.content)
+                onNotification("success", "Artifact exported to ${file.absolutePath}")
+            }
         }
     } catch (e: Exception) {
         onNotification("error", "Failed to export: ${e.message}")
+    }
+}
+
+/**
+ * Export artifact as .unit bundle format
+ */
+private fun exportAsUnitBundle(
+    artifact: ArtifactAgent.Artifact,
+    outputFile: File,
+    onNotification: (String, String) -> Unit
+) {
+    try {
+        // Create bundle from artifact
+        val bundle = cc.unitmesh.agent.artifact.ArtifactBundle.fromArtifact(
+            artifact = artifact,
+            conversationHistory = emptyList(), // TODO: Pass actual conversation history
+            modelInfo = null // TODO: Pass actual model info
+        )
+
+        // Pack bundle using coroutines
+        kotlinx.coroutines.runBlocking {
+            val packer = cc.unitmesh.agent.artifact.ArtifactBundlePacker()
+            when (val result = packer.pack(bundle, outputFile.absolutePath)) {
+                is cc.unitmesh.agent.artifact.PackResult.Success -> {
+                    onNotification("success", "Artifact bundle exported to ${result.outputPath}")
+                }
+                is cc.unitmesh.agent.artifact.PackResult.Error -> {
+                    onNotification("error", "Failed to export bundle: ${result.message}")
+                }
+            }
+        }
+    } catch (e: Exception) {
+        onNotification("error", "Failed to create bundle: ${e.message}")
     }
 }
