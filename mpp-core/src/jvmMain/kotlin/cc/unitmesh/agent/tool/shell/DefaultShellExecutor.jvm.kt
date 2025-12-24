@@ -417,7 +417,10 @@ actual class DefaultShellExecutor : ShellExecutor, LiveShellExecutor {
 
         val completed = process.waitFor(timeoutMs, TimeUnit.MILLISECONDS)
         if (!completed) {
-            process.destroyForcibly()
+            // Timeout occurred - DO NOT kill the process
+            // Let the AI decide whether to continue waiting or terminate
+            // The process remains alive and the session is still managed
+            getLogger("DefaultShellExecutor").info { "Session ${session.sessionId} timed out after ${timeoutMs}ms, but process remains alive" }
             throw ToolException("Command timed out after ${timeoutMs}ms", ToolErrorType.TIMEOUT)
         }
 
