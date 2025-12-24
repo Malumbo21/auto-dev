@@ -28,9 +28,6 @@ import com.multiplatform.webview.web.LoadingState
 import com.multiplatform.webview.web.WebViewNavigator
 import com.multiplatform.webview.web.rememberWebViewNavigator
 import com.multiplatform.webview.web.rememberWebViewState
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -60,7 +57,7 @@ actual fun ArtifactPreviewPanel(
 
     // Prepare HTML with console.log interception script
     val htmlWithConsole = remember(artifact.content) {
-        injectConsoleCapture(artifact.content)
+        ArtifactConsoleBridgeJvm.injectConsoleCapture(artifact.content)
     }
 
     Column(modifier = modifier) {
@@ -183,7 +180,7 @@ private fun ArtifactWebView(
     // Register JS message handler for console.log capture
     LaunchedEffect(Unit) {
         jsBridge.register(object : IJsMessageHandler {
-            override fun methodName(): String = "artifactConsole"
+            override fun methodName(): String = ArtifactConsoleBridgeJvm.METHOD_NAME
 
             override fun handle(
                 message: JsMessage,
@@ -191,35 +188,7 @@ private fun ArtifactWebView(
                 callback: (String) -> Unit
             ) {
                 try {
-                    // Params can be:
-                    // - a JSON object string: {"level":"log","message":"..."}
-                    // - a JSON string containing a JSON object (double-encoded)
-                    // - a plain string
-                    val params = message.params
-                    val level: String
-                    val msg: String
-
-                    val element = runCatching { Json.parseToJsonElement(params) }.getOrNull()
-                    if (element == null) {
-                        level = "log"
-                        msg = params
-                    } else if (element is kotlinx.serialization.json.JsonObject) {
-                        level = element["level"]?.jsonPrimitive?.content ?: "log"
-                        msg = element["message"]?.jsonPrimitive?.content ?: ""
-                    } else {
-                        // Could be JsonPrimitive string containing JSON
-                        val primitiveContent: String? = runCatching { element.jsonPrimitive.content }.getOrNull()
-                        val nested = primitiveContent?.let { s: String ->
-                            runCatching { Json.parseToJsonElement(s) }.getOrNull()
-                        }
-                        if (nested is kotlinx.serialization.json.JsonObject) {
-                            level = nested["level"]?.jsonPrimitive?.content ?: "log"
-                            msg = nested["message"]?.jsonPrimitive?.content ?: (primitiveContent ?: "")
-                        } else {
-                            level = "log"
-                            msg = primitiveContent ?: params
-                        }
-                    }
+                    val (level, msg) = ArtifactConsoleBridgeJvm.parseConsoleParams(message.params)
                     if (msg.isNotBlank()) onConsoleLog(level, msg)
                 } catch (e: Exception) {
                     onConsoleLog("warn", "Error handling console message: ${e.message}")
@@ -245,7 +214,7 @@ private fun ArtifactWebView(
         if (finished) {
             // Small delay to give the bridge time to attach in some environments.
             delay(50)
-            val escaped = escapeForTemplateLiteral(html)
+            val escaped = ArtifactConsoleBridgeJvm.escapeForTemplateLiteral(html)
             val js = """
                 try {
                   document.open();
@@ -417,153 +386,7 @@ private fun SourceCodeView(
     }
 }
 
-/**
- * Inject console.log capture script into HTML
- */
-private fun injectConsoleCapture(html: String): String {
-    val consoleScript = """
-        <script>
-        (function() {
-            const originalConsole = {
-                log: console.log.bind(console),
-                info: console.info.bind(console),
-                warn: console.warn.bind(console),
-                error: console.error.bind(console)
-            };
-            
-            const __autodevPendingLogs = [];
-            let __autodevFlushTimer = null;
-            let __autodevPatchTimer = null;
-            
-            function bridgeReady() {
-                return (window.kmpJsBridge && typeof window.kmpJsBridge.callNative === 'function');
-            }
-
-            // Fix for compose-webview-multiplatform library bug:
-            // When callbackId is -1, the library still calls onCallback and logs it,
-            // causing excessive console spam like:
-            //   "onCallback: -1, {}, undefined"
-            function patchOnCallback() {
-                if (window.kmpJsBridge && window.kmpJsBridge.onCallback && !window.kmpJsBridge.__autodevOnCallbackPatched) {
-                    const originalOnCallback = window.kmpJsBridge.onCallback;
-                    window.kmpJsBridge.onCallback = function(callbackId, data) {
-                        if (callbackId === -1 || callbackId === '-1') {
-                            return;
-                        }
-                        return originalOnCallback.call(window.kmpJsBridge, callbackId, data);
-                    };
-                    window.kmpJsBridge.__autodevOnCallbackPatched = true;
-                    if (__autodevPatchTimer) {
-                        clearInterval(__autodevPatchTimer);
-                        __autodevPatchTimer = null;
-                    }
-                }
-            }
-            
-            function sendPayload(payload) {
-                try {
-                    // Fire-and-forget: passing a callback can trigger verbose internal logs
-                    // like "[INFO:CONSOLE] add callback: ...", and we don't need a JS callback
-                    // for console forwarding.
-                    window.kmpJsBridge.callNative('artifactConsole', JSON.stringify(payload));
-                    return true;
-                } catch (e) {
-                    return false;
-                }
-            }
-            
-            function flushPending() {
-                patchOnCallback();
-                if (!bridgeReady()) return;
-                while (__autodevPendingLogs.length > 0) {
-                    const payload = __autodevPendingLogs.shift();
-                    if (!sendPayload(payload)) break;
-                }
-                if (__autodevPendingLogs.length === 0 && __autodevFlushTimer) {
-                    clearInterval(__autodevFlushTimer);
-                    __autodevFlushTimer = null;
-                }
-            }
-            
-            function sendToKotlin(level, args) {
-                const message = Array.from(args).map(arg => {
-                    if (typeof arg === 'object') {
-                        try { return JSON.stringify(arg); } 
-                        catch { return String(arg); }
-                    }
-                    return String(arg);
-                }).join(' ');
-                const payload = {level: level, message: message};
-                if (bridgeReady()) {
-                    patchOnCallback();
-                    if (!sendPayload(payload)) {
-                        __autodevPendingLogs.push(payload);
-                    }
-                } else {
-                    __autodevPendingLogs.push(payload);
-                    if (!__autodevFlushTimer) {
-                        __autodevFlushTimer = setInterval(flushPending, 100);
-                    }
-                    if (!__autodevPatchTimer) {
-                        __autodevPatchTimer = setInterval(patchOnCallback, 100);
-                    }
-                }
-            }
-            
-            console.log = function() { sendToKotlin('log', arguments); originalConsole.log.apply(console, arguments); };
-            console.info = function() { sendToKotlin('info', arguments); originalConsole.info.apply(console, arguments); };
-            console.warn = function() { sendToKotlin('warn', arguments); originalConsole.warn.apply(console, arguments); };
-            console.error = function() { sendToKotlin('error', arguments); originalConsole.error.apply(console, arguments); };
-            
-            window.onerror = function(msg, url, line, col, error) {
-                sendToKotlin('error', ['Uncaught error: ' + msg + ' at ' + url + ':' + line]);
-            };
-            
-            // Try to flush as soon as possible (in case bridge is already ready)
-            patchOnCallback();
-            flushPending();
-        })();
-        </script>
-    """.trimIndent()
-
-    // Insert script right after <head> or at the beginning of <body>
-    return when {
-        html.contains("<head>", ignoreCase = true) -> {
-            html.replaceFirst(
-                Regex("<head>", RegexOption.IGNORE_CASE),
-                "<head>\n$consoleScript\n"
-            )
-        }
-        html.contains("<body", ignoreCase = true) -> {
-            val bodyRegex = Regex("<body[^>]*>", RegexOption.IGNORE_CASE)
-            val match = bodyRegex.find(html)
-            if (match != null) {
-                html.replaceFirst(bodyRegex, "${match.value}\n$consoleScript\n")
-            } else {
-                "$consoleScript\n$html"
-            }
-        }
-        html.contains("<html", ignoreCase = true) -> {
-            val htmlRegex = Regex("<html[^>]*>", RegexOption.IGNORE_CASE)
-            val match = htmlRegex.find(html)
-            if (match != null) {
-                html.replaceFirst(htmlRegex, "${match.value}\n$consoleScript\n")
-            } else {
-                "$consoleScript\n$html"
-            }
-        }
-        else -> {
-            "$consoleScript\n$html"
-        }
-    }
-}
-
-private fun escapeForTemplateLiteral(input: String): String {
-    return input
-        .replace("\\", "\\\\")
-        .replace("`", "\\`")
-        .replace("$", "\\$")
-}
+// (console bridge logic extracted to ArtifactConsoleBridgeJvm)
 
 /**
  * Open HTML content in system browser
