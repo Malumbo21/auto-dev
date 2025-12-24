@@ -37,6 +37,14 @@ fun DesktopAutoDevApp(
 ) {
     val scope = rememberCoroutineScope()
 
+    // Log bundle reception
+    LaunchedEffect(initialBundle) {
+        if (initialBundle != null) {
+            cc.unitmesh.agent.logging.AutoDevLogger.info("DesktopAutoDevApp") { "📦 Received bundle: ${initialBundle.name} (id: ${initialBundle.id})" }
+            cc.unitmesh.agent.logging.AutoDevLogger.info("DesktopAutoDevApp") { "📦 Passing bundle to AutoDevApp" }
+        }
+    }
+
     // KCEF initialization state
     val kcefInitState by KcefManager.initState.collectAsState()
     val kcefDownloadProgress by KcefManager.downloadProgress.collectAsState()

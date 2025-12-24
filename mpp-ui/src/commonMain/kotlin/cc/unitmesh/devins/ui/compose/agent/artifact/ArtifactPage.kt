@@ -60,7 +60,9 @@ fun ArtifactPage(
     val currentWorkspace by WorkspaceManager.workspaceFlow.collectAsState()
 
     // Create ViewModel following CodingAgentViewModel pattern
-    val viewModel = remember(llmService, chatHistoryManager) {
+    // Use remember without keys to prevent recreation on recomposition
+    // The ViewModel manages its own state and should persist across recompositions
+    val viewModel = remember {
         ArtifactAgentViewModel(
             llmService = llmService,
             chatHistoryManager = chatHistoryManager
@@ -77,16 +79,21 @@ fun ArtifactPage(
 
     // Load initial bundle if provided (for Load-Back support)
     LaunchedEffect(initialBundle) {
-        initialBundle?.let { bundle ->
-            viewModel.loadFromBundle(bundle)
+        if (initialBundle != null) {
+            cc.unitmesh.agent.logging.AutoDevLogger.info("ArtifactPage") { "📦 ArtifactPage received initialBundle: ${initialBundle.name} (id: ${initialBundle.id})" }
+            cc.unitmesh.agent.logging.AutoDevLogger.info("ArtifactPage") { "📦 Loading bundle into viewModel..." }
+            viewModel.loadFromBundle(initialBundle)
             currentArtifact = viewModel.lastArtifact
             showPreview = currentArtifact != null
-            onNotification("info", "Loaded artifact: ${bundle.name}")
+            cc.unitmesh.agent.logging.AutoDevLogger.info("ArtifactPage") { "📦 Bundle loaded: artifact=${currentArtifact?.title}, showPreview=$showPreview" }
+            onNotification("info", "Loaded artifact: ${initialBundle.name}")
             consoleLogs = appendConsoleLog(
                 logs = consoleLogs,
                 level = "info",
-                message = "Loaded from bundle: ${bundle.name}"
+                message = "Loaded from bundle: ${initialBundle.name}"
             )
+        } else {
+            cc.unitmesh.agent.logging.AutoDevLogger.info("ArtifactPage") { "📦 ArtifactPage: no initialBundle provided" }
         }
     }
 
@@ -117,8 +124,12 @@ fun ArtifactPage(
     }
 
     // Derive the artifact to display (streaming or completed)
-    val displayArtifact: ArtifactAgent.Artifact? = remember(currentArtifact, streamingArtifact) {
-        currentArtifact ?: streamingArtifact?.toArtifact()
+    // Directly compute without remember to ensure reactive updates when any state changes
+    val displayArtifact: ArtifactAgent.Artifact? = currentArtifact ?: viewModel.lastArtifact ?: streamingArtifact?.toArtifact()
+    
+    // Log for debugging using SideEffect to run on every recomposition
+    androidx.compose.runtime.SideEffect {
+        cc.unitmesh.agent.logging.AutoDevLogger.info("ArtifactPage") { "📦 [Render] displayArtifact: ${displayArtifact?.title ?: "null"}, showPreview=$showPreview, currentArtifact=${currentArtifact?.title}, viewModel.lastArtifact=${viewModel.lastArtifact?.title}" }
     }
 
     // Check if currently streaming

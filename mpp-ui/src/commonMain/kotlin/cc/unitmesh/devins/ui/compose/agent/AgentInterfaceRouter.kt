@@ -145,6 +145,8 @@ fun AgentInterfaceRouter(
         }
 
         AgentType.ARTIFACT -> {
+            // Log when ArtifactPage is rendered
+            cc.unitmesh.agent.logging.AutoDevLogger.info("AgentInterfaceRouter") { "📦 Rendering ArtifactPage with initialBundle: ${initialBundle?.name ?: "null"}" }
             ArtifactPage(
                 llmService = llmService,
                 modifier = modifier,

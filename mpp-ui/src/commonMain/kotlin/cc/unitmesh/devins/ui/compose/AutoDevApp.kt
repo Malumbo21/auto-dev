@@ -292,9 +292,14 @@ private fun AutoDevContent(
                 }
             }
 
-            selectedAgentType = when (initialMode) {
-                "remote", "session" -> AgentType.REMOTE
-                "local" -> AgentType.LOCAL_CHAT
+            // Respect initialAgentType if it's set to a specific mode (e.g., ARTIFACT from .unit file)
+            // Only override if initialAgentType is the default CODING mode
+            selectedAgentType = when {
+                // If initialAgentType is ARTIFACT, keep it (launched from .unit file)
+                initialAgentType == AgentType.ARTIFACT -> initialAgentType
+                // Otherwise, apply mode-based logic
+                initialMode == "remote" || initialMode == "session" -> AgentType.REMOTE
+                initialMode == "local" -> AgentType.LOCAL_CHAT
                 else -> {
                     // JVM Desktop (非 Android) 默认使用 CODING 模式，更适合本地开发
                     // 移动端 (Android/iOS) 从配置读取，支持 Remote 模式

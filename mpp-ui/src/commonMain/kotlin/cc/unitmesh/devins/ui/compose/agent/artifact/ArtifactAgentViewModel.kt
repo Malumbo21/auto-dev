@@ -267,6 +267,8 @@ class ArtifactAgentViewModel(
             title = bundle.name,
             content = bundle.mainContent
         )
+        cc.unitmesh.agent.logging.AutoDevLogger.info("ArtifactAgentViewModel") { "📦 loadFromBundle: lastArtifact set to ${lastArtifact?.title}, content length=${bundle.mainContent.length}" }
+        cc.unitmesh.agent.logging.AutoDevLogger.info("ArtifactAgentViewModel") { "📦 loadFromBundle: renderer timeline size=${renderer.getTimelineSnapshot().size}" }
     }
 
     /**

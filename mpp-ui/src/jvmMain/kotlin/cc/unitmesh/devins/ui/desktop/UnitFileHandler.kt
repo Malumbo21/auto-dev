@@ -31,7 +31,14 @@ object UnitFileHandler {
      * Check if args contain a .unit file path
      */
     fun hasUnitFile(args: Array<String>): Boolean {
-        return args.any { it.endsWith(ArtifactBundle.BUNDLE_EXTENSION) && File(it).exists() }
+        val result = args.any { arg ->
+            val isUnitFile = arg.endsWith(ArtifactBundle.BUNDLE_EXTENSION)
+            val exists = if (isUnitFile) File(arg).exists() else false
+            logger.info("UnitFileHandler") { "🔍 Checking arg: $arg -> isUnitFile=$isUnitFile, exists=$exists" }
+            isUnitFile && exists
+        }
+        logger.info("UnitFileHandler") { "🔍 hasUnitFile result: $result" }
+        return result
     }
 
     /**

@@ -33,6 +33,7 @@ fun main(args: Array<String>) {
     ComposeSelectionCrashGuard.install()
     AutoDevLogger.info("AutoDevMain") { "🚀 AutoDev Desktop starting..." }
     AutoDevLogger.info("AutoDevMain") { "📁 Log files location: ${AutoDevLogger.getLogDirectory()}" }
+    AutoDevLogger.info("AutoDevMain") { "📋 Command line args: ${args.joinToString(", ")}" }
 
     val mode = args.find { it.startsWith("--mode=") }?.substringAfter("--mode=") ?: "auto"
     // 检查是否跳过启动动画（通过命令行参数）
@@ -40,11 +41,16 @@ fun main(args: Array<String>) {
 
     // Check if launched with a .unit file
     val hasUnitFile = UnitFileHandler.hasUnitFile(args)
+    AutoDevLogger.info("AutoDevMain") { "🔍 Checking for .unit file: hasUnitFile=$hasUnitFile" }
     if (hasUnitFile) {
-        AutoDevLogger.info("AutoDevMain") { "📦 Launched with .unit file" }
+        val unitFilePath = UnitFileHandler.getUnitFilePath(args)
+        AutoDevLogger.info("AutoDevMain") { "📦 Launched with .unit file: $unitFilePath" }
         runBlocking {
-            UnitFileHandler.processArgs(args)
+            val success = UnitFileHandler.processArgs(args)
+            AutoDevLogger.info("AutoDevMain") { "📦 UnitFileHandler.processArgs result: $success" }
         }
+    } else {
+        AutoDevLogger.info("AutoDevMain") { "ℹ️ No .unit file detected in command line args" }
     }
 
     application {
@@ -64,13 +70,21 @@ fun main(args: Array<String>) {
         // Observe UnitFileHandler's pending bundle (for file association opens)
         val pendingBundle by UnitFileHandler.pendingBundle.collectAsState()
 
-        // Clear pending bundle after it's been consumed (to prevent re-loading on recomposition)
+        // Store bundle in local state to prevent it from being cleared before use
+        var localBundle by remember { mutableStateOf<ArtifactBundle?>(null) }
+
+        // Log bundle state changes and store it locally
         LaunchedEffect(pendingBundle) {
             if (pendingBundle != null) {
-                // Bundle will be consumed by DesktopAutoDevApp -> AutoDevApp -> AgentInterfaceRouter -> ArtifactPage
-                // Clear it after a short delay to ensure it's been passed down
-                kotlinx.coroutines.delay(100)
+                AutoDevLogger.info("AutoDevMain") { "📦 Pending bundle detected: ${pendingBundle?.name} (id: ${pendingBundle?.id})" }
+                AutoDevLogger.info("AutoDevMain") { "📦 Bundle will be passed to DesktopAutoDevApp -> AutoDevApp -> AgentInterfaceRouter -> ArtifactPage" }
+                localBundle = pendingBundle
+                // Clear the pending bundle after storing it locally (to prevent re-loading on recomposition)
+                kotlinx.coroutines.delay(500) // Longer delay to ensure bundle is passed down
+                AutoDevLogger.info("AutoDevMain") { "📦 Clearing pending bundle after storing locally" }
                 UnitFileHandler.clearPendingBundle()
+            } else {
+                AutoDevLogger.info("AutoDevMain") { "📦 No pending bundle" }
             }
         }
 
@@ -168,7 +182,11 @@ fun main(args: Array<String>) {
                                 onNotification = { title, message ->
                                     trayState.sendNotification(androidx.compose.ui.window.Notification(title, message))
                                 },
-                                initialBundle = pendingBundle // Pass bundle from UnitFileHandler
+                                initialBundle = (localBundle ?: pendingBundle).also {
+                                    if (it != null) {
+                                        AutoDevLogger.info("AutoDevMain") { "📦 Passing bundle to DesktopAutoDevApp: ${it.name} (from ${if (localBundle != null) "local" else "pending"})" }
+                                    }
+                                } // Pass bundle from UnitFileHandler (use localBundle first, fallback to pendingBundle)
                             )
                         }
                     }
