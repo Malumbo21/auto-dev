@@ -433,9 +433,31 @@ private fun injectConsoleCapture(html: String): String {
             
             const __autodevPendingLogs = [];
             let __autodevFlushTimer = null;
+            let __autodevPatchTimer = null;
             
             function bridgeReady() {
                 return (window.kmpJsBridge && typeof window.kmpJsBridge.callNative === 'function');
+            }
+
+            // Fix for compose-webview-multiplatform library bug:
+            // When callbackId is -1, the library still calls onCallback and logs it,
+            // causing excessive console spam like:
+            //   "onCallback: -1, {}, undefined"
+            function patchOnCallback() {
+                if (window.kmpJsBridge && window.kmpJsBridge.onCallback && !window.kmpJsBridge.__autodevOnCallbackPatched) {
+                    const originalOnCallback = window.kmpJsBridge.onCallback;
+                    window.kmpJsBridge.onCallback = function(callbackId, data) {
+                        if (callbackId === -1 || callbackId === '-1') {
+                            return;
+                        }
+                        return originalOnCallback.call(window.kmpJsBridge, callbackId, data);
+                    };
+                    window.kmpJsBridge.__autodevOnCallbackPatched = true;
+                    if (__autodevPatchTimer) {
+                        clearInterval(__autodevPatchTimer);
+                        __autodevPatchTimer = null;
+                    }
+                }
             }
             
             function sendPayload(payload) {
@@ -451,6 +473,7 @@ private fun injectConsoleCapture(html: String): String {
             }
             
             function flushPending() {
+                patchOnCallback();
                 if (!bridgeReady()) return;
                 while (__autodevPendingLogs.length > 0) {
                     const payload = __autodevPendingLogs.shift();
@@ -472,6 +495,7 @@ private fun injectConsoleCapture(html: String): String {
                 }).join(' ');
                 const payload = {level: level, message: message};
                 if (bridgeReady()) {
+                    patchOnCallback();
                     if (!sendPayload(payload)) {
                         __autodevPendingLogs.push(payload);
                     }
@@ -479,6 +503,9 @@ private fun injectConsoleCapture(html: String): String {
                     __autodevPendingLogs.push(payload);
                     if (!__autodevFlushTimer) {
                         __autodevFlushTimer = setInterval(flushPending, 100);
+                    }
+                    if (!__autodevPatchTimer) {
+                        __autodevPatchTimer = setInterval(patchOnCallback, 100);
                     }
                 }
             }
@@ -493,6 +520,7 @@ private fun injectConsoleCapture(html: String): String {
             };
             
             // Try to flush as soon as possible (in case bridge is already ready)
+            patchOnCallback();
             flushPending();
         })();
         </script>
