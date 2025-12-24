@@ -22,14 +22,17 @@ import cc.unitmesh.viewer.web.KcefManager
 import com.multiplatform.webview.jsbridge.IJsMessageHandler
 import com.multiplatform.webview.jsbridge.JsMessage
 import com.multiplatform.webview.jsbridge.rememberWebViewJsBridge
+import com.multiplatform.webview.util.KLogSeverity
 import com.multiplatform.webview.web.WebView
+import com.multiplatform.webview.web.LoadingState
 import com.multiplatform.webview.web.WebViewNavigator
-import com.multiplatform.webview.web.rememberWebViewStateWithHTMLData
 import com.multiplatform.webview.web.rememberWebViewNavigator
+import com.multiplatform.webview.web.rememberWebViewState
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.awt.Desktop
@@ -169,12 +172,16 @@ private fun ArtifactWebView(
     onConsoleLog: (String, String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val webViewState = rememberWebViewStateWithHTMLData(data = html)
+    // IMPORTANT:
+    // Start from about:blank so that JS bridge handlers are registered BEFORE we inject HTML.
+    // Otherwise, early console.log calls during page parse can run before kmpJsBridge is available,
+    // causing logs to be dropped (same class of issue as WebEditView.jvm.kt).
+    val webViewState = rememberWebViewState(url = "about:blank")
     val webViewNavigator = rememberWebViewNavigator()
     val jsBridge = rememberWebViewJsBridge()
 
     // Register JS message handler for console.log capture
-    LaunchedEffect(jsBridge) {
+    LaunchedEffect(Unit) {
         jsBridge.register(object : IJsMessageHandler {
             override fun methodName(): String = "artifactConsole"
 
@@ -184,16 +191,72 @@ private fun ArtifactWebView(
                 callback: (String) -> Unit
             ) {
                 try {
-                    val json = Json.parseToJsonElement(message.params).jsonObject
-                    val level = json["level"]?.jsonPrimitive?.content ?: "log"
-                    val msg = json["message"]?.jsonPrimitive?.content ?: ""
-                    onConsoleLog(level, msg)
+                    // Params can be:
+                    // - a JSON object string: {"level":"log","message":"..."}
+                    // - a JSON string containing a JSON object (double-encoded)
+                    // - a plain string
+                    val params = message.params
+                    val level: String
+                    val msg: String
+
+                    val element = runCatching { Json.parseToJsonElement(params) }.getOrNull()
+                    if (element == null) {
+                        level = "log"
+                        msg = params
+                    } else if (element is kotlinx.serialization.json.JsonObject) {
+                        level = element["level"]?.jsonPrimitive?.content ?: "log"
+                        msg = element["message"]?.jsonPrimitive?.content ?: ""
+                    } else {
+                        // Could be JsonPrimitive string containing JSON
+                        val primitiveContent: String? = runCatching { element.jsonPrimitive.content }.getOrNull()
+                        val nested = primitiveContent?.let { s: String ->
+                            runCatching { Json.parseToJsonElement(s) }.getOrNull()
+                        }
+                        if (nested is kotlinx.serialization.json.JsonObject) {
+                            level = nested["level"]?.jsonPrimitive?.content ?: "log"
+                            msg = nested["message"]?.jsonPrimitive?.content ?: (primitiveContent ?: "")
+                        } else {
+                            level = "log"
+                            msg = primitiveContent ?: params
+                        }
+                    }
+                    if (msg.isNotBlank()) onConsoleLog(level, msg)
                 } catch (e: Exception) {
-                    println("Error handling console message: ${e.message}")
+                    onConsoleLog("warn", "Error handling console message: ${e.message}")
                 }
                 callback("{}")
             }
         })
+    }
+
+    // Configure WebView settings early (helps debugging + parity with WebEditView)
+    LaunchedEffect(Unit) {
+        webViewState.webSettings.apply {
+            // Avoid noisy CEF console output (e.g. internal bridge callback logs)
+            logSeverity = KLogSeverity.Error
+            allowUniversalAccessFromFileURLs = true
+        }
+    }
+
+    // Inject/refresh HTML only after the initial about:blank load is finished.
+    // This ensures kmpJsBridge is available when the page's scripts (console.log) run.
+    LaunchedEffect(webViewState.isLoading, html) {
+        val finished = !webViewState.isLoading && webViewState.loadingState is LoadingState.Finished
+        if (finished) {
+            // Small delay to give the bridge time to attach in some environments.
+            delay(50)
+            val escaped = escapeForTemplateLiteral(html)
+            val js = """
+                try {
+                  document.open();
+                  document.write(`$escaped`);
+                  document.close();
+                } catch (e) {
+                  console.error('ArtifactWebView document.write failed:', e);
+                }
+            """.trimIndent()
+            webViewNavigator.evaluateJavaScript(js)
+        }
     }
 
     WebView(
@@ -368,6 +431,37 @@ private fun injectConsoleCapture(html: String): String {
                 error: console.error.bind(console)
             };
             
+            const __autodevPendingLogs = [];
+            let __autodevFlushTimer = null;
+            
+            function bridgeReady() {
+                return (window.kmpJsBridge && typeof window.kmpJsBridge.callNative === 'function');
+            }
+            
+            function sendPayload(payload) {
+                try {
+                    // Fire-and-forget: passing a callback can trigger verbose internal logs
+                    // like "[INFO:CONSOLE] add callback: ...", and we don't need a JS callback
+                    // for console forwarding.
+                    window.kmpJsBridge.callNative('artifactConsole', JSON.stringify(payload));
+                    return true;
+                } catch (e) {
+                    return false;
+                }
+            }
+            
+            function flushPending() {
+                if (!bridgeReady()) return;
+                while (__autodevPendingLogs.length > 0) {
+                    const payload = __autodevPendingLogs.shift();
+                    if (!sendPayload(payload)) break;
+                }
+                if (__autodevPendingLogs.length === 0 && __autodevFlushTimer) {
+                    clearInterval(__autodevFlushTimer);
+                    __autodevFlushTimer = null;
+                }
+            }
+            
             function sendToKotlin(level, args) {
                 const message = Array.from(args).map(arg => {
                     if (typeof arg === 'object') {
@@ -376,9 +470,16 @@ private fun injectConsoleCapture(html: String): String {
                     }
                     return String(arg);
                 }).join(' ');
-                
-                if (window.kmpJsBridge && window.kmpJsBridge.callNative) {
-                    window.kmpJsBridge.callNative('artifactConsole', JSON.stringify({level: level, message: message}));
+                const payload = {level: level, message: message};
+                if (bridgeReady()) {
+                    if (!sendPayload(payload)) {
+                        __autodevPendingLogs.push(payload);
+                    }
+                } else {
+                    __autodevPendingLogs.push(payload);
+                    if (!__autodevFlushTimer) {
+                        __autodevFlushTimer = setInterval(flushPending, 100);
+                    }
                 }
             }
             
@@ -390,6 +491,9 @@ private fun injectConsoleCapture(html: String): String {
             window.onerror = function(msg, url, line, col, error) {
                 sendToKotlin('error', ['Uncaught error: ' + msg + ' at ' + url + ':' + line]);
             };
+            
+            // Try to flush as soon as possible (in case bridge is already ready)
+            flushPending();
         })();
         </script>
     """.trimIndent()
@@ -424,6 +528,13 @@ private fun injectConsoleCapture(html: String): String {
             "$consoleScript\n$html"
         }
     }
+}
+
+private fun escapeForTemplateLiteral(input: String): String {
+    return input
+        .replace("\\", "\\\\")
+        .replace("`", "\\`")
+        .replace("$", "\\$")
 }
 
 /**
