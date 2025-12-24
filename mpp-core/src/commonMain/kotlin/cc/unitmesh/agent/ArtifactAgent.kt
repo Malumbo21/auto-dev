@@ -7,7 +7,7 @@ import cc.unitmesh.agent.render.DefaultCodingAgentRenderer
 import cc.unitmesh.devins.llm.Message
 import cc.unitmesh.devins.llm.MessageRole
 import cc.unitmesh.llm.KoogLLMService
-import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.flow.collect
 
 /**
  * ArtifactAgent - Generates self-contained, executable artifacts (HTML/JS, Python, React)
@@ -86,7 +86,7 @@ class ArtifactAgent(
                 userPrompt = prompt,
                 historyMessages = historyMessages,
                 compileDevIns = false
-            ).toList().forEach { chunk ->
+            ).collect { chunk ->
                 responseBuilder.append(chunk)
                 renderer.renderLLMResponseChunk(chunk)
                 onProgress(chunk)

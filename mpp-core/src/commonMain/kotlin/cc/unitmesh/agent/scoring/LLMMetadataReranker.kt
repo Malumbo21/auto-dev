@@ -272,7 +272,7 @@ class LLMMetadataReranker(
         llmService.streamPrompt(
             userPrompt = prompt,
             compileDevIns = false
-        ).toList().forEach { chunk ->
+        ).collect { chunk ->
             responseBuilder.append(chunk)
         }
         return responseBuilder.toString()
