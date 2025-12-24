@@ -33,6 +33,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cc.unitmesh.agent.render.ToolCallInfo
+import cc.unitmesh.agent.render.RendererUtils
 import cc.unitmesh.devins.ui.compose.icons.AutoDevComposeIcons
 import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
 
@@ -267,22 +268,34 @@ fun ToolErrorItem(
 
 @Composable
 fun CurrentToolCallItem(toolCall: ToolCallInfo) {
+    val isRetrievalToolCall = remember(toolCall.toolName) {
+        RendererUtils.isRetrievalToolCall(toolName = toolCall.toolName)
+    }
+
     Surface(
-        color = MaterialTheme.colorScheme.primaryContainer,
+        color = if (isRetrievalToolCall) {
+            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
+        } else {
+            MaterialTheme.colorScheme.primaryContainer
+        },
         shape = RoundedCornerShape(8.dp),
         modifier = Modifier
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .padding(horizontal = if (isRetrievalToolCall) 10.dp else 12.dp, vertical = if (isRetrievalToolCall) 6.dp else 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             CircularProgressIndicator(
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(if (isRetrievalToolCall) 16.dp else 20.dp),
                 strokeWidth = 2.dp,
-                color = MaterialTheme.colorScheme.primary
+                color = if (isRetrievalToolCall) {
+                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
+                } else {
+                    MaterialTheme.colorScheme.primary
+                }
             )
 
             Row(
@@ -293,12 +306,13 @@ fun CurrentToolCallItem(toolCall: ToolCallInfo) {
                 Icon(
                     imageVector = AutoDevComposeIcons.Build,
                     contentDescription = "Tool",
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
-                    modifier = Modifier.size(16.dp)
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
+                    modifier = Modifier.size(if (isRetrievalToolCall) 14.dp else 16.dp)
                 )
                 Text(
                     text = "${toolCall.toolName} — ${toolCall.description}",
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (isRetrievalToolCall) 0.75f else 0.9f),
+                    style = if (isRetrievalToolCall) MaterialTheme.typography.labelMedium else MaterialTheme.typography.bodyMedium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f)
@@ -306,16 +320,18 @@ fun CurrentToolCallItem(toolCall: ToolCallInfo) {
             }
 
             // "Executing" badge
-            Surface(
-                color = MaterialTheme.colorScheme.primary,
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text(
-                    text = "EXECUTING",
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    style = MaterialTheme.typography.labelSmall
-                )
+            if (!isRetrievalToolCall) {
+                Surface(
+                    color = MaterialTheme.colorScheme.primary,
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(
+                        text = "EXECUTING",
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
             }
         }
     }

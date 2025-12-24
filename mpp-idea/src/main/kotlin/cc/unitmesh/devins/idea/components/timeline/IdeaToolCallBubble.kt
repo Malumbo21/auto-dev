@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import cc.unitmesh.agent.render.RendererUtils
 import cc.unitmesh.agent.render.TimelineItem
 import cc.unitmesh.devins.idea.toolwindow.IdeaComposeIcons
 import cc.unitmesh.devins.idea.theme.IdeaAutoDevColors
@@ -60,14 +61,23 @@ fun IdeaToolCallBubble(
     val hasMoreParams = item.params.length > 100
     val hasMoreOutput = (item.output?.length ?: 0) > 200
 
+    val isRetrievalToolCall = remember(item.toolName, item.toolType) {
+        RendererUtils.isRetrievalToolCall(toolName = item.toolName, toolType = item.toolType)
+    }
+
+    val containerPadding = if (isRetrievalToolCall) 6.dp else 8.dp
+    val statusIconSize = if (isRetrievalToolCall) 14.dp else 16.dp
+    val chevronIconSize = if (isRetrievalToolCall) 18.dp else 20.dp
+    val mutedTextColor = JewelTheme.globalColors.text.info.copy(alpha = 0.7f)
+
     Box(
         modifier = modifier
             .fillMaxWidth()
             .background(
-                color = JewelTheme.globalColors.panelBackground.copy(alpha = 0.5f),
+                color = JewelTheme.globalColors.panelBackground.copy(alpha = if (isRetrievalToolCall) 0.3f else 0.5f),
                 shape = RoundedCornerShape(4.dp)
             )
-            .padding(8.dp)
+            .padding(containerPadding)
     ) {
         Column {
             // Header row: Status + Tool name + Output (dynamic) + Time + Expand icon
@@ -93,8 +103,10 @@ fun IdeaToolCallBubble(
                         item.success == true -> "Success"
                         else -> "Failed"
                     },
-                    modifier = Modifier.size(16.dp),
+                    modifier = Modifier.size(statusIconSize),
                     tint = when {
+                        item.success == false -> IdeaAutoDevColors.Red.c400
+                        isRetrievalToolCall -> JewelTheme.globalColors.text.info.copy(alpha = 0.65f)
                         isExecuting -> IdeaAutoDevColors.Blue.c400
                         item.success == true -> IdeaAutoDevColors.Green.c400
                         else -> IdeaAutoDevColors.Red.c400
@@ -104,7 +116,11 @@ fun IdeaToolCallBubble(
                 // Tool name (fixed width, no shrink)
                 Text(
                     text = item.toolName,
-                    style = JewelTheme.defaultTextStyle.copy(fontWeight = FontWeight.Bold),
+                    style = JewelTheme.defaultTextStyle.copy(
+                        fontWeight = if (isRetrievalToolCall) FontWeight.Medium else FontWeight.Bold,
+                        fontSize = if (isRetrievalToolCall) 12.sp else JewelTheme.defaultTextStyle.fontSize,
+                        color = if (isRetrievalToolCall) mutedTextColor else JewelTheme.globalColors.text.normal
+                    ),
                     maxLines = 1
                 )
 
@@ -113,8 +129,10 @@ fun IdeaToolCallBubble(
                     Text(
                         text = "-> ${item.output?.replace("\n", " ")?.trim() ?: ""}",
                         style = JewelTheme.defaultTextStyle.copy(
-                            fontSize = 12.sp,
+                            fontSize = if (isRetrievalToolCall) 11.sp else 12.sp,
                             color = when {
+                                item.success == false -> IdeaAutoDevColors.Red.c400
+                                isRetrievalToolCall -> mutedTextColor
                                 item.success == true -> IdeaAutoDevColors.Green.c400
                                 item.success == false -> IdeaAutoDevColors.Red.c400
                                 else -> JewelTheme.globalColors.text.info
@@ -132,8 +150,8 @@ fun IdeaToolCallBubble(
                         Text(
                             text = "-> ${item.params.replace("\n", " ").trim()}",
                             style = JewelTheme.defaultTextStyle.copy(
-                                fontSize = 12.sp,
-                                color = JewelTheme.globalColors.text.info
+                                fontSize = if (isRetrievalToolCall) 11.sp else 12.sp,
+                                color = if (isRetrievalToolCall) mutedTextColor else JewelTheme.globalColors.text.info
                             ),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -166,8 +184,8 @@ fun IdeaToolCallBubble(
                     Icon(
                         imageVector = if (expanded) IdeaComposeIcons.ExpandLess else IdeaComposeIcons.ExpandMore,
                         contentDescription = if (expanded) "Collapse" else "Expand",
-                        modifier = Modifier.size(20.dp),
-                        tint = JewelTheme.globalColors.text.normal.copy(alpha = 0.7f)
+                        modifier = Modifier.size(chevronIconSize),
+                        tint = if (isRetrievalToolCall) mutedTextColor else JewelTheme.globalColors.text.normal.copy(alpha = 0.7f)
                     )
                 }
             }
@@ -329,14 +347,22 @@ fun IdeaCurrentToolCallItem(
     description: String,
     modifier: Modifier = Modifier
 ) {
+    val isRetrievalToolCall = remember(toolName) {
+        RendererUtils.isRetrievalToolCall(toolName = toolName)
+    }
+
     Box(
         modifier = modifier
             .fillMaxWidth()
             .background(
-                color = IdeaAutoDevColors.Blue.c400.copy(alpha = 0.15f),
+                color = if (isRetrievalToolCall) {
+                    JewelTheme.globalColors.panelBackground.copy(alpha = 0.3f)
+                } else {
+                    IdeaAutoDevColors.Blue.c400.copy(alpha = 0.15f)
+                },
                 shape = RoundedCornerShape(8.dp)
             )
-            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .padding(horizontal = if (isRetrievalToolCall) 10.dp else 12.dp, vertical = if (isRetrievalToolCall) 6.dp else 8.dp)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -346,7 +372,7 @@ fun IdeaCurrentToolCallItem(
             Text(
                 text = "...",
                 style = JewelTheme.defaultTextStyle.copy(
-                    color = IdeaAutoDevColors.Blue.c400,
+                    color = if (isRetrievalToolCall) JewelTheme.globalColors.text.info.copy(alpha = 0.65f) else IdeaAutoDevColors.Blue.c400,
                     fontWeight = FontWeight.Bold
                 )
             )
@@ -355,35 +381,40 @@ fun IdeaCurrentToolCallItem(
             Icon(
                 imageVector = IdeaComposeIcons.Build,
                 contentDescription = "Tool",
-                modifier = Modifier.size(16.dp),
+                modifier = Modifier.size(if (isRetrievalToolCall) 14.dp else 16.dp),
                 tint = JewelTheme.globalColors.text.normal.copy(alpha = 0.7f)
             )
 
             // Tool name and description
             Text(
                 text = "$toolName - $description",
-                style = JewelTheme.defaultTextStyle,
+                style = JewelTheme.defaultTextStyle.copy(
+                    fontSize = if (isRetrievalToolCall) 12.sp else JewelTheme.defaultTextStyle.fontSize,
+                    color = if (isRetrievalToolCall) JewelTheme.globalColors.text.info.copy(alpha = 0.75f) else JewelTheme.globalColors.text.normal
+                ),
                 modifier = Modifier.weight(1f),
                 maxLines = 1
             )
 
             // Executing badge
-            Box(
-                modifier = Modifier
-                    .background(
-                        color = IdeaAutoDevColors.Blue.c400,
-                        shape = RoundedCornerShape(12.dp)
+            if (!isRetrievalToolCall) {
+                Box(
+                    modifier = Modifier
+                        .background(
+                            color = IdeaAutoDevColors.Blue.c400,
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = "EXECUTING",
+                        style = JewelTheme.defaultTextStyle.copy(
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = IdeaAutoDevColors.Neutral.c50
+                        )
                     )
-                    .padding(horizontal = 8.dp, vertical = 4.dp)
-            ) {
-                Text(
-                    text = "EXECUTING",
-                    style = JewelTheme.defaultTextStyle.copy(
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = IdeaAutoDevColors.Neutral.c50
-                    )
-                )
+                }
             }
         }
     }

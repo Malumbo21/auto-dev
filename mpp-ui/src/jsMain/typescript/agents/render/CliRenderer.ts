@@ -222,7 +222,10 @@ export class CliRenderer extends BaseRenderer {
 
   renderToolCall(toolName: string, paramsStr: string): void {
     const toolInfo = this.formatToolCallDisplay(toolName, paramsStr);
-    console.log(chalk.bold('● ') + chalk.bold(toolInfo.name) + semanticChalk.muted(' - ' + toolInfo.description));
+    const isRetrieval = this.isRetrievalToolCall(toolName);
+    const bullet = isRetrieval ? semanticChalk.muted('· ') : chalk.bold('● ');
+    const name = isRetrieval ? semanticChalk.muted(toolInfo.name) : chalk.bold(toolInfo.name);
+    console.log(bullet + name + semanticChalk.muted(' - ' + toolInfo.description));
     if (toolInfo.details) {
       console.log('  ⎿ ' + semanticChalk.muted(toolInfo.details));
     }

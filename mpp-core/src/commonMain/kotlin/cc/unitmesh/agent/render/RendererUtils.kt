@@ -2,6 +2,7 @@ package cc.unitmesh.agent.render
 
 import cc.unitmesh.agent.tool.ToolType
 import cc.unitmesh.agent.tool.toToolType
+import cc.unitmesh.agent.tool.schema.ToolCategory
 
 /**
  * Shared utility functions for Renderer implementations.
@@ -139,6 +140,49 @@ object RendererUtils {
             description = displayInfo.description,
             details = displayInfo.details
         )
+    }
+
+    /**
+     * Determine whether a tool call is primarily a *retrieval* (read-only / search / context-gathering) operation.
+     *
+     * This is used by UI layers to de-emphasize noisy tool calls (e.g. Find Files / Read File)
+     * while still keeping them expandable/clickable for details.
+     *
+     * NOTE: ToolType is deprecated, but many renderers still use it. For unknown tools,
+     * we fall back to name-based heuristics.
+     */
+    fun isRetrievalToolCall(
+        toolName: String,
+        toolType: ToolType? = toolName.toToolType()
+    ): Boolean {
+        // Prefer structured info when available.
+        if (toolType != null) {
+            return toolType.category == ToolCategory.Search ||
+                toolType == ToolType.ReadFile ||
+                toolType == ToolType.ListFiles
+        }
+
+        // Fallback: name-based heuristic (handles display names and tool IDs).
+        val normalized = toolName.trim().lowercase()
+        return normalized in setOf(
+            // Common display names (Compose/Jewel)
+            "find files",
+            "search content",
+            "read file",
+            "list files",
+            // Tool IDs across implementations
+            "glob",
+            "glob_file_search",
+            "grep",
+            "read-file",
+            "read_file",
+            "list-files",
+            "list_dir",
+            "codebase_search",
+            "docql"
+        ) ||
+            normalized.contains("search") ||
+            normalized.contains("find file")
     }
 }
 

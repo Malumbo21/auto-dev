@@ -37,6 +37,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import cc.unitmesh.agent.Platform
+import cc.unitmesh.agent.render.RendererUtils
 import cc.unitmesh.agent.tool.ToolType
 import cc.unitmesh.agent.tool.impl.docql.DocQLSearchStats
 import cc.unitmesh.devins.ui.compose.agent.knowledge.DocQLDetailDialog
@@ -99,12 +100,36 @@ fun ToolItem(
     val isExecuting = success == null
     val hasStats = docqlStats != null
 
+    val isRetrievalToolCall = remember(toolName, toolType) {
+        RendererUtils.isRetrievalToolCall(toolName = toolName, toolType = toolType)
+    }
+
+    val containerPadding = if (isRetrievalToolCall) 6.dp else 8.dp
+    val headerGap = if (isRetrievalToolCall) 6.dp else 8.dp
+    val statusIconSize = if (isRetrievalToolCall) 14.dp else 16.dp
+    val chevronIconSize = if (isRetrievalToolCall) 18.dp else 20.dp
+
+    val mutedTextColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
+    val containerColor = if (isRetrievalToolCall) {
+        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
+    } else {
+        MaterialTheme.colorScheme.surface
+    }
+
+    val statusTint = when {
+        success == false -> MaterialTheme.colorScheme.error
+        isRetrievalToolCall -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
+        isExecuting -> MaterialTheme.colorScheme.primary
+        success == true -> AutoDevColors.Signal.success
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
     Surface(
-        color = MaterialTheme.colorScheme.surface,
+        color = containerColor,
         shape = RoundedCornerShape(4.dp),
         modifier = Modifier
     ) {
-        Column(modifier = Modifier.padding(8.dp)) {
+        Column(modifier = Modifier.padding(containerPadding)) {
             Row(
                 modifier =
                     Modifier
@@ -114,7 +139,7 @@ fun ToolItem(
                             interactionSource = remember { MutableInteractionSource() }
                         ) { if (displayParams != null || displayOutput != null) expanded = !expanded },
                 verticalAlignment = Alignment.Companion.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(headerGap)
             ) {
                 Icon(
                     imageVector = when {
@@ -127,12 +152,8 @@ fun ToolItem(
                         success -> "Success"
                         else -> "Failed"
                     },
-                    tint = when {
-                        isExecuting -> MaterialTheme.colorScheme.primary
-                        success -> AutoDevColors.Signal.success
-                        else -> MaterialTheme.colorScheme.error
-                    },
-                    modifier = Modifier.Companion.size(16.dp)
+                    tint = statusTint,
+                    modifier = Modifier.Companion.size(statusIconSize)
                 )
 
                 val displayToolName = when {
@@ -148,8 +169,9 @@ fun ToolItem(
 
                 Text(
                     text = displayToolName,
-                    fontWeight = FontWeight.Companion.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = if (isRetrievalToolCall) FontWeight.Companion.Medium else FontWeight.Companion.Bold,
+                    color = if (isRetrievalToolCall) mutedTextColor else MaterialTheme.colorScheme.onSurface,
+                    style = if (isRetrievalToolCall) MaterialTheme.typography.labelMedium else MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.Companion.weight(1f)
                 )
 
@@ -164,12 +186,12 @@ fun ToolItem(
                     Text(
                         text = "-> $displaySummary",
                         color = when (success) {
-                            true -> AutoDevColors.Signal.success
                             false -> MaterialTheme.colorScheme.error
-                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                            true -> if (isRetrievalToolCall) mutedTextColor else AutoDevColors.Signal.success
+                            null -> if (isRetrievalToolCall) mutedTextColor else MaterialTheme.colorScheme.onSurfaceVariant
                         },
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Companion.Medium,
+                        style = if (isRetrievalToolCall) MaterialTheme.typography.labelSmall else MaterialTheme.typography.bodyMedium,
+                        fontWeight = if (isRetrievalToolCall) FontWeight.Companion.Normal else FontWeight.Companion.Medium,
                         maxLines = 1
                     )
                 }
@@ -177,7 +199,7 @@ fun ToolItem(
                 if (executionTimeMs != null && executionTimeMs > 0) {
                     Text(
                         text = "${executionTimeMs}ms",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (isRetrievalToolCall) 0.45f else 0.6f),
                         style = MaterialTheme.typography.labelSmall
                     )
                 }
@@ -232,8 +254,8 @@ fun ToolItem(
                     Icon(
                         imageVector = if (expanded) AutoDevComposeIcons.ExpandLess else AutoDevComposeIcons.ExpandMore,
                         contentDescription = if (expanded) "Collapse" else "Expand",
-                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                        modifier = Modifier.Companion.size(20.dp)
+                        tint = (if (isRetrievalToolCall) mutedTextColor else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)),
+                        modifier = Modifier.Companion.size(chevronIconSize)
                     )
                 }
             }

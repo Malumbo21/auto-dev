@@ -266,7 +266,10 @@ export class ServerRenderer extends BaseRenderer {
     const toolInfo = this.formatToolCallDisplay(toolName, params);
 
     // Display like CliRenderer: ● name - description
-    console.log(`● ${toolInfo.name}` + semanticChalk.muted(` - ${toolInfo.description}`));
+    const isRetrieval = this.isRetrievalToolCall(toolName);
+    const bullet = isRetrieval ? semanticChalk.muted('· ') : '● ';
+    const name = isRetrieval ? semanticChalk.muted(toolInfo.name) : toolInfo.name;
+    console.log(`${bullet}${name}` + semanticChalk.muted(` - ${toolInfo.description}`));
 
     if (toolInfo.details) {
       console.log('  ⎿ ' + semanticChalk.muted(toolInfo.details));

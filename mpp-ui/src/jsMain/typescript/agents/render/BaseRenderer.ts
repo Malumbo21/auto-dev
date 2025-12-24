@@ -107,6 +107,32 @@ export abstract class BaseRenderer implements JsCodingAgentRenderer {
   }
 
   /**
+   * Determine whether a tool call is primarily a retrieval (read-only / search / context-gathering) operation.
+   * Used by renderers to de-emphasize noisy tool calls (e.g. find files / read file) while keeping details accessible.
+   */
+  protected isRetrievalToolCall(toolName: string): boolean {
+    const normalized = (toolName || '').trim().toLowerCase();
+    return (
+      normalized === 'glob' ||
+      normalized === 'glob_file_search' ||
+      normalized === 'grep' ||
+      normalized === 'codebase_search' ||
+      normalized === 'read-file' ||
+      normalized === 'read_file' ||
+      normalized === 'list-files' ||
+      normalized === 'list_dir' ||
+      normalized === 'docql' ||
+      // Friendly names (some renderers use display names)
+      normalized === 'find files' ||
+      normalized === 'read file' ||
+      normalized === 'list files' ||
+      normalized === 'search content' ||
+      normalized.includes('search') ||
+      normalized.includes('find file')
+    );
+  }
+
+  /**
    * Extract thinking content from the buffer.
    * Returns an object with content separated from thinking blocks.
    */
