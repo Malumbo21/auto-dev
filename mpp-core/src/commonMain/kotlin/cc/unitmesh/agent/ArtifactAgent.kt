@@ -166,7 +166,53 @@ class ArtifactAgent(
             }
         }
 
+        // Fallback: If the model didn't follow <autodev-artifact> format, try to recover a single HTML artifact
+        // from either a fenced ```html code block or a raw HTML document.
+        if (artifacts.isEmpty()) {
+            val recoveredHtml = extractHtmlFallback(response)
+            if (!recoveredHtml.isNullOrBlank()) {
+                val title = extractHtmlTitle(recoveredHtml) ?: "HTML Artifact"
+                artifacts.add(
+                    Artifact(
+                        identifier = "artifact-0",
+                        type = Artifact.ArtifactType.HTML,
+                        title = title,
+                        content = recoveredHtml.trim()
+                    )
+                )
+            }
+        }
+
         return artifacts
+    }
+
+    /**
+     * Try to extract HTML content when <autodev-artifact> wrapper is missing.
+     * Supports:
+     * - Markdown fenced blocks: ```html ... ```
+     * - Raw HTML documents: starting at <!doctype html> or <html
+     */
+    private fun extractHtmlFallback(response: String): String? {
+        // 1) Markdown fenced ```html block
+        val fenced = Regex("(?is)```\\s*html\\s*\\n([\\s\\S]*?)\\n```").find(response)?.groupValues?.get(1)
+        if (!fenced.isNullOrBlank()) return fenced
+
+        // 2) Raw HTML document
+        val lower = response.lowercase()
+        val doctypeIndex = lower.indexOf("<!doctype html")
+        val htmlIndex = lower.indexOf("<html")
+        val start = when {
+            doctypeIndex >= 0 -> doctypeIndex
+            htmlIndex >= 0 -> htmlIndex
+            else -> -1
+        }
+        if (start < 0) return null
+        return response.substring(start)
+    }
+
+    private fun extractHtmlTitle(html: String): String? {
+        return Regex("(?is)<title\\s*>\\s*(.*?)\\s*</title>").find(html)?.groupValues?.get(1)?.trim()
+            ?.takeIf { it.isNotBlank() }
     }
 
     /**
