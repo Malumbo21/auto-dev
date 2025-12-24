@@ -67,7 +67,22 @@ fun ArtifactPage(
     var consoleLogs by remember { mutableStateOf<List<ConsoleLogItem>>(emptyList()) }
     var showPreview by remember { mutableStateOf(false) }
 
-    // Listen for artifact events from renderer
+    // Track streaming artifact for real-time preview
+    val streamingArtifact = viewModel.streamingArtifact
+
+    // Show preview when streaming starts (real-time preview)
+    LaunchedEffect(streamingArtifact) {
+        if (streamingArtifact != null && !showPreview) {
+            showPreview = true
+            consoleLogs = consoleLogs + ConsoleLogItem(
+                level = "info",
+                message = "Generating: ${streamingArtifact.title}",
+                timestamp = kotlinx.datetime.Clock.System.now().toEpochMilliseconds()
+            )
+        }
+    }
+
+    // Listen for completed artifact
     LaunchedEffect(viewModel.lastArtifact) {
         viewModel.lastArtifact?.let { artifact ->
             currentArtifact = artifact
@@ -75,11 +90,19 @@ fun ArtifactPage(
             onNotification("success", "Artifact generated: ${artifact.title}")
             consoleLogs = consoleLogs + ConsoleLogItem(
                 level = "info",
-                message = "Artifact loaded: ${artifact.title}",
+                message = "Artifact completed: ${artifact.title}",
                 timestamp = kotlinx.datetime.Clock.System.now().toEpochMilliseconds()
             )
         }
     }
+
+    // Derive the artifact to display (streaming or completed)
+    val displayArtifact: ArtifactAgent.Artifact? = remember(currentArtifact, streamingArtifact) {
+        currentArtifact ?: streamingArtifact?.toArtifact()
+    }
+
+    // Check if currently streaming
+    val isStreaming = streamingArtifact != null && !streamingArtifact.isComplete
 
     // Create callbacks for DevInEditorInput
     val callbacks = remember(viewModel) {
@@ -105,7 +128,8 @@ fun ArtifactPage(
                 onBack = onBack,
                 showPreview = showPreview,
                 onTogglePreview = { showPreview = !showPreview },
-                hasArtifact = currentArtifact != null,
+                hasArtifact = displayArtifact != null,
+                isStreaming = isStreaming,
                 onClear = {
                     viewModel.clearMessages()
                     currentArtifact = null
@@ -143,8 +167,8 @@ fun ArtifactPage(
             )
         }
 
-        // Right panel: Preview (when artifact is generated)
-        if (showPreview && currentArtifact != null) {
+        // Right panel: Preview (streaming or completed)
+        if (showPreview && displayArtifact != null) {
             if (isDesktop) {
                 // Desktop: Use resizable split pane
                 ResizableSplitPane(
@@ -155,9 +179,10 @@ fun ArtifactPage(
                     minRatio = 0.3f,
                     maxRatio = 0.9f,
                     first = {
-                        // WebView preview (expect/actual pattern - platform specific)
-                        ArtifactPreviewPanel(
-                            artifact = currentArtifact!!,
+                        // WebView preview with streaming indicator
+                        ArtifactPreviewPanelWithStreaming(
+                            artifact = displayArtifact,
+                            isStreaming = isStreaming,
                             onConsoleLog = { level, message ->
                                 consoleLogs = consoleLogs + ConsoleLogItem(
                                     level = level,
@@ -184,8 +209,9 @@ fun ArtifactPage(
                         .weight(0.6f)
                         .fillMaxHeight()
                 ) {
-                    ArtifactPreviewPanel(
-                        artifact = currentArtifact!!,
+                    ArtifactPreviewPanelWithStreaming(
+                        artifact = displayArtifact,
+                        isStreaming = isStreaming,
                         onConsoleLog = { level, message ->
                             consoleLogs = consoleLogs + ConsoleLogItem(
                                 level = level,
@@ -199,6 +225,68 @@ fun ArtifactPage(
                         logs = consoleLogs,
                         onClear = { consoleLogs = emptyList() },
                         modifier = Modifier.weight(0.3f).fillMaxWidth()
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Convert StreamingArtifact to ArtifactAgent.Artifact
+ */
+private fun StreamingArtifact.toArtifact(): ArtifactAgent.Artifact {
+    val type = ArtifactAgent.Artifact.ArtifactType.fromMimeType(this.type)
+        ?: ArtifactAgent.Artifact.ArtifactType.HTML
+    return ArtifactAgent.Artifact(
+        identifier = this.identifier,
+        type = type,
+        title = this.title,
+        content = this.content
+    )
+}
+
+/**
+ * Wrapper component that shows streaming indicator on top of preview
+ */
+@Composable
+private fun ArtifactPreviewPanelWithStreaming(
+    artifact: ArtifactAgent.Artifact,
+    isStreaming: Boolean,
+    onConsoleLog: (String, String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(modifier = modifier) {
+        ArtifactPreviewPanel(
+            artifact = artifact,
+            onConsoleLog = onConsoleLog,
+            modifier = Modifier.fillMaxSize()
+        )
+
+        // Streaming indicator overlay
+        if (isStreaming) {
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(8.dp),
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f),
+                shadowElevation = 4.dp
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(14.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = "Generating...",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 }
             }
@@ -231,6 +319,7 @@ private fun ArtifactTopBar(
     showPreview: Boolean,
     onTogglePreview: () -> Unit,
     hasArtifact: Boolean,
+    isStreaming: Boolean,
     onClear: () -> Unit,
     onExport: (() -> Unit)?
 ) {
@@ -260,6 +349,13 @@ private fun ArtifactTopBar(
                     text = "Artifact",
                     style = MaterialTheme.typography.titleMedium
                 )
+                // Streaming indicator in title bar
+                if (isStreaming) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp
+                    )
+                }
             }
 
             Row(
@@ -281,13 +377,15 @@ private fun ArtifactTopBar(
                             contentDescription = if (showPreview) "Hide Preview" else "Show Preview"
                         )
                     }
-                    // Export
-                    onExport?.let { export ->
-                        IconButton(onClick = export) {
-                            Icon(
-                                imageVector = Icons.Default.Download,
-                                contentDescription = "Export"
-                            )
+                    // Export (only when not streaming)
+                    if (!isStreaming) {
+                        onExport?.let { export ->
+                            IconButton(onClick = export) {
+                                Icon(
+                                    imageVector = Icons.Default.Download,
+                                    contentDescription = "Export"
+                                )
+                            }
                         }
                     }
                 }

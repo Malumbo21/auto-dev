@@ -14,6 +14,8 @@ import kotlinx.coroutines.*
 /**
  * ViewModel for ArtifactAgent, following the same pattern as CodingAgentViewModel.
  * Manages the artifact generation lifecycle and state.
+ *
+ * Supports streaming preview - artifact content is rendered in real-time as it's generated.
  */
 class ArtifactAgentViewModel(
     private val llmService: KoogLLMService?,
@@ -27,7 +29,12 @@ class ArtifactAgentViewModel(
     var isExecuting by mutableStateOf(false)
         private set
 
+    // Completed artifact (after generation finishes)
     var lastArtifact by mutableStateOf<ArtifactAgent.Artifact?>(null)
+        private set
+
+    // Streaming artifact state - updated in real-time during generation
+    var streamingArtifact by mutableStateOf<StreamingArtifact?>(null)
         private set
 
     private var currentExecutionJob: Job? = null
@@ -59,7 +66,7 @@ class ArtifactAgentViewModel(
     }
 
     /**
-     * Execute artifact generation task
+     * Execute artifact generation task with streaming preview support
      */
     fun executeTask(task: String) {
         if (isExecuting) return
@@ -75,15 +82,22 @@ class ArtifactAgentViewModel(
         isExecuting = true
         renderer.clearError()
         renderer.addUserMessage(task)
+        streamingArtifact = null // Reset streaming state
 
         currentExecutionJob = scope.launch {
+            val contentBuilder = StringBuilder()
+
             try {
                 val result = agent.generate(task) { chunk ->
-                    // Progress is handled by renderer via renderLLMResponseChunk
+                    contentBuilder.append(chunk)
+                    // Parse and update streaming artifact in real-time
+                    updateStreamingArtifact(contentBuilder.toString())
                 }
 
+                // Generation complete - set final artifact
                 if (result.success && result.artifacts.isNotEmpty()) {
                     lastArtifact = result.artifacts.first()
+                    streamingArtifact = null // Clear streaming state
                 } else {
                     result.error?.let { errorMsg ->
                         renderer.renderError(errorMsg)
@@ -95,10 +109,12 @@ class ArtifactAgentViewModel(
             } catch (e: CancellationException) {
                 renderer.forceStop()
                 renderer.renderError("Task cancelled by user")
+                streamingArtifact = null
                 isExecuting = false
                 currentExecutionJob = null
             } catch (e: Exception) {
                 renderer.renderError(e.message ?: "Unknown error")
+                streamingArtifact = null
                 isExecuting = false
                 currentExecutionJob = null
             } finally {
@@ -108,12 +124,59 @@ class ArtifactAgentViewModel(
     }
 
     /**
+     * Parse streaming content and update artifact preview in real-time
+     */
+    private fun updateStreamingArtifact(content: String) {
+        // Look for artifact tag opening
+        val artifactStartPattern = Regex(
+            """<autodev-artifact\s+([^>]*)>""",
+            RegexOption.IGNORE_CASE
+        )
+
+        val startMatch = artifactStartPattern.find(content) ?: return
+
+        // Extract attributes
+        val attributesStr = startMatch.groupValues[1]
+        val identifier = extractAttribute(attributesStr, "identifier") ?: "streaming-artifact"
+        val typeStr = extractAttribute(attributesStr, "type") ?: "application/autodev.artifacts.html"
+        val title = extractAttribute(attributesStr, "title") ?: "Generating..."
+
+        // Extract content after the opening tag
+        val contentStartIndex = startMatch.range.last + 1
+        val closingTagIndex = content.indexOf("</autodev-artifact>", contentStartIndex)
+
+        val artifactContent = if (closingTagIndex > 0) {
+            // Complete artifact
+            content.substring(contentStartIndex, closingTagIndex).trim()
+        } else {
+            // Still streaming - get partial content
+            content.substring(contentStartIndex).trim()
+        }
+
+        val isComplete = closingTagIndex > 0
+
+        streamingArtifact = StreamingArtifact(
+            identifier = identifier,
+            type = typeStr,
+            title = title,
+            content = artifactContent,
+            isComplete = isComplete
+        )
+    }
+
+    private fun extractAttribute(attributesStr: String, name: String): String? {
+        val pattern = Regex("""$name\s*=\s*["']([^"']+)["']""")
+        return pattern.find(attributesStr)?.groupValues?.get(1)
+    }
+
+    /**
      * Cancel current task
      */
     fun cancelTask() {
         if (isExecuting && currentExecutionJob != null) {
             currentExecutionJob?.cancel("Task cancelled by user")
             currentExecutionJob = null
+            streamingArtifact = null
             isExecuting = false
         }
     }
@@ -125,6 +188,7 @@ class ArtifactAgentViewModel(
         renderer.clearMessages()
         chatHistoryManager?.clearCurrentSession()
         lastArtifact = null
+        streamingArtifact = null
     }
 
     /**
@@ -157,4 +221,16 @@ class ArtifactAgentViewModel(
 
     fun isConfigured(): Boolean = llmService != null
 }
+
+/**
+ * Represents an artifact that is currently being streamed/generated.
+ * Used for real-time preview during generation.
+ */
+data class StreamingArtifact(
+    val identifier: String,
+    val type: String,
+    val title: String,
+    val content: String,
+    val isComplete: Boolean
+)
 
