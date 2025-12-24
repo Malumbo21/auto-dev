@@ -137,7 +137,8 @@ class CodingAgentExecutor(
             val allToolCalls = toolCallParser.parseToolCalls(llmResponse.toString())
             if (allToolCalls.isEmpty()) {
                 val executionTimeMs = Platform.getCurrentTimestamp() - taskStartTime
-                renderer.renderTaskComplete(executionTimeMs)
+                // Even if the final iteration contains no tool calls, the session may have used tools earlier.
+                renderer.renderTaskComplete(executionTimeMs, steps.size)
                 break
             }
 

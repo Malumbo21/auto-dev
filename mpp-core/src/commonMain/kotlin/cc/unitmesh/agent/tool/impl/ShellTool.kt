@@ -251,16 +251,26 @@ class ShellInvocation(
 
             // Process completed - get output and clean up
             val output = managedSession.getOutput()
+            val wasCancelledByUser =
+                managedSession.cancelledByUser ||
+                    exitCode == 129 ||
+                    exitCode == 130 ||
+                    exitCode == 137
             managedSession.markCompleted(exitCode)
             ShellSessionManager.removeSession(session.sessionId)
 
-            val metadata = mapOf(
+            val baseMetadata = mapOf(
                 "command" to params.command,
                 "exit_code" to exitCode.toString(),
                 "working_directory" to (config.workingDirectory ?: ""),
                 "session_id" to session.sessionId,
                 "mode" to "completed"
             )
+            val metadata = if (wasCancelledByUser) {
+                baseMetadata + mapOf("cancelled" to "true")
+            } else {
+                baseMetadata
+            }
 
             if (exitCode == 0) {
                 ToolResult.Success(output.ifEmpty { "(no output)" }, metadata)

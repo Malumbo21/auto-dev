@@ -460,6 +460,7 @@ class ComposeRenderer : BaseRenderer() {
             // Try to extract shell result information
             val exitCode = liveExitCode ?: (if (success) 0 else 1)
             val executionTime = metadata["execution_time_ms"]?.toLongOrNull() ?: 0L
+            val cancelledByUser = metadata["cancelled"] == "true" || exitCode == 129 || exitCode == 130 || exitCode == 137
 
             // Extract command from the last tool call if available
             val command = _currentToolCall?.details?.removePrefix("Executing: ") ?: "unknown"
@@ -467,6 +468,26 @@ class ComposeRenderer : BaseRenderer() {
             // IMPORTANT: Clear currentToolCall FIRST to avoid showing both
             // CurrentToolCallItem and the result item simultaneously (double progress bar issue)
             _currentToolCall = null
+
+            // User-cancelled shell commands (e.g. Stop button) should not add a separate TerminalOutputItem.
+            // The LiveTerminalItem already shows the final exit code and the user intent is explicit.
+            if (cancelledByUser) {
+                // Best-effort: mark the latest shell ToolCallItem as cancelled so it doesn't stay "executing".
+                val lastShellIndex = _timeline.indexOfLast {
+                    it is ToolCallItem && it.toolType == ToolType.Shell && it.success == null
+                }
+                if (lastShellIndex >= 0) {
+                    val item = _timeline[lastShellIndex] as ToolCallItem
+                    _timeline[lastShellIndex] = item.copy(
+                        success = false,
+                        summary = "Cancelled",
+                        output = null,
+                        fullOutput = null,
+                        executionTimeMs = executionTime
+                    )
+                }
+                return
+            }
 
             // For Live sessions, we show both the terminal widget and the result summary
             // Don't remove anything, just add a result item after the live terminal

@@ -1,6 +1,7 @@
 package cc.unitmesh.devins.filesystem
 
 import org.junit.Test
+import org.junit.Assume.assumeTrue
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
@@ -132,7 +133,16 @@ class DefaultFileSystemSearchTest {
 
     @Test
     fun testRealProjectSearch() {
-        val projectRoot = "/Volumes/source/ai/autocrud"
+        // Integration-style test: only run when a real project root is available.
+        // By default, this is skipped to avoid environment-specific failures in CI.
+        val projectRoot =
+            System.getProperty("autodev.testProjectRoot")
+                ?: System.getenv("AUTODEV_TEST_PROJECT_ROOT")
+                ?: "/Volumes/source/ai/autocrud"
+        assumeTrue(
+            "Skipping: test project root not found: $projectRoot",
+            File(projectRoot).exists() && File(projectRoot).isDirectory
+        )
         val fileSystem = DefaultFileSystem(projectRoot)
         
         println("Searching in real project: $projectRoot")

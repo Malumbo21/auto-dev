@@ -57,7 +57,8 @@ actual object MarkdownSketchRenderer {
         val isKcefAvailable = remember(kcefInitState) {
             kcefInitState is KcefInitState.Initialized || KcefManager.isInstalled()
         }
-// Use smaller font sizes for Android mobile devices
+        // Keep markdown compact on desktop too (line-height and paragraph/list spacing are driven by text styles).
+        // Users can still zoom via the title bar font scale control.
         val typography = if (Platform.isAndroid) {
             DefaultMarkdownTypography(
                 h1 = MaterialTheme.typography.titleLarge,
@@ -81,20 +82,21 @@ actual object MarkdownSketchRenderer {
             )
         } else {
             DefaultMarkdownTypography(
-                h1 = MaterialTheme.typography.headlineMedium,
-                h2 = MaterialTheme.typography.headlineSmall,
-                h3 = MaterialTheme.typography.titleLarge,
-                h4 = MaterialTheme.typography.titleMedium,
-                h5 = MaterialTheme.typography.titleSmall,
-                h6 = MaterialTheme.typography.labelLarge,
-                text = MaterialTheme.typography.bodyMedium,
+                // Desktop: slightly smaller headings and compact body to reduce perceived "block gaps"
+                h1 = MaterialTheme.typography.titleLarge,
+                h2 = MaterialTheme.typography.titleMedium,
+                h3 = MaterialTheme.typography.titleSmall,
+                h4 = MaterialTheme.typography.labelLarge,
+                h5 = MaterialTheme.typography.labelMedium,
+                h6 = MaterialTheme.typography.labelSmall,
+                text = MaterialTheme.typography.bodySmall,
                 code = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                quote = MaterialTheme.typography.bodyMedium.copy(fontStyle = FontStyle.Italic),
-                paragraph = MaterialTheme.typography.bodyMedium,
-                ordered = MaterialTheme.typography.bodyMedium,
-                bullet = MaterialTheme.typography.bodyMedium,
-                list = MaterialTheme.typography.bodyMedium,
-                table = MaterialTheme.typography.bodyMedium,
+                quote = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
+                paragraph = MaterialTheme.typography.bodySmall,
+                ordered = MaterialTheme.typography.bodySmall,
+                bullet = MaterialTheme.typography.bodySmall,
+                list = MaterialTheme.typography.bodySmall,
+                table = MaterialTheme.typography.bodySmall,
                 inlineCode = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
                 textLink = TextLinkStyles(
                     style = SpanStyle(color = MaterialTheme.colorScheme.primary)

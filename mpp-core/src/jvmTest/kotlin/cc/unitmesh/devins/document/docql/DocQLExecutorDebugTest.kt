@@ -2,6 +2,7 @@ package cc.unitmesh.devins.document.docql
 
 import cc.unitmesh.devins.document.*
 import kotlinx.coroutines.runBlocking
+import org.junit.Assume.assumeTrue
 import org.junit.Test
 import kotlin.test.assertTrue
 
@@ -15,8 +16,15 @@ class DocQLExecutorDebugTest {
     
     @Test
     fun `debug DocQLExecutor class query`() = runBlocking {
-        // Read the actual DocQLExecutor.kt file
-        val sourceCode = java.io.File("/Volumes/source/ai/autocrud/mpp-core/src/commonMain/kotlin/cc/unitmesh/devins/document/docql/DocQLExecutor.kt").readText()
+        // Debug-only test: read DocQLExecutor.kt from the current repo when available.
+        // Skip when the file isn't present (e.g., CI or different workspace layout).
+        val candidates = listOf(
+            java.io.File("mpp-core/src/commonMain/kotlin/cc/unitmesh/devins/document/docql/DocQLExecutor.kt"),
+            java.io.File("src/commonMain/kotlin/cc/unitmesh/devins/document/docql/DocQLExecutor.kt"),
+        )
+        val sourceFile = candidates.firstOrNull { it.exists() }
+        assumeTrue("Skipping: DocQLExecutor.kt not found in expected locations", sourceFile != null)
+        val sourceCode = sourceFile!!.readText()
         
         println("=== Source Code Stats ===")
         println("File size: ${sourceCode.length} chars")
