@@ -8,9 +8,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import cc.unitmesh.devins.idea.toolwindow.IdeaComposeIcons
 import cc.unitmesh.devins.idea.theme.IdeaAutoDevColors
+import com.intellij.openapi.ide.CopyPasteManager
 import org.jetbrains.jewel.foundation.theme.JewelTheme
 import org.jetbrains.jewel.ui.component.Icon
+import org.jetbrains.jewel.ui.component.IconButton
 import org.jetbrains.jewel.ui.component.Text
+import java.awt.datatransfer.StringSelection
 
 /**
  * Error bubble for displaying error messages.
@@ -21,6 +24,7 @@ fun IdeaErrorBubble(
     message: String,
     modifier: Modifier = Modifier
 ) {
+
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.Start
@@ -32,21 +36,47 @@ fun IdeaErrorBubble(
                 .padding(8.dp)
         ) {
             Row(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = IdeaComposeIcons.Error,
-                    contentDescription = "Error",
-                    modifier = Modifier.size(16.dp),
-                    tint = IdeaAutoDevColors.Red.c400
-                )
-                Text(
-                    text = message,
-                    style = JewelTheme.defaultTextStyle.copy(
-                        color = IdeaAutoDevColors.Red.c400
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(
+                        imageVector = IdeaComposeIcons.Error,
+                        contentDescription = "Error",
+                        modifier = Modifier.size(16.dp),
+                        tint = IdeaAutoDevColors.Red.c400
                     )
-                )
+                    Text(
+                        text = message,
+                        style = JewelTheme.defaultTextStyle.copy(
+                            color = IdeaAutoDevColors.Red.c400
+                        )
+                    )
+                }
+
+                // Copy button
+                IconButton(
+                    onClick = {
+                        try {
+                            CopyPasteManager.getInstance().setContents(StringSelection(message))
+                        } catch (e: Exception) {
+                            // Ignore clipboard errors
+                        }
+                    },
+                    modifier = Modifier.size(24.dp)
+                ) {
+                    Icon(
+                        imageVector = IdeaComposeIcons.ContentCopy,
+                        contentDescription = "Copy error",
+                        modifier = Modifier.size(16.dp),
+                        tint = IdeaAutoDevColors.Red.c400
+                    )
+                }
             }
         }
     }

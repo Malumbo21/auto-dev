@@ -307,8 +307,14 @@ class ToolOrchestrator(
                 // Strip ANSI escape sequences for clean output to AI
                 val output = cc.unitmesh.agent.tool.shell.AnsiStripper.stripAndNormalize(rawOutput)
 
-                // Check if this was a user cancellation
-                val wasCancelledByUser = managedSession?.cancelledByUser == true
+                // Check if this was a user cancellation.
+                // Some long-running processes (e.g. bootRun) may be terminated by signal when user clicks Stop.
+                // On some platforms this shows up as exit code 129 (SIGHUP) / 130 (SIGINT) / 137 (SIGKILL).
+                val wasCancelledByUser =
+                    managedSession?.cancelledByUser == true ||
+                        exitCode == 129 ||
+                        exitCode == 130 ||
+                        exitCode == 137
 
                 // Update renderer with final status (including cancellation info)
                 renderer.updateLiveTerminalStatus(
@@ -325,7 +331,8 @@ class ToolOrchestrator(
 
                 // Check if this was a user cancellation and get output from managedSession
                 val managedSession = cc.unitmesh.agent.tool.shell.ShellSessionManager.getSession(session.sessionId)
-                val wasCancelledByUser = managedSession?.cancelledByUser == true
+                val wasCancelledByUser =
+                    managedSession?.cancelledByUser == true
 
                 logger.debug { "managedSession for ${session.sessionId}: ${managedSession != null}, cancelledByUser: $wasCancelledByUser" }
 

@@ -11,6 +11,7 @@ import cc.unitmesh.agent.config.McpToolConfigManager
 import cc.unitmesh.agent.config.McpToolConfigService
 import cc.unitmesh.agent.config.PreloadingStatus
 import cc.unitmesh.agent.diff.FileChangeTracker
+import cc.unitmesh.agent.tool.shell.ShellSessionManager
 import cc.unitmesh.agent.tool.schema.ToolCategory
 import cc.unitmesh.agent.tool.ToolType
 import cc.unitmesh.devins.filesystem.DefaultProjectFileSystem
@@ -316,6 +317,22 @@ class CodingAgentViewModel(
             currentExecutionJob?.cancel("Task cancelled by user")
             currentExecutionJob = null
             isExecuting = false
+        }
+
+        // Also cancel any active shell sessions so "Stop" behaves like a true interrupt.
+        // This prevents long-running commands (e.g. bootRun) from being misclassified as failures.
+        scope.launch {
+            try {
+                val sessions = ShellSessionManager.getActiveSessions()
+                sessions.forEach { session ->
+                    ShellSessionManager.markSessionCancelledByUser(session.sessionId)
+                    // Best-effort: kill the session; live session monitoring will capture output from ShellSessionManager.
+                    session.kill()
+                }
+            } catch (e: Exception) {
+                // Non-fatal: task cancellation should still succeed even if session cleanup fails.
+                renderer.renderInfo("⚠️ Failed to stop shell sessions: ${e.message}")
+            }
         }
     }
 

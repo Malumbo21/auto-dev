@@ -32,6 +32,7 @@ import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -56,6 +57,7 @@ import kotlinx.coroutines.channels.Channel
 import java.awt.event.ActionEvent
 import java.awt.event.InputEvent
 import java.awt.event.KeyEvent as AwtKeyEvent
+import java.awt.Toolkit
 import javax.swing.AbstractAction
 import javax.swing.KeyStroke
 import kotlin.math.abs
@@ -84,6 +86,15 @@ actual fun LiveTerminalItem(
     var showFullscreen by remember { mutableStateOf(false) }
     val clipboardManager = LocalClipboardManager.current
     val coroutineScope = rememberCoroutineScope()
+    val density = LocalDensity.current
+
+    // Cap completed output height so long logs don't expand the whole timeline.
+    // Use screen height as a pragmatic proxy for the visible viewport.
+    val screenHeightPx = remember { Toolkit.getDefaultToolkit().screenSize.height }
+    val completedOutputMaxHeight = remember(screenHeightPx, density) {
+        with(density) { (screenHeightPx * 0.8f).toDp() }
+    }
+    val completedOutputScrollState = rememberScrollState()
 
     // Resizable terminal height (dp) for the embedded terminal widget
     var terminalHeightDp by rememberSaveable(sessionId) { mutableStateOf(160f) }
@@ -394,10 +405,17 @@ actual fun LiveTerminalItem(
                 val finalOutput = output ?: ""
                 if (finalOutput.isNotEmpty()) {
                     SelectionContainer {
-                        PlatformTerminalDisplay(
-                            output = finalOutput,
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = completedOutputMaxHeight)
+                                .verticalScroll(completedOutputScrollState)
+                        ) {
+                            PlatformTerminalDisplay(
+                                output = finalOutput,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
                     }
                 } else {
                     Text(

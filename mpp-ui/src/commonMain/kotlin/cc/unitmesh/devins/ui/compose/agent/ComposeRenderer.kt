@@ -445,7 +445,7 @@ class ComposeRenderer : BaseRenderer() {
 
         // Check if this was a live terminal session
         val isLiveSession = metadata["isLiveSession"] == "true"
-        val liveExitCode = metadata["live_exit_code"]?.toIntOrNull()
+        val liveExitCode = metadata["exit_code"]?.toIntOrNull()
 
         // For shell commands, use special terminal output rendering
         val toolType = toolName.toToolType()
@@ -731,6 +731,17 @@ class ComposeRenderer : BaseRenderer() {
 
     fun clearError() {
         _errorMessage = null
+    }
+
+    /**
+     * Dismiss a timeline item (e.g. non-critical warning/error notices) by id.
+     * This keeps the chat view compact while still allowing transient notices to be shown.
+     */
+    fun dismissTimelineItem(itemId: String) {
+        val index = _timeline.indexOfFirst { it.id == itemId }
+        if (index >= 0) {
+            _timeline.removeAt(index)
+        }
     }
 
     fun openFileViewer(filePath: String) {

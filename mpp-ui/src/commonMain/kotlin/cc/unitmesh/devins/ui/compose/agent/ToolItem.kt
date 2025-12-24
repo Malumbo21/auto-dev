@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
 import androidx.compose.material3.CircularProgressIndicator
@@ -214,53 +215,96 @@ fun ToolErrorItem(
     error: String,
     onDismiss: () -> Unit
 ) {
+    val clipboardManager = LocalClipboardManager.current
+    var expanded by remember(error) { mutableStateOf(false) }
+
+    val isMultiLine = remember(error) { error.contains('\n') }
+    val previewLine = remember(error) { error.lineSequence().firstOrNull().orEmpty() }
+    val preview = remember(error) {
+        val maxChars = 140
+        val trimmed = previewLine.trim()
+        if (trimmed.length > maxChars) "${trimmed.take(maxChars)}…" else trimmed
+    }
+    val canExpand = remember(error) { isMultiLine || error.length > preview.length }
+
+    // These timeline "errors" are often recoverable (agent retries); render as a compact neutral notice.
+    val containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+    val contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+
     Surface(
-        color = MaterialTheme.colorScheme.errorContainer,
-        shape = RoundedCornerShape(8.dp)
+        color = containerColor,
+        shape = RoundedCornerShape(4.dp)
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable(enabled = canExpand) { expanded = !expanded },
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                Icon(
+                    imageVector = AutoDevComposeIcons.Info,
+                    contentDescription = "Notice",
+                    tint = contentColor.copy(alpha = 0.8f),
+                    modifier = Modifier.size(16.dp)
+                )
+
+                Text(
+                    text = preview.ifBlank { "Notice" },
+                    color = contentColor,
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+
+                IconButton(
+                    onClick = { clipboardManager.setText(AnnotatedString(error)) },
+                    modifier = Modifier.size(24.dp)
                 ) {
                     Icon(
-                        imageVector = AutoDevComposeIcons.Error,
-                        contentDescription = "Error",
-                        tint = MaterialTheme.colorScheme.onErrorContainer,
+                        imageVector = AutoDevComposeIcons.ContentCopy,
+                        contentDescription = "Copy notice",
+                        tint = contentColor.copy(alpha = 0.8f),
                         modifier = Modifier.size(16.dp)
                     )
-                    Text(
-                        text = "Error",
-                        color = MaterialTheme.colorScheme.onErrorContainer,
-                        style = MaterialTheme.typography.bodyMedium,
-                        lineHeight = 18.sp
+                }
+
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.size(24.dp)
+                ) {
+                    Icon(
+                        imageVector = AutoDevComposeIcons.Close,
+                        contentDescription = "Dismiss notice",
+                        tint = contentColor.copy(alpha = 0.8f),
+                        modifier = Modifier.size(16.dp)
                     )
                 }
-                TextButton(
-                    onClick = onDismiss,
-                    contentPadding = PaddingValues(0.dp),
-                    modifier = Modifier.height(24.dp)
-                ) {
-                    Text(
-                        text = "Dismiss",
-                        style = MaterialTheme.typography.bodyMedium
+
+                if (canExpand) {
+                    Icon(
+                        imageVector = if (expanded) AutoDevComposeIcons.ExpandLess else AutoDevComposeIcons.ExpandMore,
+                        contentDescription = if (expanded) "Collapse" else "Expand",
+                        tint = contentColor.copy(alpha = 0.7f),
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(2.dp))
-            PlatformMessageTextContainer(text = error) {
-                Text(
-                    text = error,
-                    color = MaterialTheme.colorScheme.onErrorContainer,
-                    style = MaterialTheme.typography.bodyMedium,
-                    lineHeight = 18.sp
-                )
+            if (expanded) {
+                Spacer(modifier = Modifier.height(6.dp))
+                SelectionContainer {
+                    PlatformMessageTextContainer(text = error) {
+                        Text(
+                            text = error,
+                            color = contentColor,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
             }
         }
     }

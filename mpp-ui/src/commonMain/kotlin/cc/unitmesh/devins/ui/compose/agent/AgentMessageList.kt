@@ -212,7 +212,10 @@ fun RenderMessageItem(
         }
 
         is TimelineItem.ErrorItem -> {
-            ToolErrorItem(error = timelineItem.message, onDismiss = { renderer.clearError() })
+            ToolErrorItem(
+                error = timelineItem.message,
+                onDismiss = { renderer.dismissTimelineItem(timelineItem.id) }
+            )
         }
 
         is TimelineItem.TaskCompleteItem -> {
