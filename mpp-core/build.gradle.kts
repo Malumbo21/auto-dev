@@ -177,7 +177,10 @@ kotlin {
                 implementation(libs.ktor.client.cio)
                 // Ktor content negotiation - required by ai.koog:prompt-executor-llms-all
                 implementation(libs.ktor.client.contentNegotiation)
-                implementation(libs.ktor.serialization.kotlinx.json)
+                implementation(libs.ktor.serialization.kotlinx.json) {
+                    // Exclude kotlinx-serialization-json-io-jvm to avoid conflicts with IntelliJ's bundled libraries
+                    exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json-io-jvm")
+                }
 
                 // CodeGraph for source code parsing
                 implementation(project(":mpp-codegraph"))

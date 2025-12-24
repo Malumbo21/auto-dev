@@ -208,7 +208,7 @@ fun IdeaAgentApp(
 
         // Main content area with resizable split pane for chat-based modes
         when (currentAgentType) {
-            AgentType.CODING, AgentType.LOCAL_CHAT -> {
+            AgentType.CODING, AgentType.LOCAL_CHAT, AgentType.ARTIFACT -> {
                 IdeaVerticalResizableSplitPane(
                     modifier = Modifier.fillMaxWidth().weight(1f),
                     initialSplitRatio = 0.75f,
