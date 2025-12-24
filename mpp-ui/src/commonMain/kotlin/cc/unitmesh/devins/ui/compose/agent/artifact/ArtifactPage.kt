@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -81,10 +82,10 @@ fun ArtifactPage(
             currentArtifact = viewModel.lastArtifact
             showPreview = currentArtifact != null
             onNotification("info", "Loaded artifact: ${bundle.name}")
-            consoleLogs = consoleLogs + ConsoleLogItem(
+            consoleLogs = appendConsoleLog(
+                logs = consoleLogs,
                 level = "info",
-                message = "Loaded from bundle: ${bundle.name}",
-                timestamp = kotlinx.datetime.Clock.System.now().toEpochMilliseconds()
+                message = "Loaded from bundle: ${bundle.name}"
             )
         }
     }
@@ -93,10 +94,10 @@ fun ArtifactPage(
     LaunchedEffect(streamingArtifact) {
         if (streamingArtifact != null && !showPreview) {
             showPreview = true
-            consoleLogs = consoleLogs + ConsoleLogItem(
+            consoleLogs = appendConsoleLog(
+                logs = consoleLogs,
                 level = "info",
-                message = "Generating: ${streamingArtifact.title}",
-                timestamp = kotlinx.datetime.Clock.System.now().toEpochMilliseconds()
+                message = "Generating: ${streamingArtifact.title}"
             )
         }
     }
@@ -107,10 +108,10 @@ fun ArtifactPage(
             currentArtifact = artifact
             showPreview = true
             onNotification("success", "Artifact generated: ${artifact.title}")
-            consoleLogs = consoleLogs + ConsoleLogItem(
+            consoleLogs = appendConsoleLog(
+                logs = consoleLogs,
                 level = "info",
-                message = "Artifact completed: ${artifact.title}",
-                timestamp = kotlinx.datetime.Clock.System.now().toEpochMilliseconds()
+                message = "Artifact completed: ${artifact.title}"
             )
         }
     }
@@ -203,11 +204,7 @@ fun ArtifactPage(
                             artifact = displayArtifact,
                             isStreaming = isStreaming,
                             onConsoleLog = { level, message ->
-                                consoleLogs = consoleLogs + ConsoleLogItem(
-                                    level = level,
-                                    message = message,
-                                    timestamp = kotlinx.datetime.Clock.System.now().toEpochMilliseconds()
-                                )
+                                consoleLogs = appendConsoleLog(consoleLogs, level, message)
                             },
                             modifier = Modifier.fillMaxSize()
                         )
@@ -232,11 +229,7 @@ fun ArtifactPage(
                         artifact = displayArtifact,
                         isStreaming = isStreaming,
                         onConsoleLog = { level, message ->
-                            consoleLogs = consoleLogs + ConsoleLogItem(
-                                level = level,
-                                message = message,
-                                timestamp = kotlinx.datetime.Clock.System.now().toEpochMilliseconds()
-                            )
+                            consoleLogs = appendConsoleLog(consoleLogs, level, message)
                         },
                         modifier = Modifier.weight(0.7f).fillMaxWidth()
                     )
@@ -507,7 +500,7 @@ private fun ConsolePanel(
 
 @Composable
 private fun ConsoleLogRow(log: ConsoleLogItem) {
-    val color = when (log.level) {
+    val color = when (log.level.lowercase()) {
         "error" -> AutoDevColors.Signal.error
         "warn" -> AutoDevColors.Signal.warn
         "info" -> AutoDevColors.Signal.info
@@ -520,30 +513,92 @@ private fun ConsoleLogRow(log: ConsoleLogItem) {
             .clip(RoundedCornerShape(4.dp))
             .background(AutoDevColors.Void.surface1.copy(alpha = 0.5f))
             .padding(horizontal = 8.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = "[${log.level.uppercase()}]",
-            style = MaterialTheme.typography.labelSmall.copy(
-                fontFamily = FontFamily.Monospace,
-                fontSize = 10.sp
-            ),
-            color = color
+        // Colored dot like browser console
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .clip(CircleShape)
+                .background(color)
         )
+
+        // Level badge
+        Surface(
+            shape = RoundedCornerShape(6.dp),
+            color = AutoDevColors.Void.surface2,
+            contentColor = color
+        ) {
+            Text(
+                text = log.level.uppercase(),
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 10.sp
+                ),
+                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+            )
+        }
+
+        // Message
         Text(
             text = log.message,
-            style = MaterialTheme.typography.bodySmall.copy(
-                fontFamily = FontFamily.Monospace
-            ),
+            style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
             color = AutoDevColors.Text.primary,
             maxLines = 3,
-            overflow = TextOverflow.Ellipsis
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
         )
+
+        // Repeat counter like browser console "×2"
+        if (log.count > 1) {
+            Surface(
+                shape = RoundedCornerShape(999.dp),
+                color = AutoDevColors.Void.surface2,
+                contentColor = AutoDevColors.Text.secondary
+            ) {
+                Text(
+                    text = "×${log.count}",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 10.sp
+                    ),
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                )
+            }
+        }
     }
 }
 
 data class ConsoleLogItem(
     val level: String,
     val message: String,
-    val timestamp: Long
+    val timestamp: Long,
+    val count: Int = 1
 )
+
+/**
+ * Append a console log entry and merge consecutive identical entries into one row with a repeat counter.
+ */
+private fun appendConsoleLog(
+    logs: List<ConsoleLogItem>,
+    level: String,
+    message: String,
+    timestamp: Long = kotlinx.datetime.Clock.System.now().toEpochMilliseconds()
+): List<ConsoleLogItem> {
+    val normalizedLevel = level.lowercase()
+    val normalizedMessage = message.trim()
+    if (normalizedMessage.isBlank()) return logs
+
+    val last = logs.lastOrNull()
+    return if (last != null && last.level.lowercase() == normalizedLevel && last.message == normalizedMessage) {
+        logs.dropLast(1) + last.copy(count = last.count + 1, timestamp = timestamp)
+    } else {
+        logs + ConsoleLogItem(
+            level = normalizedLevel,
+            message = normalizedMessage,
+            timestamp = timestamp,
+            count = 1
+        )
+    }
+}
