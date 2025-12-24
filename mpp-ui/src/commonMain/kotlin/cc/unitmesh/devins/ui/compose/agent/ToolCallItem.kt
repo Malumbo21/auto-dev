@@ -1,7 +1,9 @@
 package cc.unitmesh.devins.ui.compose.agent
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -76,16 +78,26 @@ fun ToolItem(
             onExpand()
         }
     }
-    var showFullParams by remember { mutableStateOf(false) }
     var showFullOutput by remember { mutableStateOf(success == false) }
     var showFileViewerDialog by remember { mutableStateOf(false) }
     var showStats by remember { mutableStateOf(false) }
     var showDetailDialog by remember { mutableStateOf(false) }
     val clipboardManager = LocalClipboardManager.current
 
-    // Determine which params/output to display
-    val displayParams = if (showFullParams) fullParams else details
-    val hasFullParams = fullParams != null && fullParams != details
+    val isDesktop = Platform.isJvm && !Platform.isAndroid
+    val sectionGap = if (isDesktop) 6.dp else 8.dp
+    val blockPadding = if (isDesktop) 6.dp else 8.dp
+
+    // Parameters are debug-only most of the time (details vs raw).
+    // Default to showing params only when there's no output to show.
+    val paramsText = fullParams ?: details
+    val hasParams = !paramsText.isNullOrBlank()
+    val hasAnyOutput = !output.isNullOrBlank() || !fullOutput.isNullOrBlank()
+    var showParams by remember(toolName, fullParams, details) {
+        mutableStateOf(!hasAnyOutput && hasParams)
+    }
+
+    // Determine which output to display
     val displayOutput = if (showFullOutput) fullOutput else output
     val hasFullOutput = fullOutput != null && fullOutput != output
 
@@ -130,14 +142,19 @@ fun ToolItem(
         modifier = Modifier
     ) {
         Column(modifier = Modifier.padding(containerPadding)) {
+            val hoverInteractionSource = remember { MutableInteractionSource() }
+            val isHovered by hoverInteractionSource.collectIsHoveredAsState()
+            val showDebugActions = !isDesktop || isHovered || showParams
+
             Row(
                 modifier =
                     Modifier
                         .fillMaxWidth()
+                        .hoverable(hoverInteractionSource)
                         .clickable(
                             indication = null,
                             interactionSource = remember { MutableInteractionSource() }
-                        ) { if (displayParams != null || displayOutput != null) expanded = !expanded },
+                        ) { if (hasAnyOutput || hasParams) expanded = !expanded },
                 verticalAlignment = Alignment.Companion.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(headerGap)
             ) {
@@ -250,7 +267,25 @@ fun ToolItem(
                     }
                 }
 
-                if (displayParams != null || displayOutput != null) {
+                // Debug params: show a compact icon only when hovered (desktop) or always (mobile).
+                if (hasParams && showDebugActions) {
+                    IconButton(
+                        onClick = {
+                            if (!expanded) expanded = true
+                            showParams = !showParams
+                        },
+                        modifier = Modifier.Companion.size(24.dp)
+                    ) {
+                        Icon(
+                            imageVector = AutoDevComposeIcons.BugReport,
+                            contentDescription = if (showParams) "Hide parameters" else "Show parameters",
+                            tint = if (showParams) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.Companion.size(18.dp)
+                        )
+                    }
+                }
+
+                if (hasAnyOutput || hasParams) {
                     Icon(
                         imageVector = if (expanded) AutoDevComposeIcons.ExpandLess else AutoDevComposeIcons.ExpandMore,
                         contentDescription = if (expanded) "Collapse" else "Expand",
@@ -266,66 +301,25 @@ fun ToolItem(
                 exit = shrinkVertically() + fadeOut()
             ) {
                 Column {
-                    if (displayParams != null) {
-                        Spacer(modifier = Modifier.Companion.height(8.dp))
-
-                        Row(
-                            modifier = Modifier.Companion.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.Companion.Top
-                        ) {
-                            Column {
-                                Text(
-                                    text = "Parameters:",
-                                    fontWeight = FontWeight.Companion.Medium,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-
-                                if (hasFullParams) {
-                                    TextButton(
-                                        onClick = { showFullParams = !showFullParams },
-                                        modifier = Modifier.Companion.height(32.dp)
-                                    ) {
-                                        Text(
-                                            text = if (showFullParams) "Show Formatted" else "Show Raw Params",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.primary
-                                        )
-                                    }
-                                }
-                            }
-
-                            IconButton(
-                                onClick = { clipboardManager.setText(AnnotatedString(displayParams)) },
-                                modifier = Modifier.Companion.size(24.dp)
-                            ) {
-                                Icon(
-                                    imageVector = AutoDevComposeIcons.ContentCopy,
-                                    contentDescription = "Copy parameters",
-                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                                    modifier = Modifier.Companion.size(16.dp)
-                                )
-                            }
-                        }
-
+                    if (showParams && hasParams) {
+                        Spacer(modifier = Modifier.Companion.height(sectionGap))
                         Surface(
                             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                             shape = RoundedCornerShape(4.dp),
                             modifier = Modifier.Companion.fillMaxWidth()
                         ) {
                             Text(
-                                text = displayParams,
-                                modifier = Modifier.Companion.padding(8.dp),
+                                text = paramsText.orEmpty(),
+                                modifier = Modifier.Companion.padding(blockPadding),
                                 color = MaterialTheme.colorScheme.onSurface,
-                                style = MaterialTheme.typography.bodyMedium,
+                                style = MaterialTheme.typography.bodySmall,
                                 fontFamily = FontFamily.Companion.Monospace
                             )
                         }
                     }
 
                     if (displayOutput != null) {
-                        Spacer(modifier = Modifier.Companion.height(8.dp))
+                        Spacer(modifier = Modifier.Companion.height(sectionGap))
 
                         Row(
                             modifier = Modifier.Companion.fillMaxWidth(),
@@ -340,7 +334,7 @@ fun ToolItem(
                                     text = "Output:",
                                     fontWeight = FontWeight.Companion.Medium,
                                     color = MaterialTheme.colorScheme.onSurface,
-                                    style = MaterialTheme.typography.bodyMedium
+                                    style = MaterialTheme.typography.labelSmall
                                 )
 
                                 if (hasFullOutput) {
@@ -412,9 +406,9 @@ fun ToolItem(
                             ) {
                                 Text(
                                     text = formatOutput(displayOutput),
-                                    modifier = Modifier.Companion.padding(8.dp),
+                                    modifier = Modifier.Companion.padding(blockPadding),
                                     color = MaterialTheme.colorScheme.onSurface,
-                                    style = MaterialTheme.typography.bodyMedium,
+                                    style = MaterialTheme.typography.bodySmall,
                                     fontFamily = FontFamily.Companion.Monospace
                                 )
                             }

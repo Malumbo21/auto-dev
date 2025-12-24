@@ -19,19 +19,19 @@ private val DarkColorScheme =
         onPrimary = AutoDevColors.Void.bg,
         primaryContainer = AutoDevColors.Void.surface2,
         onPrimaryContainer = AutoDevColors.Energy.xiu,
-        
+
         // 辅色 - 霓虹紫（AI 生成）
         secondary = AutoDevColors.Energy.ai,
         onSecondary = AutoDevColors.Void.bg,
         secondaryContainer = AutoDevColors.Void.surface2,
         onSecondaryContainer = AutoDevColors.Energy.ai,
-        
+
         // 第三色 - 成功绿
         tertiary = AutoDevColors.Signal.success,
         onTertiary = AutoDevColors.Void.bg,
         tertiaryContainer = AutoDevColors.Signal.successBg,
         onTertiaryContainer = AutoDevColors.Signal.success,
-        
+
         // 背景和表面 - 虚空色阶
         background = AutoDevColors.Void.bg,
         onBackground = AutoDevColors.Text.primary,
@@ -39,22 +39,22 @@ private val DarkColorScheme =
         onSurface = AutoDevColors.Text.primary,
         surfaceVariant = AutoDevColors.Void.surface2,
         onSurfaceVariant = AutoDevColors.Text.secondary,
-        
+
         // 错误 - 高亮红
         error = AutoDevColors.Signal.error,
         onError = AutoDevColors.Void.bg,
         errorContainer = AutoDevColors.Signal.errorBg,
         onErrorContainer = AutoDevColors.Signal.error,
-        
+
         // 轮廓 - 虚空边框色
         outline = AutoDevColors.Void.surface3,
         outlineVariant = AutoDevColors.Void.surface2,
-        
+
         // 反向表面
         inverseSurface = AutoDevColors.Text.primary,
         inverseOnSurface = AutoDevColors.Void.bg,
         inversePrimary = AutoDevColors.Energy.xiuLight,
-        
+
         // 剪贴薄
         scrim = AutoDevColors.Void.overlay,
     )
@@ -70,19 +70,19 @@ private val LightColorScheme =
         onPrimary = Color.White,
         primaryContainer = Color(0xFFE0F7FA),
         onPrimaryContainer = Color(0xFF006064),
-        
+
         // 辅色 - 霓虹紫（亮色版本）
         secondary = AutoDevColors.Energy.aiLight,
         onSecondary = Color.White,
         secondaryContainer = Color(0xFFF3E5F5),
         onSecondaryContainer = Color(0xFF4A148C),
-        
+
         // 第三色 - 成功绿
         tertiary = AutoDevColors.Signal.successLight,
         onTertiary = Color.White,
         tertiaryContainer = Color(0xFFE8F5E9),
         onTertiaryContainer = Color(0xFF1B5E20),
-        
+
         // 背景和表面 - 亮色虚空
         background = AutoDevColors.Void.lightBg,
         onBackground = AutoDevColors.Text.lightPrimary,
@@ -90,22 +90,22 @@ private val LightColorScheme =
         onSurface = AutoDevColors.Text.lightPrimary,
         surfaceVariant = AutoDevColors.Void.lightSurface2,
         onSurfaceVariant = AutoDevColors.Text.lightSecondary,
-        
+
         // 错误 - 高亮红（亮色版本）
         error = AutoDevColors.Signal.errorLight,
         onError = Color.White,
         errorContainer = Color(0xFFFFEBEE),
         onErrorContainer = Color(0xFFB71C1C),
-        
+
         // 轮廓 - 亮色边框
         outline = AutoDevColors.Void.lightSurface3,
         outlineVariant = Color(0xFFE2E8F0),
-        
+
         // 反向表面
         inverseSurface = AutoDevColors.Void.bg,
         inverseOnSurface = AutoDevColors.Text.primary,
         inversePrimary = AutoDevColors.Energy.xiu,
-        
+
         // 剪贴薄
         scrim = Color(0x80000000),
     )

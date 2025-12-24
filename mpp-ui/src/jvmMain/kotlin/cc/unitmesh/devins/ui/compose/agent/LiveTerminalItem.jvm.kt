@@ -82,7 +82,9 @@ actual fun LiveTerminalItem(
     executionTimeMs: Long?,
     output: String?
 ) {
-    var expanded by remember { mutableStateOf(true) } // Auto-expand live terminal
+    // Default: expand while running, collapse after completion.
+    // Users can still manually expand to review final output.
+    var expanded by rememberSaveable(sessionId) { mutableStateOf(exitCode == null) }
     var showFullscreen by remember { mutableStateOf(false) }
     val clipboardManager = LocalClipboardManager.current
     val coroutineScope = rememberCoroutineScope()
@@ -125,6 +127,8 @@ actual fun LiveTerminalItem(
         // Stop mirroring once the session is completed and the final output is captured.
         if (exitCode != null) {
             outputChannel.close()
+            // Auto-collapse when the process completes to keep the timeline compact.
+            expanded = false
         }
     }
 
@@ -230,13 +234,12 @@ actual fun LiveTerminalItem(
                     .padding(8.dp)
                     .animateContentSize()
         ) {
-            // Compact header - inspired by IntelliJ Terminal
-            // Compact height: 32dp
+            // Compact header - single line with all info
             Row(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .height(32.dp)
+                        .height(28.dp)
                         .clickable { expanded = !expanded },
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -246,25 +249,68 @@ actual fun LiveTerminalItem(
                     imageVector = if (expanded) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp,
                     contentDescription = if (expanded) "Collapse" else "Expand",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(16.dp)
+                    modifier = Modifier.size(14.dp)
                 )
 
                 // Status indicator - small dot
                 Box(
                     modifier =
                         Modifier
-                            .size(8.dp)
+                            .size(7.dp)
                             .clip(CircleShape)
                             .background(
                                 if (isRunning) AutoDevColors.Green.c400 else MaterialTheme.colorScheme.outline
                             )
                 )
 
-                // Terminal icon + command in one line
+                // Status + time - compact inline badge
+                val (statusIcon, statusColor) = when {
+                    isRunning -> "▶" to AutoDevColors.Green.c400
+                    exitCode == 0 -> "✓" to AutoDevColors.Green.c400
+                    exitCode != null -> "✗" to AutoDevColors.Red.c400
+                    else -> "●" to MaterialTheme.colorScheme.onSurfaceVariant
+                }
+
                 Text(
-                    text = "💻",
-                    style = MaterialTheme.typography.bodySmall,
-                    fontSize = 14.sp
+                    text = statusIcon,
+                    color = statusColor,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                // Exit code + time (only when completed)
+                if (exitCode != null) {
+                    Text(
+                        text = "Exit $exitCode",
+                        color = statusColor,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    
+                    if (executionTimeMs != null) {
+                        Text(
+                            text = "·",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontSize = 10.sp
+                        )
+                        Text(
+                            text = "${executionTimeMs}ms",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontSize = 10.sp
+                        )
+                    }
+                }
+
+                // Separator
+                Text(
+                    text = "│",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontSize = 10.sp
                 )
 
                 // Command text - truncated if too long
@@ -273,101 +319,77 @@ actual fun LiveTerminalItem(
                     color = MaterialTheme.colorScheme.onSurface,
                     style = MaterialTheme.typography.bodySmall,
                     fontFamily = FontFamily.Monospace,
-                    fontSize = 12.sp,
+                    fontSize = 11.sp,
                     maxLines = 1,
                     modifier = Modifier.weight(1f)
                 )
 
-                // Status badge - compact, shows exit code when completed
-                val (statusText, statusColor) = when {
-                    isRunning -> "RUNNING" to AutoDevColors.Green.c400
-                    exitCode == 0 -> "✓ EXIT 0" to AutoDevColors.Green.c400
-                    exitCode != null -> "✗ EXIT $exitCode" to AutoDevColors.Red.c400
-                    else -> "DONE" to MaterialTheme.colorScheme.onSurfaceVariant
-                }
-
-                Surface(
-                    color = statusColor.copy(alpha = 0.15f),
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.height(20.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = statusText,
-                            color = statusColor,
-                            style = MaterialTheme.typography.labelSmall,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-
-                        // Show execution time when completed
-                        if (executionTimeMs != null) {
-                            Text(
-                                text = "${executionTimeMs}ms",
-                                color = statusColor.copy(alpha = 0.7f),
-                                style = MaterialTheme.typography.labelSmall,
-                                fontSize = 9.sp
-                            )
-                        }
-                    }
+                // Working directory - inline when available (only when NOT expanded to save space)
+                if (!expanded && workingDirectory != null) {
+                    Text(
+                        text = "@ ${workingDirectory.substringAfterLast('/')}",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontSize = 9.sp,
+                        maxLines = 1,
+                        modifier = Modifier.widthIn(max = 120.dp)
+                    )
                 }
 
                 if (isRunning) {
                     IconButton(
                         onClick = stop,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(22.dp)
                     ) {
                         Icon(
                             imageVector = AutoDevComposeIcons.Stop,
                             contentDescription = "Terminate",
                             tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(16.dp)
                         )
                     }
                 }
 
                 IconButton(
                     onClick = copyCurrentOutput,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(22.dp)
                 ) {
                     Icon(
                         imageVector = AutoDevComposeIcons.ContentCopy,
                         contentDescription = "Copy output",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(16.dp)
                     )
                 }
 
                 IconButton(
                     onClick = { showFullscreen = true },
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(22.dp)
                 ) {
                     Icon(
                         imageVector = AutoDevComposeIcons.Fullscreen,
                         contentDescription = "Fullscreen",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(16.dp)
                     )
                 }
             }
 
-            // Working directory - only show when expanded and exists
+            // Working directory - show full path when expanded
             if (expanded && workingDirectory != null) {
                 Text(
                     text = "📁 $workingDirectory",
-                    modifier = Modifier.padding(start = 30.dp, top = 2.dp, bottom = 4.dp),
+                    modifier = Modifier.padding(start = 26.dp, top = 2.dp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                     style = MaterialTheme.typography.labelSmall,
-                    fontSize = 10.sp,
+                    fontSize = 9.sp,
                     fontFamily = FontFamily.Monospace
                 )
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
+            if (expanded) {
+                Spacer(modifier = Modifier.height(4.dp))
+            }
 
             // Running terminal: keep the Swing terminal mounted even when collapsed so PTY output
             // continues to be mirrored into ShellSessionManager.
