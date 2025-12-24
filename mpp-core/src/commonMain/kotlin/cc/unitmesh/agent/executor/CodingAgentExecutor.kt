@@ -18,6 +18,8 @@ import cc.unitmesh.devins.parser.CodeFence
 import cc.unitmesh.llm.KoogLLMService
 import kotlinx.coroutines.yield
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.datetime.Clock
 import cc.unitmesh.agent.orchestrator.ToolExecutionContext as OrchestratorContext
 
@@ -45,9 +47,9 @@ class CodingAgentExecutor(
     /**
      * When true, only execute the first tool call per LLM response.
      * This enforces the "one tool per response" rule even when LLM returns multiple tool calls.
-     * Default is true to prevent LLM from executing multiple tools in one iteration.
+     * Default is false to enable parallel tool execution for better performance.
      */
-    private val singleToolPerIteration: Boolean = true
+    private val singleToolPerIteration: Boolean = false
 ) : BaseAgentExecutor(
     projectPath = projectPath,
     llmService = llmService,
@@ -218,17 +220,19 @@ class CodingAgentExecutor(
      *
      * 策略：
      * 1. 预先检查所有工具是否重复
-     * 2. 并行启动所有工具执行
-     * 3. 等待所有工具完成后统一处理结果
-     * 4. 按顺序渲染和处理错误恢复
+     * 2. 先渲染所有工具调用（让用户看到即将执行的工具）
+     * 3. 并行启动所有工具执行
+     * 4. 等待所有工具完成后按顺序渲染结果
+     * 5. 统一处理后续逻辑（步骤记录、错误恢复等）
      */
     private suspend fun executeToolCalls(toolCalls: List<ToolCall>): List<Triple<String, Map<String, Any>, ToolExecutionResult>> = coroutineScope {
         val results = mutableListOf<Triple<String, Map<String, Any>, ToolExecutionResult>>()
 
-        val toolsToExecute = mutableListOf<ToolCall>()
+        // Phase 1: Pre-check for repeated tool calls
+        val toolsToExecute = mutableListOf<Pair<Int, ToolCall>>() // (index, toolCall)
         var hasRepeatError = false
 
-        for (toolCall in toolCalls) {
+        for ((index, toolCall) in toolCalls.withIndex()) {
             if (hasRepeatError) break
 
             val toolName = toolCall.toolName
@@ -275,37 +279,75 @@ class CodingAgentExecutor(
                 break
             }
 
-            toolsToExecute.add(toolCall)
+            toolsToExecute.add(index to toolCall)
         }
 
         if (hasRepeatError) {
             return@coroutineScope results
         }
 
-        for (toolCall in toolsToExecute) {
+        // Phase 2: Render all tool calls first (so user sees what's about to execute)
+        val isParallel = toolsToExecute.size > 1
+        if (isParallel) {
+            logger.info { "Executing ${toolsToExecute.size} tool calls in parallel" }
+        }
+
+        for ((index, toolCall) in toolsToExecute) {
             val toolName = toolCall.toolName
             val params = toolCall.params.mapValues { it.value as Any }
-
-            // Use renderToolCallWithParams to pass parsed params directly
-            // This avoids string parsing issues with complex values like planMarkdown
-            renderer.renderToolCallWithParams(toolName, params)
-
-            val executionContext = OrchestratorContext(
-                workingDirectory = projectPath,
-                environment = emptyMap(),
-                timeout = asyncShellConfig.maxWaitTimeoutMs  // Use max timeout for shell commands
-            )
-
-            var executionResult = toolOrchestrator.executeToolCall(
-                toolName,
-                params,
-                executionContext
-            )
-
-            // Handle Pending result (async shell execution)
-            if (executionResult.isPending) {
-                executionResult = handlePendingResult(executionResult, toolName, params)
+            // Render tool call with index for parallel execution
+            if (isParallel) {
+                renderer.renderToolCallWithParams(toolName, params + ("_parallel_index" to (index + 1)))
+            } else {
+                renderer.renderToolCallWithParams(toolName, params)
             }
+        }
+
+        // Phase 3: Execute all tools in parallel
+        data class ToolExecutionData(
+            val index: Int,
+            val toolName: String,
+            val params: Map<String, Any>,
+            val executionResult: ToolExecutionResult
+        )
+
+        val executionJobs = toolsToExecute.map { indexedToolCall ->
+            val index = indexedToolCall.first
+            val toolCall = indexedToolCall.second
+            async {
+                val toolName = toolCall.toolName
+                val params = toolCall.params.mapValues { it.value as Any }
+
+                val executionContext = OrchestratorContext(
+                    workingDirectory = projectPath,
+                    environment = emptyMap(),
+                    timeout = asyncShellConfig.maxWaitTimeoutMs
+                )
+
+                var executionResult = toolOrchestrator.executeToolCall(
+                    toolName,
+                    params,
+                    executionContext
+                )
+
+                // Handle Pending result (async shell execution)
+                if (executionResult.isPending) {
+                    executionResult = handlePendingResult(executionResult, toolName, params)
+                }
+
+                ToolExecutionData(index, toolName, params, executionResult)
+            }
+        }
+
+        // Wait for all tools to complete
+        val executionResults = executionJobs.awaitAll()
+            .sortedBy { it.index }
+
+        // Phase 4: Process results in order (render, record steps, handle errors)
+        for ((resultIndex, execData) in executionResults.withIndex()) {
+            val toolName = execData.toolName
+            val params = execData.params
+            val executionResult = execData.executionResult
 
             results.add(Triple(toolName, params, executionResult))
 
@@ -339,22 +381,29 @@ class CodingAgentExecutor(
                     }
                 }
                 is ToolResult.AgentResult -> if (!result.success) result.content else stepResult.result
-                is ToolResult.Pending -> stepResult.result // Should not happen after handlePendingResult
+                is ToolResult.Pending -> stepResult.result
                 is ToolResult.Success -> stepResult.result
             }
 
             val contentHandlerResult = checkForLongContent(toolName, fullOutput ?: "", executionResult)
             val displayOutput = contentHandlerResult?.content ?: fullOutput
 
+            // Render result with index for parallel execution
+            val metadata = if (isParallel) {
+                executionResult.metadata + ("_parallel_index" to (resultIndex + 1).toString())
+            } else {
+                executionResult.metadata
+            }
+
             renderer.renderToolResult(
                 toolName,
                 stepResult.success,
                 stepResult.result,
                 displayOutput,
-                executionResult.metadata
+                metadata
             )
 
-            // Render Agent-generated sketch blocks (chart, nanodsl, mermaid, etc.)
+            // Render Agent-generated sketch blocks
             if (executionResult.isSuccess && executionResult.result is ToolResult.AgentResult) {
                 val agentResult = executionResult.result as ToolResult.AgentResult
                 renderAgentSketchBlocks(toolName, agentResult)
@@ -370,12 +419,10 @@ class CodingAgentExecutor(
                 recordFileEdit(params)
             }
 
-            // 错误恢复处理
-            // 跳过用户取消的场景 - 用户取消是明确的意图，不需要显示额外的错误消息
+            // Error handling - skip user cancelled scenarios
             val wasCancelledByUser = executionResult.metadata["cancelled"] == "true"
             if (!executionResult.isSuccess && !executionResult.isPending && !wasCancelledByUser) {
                 val errorMessage = executionResult.content ?: "Unknown error"
-
                 renderer.renderError("Tool execution failed: $errorMessage")
             }
         }

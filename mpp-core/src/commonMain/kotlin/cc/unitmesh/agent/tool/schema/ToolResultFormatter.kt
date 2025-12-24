@@ -67,14 +67,30 @@ object ToolResultFormatter {
         }
 
         val sb = StringBuilder()
-        sb.append("Tool execution results:\n\n")
+        val isParallel = toolResults.size > 1
+
+        if (isParallel) {
+            sb.append("## Parallel Tool Execution Results (${toolResults.size} tools)\n\n")
+            sb.append("The following tools were executed in parallel:\n\n")
+        } else {
+            sb.append("Tool execution results:\n\n")
+        }
 
         toolResults.forEachIndexed { index, (toolName, params, result) ->
-            sb.append("${index + 1}. ")
+            if (isParallel) {
+                sb.append("### Tool Call ${index + 1}: $toolName\n\n")
+            } else {
+                sb.append("${index + 1}. ")
+            }
             sb.append(formatToolResult(toolName, params, result))
             if (index < toolResults.size - 1) {
                 sb.append("\n---\n\n")
             }
+        }
+
+        if (isParallel) {
+            sb.append("\n\n---\n")
+            sb.append("**Summary**: ${toolResults.count { it.third.isSuccess }}/${toolResults.size} tools succeeded")
         }
 
         return sb.toString()
