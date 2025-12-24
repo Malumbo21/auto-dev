@@ -25,15 +25,13 @@ import cc.unitmesh.devins.ui.desktop.AutoDevTray
 import cc.unitmesh.devins.ui.desktop.ComposeSelectionCrashGuard
 import cc.unitmesh.devins.ui.desktop.DesktopWindowLayout
 import cc.unitmesh.devins.ui.desktop.UnitFileHandler
+import cc.unitmesh.devins.ui.desktop.FileOpenHandler
 import cc.unitmesh.agent.artifact.ArtifactBundle
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.awt.Desktop
-import java.awt.desktop.OpenFilesEvent
-import java.awt.desktop.OpenFilesHandler
 
 fun main(args: Array<String>) {
     AutoDevLogger.initialize()
@@ -97,52 +95,46 @@ fun main(args: Array<String>) {
         }
 
         /**
-         * macOS file association: double-click / Finder "Open" does NOT reliably pass the file path
-         * via argv. It is delivered via AppleEvent open-file, exposed in Java as OpenFilesHandler.
-         *
+         * Cross-platform file open handler for .unit files
+         * 
+         * On macOS: double-click / Finder "Open" does NOT reliably pass the file path via argv.
+         * It is delivered via AppleEvent open-file, exposed in Java as OpenFilesHandler.
+         * 
          * This handler covers:
          * - App already running, user double-clicks a .unit file
          * - First launch triggered by Finder open (where args may be empty)
          */
+        val fileOpenHandler = remember { FileOpenHandler() }
+        
         LaunchedEffect(Unit) {
-            runCatching {
-                if (Desktop.isDesktopSupported()) {
-                    val desktop = Desktop.getDesktop()
-                    desktop.setOpenFileHandler(object : OpenFilesHandler {
-                        override fun openFiles(e: OpenFilesEvent) {
-                            val files = e.files
-                            AutoDevLogger.info("AutoDevMain") {
-                                "📦 OpenFilesHandler received files: ${files.joinToString { it.absolutePath }}"
-                            }
-
-                            val unitFile = files.firstOrNull { it.name.endsWith(ArtifactBundle.BUNDLE_EXTENSION, ignoreCase = true) }
-                            if (unitFile == null) {
-                                AutoDevLogger.info("AutoDevMain") { "📦 OpenFilesHandler: no .unit file in open request" }
-                                return
-                            }
-
-                            // Ensure the window is visible and switch to Artifact mode
-                            isWindowVisible = true
-                            uiState.updateAgentType(AgentType.ARTIFACT)
-                            AutoDevLogger.info("AutoDevMain") { "📦 OpenFilesHandler: switching to ARTIFACT and loading ${unitFile.absolutePath}" }
-
-                            // Load bundle off the UI thread, then it will flow into UI via UnitFileHandler.pendingBundle
-                            val path = unitFile.absolutePath
-                            // Use the application's coroutine scope and shift IO work to Dispatchers.IO
-                            appScope.launch {
-                                val ok = withContext(Dispatchers.IO) { UnitFileHandler.loadUnitFile(path) }
-                                AutoDevLogger.info("AutoDevMain") {
-                                    "📦 OpenFilesHandler: UnitFileHandler.loadUnitFile result=$ok path=$path"
-                                }
-                            }
-                        }
-                    })
-                    AutoDevLogger.info("AutoDevMain") { "📦 OpenFilesHandler installed (Desktop supported)" }
-                } else {
-                    AutoDevLogger.info("AutoDevMain") { "📦 Desktop API not supported; OpenFilesHandler not installed" }
+            fileOpenHandler.install { filePath: String ->
+                AutoDevLogger.info("AutoDevMain") { 
+                    "📦 FileOpenHandler: received file open request: $filePath" 
                 }
-            }.onFailure { t ->
-                AutoDevLogger.error("AutoDevMain") { "Failed to install OpenFilesHandler: ${t.message}" }
+                
+                // Ensure the window is visible and switch to Artifact mode
+                isWindowVisible = true
+                uiState.updateAgentType(AgentType.ARTIFACT)
+                AutoDevLogger.info("AutoDevMain") { 
+                    "📦 FileOpenHandler: switching to ARTIFACT and loading $filePath" 
+                }
+
+                // Load bundle off the UI thread, then it will flow into UI via UnitFileHandler.pendingBundle
+                appScope.launch {
+                    val ok = withContext(Dispatchers.IO) { 
+                        UnitFileHandler.loadUnitFile(filePath) 
+                    }
+                    AutoDevLogger.info("AutoDevMain") {
+                        "📦 FileOpenHandler: UnitFileHandler.loadUnitFile result=$ok path=$filePath"
+                    }
+                }
+            }
+        }
+        
+        // Cleanup on dispose
+        androidx.compose.runtime.DisposableEffect(Unit) {
+            onDispose {
+                fileOpenHandler.uninstall()
             }
         }
 
