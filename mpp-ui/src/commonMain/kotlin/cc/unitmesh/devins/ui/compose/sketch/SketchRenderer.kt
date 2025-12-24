@@ -5,6 +5,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import cc.unitmesh.agent.Platform
 import cc.unitmesh.devins.parser.CodeFence
 import cc.unitmesh.devins.ui.compose.sketch.chart.ChartBlockRenderer
 import cc.unitmesh.devins.ui.compose.sketch.letsplot.LetsPlotBlockRenderer
@@ -56,6 +57,8 @@ object SketchRenderer : BaseContentRenderer() {
         onRenderUpdate: ((RenderMetadata) -> Unit)?,
         modifier: Modifier
     ) {
+        val blockSpacing = if (Platform.isJvm && !Platform.isAndroid) 4.dp else 8.dp
+
         Column(modifier = modifier) {
             // Parse and render main content
             val codeFences = CodeFence.parseAll(content)
@@ -72,12 +75,13 @@ object SketchRenderer : BaseContentRenderer() {
             codeFences.forEachIndexed { index, fence ->
                 val isLastBlock = index == codeFences.lastIndex
                 val blockIsComplete = fence.isComplete && (isComplete || !isLastBlock)
+                var rendered = false
 
                 when (fence.languageId.lowercase()) {
                     "markdown", "md", "" -> {
                         if (fence.text.isNotBlank()) {
                             MarkdownSketchRenderer.RenderMarkdown(fence.text, isComplete = blockIsComplete)
-                            Spacer(modifier = Modifier.height(8.dp))
+                            rendered = true
                         }
                     }
 
@@ -86,7 +90,7 @@ object SketchRenderer : BaseContentRenderer() {
                             diffContent = fence.text,
                             modifier = Modifier.fillMaxWidth()
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
+                        rendered = true
                     }
 
                     "thinking" -> {
@@ -96,7 +100,7 @@ object SketchRenderer : BaseContentRenderer() {
                                 isComplete = blockIsComplete,
                                 modifier = Modifier.fillMaxWidth()
                             )
-                            Spacer(modifier = Modifier.height(8.dp))
+                            rendered = true
                         }
                     }
 
@@ -107,7 +111,7 @@ object SketchRenderer : BaseContentRenderer() {
                                 modifier = Modifier.fillMaxWidth(),
                                 isComplete = fence.isComplete
                             )
-                            Spacer(modifier = Modifier.height(8.dp))
+                            rendered = true
                         }
                     }
 
@@ -117,7 +121,7 @@ object SketchRenderer : BaseContentRenderer() {
                                 mermaidCode = fence.text,
                                 modifier = Modifier.fillMaxWidth()
                             )
-                            Spacer(modifier = Modifier.height(8.dp))
+                            rendered = true
                         }
                     }
 
@@ -128,7 +132,7 @@ object SketchRenderer : BaseContentRenderer() {
                                 isComplete = blockIsComplete,
                                 modifier = Modifier.fillMaxWidth()
                             )
-                            Spacer(modifier = Modifier.height(8.dp))
+                            rendered = true
                         }
                     }
 
@@ -139,7 +143,7 @@ object SketchRenderer : BaseContentRenderer() {
                                 isComplete = blockIsComplete,
                                 modifier = Modifier.fillMaxWidth()
                             )
-                            Spacer(modifier = Modifier.height(8.dp))
+                            rendered = true
                         }
                     }
 
@@ -150,7 +154,7 @@ object SketchRenderer : BaseContentRenderer() {
                                 isComplete = blockIsComplete,
                                 modifier = Modifier.fillMaxWidth()
                             )
-                            Spacer(modifier = Modifier.height(8.dp))
+                            rendered = true
                         }
                     }
 
@@ -160,7 +164,7 @@ object SketchRenderer : BaseContentRenderer() {
                                 chartCode = fence.text,
                                 modifier = Modifier.fillMaxWidth()
                             )
-                            Spacer(modifier = Modifier.height(8.dp))
+                            rendered = true
                         }
                     }
 
@@ -170,8 +174,13 @@ object SketchRenderer : BaseContentRenderer() {
                             language = fence.languageId,
                             displayName = CodeFence.displayNameByExt(fence.extension ?: fence.languageId)
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
+                        rendered = true
                     }
+                }
+
+                // Only add spacing between blocks (avoid trailing space after the last block).
+                if (rendered && !isLastBlock) {
+                    Spacer(modifier = Modifier.height(blockSpacing))
                 }
             }
         }

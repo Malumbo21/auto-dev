@@ -2,8 +2,11 @@ package cc.unitmesh.devins.ui.compose.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
+import cc.unitmesh.devins.ui.state.UIStateManager
 
 /**
  * AutoDev 暗色主题配色方案
@@ -117,6 +120,8 @@ fun AutoDevTheme(
     content: @Composable () -> Unit
 ) {
     val systemInDarkTheme = isSystemInDarkTheme()
+    val contentFontScale by UIStateManager.contentFontScale.collectAsState()
+    val density = LocalDensity.current
 
     // 根据主题模式决定是否使用深色主题
     val darkTheme =
@@ -133,11 +138,20 @@ fun AutoDevTheme(
             LightColorScheme
         }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography(),
-        content = content
-    )
+    // Apply user-controlled font scale for the app content area.
+    // Keep DP-based layout stable; only scale SP via Density.fontScale.
+    CompositionLocalProvider(
+        LocalDensity provides Density(
+            density = density.density,
+            fontScale = density.fontScale * contentFontScale
+        )
+    ) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = Typography(),
+            content = content
+        )
+    }
 }
 
 /**

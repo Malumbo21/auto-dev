@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.dp
 import cc.unitmesh.agent.AgentType
 import cc.unitmesh.devins.ui.compose.icons.AutoDevComposeIcons
 import cc.unitmesh.devins.ui.state.UIStateManager
+import kotlin.math.roundToInt
 
 /**
  * Desktop 标题栏（VSCode 风格）
@@ -45,6 +46,7 @@ fun DesktopTitleBarTabs(
     val workspacePath by UIStateManager.workspacePath.collectAsState()
     val isTreeViewVisible by UIStateManager.isTreeViewVisible.collectAsState()
     val isSessionSidebarVisible by UIStateManager.isSessionSidebarVisible.collectAsState()
+    val contentFontScale by UIStateManager.contentFontScale.collectAsState()
 
     Box(
         modifier = modifier
@@ -173,6 +175,66 @@ fun DesktopTitleBarTabs(
                         }
                     )
                 }
+
+                ContentFontScaleControl(
+                    contentFontScale = contentFontScale,
+                    modifier = Modifier.height(28.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ContentFontScaleControl(
+    contentFontScale: Float,
+    modifier: Modifier = Modifier
+) {
+    val percent = (contentFontScale * 100f).roundToInt()
+    val canDecrease = contentFontScale > UIStateManager.CONTENT_FONT_SCALE_MIN + 0.001f
+    val canIncrease = contentFontScale < UIStateManager.CONTENT_FONT_SCALE_MAX - 0.001f
+
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(6.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            IconButton(
+                onClick = { UIStateManager.decreaseContentFontScale() },
+                enabled = canDecrease,
+                modifier = Modifier.size(28.dp)
+            ) {
+                Icon(
+                    imageVector = AutoDevComposeIcons.ZoomOut,
+                    contentDescription = "Decrease font size",
+                    modifier = Modifier.size(16.dp),
+                    tint = if (canDecrease) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                )
+            }
+
+            Text(
+                text = "${percent}%",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1
+            )
+
+            IconButton(
+                onClick = { UIStateManager.increaseContentFontScale() },
+                enabled = canIncrease,
+                modifier = Modifier.size(28.dp)
+            ) {
+                Icon(
+                    imageVector = AutoDevComposeIcons.ZoomIn,
+                    contentDescription = "Increase font size",
+                    modifier = Modifier.size(16.dp),
+                    tint = if (canIncrease) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                )
             }
         }
     }

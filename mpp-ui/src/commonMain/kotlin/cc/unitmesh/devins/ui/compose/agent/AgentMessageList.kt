@@ -20,6 +20,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import cc.unitmesh.agent.Platform
 import cc.unitmesh.agent.render.TimelineItem
 import cc.unitmesh.devins.llm.Message
 import cc.unitmesh.devins.llm.MessageRole
@@ -37,6 +38,14 @@ fun AgentMessageList(
 ) {
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
+    val isDesktop = Platform.isJvm && !Platform.isAndroid
+    val listContentPadding =
+        if (isDesktop) {
+            PaddingValues(horizontal = 6.dp, vertical = 6.dp)
+        } else {
+            PaddingValues(horizontal = 8.dp, vertical = 8.dp)
+        }
+    val itemSpacing = if (isDesktop) 4.dp else 6.dp
 
     // Create a stable snapshot of the timeline to prevent IndexOutOfBoundsException
     // when the list is modified during composition
@@ -120,8 +129,8 @@ fun AgentMessageList(
             modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.surface),
-        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+        contentPadding = listContentPadding,
+        verticalArrangement = Arrangement.spacedBy(itemSpacing)
     ) {
         items(
             items = timelineSnapshot,

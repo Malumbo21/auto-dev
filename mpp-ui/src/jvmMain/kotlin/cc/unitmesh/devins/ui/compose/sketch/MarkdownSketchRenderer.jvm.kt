@@ -3,8 +3,10 @@ package cc.unitmesh.devins.ui.compose.sketch
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,9 +47,9 @@ actual object MarkdownSketchRenderer {
         isDarkTheme: Boolean,
         modifier: Modifier
     ) {
-        val isDarkTheme = isSystemInDarkTheme()
-        val highlightsBuilder = remember(isDarkTheme) {
-            Highlights.Builder().theme(SyntaxThemes.atom(darkMode = isDarkTheme))
+        val darkTheme = isDarkTheme || isSystemInDarkTheme()
+        val highlightsBuilder = remember(darkTheme) {
+            Highlights.Builder().theme(SyntaxThemes.atom(darkMode = darkTheme))
         }
 
         // Check KCEF state for Mermaid rendering
@@ -134,7 +136,7 @@ actual object MarkdownSketchRenderer {
                             (language == "plantuml" || language == "puml") && isComplete -> {
                                 PlantUmlRenderer(
                                     code = code,
-                                    isDarkTheme = isDarkTheme,
+                                    isDarkTheme = darkTheme,
                                     modifier = Modifier.fillMaxSize(),
                                     null
                                 )
@@ -145,7 +147,7 @@ actual object MarkdownSketchRenderer {
                                 if (isKcefAvailable) {
                                     MermaidRenderer(
                                         mermaidCode = code,
-                                        isDarkTheme = isDarkTheme,
+                                        isDarkTheme = darkTheme,
                                         modifier = Modifier.fillMaxSize(),
                                         onRenderComplete = null
                                     )
@@ -182,10 +184,24 @@ actual object MarkdownSketchRenderer {
 
     @Composable
     actual fun RenderResponse(content: String, isComplete: Boolean, isDarkTheme: Boolean, modifier: Modifier) {
+        // Reuse SketchRenderer for fence-aware rendering (markdown + code + diff + diagrams).
+        SketchRenderer.RenderResponse(
+            content = content,
+            isComplete = isComplete,
+            modifier = modifier
+        )
     }
 
     @Composable
     actual fun RenderPlainText(text: String, modifier: Modifier) {
+        SelectionContainer {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodyMedium.copy(fontFamily = getUtf8FontFamily()),
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = modifier
+            )
+        }
     }
 }
 

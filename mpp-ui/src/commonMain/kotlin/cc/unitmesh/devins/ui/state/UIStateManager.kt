@@ -3,6 +3,7 @@ package cc.unitmesh.devins.ui.state
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlin.math.roundToInt
 
 /**
  * 全局 UI 状态管理器
@@ -11,6 +12,18 @@ import kotlinx.coroutines.flow.asStateFlow
  * 使用 StateFlow 确保状态变化能自动触发 UI 更新。
  */
 object UIStateManager {
+    /**
+     * Font scale for main content (chat, markdown, etc.).
+     * Applied via `AutoDevTheme` by overriding `LocalDensity.fontScale`.
+     */
+    const val CONTENT_FONT_SCALE_MIN: Float = 0.85f
+    const val CONTENT_FONT_SCALE_MAX: Float = 1.25f
+    const val CONTENT_FONT_SCALE_STEP: Float = 0.05f
+    const val CONTENT_FONT_SCALE_DEFAULT: Float = 1.0f
+
+    private val _contentFontScale = MutableStateFlow(CONTENT_FONT_SCALE_DEFAULT)
+    val contentFontScale: StateFlow<Float> = _contentFontScale.asStateFlow()
+
     // TreeView 显示状态
     private val _isTreeViewVisible = MutableStateFlow(false)
     val isTreeViewVisible: StateFlow<Boolean> = _isTreeViewVisible.asStateFlow()
@@ -83,6 +96,25 @@ object UIStateManager {
     }
 
     /**
+     * Set content font scale (clamped).
+     */
+    fun setContentFontScale(scale: Float) {
+        val clamped = scale.coerceIn(CONTENT_FONT_SCALE_MIN, CONTENT_FONT_SCALE_MAX)
+        // Keep two decimals for stable UI display and predictable stepping
+        val normalized = (clamped * 100f).roundToInt() / 100f
+        if (_contentFontScale.value != normalized) {
+            _contentFontScale.value = normalized
+            println("📝 [UIStateManager] Content font scale set to: ${_contentFontScale.value}")
+        }
+    }
+
+    fun increaseContentFontScale() = setContentFontScale(_contentFontScale.value + CONTENT_FONT_SCALE_STEP)
+
+    fun decreaseContentFontScale() = setContentFontScale(_contentFontScale.value - CONTENT_FONT_SCALE_STEP)
+
+    fun resetContentFontScale() = setContentFontScale(CONTENT_FONT_SCALE_DEFAULT)
+
+    /**
      * 重置所有状态到默认值
      */
     fun reset() {
@@ -90,6 +122,7 @@ object UIStateManager {
         _isSessionSidebarVisible.value = true
         _workspacePath.value = ""
         _hasHistory.value = false
+        _contentFontScale.value = CONTENT_FONT_SCALE_DEFAULT
         println("🔄 [UIStateManager] All states reset to default")
     }
 }
