@@ -331,3 +331,13 @@ tasks.register<JavaExec>("runNanoDslScenarioHarness") {
     classpath = kotlin.jvm().compilations.getByName("main").runtimeDependencyFiles +
         files(kotlin.jvm().compilations.getByName("main").output.classesDirs)
 }
+
+// Task to generate a test .unit file
+tasks.register<JavaExec>("generateTestUnit") {
+    group = "verification"
+    description = "Generate a test .unit file for verification"
+
+    val jvmCompilation = kotlin.jvm().compilations.getByName("main")
+    classpath(jvmCompilation.output, configurations["jvmRuntimeClasspath"])
+    mainClass.set("cc.unitmesh.agent.artifact.GenerateTestUnitKt")
+}

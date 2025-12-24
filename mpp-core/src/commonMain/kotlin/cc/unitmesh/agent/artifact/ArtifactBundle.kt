@@ -196,51 +196,56 @@ data class ArtifactBundle(
 
     /**
      * Generate package.json content
+     * Note: Using manual JSON building to avoid serialization issues with Map<String, Any>
      */
-    fun generatePackageJson(): String {
-        val packageData = buildMap {
-            put("name", id.replace(Regex("[^a-z0-9-]"), "-").lowercase())
-            put("version", version)
-            put("description", description)
+    fun generatePackageJson(): String = buildString {
+        appendLine("{")
+        appendLine("  \"name\": \"${id.replace(Regex("[^a-z0-9-]"), "-").lowercase()}\",")
+        appendLine("  \"version\": \"$version\",")
+        appendLine("  \"description\": \"${description.replace("\"", "\\\"")}\",")
 
-            when (type) {
-                ArtifactType.HTML -> {
-                    put("main", "index.html")
-                }
-                ArtifactType.REACT -> {
-                    put("main", "index.js")
-                    put("scripts", mapOf(
-                        "start" to "react-scripts start",
-                        "build" to "react-scripts build",
-                        "setup" to "npm install"
-                    ))
-                }
-                ArtifactType.PYTHON -> {
-                    put("main", "index.py")
-                    put("scripts", mapOf(
-                        "start" to "python index.py",
-                        "setup" to "pip install -r requirements.txt"
-                    ))
-                }
-                else -> {
-                    put("main", "index.${type.extension}")
-                }
+        when (type) {
+            ArtifactType.HTML -> {
+                appendLine("  \"main\": \"index.html\",")
             }
-
-            if (dependencies.isNotEmpty()) {
-                put("dependencies", dependencies)
+            ArtifactType.REACT -> {
+                appendLine("  \"main\": \"index.js\",")
+                appendLine("  \"scripts\": {")
+                appendLine("    \"start\": \"react-scripts start\",")
+                appendLine("    \"build\": \"react-scripts build\",")
+                appendLine("    \"setup\": \"npm install\"")
+                appendLine("  },")
             }
-
-            put("engines", mapOf("node" to ">=18"))
-
-            put("artifact", mapOf(
-                "type" to type.name.lowercase(),
-                "generated" to true,
-                "loadBackSupported" to true
-            ))
+            ArtifactType.PYTHON -> {
+                appendLine("  \"main\": \"index.py\",")
+                appendLine("  \"scripts\": {")
+                appendLine("    \"start\": \"python index.py\",")
+                appendLine("    \"setup\": \"pip install -r requirements.txt\"")
+                appendLine("  },")
+            }
+            else -> {
+                appendLine("  \"main\": \"index.${type.extension}\",")
+            }
         }
 
-        return json.encodeToString(packageData)
+        if (dependencies.isNotEmpty()) {
+            appendLine("  \"dependencies\": {")
+            dependencies.entries.forEachIndexed { index, (key, value) ->
+                val comma = if (index < dependencies.size - 1) "," else ""
+                appendLine("    \"$key\": \"$value\"$comma")
+            }
+            appendLine("  },")
+        }
+
+        appendLine("  \"engines\": {")
+        appendLine("    \"node\": \">=18\"")
+        appendLine("  },")
+        appendLine("  \"artifact\": {")
+        appendLine("    \"type\": \"${type.name.lowercase()}\",")
+        appendLine("    \"generated\": true,")
+        appendLine("    \"loadBackSupported\": true")
+        appendLine("  }")
+        appendLine("}")
     }
 
     /**
