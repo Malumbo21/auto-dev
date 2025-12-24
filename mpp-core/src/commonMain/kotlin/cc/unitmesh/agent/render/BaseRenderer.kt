@@ -33,7 +33,10 @@ abstract class BaseRenderer : CodingAgentRenderer {
         }
 
         // Remove partial devin tags
-        filtered = filtered.replace(Regex("<de(?:v(?:i(?:n)?)?)?$|<$"), "")
+        // IMPORTANT:
+        // We only want to strip partial "<devin" tags (e.g. "<d", "<de", "<dev", "<devi", "<devin"),
+        // not any dangling "<" which is extremely common in streaming HTML/XML and would break streaming UX.
+        filtered = filtered.replace(Regex("<d(?:e(?:v(?:i(?:n)?)?)?)?$"), "")
 
         return filtered
     }
@@ -46,7 +49,9 @@ abstract class BaseRenderer : CodingAgentRenderer {
         val lastCloseDevin = content.lastIndexOf("</devin>")
 
         // Check for partial opening tags
-        val partialDevinPattern = Regex("<de(?:v(?:i(?:n)?)?)?$|<$")
+        // Only treat partial "<devin" as incomplete devin block.
+        // Do NOT match a dangling "<" because HTML/XML streams often end mid-tag.
+        val partialDevinPattern = Regex("<d(?:e(?:v(?:i(?:n)?)?)?)?$")
         val hasPartialTag = partialDevinPattern.containsMatchIn(content)
 
         return lastOpenDevin > lastCloseDevin || hasPartialTag

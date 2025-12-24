@@ -19,6 +19,7 @@ import cc.unitmesh.agent.ArtifactAgent
 import kotlinx.browser.document
 import kotlinx.browser.window
 import org.w3c.dom.HTMLIFrameElement
+import org.w3c.dom.url.URL
 import org.w3c.files.Blob
 import org.w3c.files.BlobPropertyBag
 
@@ -125,7 +126,7 @@ actual fun ArtifactPreviewPanel(
 private fun openInNewTab(html: String) {
     try {
         val blob = Blob(arrayOf(html), BlobPropertyBag(type = "text/html"))
-        val url = kotlinx.browser.window.URL.createObjectURL(blob)
+        val url = URL.createObjectURL(blob)
         window.open(url, "_blank")
     } catch (e: Exception) {
         println("Failed to open in new tab: ${e.message}")
@@ -141,14 +142,14 @@ actual fun exportArtifact(
 ) {
     try {
         val blob = Blob(arrayOf(artifact.content), BlobPropertyBag(type = "text/html"))
-        val url = kotlinx.browser.window.URL.createObjectURL(blob)
+        val url = URL.createObjectURL(blob)
 
         val link = document.createElement("a") as org.w3c.dom.HTMLAnchorElement
         link.href = url
         link.download = "${artifact.title.replace(" ", "_")}.html"
         link.click()
 
-        kotlinx.browser.window.URL.revokeObjectURL(url)
+        URL.revokeObjectURL(url)
         onNotification("success", "Artifact downloaded")
     } catch (e: Exception) {
         onNotification("error", "Failed to export: ${e.message}")

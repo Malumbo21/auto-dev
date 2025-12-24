@@ -21,8 +21,7 @@ class ArtifactAgentViewModel(
     private val llmService: KoogLLMService?,
     private val chatHistoryManager: ChatHistoryManager? = null
 ) {
-    // Use Main dispatcher for state updates to trigger Compose recomposition
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     // Use ComposeRenderer for consistent UI rendering (same as CodingAgentPage)
     val renderer = ComposeRenderer()

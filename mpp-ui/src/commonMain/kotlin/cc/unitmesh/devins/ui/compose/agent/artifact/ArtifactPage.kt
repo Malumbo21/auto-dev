@@ -1,13 +1,10 @@
 package cc.unitmesh.devins.ui.compose.agent.artifact
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -69,39 +66,17 @@ fun ArtifactPage(
     var currentArtifact by remember { mutableStateOf<ArtifactAgent.Artifact?>(null) }
     var consoleLogs by remember { mutableStateOf<List<ConsoleLogItem>>(emptyList()) }
     var showPreview by remember { mutableStateOf(false) }
-    var lastStreamingTitle by remember { mutableStateOf<String?>(null) }
 
-    // Track streaming artifact for real-time preview (read as state to trigger recomposition)
+    // Track streaming artifact for real-time preview
     val streamingArtifact = viewModel.streamingArtifact
 
-    // Derive the artifact to display (completed has priority over streaming)
-    // Use derivedStateOf to correctly track state changes
-    val displayArtifact by remember {
-        derivedStateOf {
-            currentArtifact ?: viewModel.streamingArtifact?.toArtifact()
-        }
-    }
-
-    // Check if currently streaming
-    val isStreaming by remember {
-        derivedStateOf {
-            val streaming = viewModel.streamingArtifact
-            streaming != null && !streaming.isComplete
-        }
-    }
-
     // Show preview when streaming starts (real-time preview)
-    LaunchedEffect(streamingArtifact?.identifier) {
-        val streaming = streamingArtifact
-        if (streaming != null && !showPreview) {
+    LaunchedEffect(streamingArtifact) {
+        if (streamingArtifact != null && !showPreview) {
             showPreview = true
-        }
-        // Log when a new artifact starts generating (by title change)
-        if (streaming != null && streaming.title != lastStreamingTitle) {
-            lastStreamingTitle = streaming.title
             consoleLogs = consoleLogs + ConsoleLogItem(
                 level = "info",
-                message = "Generating: ${streaming.title}",
+                message = "Generating: ${streamingArtifact.title}",
                 timestamp = kotlinx.datetime.Clock.System.now().toEpochMilliseconds()
             )
         }
@@ -121,6 +96,14 @@ fun ArtifactPage(
         }
     }
 
+    // Derive the artifact to display (streaming or completed)
+    val displayArtifact: ArtifactAgent.Artifact? = remember(currentArtifact, streamingArtifact) {
+        currentArtifact ?: streamingArtifact?.toArtifact()
+    }
+
+    // Check if currently streaming
+    val isStreaming = streamingArtifact != null && !streamingArtifact.isComplete
+
     // Create callbacks for DevInEditorInput
     val callbacks = remember(viewModel) {
         object : EditorCallbacks {
@@ -131,9 +114,6 @@ fun ArtifactPage(
     }
 
     val isDesktop = Platform.isJvm && !Platform.isAndroid
-
-    // Local variable for artifact to allow smart cast
-    val artifact = displayArtifact
 
     Row(modifier = modifier.fillMaxSize()) {
         // Left panel: Chat interface (reuses existing components)
@@ -148,7 +128,7 @@ fun ArtifactPage(
                 onBack = onBack,
                 showPreview = showPreview,
                 onTogglePreview = { showPreview = !showPreview },
-                hasArtifact = artifact != null,
+                hasArtifact = displayArtifact != null,
                 isStreaming = isStreaming,
                 onClear = {
                     viewModel.clearMessages()
@@ -188,7 +168,7 @@ fun ArtifactPage(
         }
 
         // Right panel: Preview (streaming or completed)
-        if (showPreview && artifact != null) {
+        if (showPreview && displayArtifact != null) {
             if (isDesktop) {
                 // Desktop: Use resizable split pane
                 ResizableSplitPane(
@@ -201,7 +181,7 @@ fun ArtifactPage(
                     first = {
                         // WebView preview with streaming indicator
                         ArtifactPreviewPanelWithStreaming(
-                            artifact = artifact,
+                            artifact = displayArtifact,
                             isStreaming = isStreaming,
                             onConsoleLog = { level, message ->
                                 consoleLogs = consoleLogs + ConsoleLogItem(
@@ -230,7 +210,7 @@ fun ArtifactPage(
                         .fillMaxHeight()
                 ) {
                     ArtifactPreviewPanelWithStreaming(
-                        artifact = artifact,
+                        artifact = displayArtifact,
                         isStreaming = isStreaming,
                         onConsoleLog = { level, message ->
                             consoleLogs = consoleLogs + ConsoleLogItem(
@@ -267,8 +247,7 @@ private fun StreamingArtifact.toArtifact(): ArtifactAgent.Artifact {
 }
 
 /**
- * Wrapper component that shows streaming code view during generation,
- * then switches to preview when complete.
+ * Wrapper component that shows streaming indicator on top of preview
  */
 @Composable
 private fun ArtifactPreviewPanelWithStreaming(
@@ -277,71 +256,25 @@ private fun ArtifactPreviewPanelWithStreaming(
     onConsoleLog: (String, String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    if (isStreaming) {
-        // During streaming: Show live source code with auto-scroll
-        StreamingCodeView(
-            content = artifact.content,
-            title = artifact.title,
-            modifier = modifier
-        )
-    } else {
-        // After completion: Show full preview panel
+    Box(modifier = modifier) {
         ArtifactPreviewPanel(
             artifact = artifact,
             onConsoleLog = onConsoleLog,
-            modifier = modifier
+            modifier = Modifier.fillMaxSize()
         )
-    }
-}
 
-/**
- * Streaming code view with live updates and auto-scroll
- * Similar to ThinkingBlockRenderer - shows content as it's generated
- */
-@Composable
-private fun StreamingCodeView(
-    content: String,
-    title: String,
-    modifier: Modifier = Modifier
-) {
-    val scrollState = rememberScrollState()
-    var userHasScrolled by remember { mutableStateOf(false) }
-
-    // Track if user manually scrolled away from bottom
-    LaunchedEffect(scrollState.value, scrollState.maxValue) {
-        if (scrollState.maxValue > 0) {
-            val isAtBottom = scrollState.value >= scrollState.maxValue - 10
-            if (!isAtBottom && scrollState.isScrollInProgress) {
-                userHasScrolled = true
-            } else if (isAtBottom) {
-                userHasScrolled = false
-            }
-        }
-    }
-
-    // Auto-scroll to bottom during streaming
-    LaunchedEffect(content) {
-        if (!userHasScrolled && content.isNotBlank()) {
-            kotlinx.coroutines.delay(16)
-            scrollState.scrollTo(scrollState.maxValue)
-        }
-    }
-
-    Column(modifier = modifier) {
-        // Header with streaming indicator
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.surfaceVariant,
-            shadowElevation = 1.dp
-        ) {
-            Row(
+        // Streaming indicator overlay
+        if (isStreaming) {
+            Surface(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .align(Alignment.TopCenter)
+                    .padding(8.dp),
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f),
+                shadowElevation = 4.dp
             ) {
                 Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -351,43 +284,11 @@ private fun StreamingCodeView(
                         color = MaterialTheme.colorScheme.primary
                     )
                     Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text = "Generating...",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 }
-                Text(
-                    text = "Generating...",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-        }
-
-        // Streaming code content with auto-scroll
-        Surface(
-            modifier = Modifier.weight(1f).fillMaxWidth(),
-            color = AutoDevColors.Void.surface2
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .horizontalScroll(rememberScrollState())
-                    .verticalScroll(scrollState)
-                    .padding(12.dp)
-            ) {
-                Text(
-                    text = content.ifEmpty { "Waiting for content..." },
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 12.sp,
-                        lineHeight = 18.sp
-                    ),
-                    color = if (content.isEmpty())
-                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                    else
-                        AutoDevColors.Text.primary
-                )
             }
         }
     }
