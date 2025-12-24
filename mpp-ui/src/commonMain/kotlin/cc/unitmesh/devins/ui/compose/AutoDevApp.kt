@@ -20,6 +20,7 @@ import cc.unitmesh.devins.llm.Message
 import cc.unitmesh.devins.ui.app.UnifiedAppContent
 import cc.unitmesh.devins.ui.compose.agent.AgentInterfaceRouter
 import cc.unitmesh.agent.AgentType
+import cc.unitmesh.agent.artifact.ArtifactBundle
 import cc.unitmesh.config.AutoDevConfigWrapper
 import cc.unitmesh.devins.ui.compose.chat.SessionSidebar
 import cc.unitmesh.devins.ui.compose.chat.TopBarMenu
@@ -54,7 +55,8 @@ fun AutoDevApp(
     onSidebarVisibilityChanged: (Boolean) -> Unit = {},
     onWorkspacePathChanged: (String) -> Unit = {},
     onHasHistoryChanged: (Boolean) -> Unit = {},
-    onNotification: (String, String) -> Unit = { _, _ -> }
+    onNotification: (String, String) -> Unit = { _, _ -> },
+    initialBundle: ArtifactBundle? = null // Bundle from file association
 ) {
     val currentTheme = ThemeManager.currentTheme
 
@@ -71,7 +73,8 @@ fun AutoDevApp(
             onSidebarVisibilityChanged = onSidebarVisibilityChanged,
             onWorkspacePathChanged = onWorkspacePathChanged,
             onHasHistoryChanged = onHasHistoryChanged,
-            onNotification = onNotification
+            onNotification = onNotification,
+            initialBundle = initialBundle // Pass bundle to AutoDevContent
         )
     }
 }
@@ -90,7 +93,8 @@ private fun AutoDevContent(
     onSidebarVisibilityChanged: (Boolean) -> Unit = {},
     onWorkspacePathChanged: (String) -> Unit = {},
     onHasHistoryChanged: (Boolean) -> Unit = {},
-    onNotification: (String, String) -> Unit = { _, _ -> }
+    onNotification: (String, String) -> Unit = { _, _ -> },
+    initialBundle: ArtifactBundle? = null // Bundle from file association
 ) {
     val scope = rememberCoroutineScope()
     var compilerOutput by remember { mutableStateOf("") }
@@ -628,6 +632,7 @@ private fun AutoDevContent(
                             selectedAgent = agent
                         },
                         onConfigureRemote = { showRemoteConfigDialog = true },
+                        initialBundle = initialBundle, // Pass bundle to AgentInterfaceRouter
                         onShowModelConfig = { showModelConfigDialog = true },
                         onShowToolConfig = { showToolConfigDialog = true },
                         serverUrl = serverUrl,

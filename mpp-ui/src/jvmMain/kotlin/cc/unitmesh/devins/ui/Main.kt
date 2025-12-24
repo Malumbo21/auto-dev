@@ -7,6 +7,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.*
@@ -23,7 +24,9 @@ import cc.unitmesh.devins.ui.desktop.AutoDevTray
 import cc.unitmesh.devins.ui.desktop.ComposeSelectionCrashGuard
 import cc.unitmesh.devins.ui.desktop.DesktopWindowLayout
 import cc.unitmesh.devins.ui.desktop.UnitFileHandler
+import cc.unitmesh.agent.artifact.ArtifactBundle
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.delay
 
 fun main(args: Array<String>) {
     AutoDevLogger.initialize()
@@ -57,6 +60,19 @@ fun main(args: Array<String>) {
         val initialAgentType = if (hasUnitFile) AgentType.ARTIFACT else AgentType.CODING
 
         val uiState = rememberDesktopUiState(initialAgentType = initialAgentType)
+
+        // Observe UnitFileHandler's pending bundle (for file association opens)
+        val pendingBundle by UnitFileHandler.pendingBundle.collectAsState()
+
+        // Clear pending bundle after it's been consumed (to prevent re-loading on recomposition)
+        LaunchedEffect(pendingBundle) {
+            if (pendingBundle != null) {
+                // Bundle will be consumed by DesktopAutoDevApp -> AutoDevApp -> AgentInterfaceRouter -> ArtifactPage
+                // Clear it after a short delay to ensure it's been passed down
+                kotlinx.coroutines.delay(100)
+                UnitFileHandler.clearPendingBundle()
+            }
+        }
 
         val windowState =
             rememberWindowState(
@@ -151,7 +167,8 @@ fun main(args: Array<String>) {
                                 },
                                 onNotification = { title, message ->
                                     trayState.sendNotification(androidx.compose.ui.window.Notification(title, message))
-                                }
+                                },
+                                initialBundle = pendingBundle // Pass bundle from UnitFileHandler
                             )
                         }
                     }

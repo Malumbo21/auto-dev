@@ -10,6 +10,7 @@ import cc.unitmesh.devins.ui.compose.agent.webedit.WebEditPage
 import cc.unitmesh.devins.ui.remote.RemoteAgentPage
 import cc.unitmesh.devins.workspace.Workspace
 import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.agent.artifact.ArtifactBundle
 
 /**
  * Agent Interface Router
@@ -58,6 +59,7 @@ fun AgentInterfaceRouter(
     onGitUrlChange: (String) -> Unit = {},
     onNotification: (String, String) -> Unit = { _, _ -> },
     workspace: Workspace? = null,
+    initialBundle: ArtifactBundle? = null, // Bundle from file association
     modifier: Modifier = Modifier
 ) {
     when (selectedAgentType) {
@@ -149,7 +151,8 @@ fun AgentInterfaceRouter(
                 onBack = {
                     onAgentTypeChange(AgentType.CODING)
                 },
-                onNotification = onNotification
+                onNotification = onNotification,
+                initialBundle = initialBundle // Pass bundle to ArtifactPage
             )
         }
 
