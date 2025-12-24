@@ -144,9 +144,9 @@ When creating Python artifacts:
 # ]
 # ///
 
-"""
+'''
 Script description here.
-"""
+'''
 
 def main():
     # Your code here

@@ -1,5 +1,7 @@
 package cc.unitmesh.agent.render
 
+import kotlinx.datetime.Clock
+
 /**
  * Extended renderer interface for Artifact Agent.
  * Adds artifact-specific rendering capabilities on top of CodingAgentRenderer.
@@ -45,7 +47,7 @@ interface ArtifactRenderer : CodingAgentRenderer {
         identifier: String,
         level: String,
         message: String,
-        timestamp: Long = System.currentTimeMillis()
+        timestamp: Long = Clock.System.now().toEpochMilliseconds()
     ) {
         // Default: no-op, renderers can override to display console output
     }

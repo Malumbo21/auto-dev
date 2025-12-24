@@ -4,6 +4,8 @@ import cc.unitmesh.agent.logging.getLogger
 import cc.unitmesh.agent.render.ArtifactRenderer
 import cc.unitmesh.agent.render.CodingAgentRenderer
 import cc.unitmesh.agent.render.DefaultCodingAgentRenderer
+import cc.unitmesh.devins.llm.Message
+import cc.unitmesh.devins.llm.MessageRole
 import cc.unitmesh.llm.KoogLLMService
 import kotlinx.coroutines.flow.toList
 
@@ -72,12 +74,17 @@ class ArtifactAgent(
 
         val responseBuilder = StringBuilder()
 
+        // Pass system prompt as a system message in history
+        val historyMessages = listOf(
+            Message(role = MessageRole.SYSTEM, content = systemPrompt)
+        )
+
         try {
             renderer.renderLLMResponseStart()
 
             llmService.streamPrompt(
                 userPrompt = prompt,
-                systemPrompt = systemPrompt,
+                historyMessages = historyMessages,
                 compileDevIns = false
             ).toList().forEach { chunk ->
                 responseBuilder.append(chunk)

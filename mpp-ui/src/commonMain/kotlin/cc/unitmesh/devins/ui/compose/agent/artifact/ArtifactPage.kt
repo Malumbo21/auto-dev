@@ -77,10 +77,12 @@ fun ArtifactPage(
                     consoleLogs = consoleLogs + ConsoleLogItem(
                         level = "info",
                         message = "Artifact loaded: ${result.artifacts.first().title}",
-                        timestamp = System.currentTimeMillis()
+                        timestamp = kotlinx.datetime.Clock.System.now().toEpochMilliseconds()
                     )
-                } else if (result.error != null) {
-                    onNotification("error", result.error)
+                } else {
+                    result.error?.let { errorMsg ->
+                        onNotification("error", errorMsg)
+                    }
                 }
             } catch (e: Exception) {
                 onNotification("error", "Generation failed: ${e.message}")
@@ -193,7 +195,7 @@ fun ArtifactPage(
                 initialSplitRatio = 0.7f,
                 minRatio = 0.3f,
                 maxRatio = 0.9f,
-                first = {
+                top = {
                     // WebView preview (expect/actual pattern - platform specific)
                     ArtifactPreviewPanel(
                         artifact = currentArtifact!!,
@@ -201,13 +203,13 @@ fun ArtifactPage(
                             consoleLogs = consoleLogs + ConsoleLogItem(
                                 level = level,
                                 message = message,
-                                timestamp = System.currentTimeMillis()
+                                timestamp = kotlinx.datetime.Clock.System.now().toEpochMilliseconds()
                             )
                         },
                         modifier = Modifier.fillMaxSize()
                     )
                 },
-                second = {
+                bottom = {
                     // Console output panel
                     ConsolePanel(
                         logs = consoleLogs,
@@ -367,13 +369,13 @@ private fun ConsolePanel(
 ) {
     Column(
         modifier = modifier
-            .background(AutoDevColors.Dark.codeBackground)
+            .background(AutoDevColors.Void.surface2)
     ) {
         // Header
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(AutoDevColors.Dark.surface)
+                .background(AutoDevColors.Void.surface1)
                 .padding(horizontal = 12.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
@@ -386,18 +388,18 @@ private fun ConsolePanel(
                     imageVector = Icons.Default.Terminal,
                     contentDescription = null,
                     modifier = Modifier.size(16.dp),
-                    tint = AutoDevColors.Dark.textSecondary
+                    tint = AutoDevColors.Text.secondary
                 )
                 Text(
                     text = "Console",
                     style = MaterialTheme.typography.labelMedium,
-                    color = AutoDevColors.Dark.textPrimary
+                    color = AutoDevColors.Text.primary
                 )
                 if (logs.isNotEmpty()) {
                     Text(
                         text = "(${logs.size})",
                         style = MaterialTheme.typography.labelSmall,
-                        color = AutoDevColors.Dark.textSecondary
+                        color = AutoDevColors.Text.secondary
                     )
                 }
             }
@@ -410,7 +412,7 @@ private fun ConsolePanel(
                     imageVector = Icons.Default.Delete,
                     contentDescription = "Clear",
                     modifier = Modifier.size(16.dp),
-                    tint = AutoDevColors.Dark.textSecondary
+                    tint = AutoDevColors.Text.secondary
                 )
             }
         }
@@ -432,17 +434,17 @@ private fun ConsolePanel(
 @Composable
 private fun ConsoleLogRow(log: ConsoleLogItem) {
     val color = when (log.level) {
-        "error" -> AutoDevColors.Dark.error
-        "warn" -> AutoDevColors.Dark.warning
-        "info" -> AutoDevColors.Dark.info
-        else -> AutoDevColors.Dark.textPrimary
+        "error" -> AutoDevColors.Signal.error
+        "warn" -> AutoDevColors.Signal.warn
+        "info" -> AutoDevColors.Signal.info
+        else -> AutoDevColors.Text.primary
     }
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(4.dp))
-            .background(AutoDevColors.Dark.surface.copy(alpha = 0.5f))
+            .background(AutoDevColors.Void.surface1.copy(alpha = 0.5f))
             .padding(horizontal = 8.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -459,7 +461,7 @@ private fun ConsoleLogRow(log: ConsoleLogItem) {
             style = MaterialTheme.typography.bodySmall.copy(
                 fontFamily = FontFamily.Monospace
             ),
-            color = AutoDevColors.Dark.textPrimary,
+            color = AutoDevColors.Text.primary,
             maxLines = 3,
             overflow = TextOverflow.Ellipsis
         )

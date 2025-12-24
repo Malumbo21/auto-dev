@@ -296,6 +296,11 @@ fun CodingAgentPage(
                             // WEB_EDIT has its own full-page interface
                             // It should not reach here - handled by AgentInterfaceRouter
                         }
+
+                        AgentType.ARTIFACT -> {
+                            // ARTIFACT has its own full-page interface (ArtifactPage)
+                            // It should not reach here - handled by AgentInterfaceRouter
+                        }
                     }
 
                     ToolLoadingStatusBar(

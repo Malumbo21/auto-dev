@@ -288,6 +288,7 @@ private fun AgentTypeTab(
                     AgentType.LOCAL_CHAT -> AutoDevComposeIcons.Chat
                     AgentType.CHAT_DB -> AutoDevComposeIcons.Database
                     AgentType.WEB_EDIT -> AutoDevComposeIcons.Language
+                    AgentType.ARTIFACT -> AutoDevComposeIcons.Code // Artifact agent icon
                 },
                 contentDescription = null,
                 tint = contentColor,

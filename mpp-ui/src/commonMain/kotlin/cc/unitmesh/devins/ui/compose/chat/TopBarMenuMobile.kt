@@ -226,6 +226,7 @@ fun TopBarMenuMobile(
                                             AgentType.LOCAL_CHAT -> AutoDevComposeIcons.Chat
                                             AgentType.CHAT_DB -> AutoDevComposeIcons.Database
                                             AgentType.WEB_EDIT -> AutoDevComposeIcons.Language
+                                            AgentType.ARTIFACT -> AutoDevComposeIcons.Code
                                         },
                                         contentDescription = null,
                                         modifier = Modifier.size(20.dp)
@@ -262,6 +263,7 @@ fun TopBarMenuMobile(
                                                     AgentType.LOCAL_CHAT -> AutoDevComposeIcons.Chat
                                                     AgentType.CHAT_DB -> AutoDevComposeIcons.Database
                                                     AgentType.WEB_EDIT -> AutoDevComposeIcons.Language
+                                                    AgentType.ARTIFACT -> AutoDevComposeIcons.Code
                                                 },
                                                 contentDescription = null,
                                                 modifier = Modifier.size(20.dp)
