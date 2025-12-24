@@ -4,7 +4,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import cc.unitmesh.agent.ArtifactAgent
+import cc.unitmesh.agent.artifact.ArtifactBundle
+import cc.unitmesh.agent.artifact.ArtifactType
 import cc.unitmesh.devins.llm.ChatHistoryManager
+import cc.unitmesh.devins.llm.Message
 import cc.unitmesh.devins.llm.MessageRole
 import cc.unitmesh.devins.ui.compose.agent.ComposeRenderer
 import cc.unitmesh.devins.ui.i18n.LanguageManager
@@ -220,6 +223,76 @@ class ArtifactAgentViewModel(
     }
 
     fun isConfigured(): Boolean = llmService != null
+
+    /**
+     * Load state from an ArtifactBundle (for load-back support)
+     * This restores the conversation history and artifact preview from a .unit file
+     */
+    fun loadFromBundle(bundle: ArtifactBundle) {
+        // Clear current state
+        renderer.clearMessages()
+        streamingArtifact = null
+
+        // Restore conversation history from context
+        val conversationHistory = bundle.context.conversationHistory
+        if (conversationHistory.isNotEmpty()) {
+            // Convert stored conversation messages to renderer messages
+            conversationHistory.forEach { msg ->
+                when (msg.role.lowercase()) {
+                    "user" -> renderer.addUserMessage(msg.content)
+                    "assistant" -> {
+                        renderer.renderLLMResponseStart()
+                        renderer.renderLLMResponseChunk(msg.content)
+                        renderer.renderLLMResponseEnd()
+                    }
+                }
+            }
+        } else {
+            // If no conversation history, add a context message
+            renderer.addUserMessage("[Loaded from bundle: ${bundle.name}]")
+        }
+
+        // Convert bundle to artifact for preview
+        val artifactType = when (bundle.type) {
+            ArtifactType.HTML -> ArtifactAgent.Artifact.ArtifactType.HTML
+            ArtifactType.REACT -> ArtifactAgent.Artifact.ArtifactType.REACT
+            ArtifactType.PYTHON -> ArtifactAgent.Artifact.ArtifactType.PYTHON
+            ArtifactType.SVG -> ArtifactAgent.Artifact.ArtifactType.SVG
+            ArtifactType.MERMAID -> ArtifactAgent.Artifact.ArtifactType.MERMAID
+        }
+
+        lastArtifact = ArtifactAgent.Artifact(
+            identifier = bundle.id,
+            type = artifactType,
+            title = bundle.name,
+            content = bundle.mainContent
+        )
+    }
+
+    /**
+     * Get current artifact bundle for export (includes conversation history)
+     */
+    fun createBundleForExport(artifact: ArtifactAgent.Artifact): ArtifactBundle {
+        // Collect conversation history from renderer
+        val timelineMessages = renderer.getTimelineSnapshot()
+        val conversationHistory = timelineMessages.map { msg ->
+            cc.unitmesh.agent.artifact.ConversationMessage(
+                role = msg.role.name.lowercase(),
+                content = msg.content
+            )
+        }
+
+        return ArtifactBundle.fromArtifact(
+            artifact = artifact,
+            conversationHistory = conversationHistory,
+            modelInfo = llmService?.let {
+                cc.unitmesh.agent.artifact.ModelInfo(
+                    name = "unknown", // TODO: Get from LLM service
+                    provider = "unknown"
+                )
+            }
+        )
+    }
 }
 
 /**

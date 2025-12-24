@@ -42,6 +42,8 @@ import kotlinx.coroutines.launch
  * - ComposeRenderer for state management
  * - AgentMessageList for message display
  * - DevInEditorInput for user input
+ *
+ * Supports loading from .unit bundle files for Load-Back functionality.
  */
 @Composable
 fun ArtifactPage(
@@ -49,7 +51,9 @@ fun ArtifactPage(
     modifier: Modifier = Modifier,
     onBack: () -> Unit = {},
     onNotification: (String, String) -> Unit = { _, _ -> },
-    chatHistoryManager: ChatHistoryManager? = null
+    chatHistoryManager: ChatHistoryManager? = null,
+    /** Optional: Initial bundle to load (for Load-Back support) */
+    initialBundle: cc.unitmesh.agent.artifact.ArtifactBundle? = null
 ) {
     val scope = rememberCoroutineScope()
     val currentWorkspace by WorkspaceManager.workspaceFlow.collectAsState()
@@ -69,6 +73,21 @@ fun ArtifactPage(
 
     // Track streaming artifact for real-time preview
     val streamingArtifact = viewModel.streamingArtifact
+
+    // Load initial bundle if provided (for Load-Back support)
+    LaunchedEffect(initialBundle) {
+        initialBundle?.let { bundle ->
+            viewModel.loadFromBundle(bundle)
+            currentArtifact = viewModel.lastArtifact
+            showPreview = currentArtifact != null
+            onNotification("info", "Loaded artifact: ${bundle.name}")
+            consoleLogs = consoleLogs + ConsoleLogItem(
+                level = "info",
+                message = "Loaded from bundle: ${bundle.name}",
+                timestamp = kotlinx.datetime.Clock.System.now().toEpochMilliseconds()
+            )
+        }
+    }
 
     // Show preview when streaming starts (real-time preview)
     LaunchedEffect(streamingArtifact) {
@@ -137,7 +156,7 @@ fun ArtifactPage(
                     consoleLogs = emptyList()
                 },
                 onExport = currentArtifact?.let { artifact ->
-                    { onExportArtifact(artifact, onNotification) }
+                    { onExportArtifact(artifact, viewModel, onNotification) }
                 }
             )
 
@@ -295,21 +314,32 @@ private fun ArtifactPreviewPanelWithStreaming(
 }
 
 /**
- * Export artifact to file
+ * Export artifact to file with conversation history
  */
 private fun onExportArtifact(
     artifact: ArtifactAgent.Artifact,
+    viewModel: ArtifactAgentViewModel,
     onNotification: (String, String) -> Unit
 ) {
+    // Create bundle with conversation history
+    val bundle = viewModel.createBundleForExport(artifact)
     // Platform-specific export will be handled by expect/actual
-    exportArtifact(artifact, onNotification)
+    exportArtifactBundle(bundle, onNotification)
 }
 
 /**
- * Platform-specific export function
+ * Platform-specific export function for raw artifact
  */
 expect fun exportArtifact(
     artifact: ArtifactAgent.Artifact,
+    onNotification: (String, String) -> Unit
+)
+
+/**
+ * Platform-specific export function for artifact bundle (with conversation history)
+ */
+expect fun exportArtifactBundle(
+    bundle: cc.unitmesh.agent.artifact.ArtifactBundle,
     onNotification: (String, String) -> Unit
 )
 

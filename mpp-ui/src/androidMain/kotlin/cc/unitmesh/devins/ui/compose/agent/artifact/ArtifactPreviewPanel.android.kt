@@ -74,3 +74,15 @@ actual fun exportArtifact(
     // TODO: Implement Android export using share intent or SAF
     onNotification("info", "Export not yet implemented for Android")
 }
+
+/**
+ * Export artifact bundle implementation for Android
+ * TODO: Implement using Android's SAF (Storage Access Framework)
+ */
+actual fun exportArtifactBundle(
+    bundle: cc.unitmesh.agent.artifact.ArtifactBundle,
+    onNotification: (String, String) -> Unit
+) {
+    // TODO: Implement Android bundle export using SAF
+    onNotification("info", "Bundle export not yet implemented for Android")
+}

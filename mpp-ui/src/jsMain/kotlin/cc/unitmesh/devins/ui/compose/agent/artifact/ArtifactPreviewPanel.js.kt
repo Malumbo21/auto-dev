@@ -155,3 +155,33 @@ actual fun exportArtifact(
         onNotification("error", "Failed to export: ${e.message}")
     }
 }
+
+/**
+ * Export artifact bundle implementation for JS
+ * For now, exports as JSON (full .unit bundle requires ZIP support in JS)
+ */
+actual fun exportArtifactBundle(
+    bundle: cc.unitmesh.agent.artifact.ArtifactBundle,
+    onNotification: (String, String) -> Unit
+) {
+    try {
+        // For JS, export bundle as JSON for now
+        // Full .unit (ZIP) support would require a library like JSZip
+        val bundleJson = kotlinx.serialization.json.Json.encodeToString(
+            cc.unitmesh.agent.artifact.ArtifactBundle.serializer(),
+            bundle
+        )
+        val blob = Blob(arrayOf(bundleJson), BlobPropertyBag(type = "application/json"))
+        val url = URL.createObjectURL(blob)
+
+        val link = document.createElement("a") as org.w3c.dom.HTMLAnchorElement
+        link.href = url
+        link.download = "${bundle.name.replace(" ", "_")}.unit.json"
+        link.click()
+
+        URL.revokeObjectURL(url)
+        onNotification("success", "Bundle downloaded (JSON format)")
+    } catch (e: Exception) {
+        onNotification("error", "Failed to export bundle: ${e.message}")
+    }
+}

@@ -484,11 +484,12 @@ actual fun exportArtifact(
             selectedFile = File("$sanitizedName.unit")
 
             // Add filter for .unit bundle format (recommended)
-            addChoosableFileFilter(FileNameExtensionFilter("AutoDev Unit Bundle (*.unit)", "unit"))
+            val unitFilter = FileNameExtensionFilter("AutoDev Unit Bundle (*.unit)", "unit")
+            addChoosableFileFilter(unitFilter)
             // Add filter for raw HTML
             addChoosableFileFilter(FileNameExtensionFilter("HTML Files (*.html)", "html", "htm"))
 
-            fileFilter = getChoosableFileFilters()[1] // Default to .unit
+            fileFilter = unitFilter // Default to .unit
         }
 
         if (fileChooser.showSaveDialog(null) == JFileChooser.APPROVE_OPTION) {
@@ -510,8 +511,13 @@ actual fun exportArtifact(
             }
 
             if (isUnitFormat) {
-                // Export as .unit bundle
-                exportAsUnitBundle(artifact, file, onNotification)
+                // Export as .unit bundle (without conversation history - use exportArtifactBundle for full bundle)
+                val bundle = cc.unitmesh.agent.artifact.ArtifactBundle.fromArtifact(
+                    artifact = artifact,
+                    conversationHistory = emptyList(),
+                    modelInfo = null
+                )
+                exportAsUnitBundle(bundle, file, onNotification)
             } else {
                 // Export as raw HTML
                 file.writeText(artifact.content)
@@ -527,18 +533,11 @@ actual fun exportArtifact(
  * Export artifact as .unit bundle format
  */
 private fun exportAsUnitBundle(
-    artifact: ArtifactAgent.Artifact,
+    bundle: cc.unitmesh.agent.artifact.ArtifactBundle,
     outputFile: File,
     onNotification: (String, String) -> Unit
 ) {
     try {
-        // Create bundle from artifact
-        val bundle = cc.unitmesh.agent.artifact.ArtifactBundle.fromArtifact(
-            artifact = artifact,
-            conversationHistory = emptyList(), // TODO: Pass actual conversation history
-            modelInfo = null // TODO: Pass actual model info
-        )
-
         // Pack bundle using coroutines
         kotlinx.coroutines.runBlocking {
             val packer = cc.unitmesh.agent.artifact.ArtifactBundlePacker()
@@ -553,5 +552,38 @@ private fun exportAsUnitBundle(
         }
     } catch (e: Exception) {
         onNotification("error", "Failed to create bundle: ${e.message}")
+    }
+}
+
+/**
+ * Export artifact bundle implementation for JVM
+ * This is called from ArtifactPage with full conversation history
+ */
+actual fun exportArtifactBundle(
+    bundle: cc.unitmesh.agent.artifact.ArtifactBundle,
+    onNotification: (String, String) -> Unit
+) {
+    try {
+        val sanitizedName = bundle.name.replace(Regex("[^a-zA-Z0-9\\-_ ]"), "").replace(" ", "_")
+
+        val fileChooser = JFileChooser().apply {
+            dialogTitle = "Export Artifact Bundle"
+            selectedFile = File("$sanitizedName.unit")
+
+            // Only .unit format for bundle export
+            val unitFilter = FileNameExtensionFilter("AutoDev Unit Bundle (*.unit)", "unit")
+            addChoosableFileFilter(unitFilter)
+            fileFilter = unitFilter
+        }
+
+        if (fileChooser.showSaveDialog(null) == JFileChooser.APPROVE_OPTION) {
+            var file = fileChooser.selectedFile
+            if (!file.name.endsWith(".unit")) {
+                file = File(file.absolutePath + ".unit")
+            }
+            exportAsUnitBundle(bundle, file, onNotification)
+        }
+    } catch (e: Exception) {
+        onNotification("error", "Failed to export: ${e.message}")
     }
 }

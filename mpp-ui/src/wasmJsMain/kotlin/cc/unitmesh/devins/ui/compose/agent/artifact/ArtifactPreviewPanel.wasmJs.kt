@@ -94,3 +94,14 @@ actual fun exportArtifact(
     // WASM export is limited
     onNotification("info", "Export not available in WASM mode")
 }
+
+/**
+ * Export artifact bundle implementation for WASM/JS
+ */
+actual fun exportArtifactBundle(
+    bundle: cc.unitmesh.agent.artifact.ArtifactBundle,
+    onNotification: (String, String) -> Unit
+) {
+    // WASM export is limited
+    onNotification("info", "Bundle export not available in WASM mode")
+}

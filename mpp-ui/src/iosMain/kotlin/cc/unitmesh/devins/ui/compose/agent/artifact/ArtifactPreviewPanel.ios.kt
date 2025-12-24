@@ -79,3 +79,15 @@ actual fun exportArtifact(
     // TODO: Implement iOS export using share sheet
     onNotification("info", "Export not yet implemented for iOS")
 }
+
+/**
+ * Export artifact bundle implementation for iOS
+ * TODO: Implement using iOS share sheet
+ */
+actual fun exportArtifactBundle(
+    bundle: cc.unitmesh.agent.artifact.ArtifactBundle,
+    onNotification: (String, String) -> Unit
+) {
+    // TODO: Implement iOS bundle export using share sheet
+    onNotification("info", "Bundle export not yet implemented for iOS")
+}
