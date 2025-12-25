@@ -114,6 +114,10 @@ object AutoDevComposeIcons {
     val Functions: ImageVector get() = Icons.Default.Functions
     val KeyboardArrowRight: ImageVector get() = Icons.Default.KeyboardArrowRight
 
+    // GenAction Icons
+    val Science: ImageVector get() = Icons.Default.Science
+    val Extension: ImageVector get() = Icons.Default.Extension
+
     // Database Icons
     val Database: ImageVector get() = Icons.Default.Storage
     val Schema: ImageVector get() = Icons.Default.TableChart

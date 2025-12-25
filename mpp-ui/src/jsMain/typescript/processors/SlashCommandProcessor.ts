@@ -111,6 +111,13 @@ export class SlashCommandProcessor implements InputProcessor {
       aliases: ['dr', 'research'],
       action: async (context, args) => this.handleDeepResearchCommand(context, args)
     });
+
+    // /gen-actions - Generate IDE actions from AGENTS.md rules
+    this.registerCommand('gen-actions', {
+      description: 'Generate IDE actions based on AGENTS.md rules and project context',
+      aliases: ['ga', 'actions'],
+      action: async (context, args) => this.handleGenActionsCommand(context, args)
+    });
   }
 
   /**
@@ -483,5 +490,155 @@ export class SlashCommandProcessor implements InputProcessor {
         message: `❌ Deep Research failed: ${error instanceof Error ? error.message : String(error)}`
       };
     }
+  }
+
+  /**
+   * Handle /gen-actions command for generating IDE actions from AGENTS.md
+   * 
+   * This command:
+   * 1. Loads AGENTS.md rules from project
+   * 2. Analyzes current context (file, selection, etc.)
+   * 3. Generates contextually relevant IDE actions using LLM
+   * 4. Displays generated actions in a structured format
+   */
+  private async handleGenActionsCommand(context: ProcessorContext, args: string): Promise<ProcessorResult> {
+    try {
+      const projectPath = getCurrentProjectPath();
+      if (!projectPath) {
+        return {
+          type: 'error',
+          message: '❌ Unable to get project path'
+        };
+      }
+
+      // Parse arguments
+      const parts = args.trim().split(/\s+/);
+      let focusFile: string | undefined;
+      let category: string | undefined;
+
+      // Check for flags
+      for (let i = 0; i < parts.length; i++) {
+        if (parts[i] === '--file' && parts[i + 1]) {
+          focusFile = parts[i + 1];
+          i++;
+        } else if (parts[i] === '--category' && parts[i + 1]) {
+          category = parts[i + 1];
+          i++;
+        }
+      }
+
+      // Load configuration
+      const config = await ConfigManager.load();
+      const activeConfig = config.getActiveConfig();
+      if (!activeConfig) {
+        return {
+          type: 'error',
+          message: '❌ No LLM configuration found. Please run the setup first.'
+        };
+      }
+
+      // Display banner
+      console.log('\n' + '='.repeat(60));
+      console.log('🚀 GenAction - Dynamic IDE Action Generation');
+      console.log('='.repeat(60));
+      console.log(`📁 Project: ${projectPath}`);
+      if (focusFile) {
+        console.log(`📄 Focus File: ${focusFile}`);
+      }
+      if (category) {
+        console.log(`🏷️  Category: ${category}`);
+      }
+      console.log('='.repeat(60) + '\n');
+
+      // Create LLM service
+      const modelConfig = new mppCore.cc.unitmesh.llm.JsModelConfig(
+        activeConfig.provider,
+        activeConfig.model,
+        activeConfig.apiKey,
+        activeConfig.temperature || 0.7,
+        activeConfig.maxTokens || 4096,
+        activeConfig.baseUrl || ''
+      );
+
+      const llmService = mppCore.cc.unitmesh.llm.JsKoogLLMService.Companion.create(modelConfig);
+
+      // Create file system
+      const fileSystem = mppCore.cc.unitmesh.devins.filesystem.JsFileSystemFactory.Companion.createFileSystem(projectPath);
+
+      // Create GenActionService
+      const genActionService = new mppCore.cc.unitmesh.agent.genaction.JsGenActionService(
+        projectPath,
+        llmService,
+        fileSystem
+      );
+
+      // Generate actions
+      console.log('🔄 Generating context-aware actions...\n');
+
+      const actions = await genActionService.generateActions(
+        focusFile,
+        (progress: string) => {
+          console.log(`  ${progress}`);
+        }
+      );
+
+      // Display results
+      if (actions && actions.length > 0) {
+        console.log('\n' + '─'.repeat(60));
+        console.log('📋 Generated Actions:');
+        console.log('─'.repeat(60) + '\n');
+
+        for (let i = 0; i < actions.length; i++) {
+          const action = actions[i];
+          const icon = getCategoryIcon(action.category);
+          console.log(`${i + 1}. ${icon} ${action.name}`);
+          console.log(`   ${action.description}`);
+          if (action.tags && action.tags.length > 0) {
+            console.log(`   Tags: ${action.tags.join(', ')}`);
+          }
+          console.log('');
+        }
+
+        console.log('─'.repeat(60));
+        console.log(`✅ Generated ${actions.length} actions`);
+        console.log('💡 Use the GenAction panel (floating button) to execute actions');
+        console.log('─'.repeat(60) + '\n');
+
+        return {
+          type: 'handled',
+          output: `Generated ${actions.length} IDE actions. Click the floating ✨ button to access them.`
+        };
+      } else {
+        return {
+          type: 'handled',
+          output: '⚠️  No actions generated. Make sure you have an AGENTS.md file in your project.'
+        };
+      }
+
+    } catch (error) {
+      context.logger.error('[SlashCommandProcessor] Error in /gen-actions command:', error);
+      return {
+        type: 'error',
+        message: `❌ GenAction failed: ${error instanceof Error ? error.message : String(error)}`
+      };
+    }
+  }
+}
+
+/**
+ * Get icon for action category
+ */
+function getCategoryIcon(category: string | undefined): string {
+  switch (category?.toUpperCase()) {
+    case 'CODE_GENERATION': return '✨';
+    case 'REFACTORING': return '🔧';
+    case 'TESTING': return '🧪';
+    case 'DOCUMENTATION': return '📝';
+    case 'ANALYSIS': return '🔍';
+    case 'DEBUGGING': return '🐛';
+    case 'BUILD': return '🏗️';
+    case 'VCS': return '📚';
+    case 'CUSTOM': return '🎯';
+    default: return '⚡';
   }
 }
