@@ -76,6 +76,10 @@ data class ArtifactBundle(
 
         /**
          * Create a bundle from an artifact generation result
+         * 
+         * For Node.js artifacts, intelligently selects the correct artifact containing code
+         * (not package.json) when multiple artifacts are generated.
+         * Also auto-detects dependencies from require()/import statements.
          */
         fun fromArtifact(
             artifact: cc.unitmesh.agent.ArtifactAgent.Artifact,
@@ -86,9 +90,17 @@ data class ArtifactBundle(
             val type = when (artifact.type) {
                 cc.unitmesh.agent.ArtifactAgent.Artifact.ArtifactType.HTML -> ArtifactType.HTML
                 cc.unitmesh.agent.ArtifactAgent.Artifact.ArtifactType.REACT -> ArtifactType.REACT
+                cc.unitmesh.agent.ArtifactAgent.Artifact.ArtifactType.NODEJS -> ArtifactType.NODEJS
                 cc.unitmesh.agent.ArtifactAgent.Artifact.ArtifactType.PYTHON -> ArtifactType.PYTHON
                 cc.unitmesh.agent.ArtifactAgent.Artifact.ArtifactType.SVG -> ArtifactType.SVG
                 cc.unitmesh.agent.ArtifactAgent.Artifact.ArtifactType.MERMAID -> ArtifactType.MERMAID
+            }
+
+            // Auto-detect dependencies for Node.js/React artifacts
+            val dependencies = if (type == ArtifactType.NODEJS || type == ArtifactType.REACT) {
+                detectNodeDependencies(artifact.content)
+            } else {
+                emptyMap()
             }
 
             return ArtifactBundle(
@@ -97,12 +109,132 @@ data class ArtifactBundle(
                 description = "Generated artifact: ${artifact.title}",
                 type = type,
                 mainContent = artifact.content,
+                dependencies = dependencies,
                 context = ArtifactContext(
                     model = modelInfo,
                     conversationHistory = conversationHistory,
                     fingerprint = calculateFingerprint(artifact.content)
                 )
             )
+        }
+
+        /**
+         * Detect Node.js dependencies from code content.
+         * Parses require() and import statements to extract package names.
+         * 
+         * @param content The JavaScript/TypeScript code content
+         * @return Map of package name to version (using "latest" as default)
+         */
+        private fun detectNodeDependencies(content: String): Map<String, String> {
+            val dependencies = mutableSetOf<String>()
+
+            // Match require('package') or require("package")
+            val requirePattern = Regex("""require\s*\(\s*['"]([^'"./][^'"]*)['"]\s*\)""")
+            requirePattern.findAll(content).forEach { match ->
+                val packageName = match.groupValues[1].split("/").first()
+                dependencies.add(packageName)
+            }
+
+            // Match import ... from 'package' or import ... from "package"
+            val importPattern = Regex("""import\s+.*?\s+from\s+['"]([^'"./][^'"]*)['"]\s*;?""")
+            importPattern.findAll(content).forEach { match ->
+                val packageName = match.groupValues[1].split("/").first()
+                dependencies.add(packageName)
+            }
+
+            // Match import 'package' (side-effect imports)
+            val sideEffectImportPattern = Regex("""import\s+['"]([^'"./][^'"]*)['"]\s*;?""")
+            sideEffectImportPattern.findAll(content).forEach { match ->
+                val packageName = match.groupValues[1].split("/").first()
+                dependencies.add(packageName)
+            }
+
+            // Filter out Node.js built-in modules
+            val builtInModules = setOf(
+                "assert", "async_hooks", "buffer", "child_process", "cluster",
+                "console", "constants", "crypto", "dgram", "diagnostics_channel",
+                "dns", "domain", "events", "fs", "http", "http2", "https",
+                "inspector", "module", "net", "os", "path", "perf_hooks",
+                "process", "punycode", "querystring", "readline", "repl",
+                "stream", "string_decoder", "sys", "timers", "tls", "trace_events",
+                "tty", "url", "util", "v8", "vm", "wasi", "worker_threads", "zlib",
+                // Node.js prefixed modules
+                "node:assert", "node:buffer", "node:child_process", "node:cluster",
+                "node:console", "node:constants", "node:crypto", "node:dgram",
+                "node:dns", "node:events", "node:fs", "node:http", "node:http2",
+                "node:https", "node:module", "node:net", "node:os", "node:path",
+                "node:perf_hooks", "node:process", "node:querystring", "node:readline",
+                "node:repl", "node:stream", "node:string_decoder", "node:timers",
+                "node:tls", "node:tty", "node:url", "node:util", "node:v8", "node:vm",
+                "node:worker_threads", "node:zlib"
+            )
+
+            // Map common packages to recommended versions
+            val packageVersions = mapOf(
+                "express" to "^4.18.2",
+                "react" to "^18.2.0",
+                "react-dom" to "^18.2.0",
+                "axios" to "^1.6.0",
+                "lodash" to "^4.17.21",
+                "moment" to "^2.29.4",
+                "uuid" to "^9.0.0",
+                "dotenv" to "^16.3.1",
+                "cors" to "^2.8.5",
+                "body-parser" to "^1.20.2",
+                "mongoose" to "^8.0.0",
+                "pg" to "^8.11.3",
+                "mysql2" to "^3.6.0",
+                "redis" to "^4.6.10",
+                "socket.io" to "^4.7.2",
+                "jsonwebtoken" to "^9.0.2",
+                "bcrypt" to "^5.1.1",
+                "multer" to "^1.4.5-lts.1",
+                "nodemailer" to "^6.9.7",
+                "winston" to "^3.11.0",
+                "jest" to "^29.7.0",
+                "typescript" to "^5.3.2",
+                "ts-node" to "^10.9.1"
+            )
+
+            return dependencies
+                .filter { it !in builtInModules && !it.startsWith("node:") }
+                .associateWith { packageVersions[it] ?: "latest" }
+        }
+
+        /**
+         * Select the best artifact from multiple artifacts
+         * 
+         * For Node.js/React artifacts, avoids selecting package.json as main content
+         * and prefers the artifact containing actual code.
+         * 
+         * @param artifacts List of artifacts to choose from
+         * @return The best artifact for creating a bundle, or null if empty
+         */
+        fun selectBestArtifact(artifacts: List<cc.unitmesh.agent.ArtifactAgent.Artifact>): cc.unitmesh.agent.ArtifactAgent.Artifact? {
+            if (artifacts.isEmpty()) return null
+            if (artifacts.size == 1) return artifacts.first()
+
+            // Group artifacts by type
+            val nodeJsArtifacts = artifacts.filter { 
+                it.type == cc.unitmesh.agent.ArtifactAgent.Artifact.ArtifactType.NODEJS ||
+                it.type == cc.unitmesh.agent.ArtifactAgent.Artifact.ArtifactType.REACT
+            }
+
+            if (nodeJsArtifacts.size > 1) {
+                // For Node.js, skip artifacts that look like package.json
+                val codeArtifact = nodeJsArtifacts.find { artifact ->
+                    val content = artifact.content.trim()
+                    // Skip if it's clearly JSON (package.json)
+                    !(content.startsWith("{") && content.contains("\"name\"") && content.contains("\"dependencies\""))
+                }
+                
+                if (codeArtifact != null) {
+                    return codeArtifact
+                }
+            }
+
+            // Fallback: return first artifact
+            return artifacts.first()
         }
 
         private fun generateId(): String {
@@ -161,6 +293,14 @@ data class ArtifactBundle(
                 appendLine("npm start")
                 appendLine("```")
             }
+            ArtifactType.NODEJS -> {
+                appendLine("Install dependencies and run the Node.js application:")
+                appendLine()
+                appendLine("```bash")
+                appendLine("npm install")
+                appendLine("node index.js")
+                appendLine("```")
+            }
             ArtifactType.PYTHON -> {
                 appendLine("Run the Python script:")
                 appendLine()
@@ -216,6 +356,14 @@ data class ArtifactBundle(
                 appendLine("    \"setup\": \"npm install\"")
                 appendLine("  },")
             }
+            ArtifactType.NODEJS -> {
+                appendLine("  \"main\": \"index.js\",")
+                // Note: Not using "type": "module" to support both CommonJS (require) and ES modules (import)
+                appendLine("  \"scripts\": {")
+                appendLine("    \"start\": \"node index.js\",")
+                appendLine("    \"setup\": \"npm install\"")
+                appendLine("  },")
+            }
             ArtifactType.PYTHON -> {
                 appendLine("  \"main\": \"index.py\",")
                 appendLine("  \"scripts\": {")
@@ -254,6 +402,7 @@ data class ArtifactBundle(
     fun getMainFileName(): String = when (type) {
         ArtifactType.HTML -> "index.html"
         ArtifactType.REACT -> "index.jsx"
+        ArtifactType.NODEJS -> "index.js"
         ArtifactType.PYTHON -> "index.py"
         ArtifactType.SVG -> "index.svg"
         ArtifactType.MERMAID -> "diagram.mmd"
@@ -261,16 +410,21 @@ data class ArtifactBundle(
 
     /**
      * Get all files to be included in the bundle
+     * Note: Core files (ARTIFACT.md, package.json, main file, context.json) take precedence
+     * over files in the additional files map to prevent conflicts.
      */
     fun getAllFiles(): Map<String, String> = buildMap {
-        // Core files
+        // Core files - these must not be overridden
         put(ARTIFACT_MD, generateArtifactMd())
         put(PACKAGE_JSON, generatePackageJson())
         put(getMainFileName(), mainContent)
         put(CONTEXT_JSON, json.encodeToString(context))
 
-        // Additional files
-        putAll(files)
+        // Additional files - exclude any that conflict with core files
+        val coreFileNames = setOf(ARTIFACT_MD, PACKAGE_JSON, getMainFileName(), CONTEXT_JSON)
+        files.filterKeys { key -> key !in coreFileNames }.forEach { (key, value) ->
+            put(key, value)
+        }
     }
 }
 
@@ -282,6 +436,7 @@ enum class ArtifactType(val extension: String, val mimeType: String) {
     HTML("html", "text/html"),
     REACT("jsx", "text/javascript"),
     PYTHON("py", "text/x-python"),
+    NODEJS("js", "application/autodev.artifacts.nodejs"),
     SVG("svg", "image/svg+xml"),
     MERMAID("mmd", "text/plain");
 

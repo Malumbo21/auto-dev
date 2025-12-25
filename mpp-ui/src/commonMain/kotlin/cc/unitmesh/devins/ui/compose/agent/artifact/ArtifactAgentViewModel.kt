@@ -99,7 +99,8 @@ class ArtifactAgentViewModel(
 
                 // Generation complete - set final artifact
                 if (result.success && result.artifacts.isNotEmpty()) {
-                    lastArtifact = result.artifacts.first()
+                    // Select the best artifact (avoids package.json for Node.js)
+                    lastArtifact = cc.unitmesh.agent.artifact.ArtifactBundle.selectBestArtifact(result.artifacts)
                     streamingArtifact = null // Clear streaming state
                 } else {
                     result.error?.let { errorMsg ->
@@ -117,6 +118,66 @@ class ArtifactAgentViewModel(
                 currentExecutionJob = null
             } catch (e: Exception) {
                 renderer.renderError(e.message ?: "Unknown error")
+                streamingArtifact = null
+                isExecuting = false
+                currentExecutionJob = null
+            } finally {
+                saveConversationHistory()
+            }
+        }
+    }
+
+    /**
+     * Fix a failed artifact based on execution error
+     * 
+     * @param artifact The artifact that failed to execute
+     * @param errorMessage The error message from execution
+     */
+    fun fixArtifact(artifact: ArtifactAgent.Artifact, errorMessage: String) {
+        if (isExecuting) return
+
+        if (llmService == null) {
+            renderer.renderError("WARNING: LLM model is not configured. Please configure your model to continue.")
+            return
+        }
+
+        val agent = getArtifactAgent() ?: return
+
+        isExecuting = true
+        renderer.clearError()
+        
+        // Add a message indicating we're fixing the artifact
+        renderer.addUserMessage("🔧 Fixing artifact due to execution error:\n```\n${errorMessage.take(500)}\n```")
+        streamingArtifact = null
+
+        currentExecutionJob = scope.launch {
+            val contentBuilder = StringBuilder()
+
+            try {
+                val result = agent.fix(artifact, errorMessage) { chunk ->
+                    contentBuilder.append(chunk)
+                    updateStreamingArtifact(contentBuilder.toString())
+                }
+
+                if (result.success && result.artifacts.isNotEmpty()) {
+                    lastArtifact = cc.unitmesh.agent.artifact.ArtifactBundle.selectBestArtifact(result.artifacts)
+                    streamingArtifact = null
+                } else {
+                    result.error?.let { errorMsg ->
+                        renderer.renderError(errorMsg)
+                    }
+                }
+
+                isExecuting = false
+                currentExecutionJob = null
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                renderer.forceStop()
+                renderer.renderError("Fix cancelled by user")
+                streamingArtifact = null
+                isExecuting = false
+                currentExecutionJob = null
+            } catch (e: Exception) {
+                renderer.renderError(e.message ?: "Unknown error during fix")
                 streamingArtifact = null
                 isExecuting = false
                 currentExecutionJob = null
@@ -256,6 +317,7 @@ class ArtifactAgentViewModel(
         val artifactType = when (bundle.type) {
             ArtifactType.HTML -> ArtifactAgent.Artifact.ArtifactType.HTML
             ArtifactType.REACT -> ArtifactAgent.Artifact.ArtifactType.REACT
+            ArtifactType.NODEJS -> ArtifactAgent.Artifact.ArtifactType.NODEJS
             ArtifactType.PYTHON -> ArtifactAgent.Artifact.ArtifactType.PYTHON
             ArtifactType.SVG -> ArtifactAgent.Artifact.ArtifactType.SVG
             ArtifactType.MERMAID -> ArtifactAgent.Artifact.ArtifactType.MERMAID

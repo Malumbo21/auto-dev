@@ -21,6 +21,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun FrameWindowScope.AutoDevMenuBar(
     onOpenFile: () -> Unit,
+    onOpenUnitBundle: () -> Unit,
     onExit: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
@@ -33,6 +34,13 @@ fun FrameWindowScope.AutoDevMenuBar(
                 onClick = onOpenFile,
                 shortcut = Keymap.openProject,
                 mnemonic = 'O'
+            )
+            
+            Item(
+                "Open Unit Bundle...",
+                onClick = onOpenUnitBundle,
+                shortcut = Keymap.openUnitBundle,
+                mnemonic = 'U'
             )
             
             Separator()

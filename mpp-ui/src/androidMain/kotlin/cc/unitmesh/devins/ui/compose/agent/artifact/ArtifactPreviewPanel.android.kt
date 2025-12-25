@@ -17,6 +17,7 @@ import cc.unitmesh.agent.ArtifactAgent
 actual fun ArtifactPreviewPanel(
     artifact: ArtifactAgent.Artifact,
     onConsoleLog: (String, String) -> Unit,
+    onFixRequest: ((ArtifactAgent.Artifact, String) -> Unit)?,
     modifier: Modifier
 ) {
     val htmlContent = remember(artifact.content) {

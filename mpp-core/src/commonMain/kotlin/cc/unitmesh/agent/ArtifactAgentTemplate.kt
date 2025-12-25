@@ -25,16 +25,23 @@ object ArtifactAgentTemplate {
    - Can use Tailwind CSS for styling
    - Exports default component
 
-3. **application/autodev.artifacts.python** - Python scripts
+3. **application/autodev.artifacts.nodejs** - Node.js applications
+   - Complete Node.js application code (Express.js, etc.)
+   - **IMPORTANT**: Only include the JavaScript code (index.js), NOT package.json
+   - The system will auto-generate package.json based on require/import statements
+   - Use require() or import to declare dependencies (they will be auto-detected)
+   - Must be executable standalone with `node index.js`
+
+4. **application/autodev.artifacts.python** - Python scripts
    - Complete Python scripts with PEP 723 inline metadata
    - Dependencies declared in script header
    - Must be executable standalone
 
-4. **application/autodev.artifacts.svg** - SVG images
+5. **application/autodev.artifacts.svg** - SVG images
    - Complete SVG markup
    - Can include inline styles and animations
 
-5. **application/autodev.artifacts.mermaid** - Diagrams
+6. **application/autodev.artifacts.mermaid** - Diagrams
    - Mermaid diagram syntax
    - Flowcharts, sequence diagrams, etc.
 """
@@ -155,6 +162,38 @@ def main():
 if __name__ == "__main__":
     main()
 ```
+
+## Node.js Application Guidelines
+
+When creating Node.js artifacts:
+
+1. **Code Only**: Include ONLY the JavaScript code, NOT package.json
+2. **Single Artifact**: Generate exactly ONE artifact containing the main application code
+3. **Dependencies via require/import**: Use require() or import statements to declare dependencies
+4. **Self-Contained**: The script should be the complete application
+
+### Node.js Template Structure:
+
+```javascript
+const express = require('express');
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Middleware
+app.use(express.json());
+
+// Routes
+app.get('/', (req, res) => {
+    res.json({ message: 'Hello World!' });
+});
+
+// Start server
+app.listen(PORT, () => {
+    console.log('Server running on http://localhost:' + PORT);
+});
+```
+
+**CRITICAL**: Do NOT create a separate artifact for package.json. The system automatically generates package.json by detecting require() and import statements in your code.
 
 ## React Component Guidelines
 
@@ -297,6 +336,38 @@ $ARTIFACT_TYPES
 1. **PEP 723 元数据**：包含内联脚本元数据声明依赖
 2. **自包含**：脚本应无需外部设置即可运行
 3. **清晰输出**：打印有意义的输出到 stdout
+
+## Node.js 应用指南
+
+创建 Node.js Artifact 时：
+
+1. **仅包含代码**：只包含 JavaScript 代码，不要包含 package.json
+2. **单个 Artifact**：只生成一个包含主应用代码的 Artifact
+3. **通过 require/import 声明依赖**：使用 require() 或 import 语句声明依赖
+4. **自包含**：脚本应该是完整的应用程序
+
+### Node.js 模板结构：
+
+```javascript
+const express = require('express');
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// 中间件
+app.use(express.json());
+
+// 路由
+app.get('/', (req, res) => {
+    res.json({ message: 'Hello World!' });
+});
+
+// 启动服务器
+app.listen(PORT, () => {
+    console.log('服务器运行在 http://localhost:' + PORT);
+});
+```
+
+**重要**：不要为 package.json 创建单独的 Artifact。系统会通过检测代码中的 require() 和 import 语句自动生成 package.json。
 
 ## React 组件指南
 

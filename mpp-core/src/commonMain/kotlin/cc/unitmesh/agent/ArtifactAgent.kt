@@ -45,6 +45,7 @@ class ArtifactAgent(
         enum class ArtifactType(val mimeType: String) {
             HTML("application/autodev.artifacts.html"),
             REACT("application/autodev.artifacts.react"),
+            NODEJS("application/autodev.artifacts.nodejs"),
             PYTHON("application/autodev.artifacts.python"),
             SVG("application/autodev.artifacts.svg"),
             MERMAID("application/autodev.artifacts.mermaid");
@@ -54,6 +55,80 @@ class ArtifactAgent(
                     return entries.find { it.mimeType == mimeType }
                 }
             }
+        }
+    }
+
+    /**
+     * Fix a failed artifact based on execution error
+     * 
+     * @param originalArtifact The artifact that failed to execute
+     * @param errorMessage The error message from execution
+     * @param onProgress Callback for streaming progress
+     * @return Fixed artifact result
+     */
+    suspend fun fix(
+        originalArtifact: Artifact,
+        errorMessage: String,
+        onProgress: (String) -> Unit = {}
+    ): ArtifactResult {
+        val fixPrompt = buildFixPrompt(originalArtifact, errorMessage)
+        
+        logger.info { "🔧 Attempting to fix artifact: ${originalArtifact.title}" }
+        logger.info { "📝 Error: ${errorMessage.take(200)}..." }
+        
+        return generate(fixPrompt, onProgress)
+    }
+
+    /**
+     * Build a prompt to fix a failed artifact
+     */
+    private fun buildFixPrompt(artifact: Artifact, errorMessage: String): String {
+        val language = if (this.language == "ZH") "中文" else "English"
+        
+        return if (this.language == "ZH") {
+            """
+我之前生成的代码执行失败了，请帮我修复。
+
+## 原始代码
+```${artifact.type.name.lowercase()}
+${artifact.content}
+```
+
+## 执行错误
+```
+$errorMessage
+```
+
+## 要求
+1. 分析错误原因
+2. 修复代码使其能够正确执行
+3. 保持原有功能不变
+4. 使用相同的 artifact 格式输出修复后的代码
+
+请生成修复后的 artifact。
+            """.trimIndent()
+        } else {
+            """
+The code I generated earlier failed to execute. Please help me fix it.
+
+## Original Code
+```${artifact.type.name.lowercase()}
+${artifact.content}
+```
+
+## Execution Error
+```
+$errorMessage
+```
+
+## Requirements
+1. Analyze the error cause
+2. Fix the code so it executes correctly
+3. Keep the original functionality unchanged
+4. Output the fixed code using the same artifact format
+
+Please generate the fixed artifact.
+            """.trimIndent()
         }
     }
 
