@@ -508,8 +508,9 @@ compose.desktop {
             modules("java.naming", "java.sql")
 
             // File associations for .unit artifact bundles
+            // Note: .unit files are ZIP archives, so they can be opened with ZIP applications
             fileAssociation(
-                mimeType = "application/x-autodev-unit",
+                mimeType = "application/zip",
                 extension = "unit",
                 description = "AutoDev Unit Bundle"
             )
@@ -519,7 +520,7 @@ compose.desktop {
                 bundleID = "cc.unitmesh.devins.desktop"
                 iconFile.set(project.file("src/jvmMain/resources/icon.icns"))
 
-                // macOS-specific: register UTI for .unit files
+                // macOS-specific: register UTI for .unit files (as ZIP archives)
                 infoPlist {
                     extraKeysRawXml = """
                         <key>CFBundleDocumentTypes</key>
@@ -543,11 +544,12 @@ compose.desktop {
                                 <key>UTTypeIdentifier</key>
                                 <string>cc.unitmesh.devins.unit</string>
                                 <key>UTTypeDescription</key>
-                                <string>AutoDev Unit Bundle</string>
+                                <string>AutoDev Unit Bundle (ZIP Archive)</string>
                                 <key>UTTypeConformsTo</key>
                                 <array>
-                                    <string>public.data</string>
+                                    <string>public.zip-archive</string>
                                     <string>public.archive</string>
+                                    <string>public.data</string>
                                 </array>
                                 <key>UTTypeTagSpecification</key>
                                 <dict>
@@ -556,7 +558,7 @@ compose.desktop {
                                         <string>unit</string>
                                     </array>
                                     <key>public.mime-type</key>
-                                    <string>application/x-autodev-unit</string>
+                                    <string>application/zip</string>
                                 </dict>
                             </dict>
                         </array>
