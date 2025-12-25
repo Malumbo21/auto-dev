@@ -45,6 +45,7 @@ class ArtifactAgent(
         enum class ArtifactType(val mimeType: String) {
             HTML("application/autodev.artifacts.html"),
             REACT("application/autodev.artifacts.react"),
+            NODEJS("application/autodev.artifacts.nodejs"),
             PYTHON("application/autodev.artifacts.python"),
             SVG("application/autodev.artifacts.svg"),
             MERMAID("application/autodev.artifacts.mermaid");

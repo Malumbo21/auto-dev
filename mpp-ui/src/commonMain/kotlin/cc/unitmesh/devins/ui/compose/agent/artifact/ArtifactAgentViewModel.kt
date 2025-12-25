@@ -256,6 +256,7 @@ class ArtifactAgentViewModel(
         val artifactType = when (bundle.type) {
             ArtifactType.HTML -> ArtifactAgent.Artifact.ArtifactType.HTML
             ArtifactType.REACT -> ArtifactAgent.Artifact.ArtifactType.REACT
+            ArtifactType.NODEJS -> ArtifactAgent.Artifact.ArtifactType.NODEJS
             ArtifactType.PYTHON -> ArtifactAgent.Artifact.ArtifactType.PYTHON
             ArtifactType.SVG -> ArtifactAgent.Artifact.ArtifactType.SVG
             ArtifactType.MERMAID -> ArtifactAgent.Artifact.ArtifactType.MERMAID

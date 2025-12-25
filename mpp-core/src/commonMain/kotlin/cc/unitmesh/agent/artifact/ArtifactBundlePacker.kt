@@ -156,6 +156,7 @@ object ArtifactBundleUtils {
         val mainFileName = when (type) {
             ArtifactType.HTML -> "index.html"
             ArtifactType.REACT -> "index.jsx"
+            ArtifactType.NODEJS -> "index.js"
             ArtifactType.PYTHON -> "index.py"
             ArtifactType.SVG -> "index.svg"
             ArtifactType.MERMAID -> "diagram.mmd"

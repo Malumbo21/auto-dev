@@ -25,16 +25,22 @@ object ArtifactAgentTemplate {
    - Can use Tailwind CSS for styling
    - Exports default component
 
-3. **application/autodev.artifacts.python** - Python scripts
+3. **application/autodev.artifacts.nodejs** - Node.js applications
+   - Complete Node.js applications (Express.js, etc.)
+   - Includes package.json with dependencies
+   - Can be installed with npm install and run with node
+   - Must be executable standalone
+
+4. **application/autodev.artifacts.python** - Python scripts
    - Complete Python scripts with PEP 723 inline metadata
    - Dependencies declared in script header
    - Must be executable standalone
 
-4. **application/autodev.artifacts.svg** - SVG images
+5. **application/autodev.artifacts.svg** - SVG images
    - Complete SVG markup
    - Can include inline styles and animations
 
-5. **application/autodev.artifacts.mermaid** - Diagrams
+6. **application/autodev.artifacts.mermaid** - Diagrams
    - Mermaid diagram syntax
    - Flowcharts, sequence diagrams, etc.
 """

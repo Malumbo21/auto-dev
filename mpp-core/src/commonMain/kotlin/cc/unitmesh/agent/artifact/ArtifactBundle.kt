@@ -86,6 +86,7 @@ data class ArtifactBundle(
             val type = when (artifact.type) {
                 cc.unitmesh.agent.ArtifactAgent.Artifact.ArtifactType.HTML -> ArtifactType.HTML
                 cc.unitmesh.agent.ArtifactAgent.Artifact.ArtifactType.REACT -> ArtifactType.REACT
+                cc.unitmesh.agent.ArtifactAgent.Artifact.ArtifactType.NODEJS -> ArtifactType.NODEJS
                 cc.unitmesh.agent.ArtifactAgent.Artifact.ArtifactType.PYTHON -> ArtifactType.PYTHON
                 cc.unitmesh.agent.ArtifactAgent.Artifact.ArtifactType.SVG -> ArtifactType.SVG
                 cc.unitmesh.agent.ArtifactAgent.Artifact.ArtifactType.MERMAID -> ArtifactType.MERMAID
@@ -161,6 +162,14 @@ data class ArtifactBundle(
                 appendLine("npm start")
                 appendLine("```")
             }
+            ArtifactType.NODEJS -> {
+                appendLine("Install dependencies and run the Node.js application:")
+                appendLine()
+                appendLine("```bash")
+                appendLine("npm install")
+                appendLine("node index.js")
+                appendLine("```")
+            }
             ArtifactType.PYTHON -> {
                 appendLine("Run the Python script:")
                 appendLine()
@@ -216,6 +225,14 @@ data class ArtifactBundle(
                 appendLine("    \"setup\": \"npm install\"")
                 appendLine("  },")
             }
+            ArtifactType.NODEJS -> {
+                appendLine("  \"main\": \"index.js\",")
+                appendLine("  \"type\": \"module\",")
+                appendLine("  \"scripts\": {")
+                appendLine("    \"start\": \"node index.js\",")
+                appendLine("    \"setup\": \"npm install\"")
+                appendLine("  },")
+            }
             ArtifactType.PYTHON -> {
                 appendLine("  \"main\": \"index.py\",")
                 appendLine("  \"scripts\": {")
@@ -254,6 +271,7 @@ data class ArtifactBundle(
     fun getMainFileName(): String = when (type) {
         ArtifactType.HTML -> "index.html"
         ArtifactType.REACT -> "index.jsx"
+        ArtifactType.NODEJS -> "index.js"
         ArtifactType.PYTHON -> "index.py"
         ArtifactType.SVG -> "index.svg"
         ArtifactType.MERMAID -> "diagram.mmd"
@@ -282,6 +300,7 @@ enum class ArtifactType(val extension: String, val mimeType: String) {
     HTML("html", "text/html"),
     REACT("jsx", "text/javascript"),
     PYTHON("py", "text/x-python"),
+    NODEJS("js", "application/autodev.artifacts.nodejs"),
     SVG("svg", "image/svg+xml"),
     MERMAID("mmd", "text/plain");
 

@@ -17,6 +17,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cc.unitmesh.agent.ArtifactAgent
+import cc.unitmesh.agent.artifact.ArtifactExecutor
+import cc.unitmesh.agent.logging.AutoDevLogger
 import cc.unitmesh.viewer.web.KcefInitState
 import cc.unitmesh.viewer.web.KcefManager
 import com.multiplatform.webview.jsbridge.IJsMessageHandler
@@ -48,12 +50,19 @@ actual fun ArtifactPreviewPanel(
     modifier: Modifier
 ) {
     val scope = rememberCoroutineScope()
+    val logger = AutoDevLogger
 
     // Check KCEF initialization state
     val kcefInitState by KcefManager.initState.collectAsState()
 
     // Toggle between preview and source view
     var showSource by remember { mutableStateOf(false) }
+
+    // Node.js execution state
+    var isNodeJsType by remember { mutableStateOf(artifact.type == ArtifactAgent.Artifact.ArtifactType.NODEJS) }
+    var isExecuting by remember { mutableStateOf(false) }
+    var executionOutput by remember { mutableStateOf<String>("") }
+    var executionError by remember { mutableStateOf<String?>(null) }
 
     // Prepare HTML with console.log interception script
     val htmlWithConsole = remember(artifact.content) {
@@ -82,6 +91,44 @@ actual fun ArtifactPreviewPanel(
                 )
 
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    // Execute button for Node.js artifacts
+                    if (isNodeJsType) {
+                        IconButton(
+                            onClick = {
+                                if (!isExecuting) {
+                                    isExecuting = true
+                                    executionOutput = ""
+                                    executionError = null
+                                    scope.launch {
+                                        try {
+                                            executeNodeJsArtifact(artifact, onConsoleLog) { output, error ->
+                                                executionOutput = output
+                                                executionError = error
+                                            }
+                                        } finally {
+                                            isExecuting = false
+                                        }
+                                    }
+                                }
+                            },
+                            modifier = Modifier.size(32.dp),
+                            enabled = !isExecuting
+                        ) {
+                            if (isExecuting) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.PlayArrow,
+                                    contentDescription = "Execute",
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
+
                     // Toggle source/preview
                     IconButton(
                         onClick = { showSource = !showSource },
@@ -94,20 +141,22 @@ actual fun ArtifactPreviewPanel(
                         )
                     }
 
-                    // Open in browser
-                    IconButton(
-                        onClick = {
-                            scope.launch {
-                                openInBrowser(artifact.content, artifact.title)
-                            }
-                        },
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.OpenInBrowser,
-                            contentDescription = "Open in Browser",
-                            modifier = Modifier.size(18.dp)
-                        )
+                    // Open in browser (only for HTML artifacts)
+                    if (!isNodeJsType) {
+                        IconButton(
+                            onClick = {
+                                scope.launch {
+                                    openInBrowser(artifact.content, artifact.title)
+                                }
+                            },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.OpenInBrowser,
+                                contentDescription = "Open in Browser",
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     }
 
                     // Save file
@@ -134,6 +183,18 @@ actual fun ArtifactPreviewPanel(
                     // Show source code
                     SourceCodeView(
                         content = artifact.content,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+
+                isNodeJsType -> {
+                    // Node.js execution view
+                    NodeJsExecutionView(
+                        artifact = artifact,
+                        isExecuting = isExecuting,
+                        output = executionOutput,
+                        error = executionError,
+                        onConsoleLog = onConsoleLog,
                         modifier = Modifier.fillMaxSize()
                     )
                 }
@@ -547,5 +608,146 @@ actual fun exportArtifactBundle(
         }
     } catch (e: Exception) {
         onNotification("error", "Failed to export: ${e.message}")
+    }
+}
+
+/**
+ * Execute Node.js artifact
+ */
+private suspend fun executeNodeJsArtifact(
+    artifact: ArtifactAgent.Artifact,
+    onConsoleLog: (String, String) -> Unit,
+    onResult: (String, String?) -> Unit
+) {
+    try {
+        // First, export artifact to a temporary .unit file
+        val tempUnitFile = File.createTempFile("artifact-${artifact.identifier}", ".unit")
+        tempUnitFile.deleteOnExit()
+
+        val bundle = cc.unitmesh.agent.artifact.ArtifactBundle.fromArtifact(
+            artifact = artifact,
+            conversationHistory = emptyList(),
+            modelInfo = null
+        )
+
+        val packer = cc.unitmesh.agent.artifact.ArtifactBundlePacker()
+        when (val packResult = packer.pack(bundle, tempUnitFile.absolutePath)) {
+            is cc.unitmesh.agent.artifact.PackResult.Success -> {
+                // Execute the .unit file
+                when (val execResult = ArtifactExecutor.executeNodeJsArtifact(
+                    unitFilePath = tempUnitFile.absolutePath,
+                    onOutput = { line ->
+                        onConsoleLog("info", line)
+                    }
+                )) {
+                    is ArtifactExecutor.ExecutionResult.Success -> {
+                        onResult(execResult.output, null)
+                    }
+                    is ArtifactExecutor.ExecutionResult.Error -> {
+                        onResult("", execResult.message)
+                    }
+                }
+            }
+            is cc.unitmesh.agent.artifact.PackResult.Error -> {
+                onResult("", "Failed to create .unit file: ${packResult.message}")
+            }
+        }
+    } catch (e: Exception) {
+        onResult("", "Execution error: ${e.message}")
+    }
+}
+
+/**
+ * Node.js execution view - shows terminal output
+ */
+@Composable
+private fun NodeJsExecutionView(
+    artifact: ArtifactAgent.Artifact,
+    isExecuting: Boolean,
+    output: String,
+    error: String?,
+    onConsoleLog: (String, String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(12.dp)
+    ) {
+        // Header
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Node.js Application",
+                style = MaterialTheme.typography.titleMedium
+            )
+            if (isExecuting) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp
+                    )
+                    Text(
+                        text = "Running...",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Terminal output
+        Surface(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+            color = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            SelectionContainer {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .horizontalScroll(rememberScrollState())
+                        .padding(12.dp)
+                ) {
+                    Column {
+                        if (output.isNotEmpty()) {
+                            Text(
+                                text = output,
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontFamily = FontFamily.Monospace,
+                                    fontSize = 12.sp
+                                ),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        } else if (error != null) {
+                            Text(
+                                text = "Error: $error",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontFamily = FontFamily.Monospace,
+                                    fontSize = 12.sp
+                                ),
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        } else {
+                            Text(
+                                text = "Click the play button to execute the Node.js application.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }
