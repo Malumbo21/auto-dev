@@ -17,7 +17,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cc.unitmesh.agent.ArtifactAgent
-import cc.unitmesh.agent.artifact.ArtifactExecutor
+import cc.unitmesh.agent.artifact.executor.ArtifactExecutorFactory
+import cc.unitmesh.agent.artifact.executor.ExecutionResult
 import cc.unitmesh.agent.logging.AutoDevLogger
 import cc.unitmesh.viewer.web.KcefInitState
 import cc.unitmesh.viewer.web.KcefManager
@@ -612,7 +613,7 @@ actual fun exportArtifactBundle(
 }
 
 /**
- * Execute Node.js artifact
+ * Execute artifact (supports Node.js, Python, Web artifacts)
  */
 private suspend fun executeNodeJsArtifact(
     artifact: ArtifactAgent.Artifact,
@@ -633,17 +634,23 @@ private suspend fun executeNodeJsArtifact(
         val packer = cc.unitmesh.agent.artifact.ArtifactBundlePacker()
         when (val packResult = packer.pack(bundle, tempUnitFile.absolutePath)) {
             is cc.unitmesh.agent.artifact.PackResult.Success -> {
-                // Execute the .unit file
-                when (val execResult = ArtifactExecutor.executeNodeJsArtifact(
+                // Execute the .unit file using the factory (supports all artifact types)
+                when (val execResult = ArtifactExecutorFactory.executeArtifact(
                     unitFilePath = tempUnitFile.absolutePath,
                     onOutput = { line ->
                         onConsoleLog("info", line)
                     }
                 )) {
-                    is ArtifactExecutor.ExecutionResult.Success -> {
-                        onResult(execResult.output, null)
+                    is ExecutionResult.Success -> {
+                        val output = buildString {
+                            append(execResult.output)
+                            execResult.serverUrl?.let { url ->
+                                append("\n\n🌐 Server URL: $url")
+                            }
+                        }
+                        onResult(output, null)
                     }
-                    is ArtifactExecutor.ExecutionResult.Error -> {
+                    is ExecutionResult.Error -> {
                         onResult("", execResult.message)
                     }
                 }

@@ -27,6 +27,8 @@ import cc.unitmesh.devins.ui.desktop.DesktopWindowLayout
 import cc.unitmesh.devins.ui.desktop.UnitFileHandler
 import cc.unitmesh.devins.ui.desktop.FileOpenHandler
 import cc.unitmesh.agent.artifact.ArtifactBundle
+import cc.unitmesh.devins.ui.compose.state.DesktopUiState
+import cc.unitmesh.devins.ui.platform.createFileChooser
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.delay
@@ -207,6 +209,11 @@ fun main(args: Array<String>) {
                                     triggerFileChooser = true
                                     AutoDevLogger.info("AutoDevMain") { "Open File menu clicked" }
                                 },
+                                onOpenUnitBundle = {
+                                    appScope.launch {
+                                        openUnitBundleFile(uiState)
+                                    }
+                                },
                                 onExit = ::exitApplication
                             )
 
@@ -243,5 +250,39 @@ fun main(args: Array<String>) {
                 }
             }
         }
+    }
+}
+
+/**
+ * Open Unit Bundle file from file chooser
+ */
+private suspend fun openUnitBundleFile(uiState: DesktopUiState) {
+    try {
+        val fileChooser = createFileChooser()
+        val selectedPath = fileChooser.chooseFile(
+            title = "Open Unit Bundle",
+            fileExtensions = listOf("unit")
+        )
+
+        selectedPath?.let { path ->
+            AutoDevLogger.info("AutoDevMain") { "📦 Opening Unit Bundle: $path" }
+            
+            // Switch to Artifact mode
+            uiState.updateAgentType(AgentType.ARTIFACT)
+            
+            // Load the bundle
+            val success = withContext(Dispatchers.IO) {
+                UnitFileHandler.loadUnitFile(path)
+            }
+            
+            if (success) {
+                AutoDevLogger.info("AutoDevMain") { "✅ Unit Bundle loaded successfully: $path" }
+            } else {
+                AutoDevLogger.error("AutoDevMain") { "❌ Failed to load Unit Bundle: $path" }
+            }
+        }
+    } catch (e: Exception) {
+        AutoDevLogger.error("AutoDevMain") { "❌ Error opening Unit Bundle: ${e.message}" }
+        e.printStackTrace()
     }
 }

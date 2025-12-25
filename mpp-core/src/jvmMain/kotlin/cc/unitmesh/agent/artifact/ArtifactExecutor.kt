@@ -1,193 +1,63 @@
 package cc.unitmesh.agent.artifact
 
-import cc.unitmesh.agent.logging.AutoDevLogger
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.io.File
-import java.nio.file.Files
-import java.nio.file.Path
-import java.util.UUID
+import cc.unitmesh.agent.artifact.executor.ArtifactExecutorFactory
+import cc.unitmesh.agent.artifact.executor.ExecutionResult as NewExecutionResult
 
 /**
- * Executor for running artifacts from .unit files
- * Supports Node.js applications with npm install and execution
+ * Legacy ArtifactExecutor - now delegates to ArtifactExecutorFactory
+ * 
+ * This maintains backward compatibility while using the new executor architecture.
+ * 
+ * @deprecated Use ArtifactExecutorFactory.executeArtifact() directly
  */
+@Deprecated("Use ArtifactExecutorFactory.executeArtifact() instead", ReplaceWith("ArtifactExecutorFactory.executeArtifact(unitFilePath, onOutput)"))
 object ArtifactExecutor {
-    private val logger = AutoDevLogger
-
     /**
      * Result of artifact execution
+     * @deprecated Use executor.ExecutionResult instead
      */
+    @Deprecated("Use executor.ExecutionResult instead")
     sealed class ExecutionResult {
+        @Deprecated("Use executor.ExecutionResult.Success instead")
         data class Success(val output: String, val workingDirectory: String) : ExecutionResult()
+        @Deprecated("Use executor.ExecutionResult.Error instead")
         data class Error(val message: String, val cause: Throwable? = null) : ExecutionResult()
     }
 
     /**
      * Execute a Node.js artifact from a .unit file
      * 
-     * Steps:
-     * 1. Extract .unit file to temporary directory
-     * 2. Check for package.json
-     * 3. Run npm install if dependencies exist
-     * 4. Execute node index.js
-     * 
-     * @param unitFilePath Path to the .unit file
-     * @param onOutput Callback for output lines (stdout/stderr)
-     * @return ExecutionResult with output and working directory
+     * @deprecated Use ArtifactExecutorFactory.executeArtifact() instead
      */
+    @Deprecated("Use ArtifactExecutorFactory.executeArtifact() instead")
     suspend fun executeNodeJsArtifact(
         unitFilePath: String,
         onOutput: ((String) -> Unit)? = null
-    ): ExecutionResult = withContext(Dispatchers.IO) {
-        try {
-            logger.info("ArtifactExecutor") { "🚀 Executing Node.js artifact from: $unitFilePath" }
-
-            // Step 1: Extract .unit file to temporary directory
-            val tempDir = Files.createTempDirectory("autodev-artifact-${UUID.randomUUID()}")
-            val extractDir = tempDir.toFile()
-
-            logger.info("ArtifactExecutor") { "📦 Extracting to: ${extractDir.absolutePath}" }
-            val packer = ArtifactBundlePacker()
-            when (val extractResult = packer.extractToDirectory(unitFilePath, extractDir.absolutePath)) {
-                is PackResult.Success -> {
-                    logger.info("ArtifactExecutor") { "✅ Extracted successfully" }
-                }
-                is PackResult.Error -> {
-                    return@withContext ExecutionResult.Error("Failed to extract bundle: ${extractResult.message}")
-                }
-            }
-
-            // Step 2: Check for package.json and index.js
-            val packageJsonFile = File(extractDir, "package.json")
-            val indexJsFile = File(extractDir, "index.js")
-            
-            if (!packageJsonFile.exists()) {
-                return@withContext ExecutionResult.Error("package.json not found in artifact")
-            }
-            
-            if (!indexJsFile.exists()) {
-                return@withContext ExecutionResult.Error("index.js not found in artifact")
-            }
-
-            // Verify index.js is actually JavaScript code, not package.json content
-            val indexJsContent = indexJsFile.readText()
-            if (indexJsContent.trim().startsWith("{") && indexJsContent.contains("\"name\"")) {
-                logger.error("ArtifactExecutor") { "❌ index.js contains JSON content (likely package.json). This is a bug in bundle creation." }
-                return@withContext ExecutionResult.Error("index.js contains invalid content (appears to be package.json). Please regenerate the artifact.")
-            }
-
-            // Step 3: Check for dependencies and run npm install
-            val packageJsonContent = packageJsonFile.readText()
-            val hasDependencies = packageJsonContent.contains("\"dependencies\"") ||
-                    packageJsonContent.contains("\"devDependencies\"")
-
-            if (hasDependencies) {
-                logger.info("ArtifactExecutor") { "📦 Installing dependencies..." }
-                onOutput?.invoke("Installing dependencies...\n")
-                
-                val installResult = executeCommand(
-                    command = "npm install",
-                    workingDirectory = extractDir.absolutePath,
-                    onOutput = onOutput
+    ): ExecutionResult {
+        // Delegate to new factory-based executor
+        val result = ArtifactExecutorFactory.executeArtifact(unitFilePath, onOutput)
+        
+        // Convert new ExecutionResult to legacy format
+        return when (result) {
+            is NewExecutionResult.Success -> {
+                LegacyExecutionResult.Success(
+                    output = result.output,
+                    workingDirectory = result.workingDirectory
                 )
-
-                if (installResult.exitCode != 0) {
-                    logger.warn("ArtifactExecutor") { "⚠️ npm install failed with exit code ${installResult.exitCode}" }
-                    onOutput?.invoke("Warning: npm install failed. Continuing anyway...\n")
-                } else {
-                    logger.info("ArtifactExecutor") { "✅ Dependencies installed" }
-                    onOutput?.invoke("Dependencies installed successfully.\n")
-                }
-            } else {
-                logger.info("ArtifactExecutor") { "ℹ️ No dependencies to install" }
-                onOutput?.invoke("No dependencies to install.\n")
             }
-
-            // Step 4: Execute node index.js (indexJsFile already checked above)
-            logger.info("ArtifactExecutor") { "▶️ Executing: node index.js" }
-            onOutput?.invoke("Starting application...\n")
-            onOutput?.invoke("=".repeat(50) + "\n")
-
-            val executeResult = executeCommand(
-                command = "node index.js",
-                workingDirectory = extractDir.absolutePath,
-                onOutput = onOutput
-            )
-
-            val output = if (executeResult.exitCode == 0) {
-                "Application executed successfully.\n${executeResult.stdout}"
-            } else {
-                "Application exited with code ${executeResult.exitCode}.\n${executeResult.stdout}\n${executeResult.stderr}"
+            is NewExecutionResult.Error -> {
+                LegacyExecutionResult.Error(
+                    message = result.message,
+                    cause = result.cause
+                )
             }
-
-            ExecutionResult.Success(
-                output = output,
-                workingDirectory = extractDir.absolutePath
-            )
-        } catch (e: Exception) {
-            logger.error("ArtifactExecutor") { "❌ Execution failed: ${e.message}" }
-            ExecutionResult.Error("Execution failed: ${e.message}", e)
         }
     }
 
-    /**
-     * Execute a shell command and capture output
-     * Note: For long-running processes (like Express.js servers), this will run until the process exits.
-     * For interactive execution, consider using a different approach with process management.
-     */
-    private suspend fun executeCommand(
-        command: String,
-        workingDirectory: String,
-        onOutput: ((String) -> Unit)? = null
-    ): CommandResult = withContext(Dispatchers.IO) {
-        try {
-            val processBuilder = ProcessBuilder()
-                .command("sh", "-c", command)
-                .directory(File(workingDirectory))
-                .redirectErrorStream(true) // Merge stderr into stdout
-
-            val process = processBuilder.start()
-            val outputBuilder = StringBuilder()
-
-            // Read output asynchronously using coroutineScope
-            coroutineScope {
-                val outputJob = launch(Dispatchers.IO) {
-                    process.inputStream.bufferedReader().use { reader ->
-                        reader.lineSequence().forEach { line ->
-                            outputBuilder.appendLine(line)
-                            onOutput?.invoke("$line\n")
-                        }
-                    }
-                }
-
-                // Wait for process to complete
-                val exitCode = process.waitFor()
-                
-                // Wait for output reading to complete
-                outputJob.join()
-
-                CommandResult(
-                    exitCode = exitCode,
-                    stdout = outputBuilder.toString(),
-                    stderr = "" // Already merged into stdout
-                )
-            }
-        } catch (e: Exception) {
-            CommandResult(
-                exitCode = -1,
-                stdout = "",
-                stderr = "Error executing command: ${e.message}"
-            )
-        }
+    // Legacy result types for backward compatibility
+    private sealed class LegacyExecutionResult : ExecutionResult() {
+        data class Success(val output: String, val workingDirectory: String) : LegacyExecutionResult()
+        data class Error(val message: String, val cause: Throwable? = null) : LegacyExecutionResult()
     }
-
-    private data class CommandResult(
-        val exitCode: Int,
-        val stdout: String,
-        val stderr: String
-    )
 }
 

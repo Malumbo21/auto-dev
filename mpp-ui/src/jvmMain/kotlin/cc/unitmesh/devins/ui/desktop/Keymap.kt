@@ -35,6 +35,16 @@ object Keymap {
     )
     
     /**
+     * Open Unit Bundle: Command+Shift+U (Mac) / Ctrl+Shift+U (Windows/Linux)
+     */
+    val openUnitBundle: KeyShortcut = KeyShortcut(
+        Key.U,
+        meta = isMac,
+        ctrl = !isMac,
+        shift = true
+    )
+    
+    /**
      * Exit Application: Command+Q (Mac) / Ctrl+Q (Windows/Linux)
      */
     val exitApp: KeyShortcut = KeyShortcut(
