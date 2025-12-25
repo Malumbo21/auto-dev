@@ -6,9 +6,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -18,7 +15,6 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cc.unitmesh.agent.Platform
@@ -234,49 +230,3 @@ fun ArtifactStreamingIndicator(
         }
     }
 }
-
-/**
- * Thinking indicator display (like Claude's thinking blocks)
- */
-@Composable
-fun ArtifactThinkingBlock(
-    content: String,
-    modifier: Modifier = Modifier
-) {
-    if (content.isBlank()) return
-    
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
-        shape = RoundedCornerShape(6.dp),
-        modifier = modifier
-    ) {
-        Row(
-            modifier = Modifier.padding(8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.Top
-        ) {
-            Icon(
-                imageVector = Icons.Default.Psychology,
-                contentDescription = "Thinking",
-                modifier = Modifier.size(16.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-            )
-            
-            val scrollState = rememberScrollState()
-            Text(
-                text = content,
-                style = MaterialTheme.typography.bodySmall.copy(
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 11.sp,
-                    lineHeight = 14.sp
-                ),
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                modifier = Modifier
-                    .weight(1f)
-                    .heightIn(max = 60.dp)
-                    .verticalScroll(scrollState)
-            )
-        }
-    }
-}
-

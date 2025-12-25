@@ -1,6 +1,5 @@
 package cc.unitmesh.devins.ui.compose.agent.artifact
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -15,7 +14,10 @@ import androidx.compose.ui.unit.dp
 import cc.unitmesh.agent.render.TimelineItem
 import cc.unitmesh.devins.llm.MessageRole
 import cc.unitmesh.devins.ui.compose.agent.ComposeRenderer
-import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
+import cc.unitmesh.devins.ui.compose.icons.AutoDevComposeIcons
+import cc.unitmesh.devins.ui.compose.sketch.SketchRenderer
+import cc.unitmesh.devins.ui.compose.sketch.ThinkingBlockRenderer
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -34,16 +36,82 @@ fun ArtifactMessageList(
     modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
-    val scope = rememberCoroutineScope()
-    
-    // Auto-scroll to bottom when new content arrives
-    LaunchedEffect(renderer.timeline.size, renderer.currentStreamingOutput) {
-        if (renderer.timeline.isNotEmpty() || renderer.currentStreamingOutput.isNotEmpty()) {
-            scope.launch {
+    val coroutineScope = rememberCoroutineScope()
+
+    // Create a stable snapshot of the timeline to prevent IndexOutOfBoundsException
+    // when the list is modified during composition (same pattern as AgentMessageList).
+    val timelineSnapshot = remember(renderer.timeline.size) {
+        renderer.timeline.toList()
+    }
+
+    // Track if user manually scrolled away from bottom.
+    var userScrolledAway by remember { mutableStateOf(false) }
+
+    // Track content updates from SketchRenderer for streaming content.
+    var streamingBlockCount by remember { mutableIntStateOf(0) }
+
+    fun scrollToBottomIfNeeded() {
+        if (!userScrolledAway) {
+            coroutineScope.launch {
+                // Delay to ensure layout is complete before scrolling
+                delay(50)
+                val lastIndex = maxOf(0, listState.layoutInfo.totalItemsCount - 1)
+                listState.scrollToItem(lastIndex)
+            }
+        }
+    }
+
+    // Monitor scroll state to detect user scrolling away.
+    LaunchedEffect(listState.isScrollInProgress) {
+        if (listState.isScrollInProgress) {
+            val lastVisibleIndex = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            val totalItems = listState.layoutInfo.totalItemsCount
+            // If user scrolled to a position not near the bottom, they want to view history.
+            userScrolledAway = lastVisibleIndex < totalItems - 2
+        }
+    }
+
+    // Scroll when timeline changes (new messages, errors, etc.).
+    LaunchedEffect(timelineSnapshot.size) {
+        if (timelineSnapshot.isNotEmpty()) {
+            userScrolledAway = false
+            coroutineScope.launch {
+                delay(50)
                 listState.animateScrollToItem(
-                    index = maxOf(0, renderer.timeline.size)
+                    index = maxOf(0, listState.layoutInfo.totalItemsCount - 1)
                 )
             }
+        }
+    }
+
+    // Scroll when raw streaming content changes.
+    LaunchedEffect(renderer.currentStreamingOutput) {
+        if (renderer.currentStreamingOutput.isNotEmpty()) {
+            delay(100)
+            scrollToBottomIfNeeded()
+        }
+    }
+
+    // Scroll when thinking content changes.
+    LaunchedEffect(renderer.currentThinkingOutput) {
+        if (renderer.currentThinkingOutput.isNotEmpty() && renderer.isThinking) {
+            delay(50)
+            scrollToBottomIfNeeded()
+        }
+    }
+
+    // Scroll when SketchRenderer reports new blocks rendered.
+    LaunchedEffect(streamingBlockCount) {
+        if (streamingBlockCount > 0) {
+            delay(50)
+            scrollToBottomIfNeeded()
+        }
+    }
+
+    // Reset user scroll state when streaming starts.
+    LaunchedEffect(renderer.isProcessing) {
+        if (renderer.isProcessing) {
+            userScrolledAway = false
         }
     }
     
@@ -54,7 +122,7 @@ fun ArtifactMessageList(
         contentPadding = PaddingValues(vertical = 12.dp)
     ) {
         // Render timeline items
-        items(renderer.timeline, key = { it.id }) { item ->
+        items(items = timelineSnapshot, key = { it.id }) { item ->
             when (item) {
                 is TimelineItem.MessageItem -> {
                     ArtifactMessageItem(
@@ -74,8 +142,9 @@ fun ArtifactMessageList(
         // Show thinking block if active
         if (renderer.isThinking && renderer.currentThinkingOutput.isNotEmpty()) {
             item(key = "thinking") {
-                ArtifactThinkingBlock(
-                    content = renderer.currentThinkingOutput,
+                ThinkingBlockRenderer(
+                    thinkingContent = renderer.currentThinkingOutput,
+                    isComplete = false,
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -106,6 +175,7 @@ fun ArtifactMessageList(
             item(key = "streaming-raw") {
                 StreamingOutputBlock(
                     content = renderer.currentStreamingOutput,
+                    onContentUpdate = { blockCount -> streamingBlockCount = blockCount },
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -151,12 +221,14 @@ private fun ArtifactMessageItem(
             shape = RoundedCornerShape(8.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text(
-                text = content,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(12.dp)
-            )
+            Box(modifier = Modifier.padding(12.dp)) {
+                // Use SketchRenderer to reuse ThinkingBlockRenderer / CodeBlockRenderer, etc.
+                SketchRenderer.RenderResponse(
+                    content = content,
+                    isComplete = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
         }
     }
 }
@@ -173,9 +245,11 @@ private fun ArtifactErrorItem(message: String) {
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.Top
         ) {
-            Text(
-                text = "❌",
-                style = MaterialTheme.typography.bodyMedium
+            Icon(
+                imageVector = AutoDevComposeIcons.Warning,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = MaterialTheme.colorScheme.error
             )
             Text(
                 text = message,
@@ -189,6 +263,7 @@ private fun ArtifactErrorItem(message: String) {
 @Composable
 private fun StreamingOutputBlock(
     content: String,
+    onContentUpdate: (blockCount: Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     // Extract artifact info if present in streaming output
@@ -219,11 +294,27 @@ private fun StreamingOutputBlock(
             
             if (!hasArtifactTag && content.length < 500) {
                 Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = content,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Surface(
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(6.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Box(modifier = Modifier.padding(8.dp)) {
+                        // Keep this block height-limited to avoid pushing the whole list during streaming.
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 160.dp)
+                        ) {
+                            SketchRenderer.RenderResponse(
+                                content = content,
+                                isComplete = false,
+                                onContentUpdate = onContentUpdate,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+                }
             }
         }
     }
