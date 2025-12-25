@@ -29,7 +29,7 @@ import cc.unitmesh.devins.ui.compose.terminal.PlatformTerminalDisplay
  * This is intentionally simple and cross-platform:
  * - JVM: renders via JediTerm (PlatformTerminalDisplay actual)
  * - Other: ANSI text renderer fallback
- * 
+ *
  * Used for both:
  * - AI Analysis output (shows LLM reasoning and discovered configs)
  * - Run command output (shows command execution logs)
@@ -56,7 +56,7 @@ fun RunOutputDock(
     } else {
         AutoDevComposeIcons.Terminal
     }
-    
+
     AnimatedVisibility(visible = isVisible) {
         Card(
             modifier = modifier,
@@ -67,7 +67,7 @@ fun RunOutputDock(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(headerColor.copy(alpha = 0.3f))
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -77,10 +77,10 @@ fun RunOutputDock(
                             contentDescription = null,
                             tint = if (isAnalysis) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Spacer(Modifier.width(8.dp))
+                        Spacer(Modifier.width(4.dp))
                         Text(
                             text = title,
-                            style = MaterialTheme.typography.labelLarge,
+                            style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                     }
@@ -89,7 +89,7 @@ fun RunOutputDock(
                         if (isRunning && !isAnalysis && onStop != null) {
                             IconButton(
                                 onClick = onStop,
-                                modifier = Modifier.padding(end = 4.dp)
+                                modifier = Modifier.padding(0.dp)
                             ) {
                                 Icon(
                                     imageVector = AutoDevComposeIcons.Stop,
@@ -98,13 +98,19 @@ fun RunOutputDock(
                                 )
                             }
                         }
-                        IconButton(onClick = onClear) {
+                        IconButton(
+                            onClick = onClear,
+                            modifier = Modifier.padding(0.dp)
+                        ) {
                             Icon(
                                 imageVector = AutoDevComposeIcons.Delete,
                                 contentDescription = "Clear output"
                             )
                         }
-                        IconButton(onClick = onClose) {
+                        IconButton(
+                            onClick = onClose,
+                            modifier = Modifier.padding(0.dp)
+                        ) {
                             Icon(
                                 imageVector = AutoDevComposeIcons.Close,
                                 contentDescription = "Close"
@@ -113,17 +119,17 @@ fun RunOutputDock(
                     }
                 }
                 HorizontalDivider()
-                // Dynamic height based on content type
-                val dockHeight = if (isAnalysis) 220.dp else 180.dp
-                
+                // Dynamic height based on content type - more compact
+                val dockHeight = if (isAnalysis) 180.dp else 150.dp
+
                 if (output.isBlank()) {
                     Text(
                         text = if (isAnalysis) "AI is analyzing..." else "Waiting for output...",
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(60.dp)
-                            .padding(16.dp),
-                        style = MaterialTheme.typography.bodyMedium,
+                            .height(50.dp)
+                            .padding(8.dp),
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 } else {
@@ -132,7 +138,7 @@ fun RunOutputDock(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(dockHeight)
-                            .padding(8.dp)
+                            .padding(2.dp)
                     )
                 }
             }
