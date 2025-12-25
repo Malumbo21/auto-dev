@@ -6,9 +6,12 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,8 +20,9 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SmallFloatingActionButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.ui.semantics.Role
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -58,19 +62,26 @@ fun FloatingRunButton(
     modifier: Modifier = Modifier
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
+    val isDarkTheme = isSystemInDarkTheme()
 
     Box(modifier = modifier) {
         when (state) {
             RunConfigState.NOT_CONFIGURED -> {
-                SmallFloatingActionButton(
-                    onClick = onConfigure,
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                Surface(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clickable(role = Role.Button, onClick = onConfigure),
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer
                 ) {
-                    Icon(
-                        imageVector = AutoDevComposeIcons.Settings,
-                        contentDescription = "Configure Run",
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = AutoDevComposeIcons.Settings,
+                            contentDescription = "Configure Run",
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
             }
 
@@ -85,7 +96,11 @@ fun FloatingRunButton(
                     ),
                     label = "rotation"
                 )
-                
+
+                // 根据主题选择合适的颜色
+                val infoColor = if (isDarkTheme) AutoDevColors.Signal.info else AutoDevColors.Signal.infoLight
+                val infoBgAlpha = if (isDarkTheme) 0.2f else 0.15f
+
                 // Tooltip showing AI analysis log
                 TooltipWrapper(
                     tooltip = {
@@ -113,46 +128,69 @@ fun FloatingRunButton(
                     delayMillis = 300,
                     modifier = Modifier
                 ) {
-                    SmallFloatingActionButton(
-                        onClick = {},
-                        containerColor = AutoDevColors.Signal.info.copy(alpha = 0.15f)
+                    Surface(
+                        modifier = Modifier.size(40.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        color = infoColor.copy(alpha = infoBgAlpha)
                     ) {
-                        Icon(
-                            imageVector = AutoDevComposeIcons.Sync,
-                            contentDescription = "Analyzing with AI...",
-                            tint = AutoDevColors.Signal.info,
-                            modifier = Modifier.rotate(rotation)
-                        )
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = AutoDevComposeIcons.Sync,
+                                contentDescription = "Analyzing with AI...",
+                                tint = infoColor,
+                                modifier = Modifier.size(20.dp).rotate(rotation)
+                            )
+                        }
                     }
                 }
             }
 
             RunConfigState.ERROR -> {
-                SmallFloatingActionButton(
-                    onClick = onConfigure,
-                    containerColor = AutoDevColors.Signal.error.copy(alpha = 0.12f)
+                val errorColor = if (isDarkTheme) AutoDevColors.Signal.error else AutoDevColors.Signal.errorLight
+                val errorBgAlpha = if (isDarkTheme) 0.2f else 0.15f
+
+                Surface(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clickable(role = Role.Button, onClick = onConfigure),
+                    shape = RoundedCornerShape(12.dp),
+                    color = errorColor.copy(alpha = errorBgAlpha)
                 ) {
-                    Icon(
-                        imageVector = AutoDevComposeIcons.Warning,
-                        contentDescription = "Run config error",
-                        tint = AutoDevColors.Signal.error
-                    )
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = AutoDevComposeIcons.Warning,
+                            contentDescription = "Run config error",
+                            tint = errorColor,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
             }
 
             RunConfigState.CONFIGURED -> {
                 val isDefaultRunning = isRunning && runningConfigId != null && runningConfigId == defaultConfig?.id
-                val fabTint = if (isDefaultRunning) AutoDevColors.Signal.error else AutoDevColors.Signal.success
 
-                SmallFloatingActionButton(
-                    onClick = { menuExpanded = true },
-                    containerColor = fabTint.copy(alpha = 0.12f)
+                // 根据主题选择合适的颜色
+                val successColor = if (isDarkTheme) AutoDevColors.Signal.success else AutoDevColors.Signal.successLight
+                val errorColor = if (isDarkTheme) AutoDevColors.Signal.error else AutoDevColors.Signal.errorLight
+                val fabTint = if (isDefaultRunning) errorColor else successColor
+                val fabBgAlpha = if (isDarkTheme) 0.2f else 0.15f
+
+                Surface(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clickable(role = Role.Button, onClick = { menuExpanded = true }),
+                    shape = RoundedCornerShape(12.dp),
+                    color = fabTint.copy(alpha = fabBgAlpha)
                 ) {
-                    Icon(
-                        imageVector = if (isDefaultRunning) AutoDevComposeIcons.Stop else AutoDevComposeIcons.PlayArrow,
-                        contentDescription = if (isDefaultRunning) "Stop" else "Run",
-                        tint = fabTint
-                    )
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = if (isDefaultRunning) AutoDevComposeIcons.Stop else AutoDevComposeIcons.PlayArrow,
+                            contentDescription = if (isDefaultRunning) "Stop" else "Run",
+                            tint = fabTint,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
 
                 DropdownMenu(
@@ -163,17 +201,22 @@ fun FloatingRunButton(
                     configs.forEach { cfg ->
                         val running = isRunning && runningConfigId == cfg.id
                         val isDefault = cfg.id == defaultConfig?.id
+
+                        // 根据主题选择合适的颜色
+                        val successColor = if (isDarkTheme) AutoDevColors.Signal.success else AutoDevColors.Signal.successLight
+                        val errorColor = if (isDarkTheme) AutoDevColors.Signal.error else AutoDevColors.Signal.errorLight
+
                         val tint = when {
-                            running -> AutoDevColors.Signal.error
-                            isDefault -> AutoDevColors.Signal.success
+                            running -> errorColor
+                            isDefault -> successColor
                             else -> MaterialTheme.colorScheme.onSurface
                         }
                         DropdownMenuItem(
-                            text = { 
+                            text = {
                                 Text(
                                     text = if (isDefault) "${cfg.name} (default)" else cfg.name,
                                     style = if (isDefault) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.bodySmall
-                                ) 
+                                )
                             },
                             onClick = {
                                 menuExpanded = false

@@ -37,7 +37,7 @@ import cc.unitmesh.devins.ui.compose.terminal.PlatformTerminalDisplay
 @Composable
 fun RunOutputDock(
     isVisible: Boolean,
-    title: String = "Run Output",
+    title: String = "Project Run Actions",
     output: String,
     isRunning: Boolean = false,
     onClear: () -> Unit,
