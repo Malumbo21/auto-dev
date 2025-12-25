@@ -64,6 +64,7 @@ fun TopBarMenu(
             modifier = modifier
         )
     } else if (Platform.isWasm) {
+        // Only WASM uses TopBarMenuDesktop - Desktop JVM has its own navigation
         TopBarMenuDesktop(
             hasHistory = hasHistory,
             hasDebugInfo = hasDebugInfo,

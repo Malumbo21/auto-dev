@@ -15,6 +15,9 @@ import cc.unitmesh.config.CloudStorageConfig
 import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.devins.ui.base.ResizableSplitPane
 import cc.unitmesh.devins.ui.compose.chat.TopBarMenu
+import cc.unitmesh.devins.ui.compose.runconfig.FloatingRunButton
+import cc.unitmesh.devins.ui.compose.runconfig.RunConfigViewModel
+import cc.unitmesh.devins.ui.compose.runconfig.RunOutputDock
 import cc.unitmesh.devins.ui.compose.config.CloudStorageConfigDialog
 import cc.unitmesh.devins.ui.compose.editor.DevInEditorInput
 import cc.unitmesh.devins.ui.compose.editor.multimodal.ImageUploader
@@ -136,6 +139,39 @@ fun CodingAgentPage(
         onInternalNewChat?.invoke(handleNewChat)
     }
 
+    // RunConfig ViewModel for project run configurations
+    val runConfigViewModel = remember(currentWorkspace?.rootPath, llmService) {
+        val rootPath = currentWorkspace?.rootPath ?: Platform.getUserHomeDir()
+        RunConfigViewModel(
+            projectPath = rootPath,
+            llmService = llmService
+        )
+    }
+    
+    val runConfigState by runConfigViewModel.state.collectAsState()
+    val runConfigs by runConfigViewModel.configs.collectAsState()
+    val defaultRunConfig by runConfigViewModel.defaultConfig.collectAsState()
+    val isRunning by runConfigViewModel.isRunning.collectAsState()
+    val runningConfigId by runConfigViewModel.runningConfigId.collectAsState()
+    val runOutput by runConfigViewModel.output.collectAsState()
+    val runAnalysisLog by runConfigViewModel.analysisLog.collectAsState()
+
+    var showRunOutputDock by remember { mutableStateOf(false) }
+    
+    // Track which mode the dock is in (analysis or run output)
+    val isAnalyzing = runConfigState == cc.unitmesh.agent.runconfig.RunConfigState.ANALYZING
+    val dockTitle = if (isAnalyzing) "AI Analysis" else "Run Output"
+    val dockOutput = if (isAnalyzing) runAnalysisLog else runOutput
+
+    // Auto-open output dock when we have output, a run is in progress, or analyzing
+    LaunchedEffect(isRunning, runOutput, isAnalyzing, runAnalysisLog) {
+        if (isRunning || runOutput.isNotBlank() || isAnalyzing || runAnalysisLog.isNotBlank()) {
+            showRunOutputDock = true
+        }
+    }
+
+    // Main content
+    Box(modifier = modifier.fillMaxSize()) {
     if (isTreeViewVisibleState) {
         ResizableSplitPane(
             modifier = modifier.fillMaxSize(),
@@ -224,6 +260,23 @@ fun CodingAgentPage(
                     when (selectedAgentType) {
                         AgentType.LOCAL_CHAT,
                         AgentType.CODING -> {
+                            RunOutputDock(
+                                isVisible = showRunOutputDock,
+                                title = dockTitle,
+                                output = dockOutput,
+                                isRunning = isRunning,
+                                onClear = { 
+                                    runConfigViewModel.clearOutput()
+                                    runConfigViewModel.clearAnalysisLog()
+                                },
+                                onClose = { showRunOutputDock = false },
+                                onStop = if (!isAnalyzing) { 
+                                    { runConfigViewModel.stopRunning() }
+                                } else null,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp)
+                            )
                             DevInEditorInput(
                                 initialText = "",
                                 placeholder = "Describe your coding task...",
@@ -431,6 +484,23 @@ fun CodingAgentPage(
                     )
                 }
 
+            RunOutputDock(
+                isVisible = showRunOutputDock,
+                title = dockTitle,
+                output = dockOutput,
+                isRunning = isRunning,
+                onClear = { 
+                    runConfigViewModel.clearOutput()
+                    runConfigViewModel.clearAnalysisLog()
+                },
+                onClose = { showRunOutputDock = false },
+                onStop = if (!isAnalyzing) { 
+                    { runConfigViewModel.stopRunning() }
+                } else null,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp)
+            )
             DevInEditorInput(
                 initialText = "",
                 placeholder = "Describe your coding task...",
@@ -495,6 +565,25 @@ fun CodingAgentPage(
             )
         }
     }
+
+        // Floating Run Button (IDE-like) - Top Right
+        if (useAgentMode && selectedAgentType == AgentType.CODING) {
+            FloatingRunButton(
+                state = runConfigState,
+                configs = runConfigs,
+                defaultConfig = defaultRunConfig,
+                isRunning = isRunning,
+                runningConfigId = runningConfigId,
+                analysisLog = runAnalysisLog,
+                onConfigure = { runConfigViewModel.analyzeProject() },
+                onRunConfig = { cfg -> runConfigViewModel.runConfig(cfg) },
+                onStopRunning = { runConfigViewModel.stopRunning() },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(end = 16.dp, top = 16.dp)
+            )
+        }
+    } // End of main Box
 
     // Cloud Storage Configuration Dialog
     if (showCloudStorageDialog) {
