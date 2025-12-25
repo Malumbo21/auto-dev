@@ -114,7 +114,16 @@ object SketchRenderer : BaseContentRenderer() {
                 when (fence.languageId.lowercase()) {
                     "markdown", "md", "" -> {
                         if (fence.text.isNotBlank()) {
-                            MarkdownSketchRenderer.RenderMarkdown(fence.text, isComplete = blockIsComplete)
+                            // Desktop markdown rendering (mikepenz/markdown-compose) can crash during streaming updates
+                            // with out-of-bounds ranges inside AnnotatedString spans (seen as StringIndexOutOfBoundsException
+                            // from ParagraphBuilder on Skiko). To keep streaming robust and lightweight, we render
+                            // incomplete (streaming) markdown blocks as plain text, and only enable full markdown
+                            // rendering once the block becomes stable/complete.
+                            if (blockIsComplete) {
+                                MarkdownSketchRenderer.RenderMarkdown(fence.text, isComplete = true)
+                            } else {
+                                MarkdownSketchRenderer.RenderPlainText(fence.text)
+                            }
                             rendered = true
                         }
                     }
