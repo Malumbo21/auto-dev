@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
@@ -48,6 +49,7 @@ import javax.swing.filechooser.FileNameExtensionFilter
 actual fun ArtifactPreviewPanel(
     artifact: ArtifactAgent.Artifact,
     onConsoleLog: (String, String) -> Unit,
+    onFixRequest: ((ArtifactAgent.Artifact, String) -> Unit)?,
     modifier: Modifier
 ) {
     val scope = rememberCoroutineScope()
@@ -62,6 +64,9 @@ actual fun ArtifactPreviewPanel(
     // Node.js execution state
     var isNodeJsType by remember { mutableStateOf(artifact.type == ArtifactAgent.Artifact.ArtifactType.NODEJS) }
     var isExecuting by remember { mutableStateOf(false) }
+    var isServerRunning by remember { mutableStateOf(false) }
+    var runningProcessId by remember { mutableStateOf<Long?>(null) }
+    var serverUrl by remember { mutableStateOf<String?>(null) }
     var executionOutput by remember { mutableStateOf<String>("") }
     var executionError by remember { mutableStateOf<String?>(null) }
 
@@ -92,40 +97,73 @@ actual fun ArtifactPreviewPanel(
                 )
 
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    // Execute button for Node.js artifacts
+                    // Execute/Stop button for Node.js artifacts
                     if (isNodeJsType) {
-                        IconButton(
-                            onClick = {
-                                if (!isExecuting) {
-                                    isExecuting = true
-                                    executionOutput = ""
-                                    executionError = null
-                                    scope.launch {
-                                        try {
-                                            executeNodeJsArtifact(artifact, onConsoleLog) { output, error ->
-                                                executionOutput = output
-                                                executionError = error
-                                            }
-                                        } finally {
-                                            isExecuting = false
+                        if (isServerRunning && runningProcessId != null) {
+                            // Stop button when server is running
+                            IconButton(
+                                onClick = {
+                                    runningProcessId?.let { pid ->
+                                        scope.launch {
+                                            cc.unitmesh.agent.artifact.executor.NodeJsArtifactExecutor.stopProcess(pid)
+                                            isServerRunning = false
+                                            runningProcessId = null
+                                            serverUrl = null
+                                            executionOutput += "\n🛑 Server stopped\n"
+                                            onConsoleLog("info", "Server stopped")
                                         }
                                     }
-                                }
-                            },
-                            modifier = Modifier.size(32.dp),
-                            enabled = !isExecuting
-                        ) {
-                            if (isExecuting) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(18.dp),
-                                    strokeWidth = 2.dp
-                                )
-                            } else {
+                                },
+                                modifier = Modifier.size(32.dp)
+                            ) {
                                 Icon(
-                                    imageVector = Icons.Default.PlayArrow,
-                                    contentDescription = "Execute",
-                                    modifier = Modifier.size(18.dp)
+                                    imageVector = Icons.Default.Stop,
+                                    contentDescription = "Stop Server",
+                                    modifier = Modifier.size(18.dp),
+                                    tint = MaterialTheme.colorScheme.error
                                 )
+                            }
+                        } else {
+                            // Execute button
+                            IconButton(
+                                onClick = {
+                                    if (!isExecuting) {
+                                        isExecuting = true
+                                        executionOutput = ""
+                                        executionError = null
+                                        serverUrl = null
+                                        scope.launch {
+                                            try {
+                                                executeNodeJsArtifact(artifact, onConsoleLog) { output, error, processId, url ->
+                                                    executionOutput = output
+                                                    executionError = error
+                                                    if (processId != null && processId > 0) {
+                                                        runningProcessId = processId
+                                                        isServerRunning = true
+                                                        serverUrl = url
+                                                    }
+                                                }
+                                            } finally {
+                                                isExecuting = false
+                                            }
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.size(32.dp),
+                                enabled = !isExecuting
+                            ) {
+                                if (isExecuting) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(18.dp),
+                                        strokeWidth = 2.dp
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Default.PlayArrow,
+                                        contentDescription = "Execute",
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -193,9 +231,23 @@ actual fun ArtifactPreviewPanel(
                     NodeJsExecutionView(
                         artifact = artifact,
                         isExecuting = isExecuting,
+                        isServerRunning = isServerRunning,
+                        serverUrl = serverUrl,
                         output = executionOutput,
                         error = executionError,
                         onConsoleLog = onConsoleLog,
+                        onFixRequest = onFixRequest,
+                        onStopServer = {
+                            runningProcessId?.let { pid ->
+                                scope.launch {
+                                    cc.unitmesh.agent.artifact.executor.NodeJsArtifactExecutor.stopProcess(pid)
+                                    isServerRunning = false
+                                    runningProcessId = null
+                                    serverUrl = null
+                                    executionOutput += "\n🛑 Server stopped\n"
+                                }
+                            }
+                        },
                         modifier = Modifier.fillMaxSize()
                     )
                 }
@@ -614,16 +666,21 @@ actual fun exportArtifactBundle(
 
 /**
  * Execute artifact (supports Node.js, Python, Web artifacts)
+ * 
+ * @param artifact The artifact to execute
+ * @param onConsoleLog Callback for console log messages
+ * @param onResult Callback with (output, error, processId, serverUrl)
+ *                 processId > 0 means a server is running
  */
 private suspend fun executeNodeJsArtifact(
     artifact: ArtifactAgent.Artifact,
     onConsoleLog: (String, String) -> Unit,
-    onResult: (String, String?) -> Unit
+    onResult: (String, String?, Long?, String?) -> Unit
 ) {
     try {
         // First, export artifact to a temporary .unit file
         val tempUnitFile = File.createTempFile("artifact-${artifact.identifier}", ".unit")
-        tempUnitFile.deleteOnExit()
+        // Note: Don't deleteOnExit for server processes - they need the files
 
         val bundle = cc.unitmesh.agent.artifact.ArtifactBundle.fromArtifact(
             artifact = artifact,
@@ -647,33 +704,42 @@ private suspend fun executeNodeJsArtifact(
                             execResult.serverUrl?.let { url ->
                                 append("\n\n🌐 Server URL: $url")
                             }
+                            execResult.processId?.let { pid ->
+                                if (pid > 0) {
+                                    append("\n📋 Process ID: $pid")
+                                }
+                            }
                         }
-                        onResult(output, null)
+                        onResult(output, null, execResult.processId, execResult.serverUrl)
                     }
                     is ExecutionResult.Error -> {
-                        onResult("", execResult.message)
+                        onResult("", execResult.message, null, null)
                     }
                 }
             }
             is cc.unitmesh.agent.artifact.PackResult.Error -> {
-                onResult("", "Failed to create .unit file: ${packResult.message}")
+                onResult("", "Failed to create .unit file: ${packResult.message}", null, null)
             }
         }
     } catch (e: Exception) {
-        onResult("", "Execution error: ${e.message}")
+        onResult("", "Execution error: ${e.message}", null, null)
     }
 }
 
 /**
- * Node.js execution view - shows terminal output
+ * Node.js execution view - shows terminal output with auto-fix and stop support
  */
 @Composable
 private fun NodeJsExecutionView(
     artifact: ArtifactAgent.Artifact,
     isExecuting: Boolean,
+    isServerRunning: Boolean = false,
+    serverUrl: String? = null,
     output: String,
     error: String?,
     onConsoleLog: (String, String) -> Unit,
+    onFixRequest: ((ArtifactAgent.Artifact, String) -> Unit)? = null,
+    onStopServer: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -681,36 +747,85 @@ private fun NodeJsExecutionView(
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .padding(12.dp)
     ) {
-        // Header
+        // Header with status
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "Node.js Application",
-                style = MaterialTheme.typography.titleMedium
-            )
-            if (isExecuting) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        strokeWidth = 2.dp
-                    )
+            Column {
+                Text(
+                    text = "Node.js Application",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                // Server URL if available
+                if (serverUrl != null && isServerRunning) {
                     Text(
-                        text = "Running...",
-                        style = MaterialTheme.typography.bodySmall
+                        text = "🌐 $serverUrl",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
                     )
+                }
+            }
+            
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                when {
+                    isExecuting -> {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp
+                        )
+                        Text(
+                            text = "Starting...",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                    isServerRunning -> {
+                        // Green dot indicator
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .background(
+                                    color = MaterialTheme.colorScheme.primary,
+                                    shape = CircleShape
+                                )
+                        )
+                        Text(
+                            text = "Running",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        // Stop button
+                        if (onStopServer != null) {
+                            OutlinedButton(
+                                onClick = onStopServer,
+                                modifier = Modifier.height(28.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Stop,
+                                    contentDescription = "Stop",
+                                    modifier = Modifier.size(14.dp),
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "Stop",
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Terminal output
+        // Console output (main area)
         Surface(
             modifier = Modifier
                 .weight(1f)
@@ -732,7 +847,8 @@ private fun NodeJsExecutionView(
                                 text = output,
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     fontFamily = FontFamily.Monospace,
-                                    fontSize = 12.sp
+                                    fontSize = 12.sp,
+                                    lineHeight = 18.sp
                                 ),
                                 color = MaterialTheme.colorScheme.onSurface
                             )
@@ -747,13 +863,33 @@ private fun NodeJsExecutionView(
                             )
                         } else {
                             Text(
-                                text = "Click the play button to execute the Node.js application.",
+                                text = "Click the ▶ button to execute the Node.js application.",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
                 }
+            }
+        }
+
+        // Fix button when there's an error
+        if (error != null && onFixRequest != null && !isExecuting && !isServerRunning) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Button(
+                onClick = { onFixRequest(artifact, error) },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary
+                )
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Build,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Auto Fix with AI")
             }
         }
     }

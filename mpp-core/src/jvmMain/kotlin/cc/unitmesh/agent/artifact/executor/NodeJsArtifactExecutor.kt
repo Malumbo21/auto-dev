@@ -43,7 +43,20 @@ class NodeJsArtifactExecutor : ArtifactExecutor {
             // Verify main file is actually code, not JSON
             val content = mainFile.readText()
             if (content.trim().startsWith("{") && content.contains("\"name\"")) {
-                errors.add("${mainFile.name} contains invalid content (appears to be package.json)")
+                // Try to recover from context.json
+                logger.warn("NodeJsArtifactExecutor") { "⚠️ ${mainFile.name} contains JSON (likely package.json). Attempting recovery from context..." }
+                val recovered = tryRecoverCodeFromContext(extractDir, bundleType)
+                if (recovered != null) {
+                    logger.info("NodeJsArtifactExecutor") { "✅ Recovered code from context, fixing ${mainFile.name}..." }
+                    mainFile.writeText(recovered)
+                    // Re-validate after recovery
+                    val newContent = mainFile.readText()
+                    if (newContent.trim().startsWith("{") && newContent.contains("\"name\"")) {
+                        errors.add("${mainFile.name} contains invalid content and recovery failed")
+                    }
+                } else {
+                    errors.add("${mainFile.name} contains invalid content (appears to be package.json). Could not recover from context.")
+                }
             }
         }
 
@@ -52,6 +65,97 @@ class NodeJsArtifactExecutor : ArtifactExecutor {
         } else {
             ValidationResult.Invalid(errors)
         }
+    }
+
+    /**
+     * Try to recover JavaScript code from context.json conversation history
+     * This handles cases where AI mistakenly put package.json as artifact content
+     */
+    private fun tryRecoverCodeFromContext(extractDir: File, bundleType: ArtifactType): String? {
+        try {
+            val contextFile = File(extractDir, ".artifact/context.json")
+            if (!contextFile.exists()) {
+                return null
+            }
+
+            val contextJson = contextFile.readText()
+            // Parse JSON to extract conversation history
+            val json = kotlinx.serialization.json.Json {
+                ignoreUnknownKeys = true
+                isLenient = true
+            }
+            val context = json.decodeFromString<cc.unitmesh.agent.artifact.ArtifactContext>(contextJson)
+
+            // Look for the actual code in conversation history
+            // Usually the assistant's response contains multiple artifacts, and the code is in the second one
+            for (message in context.conversationHistory.reversed()) {
+                if (message.role == "assistant") {
+                    // Try to extract the actual code artifact (not package.json)
+                    val codeArtifact = extractCodeArtifactFromMessage(message.content, bundleType)
+                    if (codeArtifact != null) {
+                        return codeArtifact
+                    }
+                }
+            }
+
+            return null
+        } catch (e: Exception) {
+            logger.warn("NodeJsArtifactExecutor") { "Failed to recover from context: ${e.message}" }
+            return null
+        }
+    }
+
+    /**
+     * Extract code artifact from assistant message
+     * Looks for the second or later artifact that contains actual code (not JSON)
+     */
+    private fun extractCodeArtifactFromMessage(message: String, bundleType: ArtifactType): String? {
+        // Pattern to match <autodev-artifact ...>...</autodev-artifact>
+        val artifactPattern = Regex(
+            """<autodev-artifact\s+([^>]+)>([\s\S]*?)</autodev-artifact>""",
+            RegexOption.MULTILINE
+        )
+
+        val artifacts = artifactPattern.findAll(message).toList()
+        
+        // Look for artifacts that are NOT JSON (skip package.json artifacts)
+        for (match in artifacts) {
+            val attributesStr = match.groupValues[1]
+            val content = match.groupValues[2].trim()
+            
+            // Skip if it's clearly JSON (package.json)
+            if (content.trim().startsWith("{") && content.contains("\"name\"") && content.contains("\"dependencies\"")) {
+                continue
+            }
+            
+            // Check if it's the right type
+            val typeStr = extractAttribute(attributesStr, "type") ?: ""
+            val expectedType = when (bundleType) {
+                ArtifactType.NODEJS -> "application/autodev.artifacts.nodejs"
+                ArtifactType.REACT -> "application/autodev.artifacts.react"
+                else -> return null
+            }
+            
+            if (typeStr == expectedType && !content.trim().startsWith("{")) {
+                // This looks like actual code
+                return content
+            }
+        }
+
+        // Fallback: return the last artifact that's not JSON
+        for (match in artifacts.reversed()) {
+            val content = match.groupValues[2].trim()
+            if (!content.trim().startsWith("{") || !content.contains("\"name\"")) {
+                return content
+            }
+        }
+
+        return null
+    }
+
+    private fun extractAttribute(attributesStr: String, name: String): String? {
+        val pattern = Regex("""$name\s*=\s*["']([^"']+)["']""")
+        return pattern.find(attributesStr)?.groupValues?.get(1)
     }
 
     override suspend fun execute(
@@ -111,22 +215,37 @@ class NodeJsArtifactExecutor : ArtifactExecutor {
             onOutput?.invoke("Starting application...\n")
             onOutput?.invoke("=".repeat(50) + "\n")
 
-            val executeResult = executeCommand(
+            // Use ProcessManager for long-running processes (like Express.js servers)
+            val (processId, initialOutput) = ProcessManager.startProcess(
                 command = "node $mainFile",
                 workingDirectory = extractDir.absolutePath,
                 onOutput = onOutput
             )
 
-            val output = if (executeResult.exitCode == 0) {
-                "Application executed successfully.\n${executeResult.stdout}"
+            if (processId == -1L) {
+                // Process exited immediately (one-shot script or error)
+                ExecutionResult.Success(
+                    output = initialOutput,
+                    workingDirectory = extractDir.absolutePath
+                )
             } else {
-                "Application exited with code ${executeResult.exitCode}.\n${executeResult.stdout}\n${executeResult.stderr}"
-            }
+                // Long-running process (server)
+                // Try to detect the server URL from output
+                val serverUrl = detectServerUrl(initialOutput)
+                
+                onOutput?.invoke("\n✅ Server started (Process #$processId)\n")
+                serverUrl?.let { url ->
+                    onOutput?.invoke("🌐 Server URL: $url\n")
+                }
+                onOutput?.invoke("💡 Click 'Stop' to stop the server\n")
 
-            ExecutionResult.Success(
-                output = output,
-                workingDirectory = extractDir.absolutePath
-            )
+                ExecutionResult.Success(
+                    output = initialOutput,
+                    workingDirectory = extractDir.absolutePath,
+                    serverUrl = serverUrl,
+                    processId = processId
+                )
+            }
         } catch (e: Exception) {
             logger.error("NodeJsArtifactExecutor") { "❌ Execution failed: ${e.message}" }
             ExecutionResult.Error("Execution failed: ${e.message}", e)
@@ -180,5 +299,47 @@ class NodeJsArtifactExecutor : ArtifactExecutor {
         val stdout: String,
         val stderr: String
     )
+
+    /**
+     * Try to detect server URL from console output
+     * Common patterns: "Server running on http://...", "listening on port ...", etc.
+     */
+    private fun detectServerUrl(output: String): String? {
+        // Pattern 1: Direct URL mention
+        val urlPattern = Regex("""https?://(?:localhost|127\.0\.0\.1|0\.0\.0\.0):\d+/?""")
+        urlPattern.find(output)?.let { return it.value }
+
+        // Pattern 2: "listening on port XXXX" or "running on port XXXX"
+        val portPattern = Regex("""(?:listening|running|started)\s+(?:on\s+)?port\s+(\d+)""", RegexOption.IGNORE_CASE)
+        portPattern.find(output)?.let { match ->
+            val port = match.groupValues[1]
+            return "http://localhost:$port"
+        }
+
+        // Pattern 3: ":PORT" at end of line (common in Express)
+        val colonPortPattern = Regex(""":(\d{4,5})""")
+        colonPortPattern.find(output)?.let { match ->
+            val port = match.groupValues[1]
+            return "http://localhost:$port"
+        }
+
+        return null
+    }
+
+    companion object {
+        /**
+         * Stop a running Node.js process
+         */
+        fun stopProcess(processId: Long): Boolean {
+            return ProcessManager.stopProcess(processId)
+        }
+
+        /**
+         * Check if a process is still running
+         */
+        fun isProcessRunning(processId: Long): Boolean {
+            return ProcessManager.isRunning(processId)
+        }
+    }
 }
 

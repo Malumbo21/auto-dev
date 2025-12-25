@@ -39,7 +39,7 @@ class ArtifactExecutorTest {
 
         // Verify package.json generation
         val packageJson = bundle.generatePackageJson()
-        assertTrue(packageJson.contains("\"type\": \"module\""), "Should have module type")
+        // Note: We no longer include "type": "module" to support both CommonJS and ES modules
         assertTrue(packageJson.contains("\"main\": \"index.js\""), "Should have index.js as main")
         assertTrue(packageJson.contains("\"express\""), "Should contain express dependency")
         assertTrue(packageJson.contains("\"start\": \"node index.js\""), "Should have start script")
@@ -95,7 +95,7 @@ class ArtifactExecutorTest {
 
             val packageContent = packageJson.readText()
             assertTrue(packageContent.contains("\"express\""), "package.json should contain express")
-            assertTrue(packageContent.contains("\"type\": \"module\""), "package.json should have module type")
+            // Note: We no longer include "type": "module" to support both CommonJS and ES modules
         } finally {
             tempDir.deleteRecursively()
         }
@@ -166,6 +166,125 @@ class ArtifactExecutorTest {
             context = ArtifactContext()
         )
         assertTrue(bundle.getMainFileName() == "index.js", "Main file name should be index.js")
+    }
+
+    @Test
+    fun selectBestArtifactShouldSkipPackageJson() {
+        // Simulate AI generating two artifacts: package.json and code
+        val packageJsonArtifact = ArtifactAgent.Artifact(
+            identifier = "express-hello-world",
+            type = ArtifactAgent.Artifact.ArtifactType.NODEJS,
+            title = "Express.js Hello World",
+            content = """
+                {
+                  "name": "express-hello-world",
+                  "version": "1.0.0",
+                  "dependencies": {
+                    "express": "^4.18.2"
+                  }
+                }
+            """.trimIndent()
+        )
+
+        val codeArtifact = ArtifactAgent.Artifact(
+            identifier = "express-hello-world-app",
+            type = ArtifactAgent.Artifact.ArtifactType.NODEJS,
+            title = "Express.js App",
+            content = """
+                const express = require('express');
+                const app = express();
+                app.get('/', (req, res) => res.json({ message: 'Hello World!' }));
+                app.listen(3000, () => console.log('Server running'));
+            """.trimIndent()
+        )
+
+        // Test selectBestArtifact
+        val artifacts = listOf(packageJsonArtifact, codeArtifact)
+        val selected = ArtifactBundle.selectBestArtifact(artifacts)
+
+        assertTrue(selected != null, "Should select an artifact")
+        assertTrue(selected!!.identifier == "express-hello-world-app", "Should select code artifact, not package.json")
+        assertTrue(selected.content.contains("const express"), "Selected artifact should contain actual code")
+    }
+
+    @Test
+    fun selectBestArtifactShouldReturnSingleArtifact() {
+        val singleArtifact = ArtifactAgent.Artifact(
+            identifier = "single-app",
+            type = ArtifactAgent.Artifact.ArtifactType.NODEJS,
+            title = "Single App",
+            content = "console.log('Hello');"
+        )
+
+        val selected = ArtifactBundle.selectBestArtifact(listOf(singleArtifact))
+        assertTrue(selected != null, "Should return single artifact")
+        assertTrue(selected!!.identifier == "single-app", "Should be the same artifact")
+    }
+
+    @Test
+    fun selectBestArtifactShouldHandleEmptyList() {
+        val selected = ArtifactBundle.selectBestArtifact(emptyList())
+        assertTrue(selected == null, "Should return null for empty list")
+    }
+
+    @Test
+    fun nodeJsArtifactShouldAutoDetectDependencies() {
+        val codeWithRequire = """
+            const express = require('express');
+            const cors = require('cors');
+            const path = require('path'); // built-in, should be ignored
+            const fs = require('fs'); // built-in, should be ignored
+            
+            const app = express();
+            app.use(cors());
+            app.listen(3000);
+        """.trimIndent()
+
+        val artifact = ArtifactAgent.Artifact(
+            identifier = "deps-test",
+            type = ArtifactAgent.Artifact.ArtifactType.NODEJS,
+            title = "Deps Test",
+            content = codeWithRequire
+        )
+
+        val bundle = ArtifactBundle.fromArtifact(artifact)
+
+        // Should detect express and cors, but not path and fs (built-ins)
+        assertTrue(bundle.dependencies.containsKey("express"), "Should detect express dependency")
+        assertTrue(bundle.dependencies.containsKey("cors"), "Should detect cors dependency")
+        assertTrue(!bundle.dependencies.containsKey("path"), "Should not include path (built-in)")
+        assertTrue(!bundle.dependencies.containsKey("fs"), "Should not include fs (built-in)")
+
+        // Verify package.json contains dependencies
+        val packageJson = bundle.generatePackageJson()
+        assertTrue(packageJson.contains("\"express\""), "package.json should contain express")
+        assertTrue(packageJson.contains("\"cors\""), "package.json should contain cors")
+    }
+
+    @Test
+    fun nodeJsArtifactShouldAutoDetectImportDependencies() {
+        val codeWithImport = """
+            import express from 'express';
+            import { Router } from 'express';
+            import axios from 'axios';
+            import path from 'path'; // built-in
+            
+            const app = express();
+            const router = Router();
+        """.trimIndent()
+
+        val artifact = ArtifactAgent.Artifact(
+            identifier = "import-test",
+            type = ArtifactAgent.Artifact.ArtifactType.NODEJS,
+            title = "Import Test",
+            content = codeWithImport
+        )
+
+        val bundle = ArtifactBundle.fromArtifact(artifact)
+
+        assertTrue(bundle.dependencies.containsKey("express"), "Should detect express from import")
+        assertTrue(bundle.dependencies.containsKey("axios"), "Should detect axios from import")
+        assertTrue(!bundle.dependencies.containsKey("path"), "Should not include path (built-in)")
     }
 }
 

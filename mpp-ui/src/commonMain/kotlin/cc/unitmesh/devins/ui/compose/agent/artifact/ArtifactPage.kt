@@ -217,6 +217,9 @@ fun ArtifactPage(
                             onConsoleLog = { level, message ->
                                 consoleLogs = appendConsoleLog(consoleLogs, level, message)
                             },
+                            onFixRequest = { art, error ->
+                                viewModel.fixArtifact(art, error)
+                            },
                             modifier = Modifier.fillMaxSize()
                         )
                     },
@@ -241,6 +244,9 @@ fun ArtifactPage(
                         isStreaming = isStreaming,
                         onConsoleLog = { level, message ->
                             consoleLogs = appendConsoleLog(consoleLogs, level, message)
+                        },
+                        onFixRequest = { art, error ->
+                            viewModel.fixArtifact(art, error)
                         },
                         modifier = Modifier.weight(0.7f).fillMaxWidth()
                     )
@@ -277,12 +283,14 @@ private fun ArtifactPreviewPanelWithStreaming(
     artifact: ArtifactAgent.Artifact,
     isStreaming: Boolean,
     onConsoleLog: (String, String) -> Unit,
+    onFixRequest: ((ArtifactAgent.Artifact, String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     Box(modifier = modifier) {
         ArtifactPreviewPanel(
             artifact = artifact,
             onConsoleLog = onConsoleLog,
+            onFixRequest = onFixRequest,
             modifier = Modifier.fillMaxSize()
         )
 
@@ -431,11 +439,17 @@ private fun ArtifactTopBar(
 /**
  * Artifact preview panel - shows WebView with generated HTML
  * This is an expect/actual pattern - JVM implementation uses KCEF
+ * 
+ * @param artifact The artifact to preview
+ * @param onConsoleLog Callback for console log messages
+ * @param onFixRequest Callback when user requests to fix a failed artifact (artifact, errorMessage)
+ * @param modifier Modifier for the panel
  */
 @Composable
 expect fun ArtifactPreviewPanel(
     artifact: ArtifactAgent.Artifact,
     onConsoleLog: (String, String) -> Unit,
+    onFixRequest: ((ArtifactAgent.Artifact, String) -> Unit)? = null,
     modifier: Modifier = Modifier
 )
 
