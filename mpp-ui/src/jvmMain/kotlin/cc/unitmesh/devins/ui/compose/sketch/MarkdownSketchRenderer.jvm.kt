@@ -47,6 +47,15 @@ actual object MarkdownSketchRenderer {
         isDarkTheme: Boolean,
         modifier: Modifier
     ) {
+        // Defensive fallback for Compose Desktop (Skiko):
+        // We have observed StringIndexOutOfBoundsException from ParagraphBuilder when the markdown library
+        // produces AnnotatedString spans with invalid ranges (often triggered by large / malformed markdown,
+        // or unbalanced code fences). Plain text rendering avoids spans entirely and prevents crashes.
+        if (shouldFallbackToPlainText(markdown = markdown, isComplete = isComplete)) {
+            RenderPlainText(text = markdown, modifier = modifier)
+            return
+        }
+
         val darkTheme = isDarkTheme || isSystemInDarkTheme()
         val highlightsBuilder = remember(darkTheme) {
             Highlights.Builder().theme(SyntaxThemes.atom(darkMode = darkTheme))
@@ -205,6 +214,26 @@ actual object MarkdownSketchRenderer {
             )
         }
     }
+}
+
+/**
+ * Heuristics to keep Desktop markdown rendering stable:
+ * - During streaming, content is often incomplete and can cause parser span issues.
+ * - Very large markdown blocks are more likely to hit edge cases in span generation.
+ * - Unbalanced code fences frequently correlate with invalid AST offsets.
+ */
+private fun shouldFallbackToPlainText(markdown: String, isComplete: Boolean): Boolean {
+    if (!isComplete) return true
+
+    // Keep full markdown only for reasonably sized blocks.
+    // Large "plain text" responses (often logs / raw outputs) don't benefit much from markdown anyway.
+    if (markdown.length > 4000) return true
+
+    // If code fences are unbalanced, the markdown AST can end up with invalid ranges.
+    val fenceCount = markdown.windowed(size = 3, step = 1, partialWindows = false).count { it == "```" }
+    if (fenceCount % 2 != 0) return true
+
+    return false
 }
 
 @Composable

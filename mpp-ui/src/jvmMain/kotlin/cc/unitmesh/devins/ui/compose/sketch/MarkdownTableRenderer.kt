@@ -12,6 +12,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -87,7 +88,7 @@ fun MarkdownTable(
                 val cells = rowNode.children.filter { it.type == CELL }
                 cells.forEachIndexed { idx, cell ->
                     if (idx < columnsCount) {
-                        val raw = content.substring(cell.startOffset, cell.endOffset)
+                        val raw = safeSubstring(content, cell.startOffset, cell.endOffset)
                             .replace("|", "")
                             .replace("`", "")
                             .replace("**", "")
@@ -231,7 +232,7 @@ fun MarkdownTableRow(
                         includeSpacer = false
                     )
                 } else {
-                    val raw = content.substring(cell.startOffset, cell.endOffset)
+                    val raw = safeSubstring(content, cell.startOffset, cell.endOffset)
                     val filePath = extractBacktickedPath(raw)
                     if (filePath != null) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -282,6 +283,17 @@ fun MarkdownTableBasicText(
     overflow: TextOverflow = TextOverflow.Visible,
     annotatorSettings: AnnotatorSettings = annotatorSettings(),
 ) {
+    // Guard against invalid offsets. When offsets are out of bounds, building markdown AnnotatedString
+    // can produce spans with invalid ranges and crash Skiko ParagraphBuilder.
+    if (!isNodeValid(cell, content.length)) {
+        MarkdownBasicText(
+            text = AnnotatedString(safeSubstring(content, cell.startOffset, cell.endOffset)),
+            style = style,
+            maxLines = maxLines,
+            overflow = overflow,
+        )
+        return
+    }
     MarkdownBasicText(
         text = content.buildMarkdownAnnotatedString(
             textNode = cell,
@@ -292,6 +304,16 @@ fun MarkdownTableBasicText(
         maxLines = maxLines,
         overflow = overflow,
     )
+}
+
+/**
+ * Check if an AST node and all its children have valid offsets within the content bounds.
+ */
+private fun isNodeValid(node: ASTNode, contentLength: Int): Boolean {
+    if (node.startOffset < 0 || node.endOffset < node.startOffset || node.endOffset > contentLength) {
+        return false
+    }
+    return node.children.all { isNodeValid(it, contentLength) }
 }
 
 /**
