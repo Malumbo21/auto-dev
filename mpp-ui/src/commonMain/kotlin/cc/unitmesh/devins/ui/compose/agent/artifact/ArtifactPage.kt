@@ -23,8 +23,8 @@ import cc.unitmesh.agent.Platform
 import cc.unitmesh.devins.editor.EditorCallbacks
 import cc.unitmesh.devins.llm.ChatHistoryManager
 import cc.unitmesh.devins.ui.base.ResizableSplitPane
-import cc.unitmesh.devins.ui.compose.agent.AgentMessageList
 import cc.unitmesh.devins.ui.compose.editor.DevInEditorInput
+import cc.unitmesh.devins.ui.compose.icons.AutoDevComposeIcons
 import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
 import cc.unitmesh.devins.workspace.WorkspaceManager
 import cc.unitmesh.llm.KoogLLMService
@@ -127,9 +127,16 @@ fun ArtifactPage(
     // Directly compute without remember to ensure reactive updates when any state changes
     val displayArtifact: ArtifactAgent.Artifact? = currentArtifact ?: viewModel.lastArtifact ?: streamingArtifact?.toArtifact()
     
-    // Log for debugging using SideEffect to run on every recomposition
-    androidx.compose.runtime.SideEffect {
-        cc.unitmesh.agent.logging.AutoDevLogger.info("ArtifactPage") { "📦 [Render] displayArtifact: ${displayArtifact?.title ?: "null"}, showPreview=$showPreview, currentArtifact=${currentArtifact?.title}, viewModel.lastArtifact=${viewModel.lastArtifact?.title}" }
+    // Debug log only when relevant state changes (avoid INFO spam from recompositions)
+    LaunchedEffect(
+        displayArtifact?.title,
+        showPreview,
+        currentArtifact?.title,
+        viewModel.lastArtifact?.title
+    ) {
+        cc.unitmesh.agent.logging.AutoDevLogger.debug("ArtifactPage") {
+            "📦 [Render] displayArtifact: ${displayArtifact?.title ?: "null"}, showPreview=$showPreview, currentArtifact=${currentArtifact?.title}, viewModel.lastArtifact=${viewModel.lastArtifact?.title}"
+        }
     }
 
     // Check if currently streaming
@@ -145,6 +152,10 @@ fun ArtifactPage(
     }
 
     val isDesktop = Platform.isJvm && !Platform.isAndroid
+
+    // Check if we should show welcome screen
+    val hasMessages = viewModel.renderer.timeline.isNotEmpty() || 
+                      viewModel.renderer.currentStreamingOutput.isNotEmpty()
 
     Row(modifier = modifier.fillMaxSize()) {
         // Left panel: Chat interface (reuses existing components)
@@ -172,14 +183,29 @@ fun ArtifactPage(
                 }
             )
 
-            // Chat message list - reuses AgentMessageList from CodingAgentPage
-            AgentMessageList(
-                renderer = viewModel.renderer,
+            // Content area: Welcome or Chat messages
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f),
-                onOpenFileViewer = null // Artifact mode doesn't need file viewer
-            )
+                    .weight(1f)
+            ) {
+                if (!hasMessages && !viewModel.isExecuting) {
+                    // Show welcome screen with scenarios
+                    ArtifactWelcome(
+                        onSelectScenario = { prompt ->
+                            viewModel.executeTask(prompt)
+                        },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    // Custom artifact message list with compact code display
+                    ArtifactMessageList(
+                        renderer = viewModel.renderer,
+                        streamingArtifact = streamingArtifact,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+            }
 
             // Input area - reuses DevInEditorInput
             DevInEditorInput(
@@ -277,6 +303,7 @@ private fun StreamingArtifact.toArtifact(): ArtifactAgent.Artifact {
 
 /**
  * Wrapper component that shows streaming indicator on top of preview
+ * with reload functionality when streaming is complete
  */
 @Composable
 private fun ArtifactPreviewPanelWithStreaming(
@@ -286,29 +313,53 @@ private fun ArtifactPreviewPanelWithStreaming(
     onFixRequest: ((ArtifactAgent.Artifact, String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    Box(modifier = modifier) {
-        ArtifactPreviewPanel(
-            artifact = artifact,
-            onConsoleLog = onConsoleLog,
-            onFixRequest = onFixRequest,
-            modifier = Modifier.fillMaxSize()
-        )
-
-        // Streaming indicator overlay
+    // Reload key to force WebView refresh
+    var reloadKey by remember { mutableStateOf(0) }
+    
+    // Track if we've completed streaming (for showing reload button)
+    var hasCompletedStreaming by remember { mutableStateOf(false) }
+    
+    // Update hasCompletedStreaming when streaming finishes
+    LaunchedEffect(isStreaming) {
+        if (!isStreaming && !hasCompletedStreaming) {
+            hasCompletedStreaming = true
+        }
+    }
+    
+    // Reset when artifact changes
+    LaunchedEffect(artifact.identifier, artifact.content.length) {
         if (isStreaming) {
-            Surface(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(8.dp),
-                shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f),
-                shadowElevation = 4.dp
+            hasCompletedStreaming = false
+        }
+    }
+
+    Box(modifier = modifier) {
+        // Use key to force recomposition and reload WebView
+        key(reloadKey, artifact.identifier) {
+            ArtifactPreviewPanel(
+                artifact = artifact,
+                onConsoleLog = onConsoleLog,
+                onFixRequest = onFixRequest,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+
+        // Top overlay bar
+        Surface(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(8.dp),
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.95f),
+            shadowElevation = 4.dp
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                if (isStreaming) {
+                    // Streaming indicator
                     CircularProgressIndicator(
                         modifier = Modifier.size(14.dp),
                         strokeWidth = 2.dp,
@@ -317,7 +368,40 @@ private fun ArtifactPreviewPanelWithStreaming(
                     Text(
                         text = "Generating...",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    // Preview status
+                    Icon(
+                        imageVector = AutoDevComposeIcons.Visibility,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = "Preview",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                
+                // Reload button - always visible, but more prominent after streaming completes
+                IconButton(
+                    onClick = {
+                        reloadKey++
+                        onConsoleLog("info", "Preview reloaded")
+                    },
+                    modifier = Modifier.size(24.dp)
+                ) {
+                    Icon(
+                        imageVector = AutoDevComposeIcons.Refresh,
+                        contentDescription = "Reload preview",
+                        modifier = Modifier.size(16.dp),
+                        tint = if (hasCompletedStreaming && !isStreaming) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        }
                     )
                 }
             }

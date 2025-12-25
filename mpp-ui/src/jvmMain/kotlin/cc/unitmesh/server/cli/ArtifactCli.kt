@@ -1,9 +1,14 @@
 package cc.unitmesh.server.cli
 
 import cc.unitmesh.agent.ArtifactAgent
+import cc.unitmesh.agent.artifact.ArtifactBundle
+import cc.unitmesh.agent.artifact.ArtifactBundlePacker
+import cc.unitmesh.agent.artifact.ConversationMessage
+import cc.unitmesh.agent.artifact.PackResult
 import cc.unitmesh.agent.render.ArtifactRenderer
 import cc.unitmesh.agent.render.ConsoleLogEntry
 import cc.unitmesh.agent.tool.ToolResult
+import cc.unitmesh.devins.ui.compose.agent.artifact.ArtifactScenarios
 import cc.unitmesh.llm.KoogLLMService
 import cc.unitmesh.llm.LLMProviderType
 import cc.unitmesh.llm.ModelConfig
@@ -19,91 +24,20 @@ import java.io.File
  * ```bash
  * ./gradlew :mpp-ui:runArtifactCli -PartifactPrompt="Create a todo list app"
  * ./gradlew :mpp-ui:runArtifactCli -PartifactScenario="dashboard"
+ * ./gradlew :mpp-ui:runArtifactCli -PartifactScenario="todolist" -PartifactOutput="my-todo.unit"
  * ```
  *
- * Test Scenarios:
+ * Test Scenarios (from ArtifactScenarios):
  * - dashboard: Interactive dashboard with charts
- * - todolist: Simple todo list app
+ * - todolist: Simple todo list app  
  * - calculator: Calculator widget
- * - timer: Countdown timer
- * - game: Simple game (snake or tic-tac-toe)
+ * - pomodoro: Pomodoro timer
+ * - weather: Weather card widget
+ * - game: Tic-Tac-Toe game
+ * - kanban: Kanban board
+ * - markdown: Markdown editor
  */
 object ArtifactCli {
-
-    // Predefined test scenarios
-    private val scenarios = mapOf(
-        "dashboard" to """
-            Create an interactive dashboard with:
-            1. A header showing "Analytics Dashboard" 
-            2. 3 stat cards showing: Users (1,234), Revenue ($45,678), Orders (567)
-            3. A simple bar chart using CSS (no libraries) showing monthly data
-            4. Dark theme with modern styling
-            5. Console.log the current time when the page loads
-        """.trimIndent(),
-
-        "todolist" to """
-            Create a todo list app with:
-            1. Input field to add new todos
-            2. List of todos with checkbox to mark complete
-            3. Button to delete todos
-            4. Local storage persistence
-            5. Show count of remaining todos
-            6. Console.log when items are added/completed/deleted
-        """.trimIndent(),
-
-        "calculator" to """
-            Create a calculator widget with:
-            1. Display showing current input and result
-            2. Number buttons 0-9
-            3. Operation buttons: +, -, *, /, =, C
-            4. Responsive grid layout
-            5. Handle decimal numbers
-            6. Console.log each calculation
-        """.trimIndent(),
-
-        "timer" to """
-            Create a countdown timer app with:
-            1. Input for minutes and seconds
-            2. Start, Pause, Reset buttons
-            3. Large time display (MM:SS format)
-            4. Visual progress ring or bar
-            5. Sound notification when complete (use Web Audio API beep)
-            6. Console.log timer events
-        """.trimIndent(),
-
-        "game" to """
-            Create a Tic-Tac-Toe game with:
-            1. 3x3 grid board
-            2. Two players: X and O
-            3. Turn indicator
-            4. Win detection with highlighting
-            5. Reset button
-            6. Score tracking
-            7. Console.log game moves and results
-        """.trimIndent(),
-
-        "weather" to """
-            Create a weather card widget that shows:
-            1. City name input field
-            2. Current temperature display (use mock data)
-            3. Weather icon (sun/cloud/rain using CSS/emoji)
-            4. 5-day forecast preview
-            5. Toggle between Celsius and Fahrenheit
-            6. Modern glassmorphism design
-            7. Console.log temperature conversions
-        """.trimIndent(),
-
-        "pomodoro" to """
-            Create a Pomodoro timer with:
-            1. 25-minute work sessions, 5-minute breaks
-            2. Circular progress indicator
-            3. Session counter
-            4. Start/Pause/Skip buttons
-            5. Different colors for work vs break
-            6. Browser notification when session ends
-            7. Console.log session transitions
-        """.trimIndent()
-    )
 
     @JvmStatic
     fun main(args: Array<String>) {
@@ -114,40 +48,49 @@ object ArtifactCli {
         // Parse arguments
         val prompt = System.getProperty("artifactPrompt")
         val scenario = System.getProperty("artifactScenario")
-        val outputPath = System.getProperty("artifactOutput") ?: "artifact-output.html"
+        val outputPath = System.getProperty("artifactOutput") ?: "artifact-output.unit"
         val language = System.getProperty("artifactLanguage") ?: "EN"
+        val exportHtmlOnly = System.getProperty("artifactHtmlOnly")?.toBoolean() ?: false
+
+        // Get scenarios from shared ArtifactScenarios
+        val scenarioMap = ArtifactScenarios.scenarios.associate { it.id to it.prompt }
 
         val finalPrompt = when {
             prompt != null -> prompt
             scenario != null -> {
-                scenarios[scenario] ?: run {
+                val foundScenario = ArtifactScenarios.getById(scenario)
+                if (foundScenario != null) {
+                    foundScenario.prompt
+                } else {
                     System.err.println("Unknown scenario: $scenario")
-                    System.err.println("Available scenarios: ${scenarios.keys.joinToString(", ")}")
+                    System.err.println("Available scenarios: ${ArtifactScenarios.scenarios.map { it.id }.joinToString(", ")}")
                     return
                 }
             }
             else -> {
                 println("Available test scenarios:")
-                scenarios.forEach { (name, desc) ->
-                    println("  - $name: ${desc.lines().first()}")
+                ArtifactScenarios.scenarios.forEach { s ->
+                    println("  - ${s.id}: ${s.name} - ${s.description}")
                 }
                 println()
                 println("Usage:")
                 println("  -PartifactPrompt=\"your prompt\"")
                 println("  -PartifactScenario=<scenario>")
-                println("  -PartifactOutput=<output.html>")
+                println("  -PartifactOutput=<output.unit>     # Output file (.unit bundle or .html)")
                 println("  -PartifactLanguage=<EN|ZH>")
+                println("  -PartifactHtmlOnly=true            # Export raw HTML instead of .unit bundle")
                 println()
 
                 // Default to dashboard for quick testing
                 println("Running default scenario: dashboard")
-                scenarios["dashboard"]!!
+                ArtifactScenarios.getById("dashboard")!!.prompt
             }
         }
 
         println("📝 Prompt: ${finalPrompt.lines().first()}...")
         println("📄 Output: $outputPath")
         println("🌍 Language: $language")
+        println("📦 Format: ${if (exportHtmlOnly) "HTML only" else ".unit bundle"}")
         println()
 
         runBlocking {
@@ -226,6 +169,9 @@ object ArtifactCli {
                 if (result.success && result.artifacts.isNotEmpty()) {
                     println("✅ Generated ${result.artifacts.size} artifact(s)")
 
+                    // Select best artifact for export
+                    val bestArtifact = ArtifactBundle.selectBestArtifact(result.artifacts)
+                    
                     result.artifacts.forEachIndexed { index, artifact ->
                         println()
                         println("─".repeat(40))
@@ -233,6 +179,9 @@ object ArtifactCli {
                         println("  ID: ${artifact.identifier}")
                         println("  Type: ${artifact.type}")
                         println("  Size: ${artifact.content.length} chars")
+                        if (artifact == bestArtifact) {
+                            println("  ★ Selected for export")
+                        }
 
                         // Validate HTML artifacts
                         if (artifact.type == ArtifactAgent.Artifact.ArtifactType.HTML) {
@@ -245,16 +194,72 @@ object ArtifactCli {
                                     println("    - $error")
                                 }
                             }
+                        }
+                    }
 
-                            // Save to file
-                            val fileName = if (result.artifacts.size > 1) {
-                                outputPath.replace(".html", "-${index + 1}.html")
+                    // Export the best artifact
+                    if (bestArtifact != null) {
+                        println()
+                        println("─".repeat(40))
+                        println("📦 Exporting artifact...")
+
+                        if (exportHtmlOnly || outputPath.endsWith(".html")) {
+                            // Export raw HTML
+                            val htmlPath = if (outputPath.endsWith(".unit")) {
+                                outputPath.replace(".unit", ".html")
                             } else {
                                 outputPath
                             }
+                            File(htmlPath).writeText(bestArtifact.content)
+                            println("  📁 Saved HTML to: $htmlPath")
+                        } else {
+                            // Export as .unit bundle
+                            val bundle = ArtifactBundle.fromArtifact(
+                                artifact = bestArtifact,
+                                conversationHistory = listOf(
+                                    ConversationMessage(role = "user", content = finalPrompt),
+                                    ConversationMessage(role = "assistant", content = result.rawResponse)
+                                ),
+                                modelInfo = cc.unitmesh.agent.artifact.ModelInfo(
+                                    name = activeConfig.model,
+                                    provider = activeConfig.provider
+                                )
+                            )
 
-                            File(fileName).writeText(artifact.content)
-                            println("  📁 Saved to: $fileName")
+                            val packer = ArtifactBundlePacker()
+                            val unitPath = if (outputPath.endsWith(".unit")) {
+                                outputPath
+                            } else {
+                                "${outputPath}.unit"
+                            }
+
+                            when (val packResult = packer.pack(bundle, unitPath)) {
+                                is PackResult.Success -> {
+                                    val file = File(packResult.outputPath)
+                                    println("  ✅ Created .unit bundle: ${packResult.outputPath}")
+                                    println("  📦 Bundle size: ${file.length()} bytes")
+                                    println()
+                                    println("  📋 Bundle contents:")
+                                    println("     - ARTIFACT.md (metadata)")
+                                    println("     - package.json (execution config)")
+                                    println("     - ${bundle.getMainFileName()} (main content)")
+                                    println("     - .artifact/context.json (conversation history)")
+                                    println()
+                                    println("  💡 To use the artifact:")
+                                    println("     1. Open in AutoDev desktop app")
+                                    println("     2. Or extract: unzip ${packResult.outputPath} -d ./extracted")
+                                    println("     3. Then open ${bundle.getMainFileName()} in browser")
+                                }
+                                is PackResult.Error -> {
+                                    println("  ❌ Failed to create .unit bundle: ${packResult.message}")
+                                    packResult.cause?.printStackTrace()
+                                    
+                                    // Fallback to HTML export
+                                    val htmlPath = outputPath.replace(".unit", ".html")
+                                    File(htmlPath).writeText(bestArtifact.content)
+                                    println("  📁 Fallback: Saved HTML to: $htmlPath")
+                                }
+                            }
                         }
                     }
                 } else {
@@ -411,4 +416,3 @@ class ArtifactCliRenderer : ArtifactRenderer {
         return ToolResult.Error("Not supported in CLI renderer")
     }
 }
-

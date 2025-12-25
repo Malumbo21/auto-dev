@@ -526,18 +526,60 @@ private suspend fun openInBrowser(html: String, title: String) {
  */
 private fun saveArtifactFile(artifact: ArtifactAgent.Artifact) {
     try {
+        val sanitizedName = artifact.title.replace(Regex("[^a-zA-Z0-9\\-_ ]"), "").replace(" ", "_")
+        
         val fileChooser = JFileChooser().apply {
             dialogTitle = "Save Artifact"
-            selectedFile = File("${artifact.title.replace(" ", "_")}.html")
-            fileFilter = FileNameExtensionFilter("HTML Files", "html", "htm")
+            selectedFile = File("$sanitizedName.unit")
+            
+            // Default to .unit bundle format
+            val unitFilter = FileNameExtensionFilter("AutoDev Unit Bundle (*.unit)", "unit")
+            addChoosableFileFilter(unitFilter)
+            // Also allow raw HTML
+            addChoosableFileFilter(FileNameExtensionFilter("HTML Files (*.html)", "html", "htm"))
+            fileFilter = unitFilter // Default to .unit
         }
 
         if (fileChooser.showSaveDialog(null) == JFileChooser.APPROVE_OPTION) {
             var file = fileChooser.selectedFile
-            if (!file.name.endsWith(".html") && !file.name.endsWith(".htm")) {
-                file = File(file.absolutePath + ".html")
+            val selectedFilter = fileChooser.fileFilter
+            
+            // Determine format based on filter or extension
+            val isUnitFormat = when {
+                file.name.endsWith(".unit") -> true
+                file.name.endsWith(".html") || file.name.endsWith(".htm") -> false
+                selectedFilter.description.contains("unit", ignoreCase = true) -> {
+                    file = File(file.absolutePath + ".unit")
+                    true
+                }
+                else -> {
+                    file = File(file.absolutePath + ".unit")
+                    true
+                }
             }
-            file.writeText(artifact.content)
+            
+            if (isUnitFormat) {
+                // Save as .unit bundle
+                val bundle = cc.unitmesh.agent.artifact.ArtifactBundle.fromArtifact(
+                    artifact = artifact,
+                    conversationHistory = emptyList(),
+                    modelInfo = null
+                )
+                kotlinx.coroutines.runBlocking {
+                    val packer = cc.unitmesh.agent.artifact.ArtifactBundlePacker()
+                    when (val result = packer.pack(bundle, file.absolutePath)) {
+                        is cc.unitmesh.agent.artifact.PackResult.Success -> {
+                            println("Artifact saved to ${result.outputPath}")
+                        }
+                        is cc.unitmesh.agent.artifact.PackResult.Error -> {
+                            println("Failed to save artifact: ${result.message}")
+                        }
+                    }
+                }
+            } else {
+                // Save as raw HTML
+                file.writeText(artifact.content)
+            }
         }
     } catch (e: Exception) {
         println("Failed to save file: ${e.message}")
