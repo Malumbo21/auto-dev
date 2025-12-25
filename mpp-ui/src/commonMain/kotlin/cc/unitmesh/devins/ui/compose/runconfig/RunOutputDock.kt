@@ -119,12 +119,11 @@ fun RunOutputDock(
                     }
                 }
                 HorizontalDivider()
-                // Dynamic height based on content type - more compact
                 val dockHeight = if (isAnalysis) 180.dp else 150.dp
 
                 if (output.isBlank()) {
                     Text(
-                        text = if (isAnalysis) "AI is analyzing..." else "Waiting for output...",
+                        text = if (isAnalysis) "AI is analyzing project for Actions..." else "Waiting for output...",
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(50.dp)
