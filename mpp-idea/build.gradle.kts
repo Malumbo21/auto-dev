@@ -95,6 +95,10 @@ configurations.all {
     // Note: ktor-serialization-kotlinx-json is NOT excluded globally because it's required
     // by ai.koog:prompt-executor-llms-all (AbstractOpenAILLMClient) at runtime.
     // It's included as an explicit dependency with coroutines excluded below.
+    
+    // Exclude kotlinx-serialization-json-io to prevent conflicts with IntelliJ's bundled libraries
+    exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json-io")
+    exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json-io-jvm")
 }
 
 
