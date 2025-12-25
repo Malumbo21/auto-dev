@@ -279,16 +279,21 @@ data class ArtifactBundle(
 
     /**
      * Get all files to be included in the bundle
+     * Note: Core files (ARTIFACT.md, package.json, main file, context.json) take precedence
+     * over files in the additional files map to prevent conflicts.
      */
     fun getAllFiles(): Map<String, String> = buildMap {
-        // Core files
+        // Core files - these must not be overridden
         put(ARTIFACT_MD, generateArtifactMd())
         put(PACKAGE_JSON, generatePackageJson())
         put(getMainFileName(), mainContent)
         put(CONTEXT_JSON, json.encodeToString(context))
 
-        // Additional files
-        putAll(files)
+        // Additional files - exclude any that conflict with core files
+        val coreFileNames = setOf(ARTIFACT_MD, PACKAGE_JSON, getMainFileName(), CONTEXT_JSON)
+        files.filterKeys { key -> key !in coreFileNames }.forEach { (key, value) ->
+            put(key, value)
+        }
     }
 }
 

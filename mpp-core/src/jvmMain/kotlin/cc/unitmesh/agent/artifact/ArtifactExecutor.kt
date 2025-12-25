@@ -60,10 +60,23 @@ object ArtifactExecutor {
                 }
             }
 
-            // Step 2: Check for package.json
+            // Step 2: Check for package.json and index.js
             val packageJsonFile = File(extractDir, "package.json")
+            val indexJsFile = File(extractDir, "index.js")
+            
             if (!packageJsonFile.exists()) {
                 return@withContext ExecutionResult.Error("package.json not found in artifact")
+            }
+            
+            if (!indexJsFile.exists()) {
+                return@withContext ExecutionResult.Error("index.js not found in artifact")
+            }
+
+            // Verify index.js is actually JavaScript code, not package.json content
+            val indexJsContent = indexJsFile.readText()
+            if (indexJsContent.trim().startsWith("{") && indexJsContent.contains("\"name\"")) {
+                logger.error("ArtifactExecutor") { "❌ index.js contains JSON content (likely package.json). This is a bug in bundle creation." }
+                return@withContext ExecutionResult.Error("index.js contains invalid content (appears to be package.json). Please regenerate the artifact.")
             }
 
             // Step 3: Check for dependencies and run npm install
@@ -93,12 +106,7 @@ object ArtifactExecutor {
                 onOutput?.invoke("No dependencies to install.\n")
             }
 
-            // Step 4: Execute node index.js
-            val indexJsFile = File(extractDir, "index.js")
-            if (!indexJsFile.exists()) {
-                return@withContext ExecutionResult.Error("index.js not found in artifact")
-            }
-
+            // Step 4: Execute node index.js (indexJsFile already checked above)
             logger.info("ArtifactExecutor") { "▶️ Executing: node index.js" }
             onOutput?.invoke("Starting application...\n")
             onOutput?.invoke("=".repeat(50) + "\n")
