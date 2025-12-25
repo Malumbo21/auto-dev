@@ -8,7 +8,7 @@ plugins {
 
     // Temporarily disabled: npm publish plugin doesn't support wasmJs targets
     // TODO: Re-enable once plugin supports wasmJs or split into separate modules
-     id("dev.petuska.npm.publish") version "3.5.3"
+    // id("dev.petuska.npm.publish") version "3.5.3"
 }
 
 repositories {
@@ -264,13 +264,6 @@ kotlin {
 
                 implementation(npm("wasm-git", "0.0.13"))
 
-                // Force kotlin-stdlib to 2.2.0 to match compiler version
-                implementation("org.jetbrains.kotlin:kotlin-stdlib") {
-                    version {
-                        strictly("2.2.0")
-                    }
-                }
-
                 // WASM specific dependencies if needed
             }
         }
@@ -283,6 +276,8 @@ kotlin {
     }
 }
 
+// Temporarily disabled: npm publish plugin doesn't support wasmJs targets
+/*
 npmPublish {
     organization.set("xiuper")
 
@@ -309,6 +304,7 @@ npmPublish {
         }
     }
 }
+*/
 
 // Disable wasmJs browser tests due to webpack compatibility issues
 // See: https://github.com/webpack/webpack/issues/XXX
@@ -330,4 +326,14 @@ tasks.register<JavaExec>("runNanoDslScenarioHarness") {
     dependsOn("jvmMainClasses")
     classpath = kotlin.jvm().compilations.getByName("main").runtimeDependencyFiles +
         files(kotlin.jvm().compilations.getByName("main").output.classesDirs)
+}
+
+// Task to generate a test .unit file
+tasks.register<JavaExec>("generateTestUnit") {
+    group = "verification"
+    description = "Generate a test .unit file for verification"
+
+    val jvmCompilation = kotlin.jvm().compilations.getByName("main")
+    classpath(jvmCompilation.output, configurations["jvmRuntimeClasspath"])
+    mainClass.set("cc.unitmesh.agent.artifact.GenerateTestUnitKt")
 }

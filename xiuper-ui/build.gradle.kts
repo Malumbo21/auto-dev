@@ -13,6 +13,16 @@ repositories {
     mavenCentral()
 }
 
+// Force consistent Kotlin stdlib version across all dependencies
+configurations.all {
+    resolutionStrategy {
+        force("org.jetbrains.kotlin:kotlin-stdlib:2.2.0")
+        force("org.jetbrains.kotlin:kotlin-stdlib-common:2.2.0")
+        force("org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.2.0")
+        force("org.jetbrains.kotlin:kotlin-reflect:2.2.0")
+    }
+}
+
 android {
     namespace = "cc.unitmesh.xiuper.ui"
     compileSdk = 34
@@ -109,10 +119,6 @@ kotlin {
         val iosArm64Main by getting
         val iosSimulatorArm64Main by getting
         val iosMain by creating {
-            dependsOn(commonMain)
-            iosX64Main.dependsOn(this)
-            iosArm64Main.dependsOn(this)
-            iosSimulatorArm64Main.dependsOn(this)
             dependencies {
                 // iOS-specific dependencies (if any)
             }

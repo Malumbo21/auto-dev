@@ -45,7 +45,13 @@ enum class AgentType {
     /**
      * Web edit mode - browse, select DOM elements, and interact with web pages
      */
-    WEB_EDIT;
+    WEB_EDIT,
+
+    /**
+     * Artifact mode - generate reversible, executable artifacts (HTML/JS, Python scripts)
+     * Similar to Claude's Artifacts system
+     */
+    ARTIFACT;
 
     fun getDisplayName(): String = when (this) {
         LOCAL_CHAT -> "Chat"
@@ -55,6 +61,7 @@ enum class AgentType {
         CHAT_DB -> "ChatDB"
         REMOTE -> "Remote"
         WEB_EDIT -> "WebEdit"
+        ARTIFACT -> "Artifact"
     }
 
     companion object {
@@ -67,6 +74,7 @@ enum class AgentType {
                 "documentreader", "documents" -> KNOWLEDGE
                 "chatdb", "database" -> CHAT_DB
                 "webedit", "web" -> WEB_EDIT
+                "artifact", "unit" -> ARTIFACT
                 else -> LOCAL_CHAT
             }
         }

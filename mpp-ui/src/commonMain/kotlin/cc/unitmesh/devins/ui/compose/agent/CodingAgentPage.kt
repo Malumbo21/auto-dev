@@ -151,7 +151,7 @@ fun CodingAgentPage(
                             currentModelConfig = currentModelConfig,
                             selectedAgent = selectedAgent,
                             availableAgents = availableAgents,
-                            isTreeViewVisible = isTreeViewVisible,
+                            isTreeViewVisible = isTreeViewVisibleState,
                             currentAgentType = selectedAgentType,
                             onAgentTypeChange = onAgentTypeChange,
                             onOpenDirectory = onOpenDirectory,
@@ -159,7 +159,7 @@ fun CodingAgentPage(
                             onModelConfigChange = onModelConfigChange,
                             onAgentChange = onAgentChange,
                             onModeToggle = onModeToggle,
-                            onToggleTreeView = { onToggleTreeView(!isTreeViewVisible) },
+                            onToggleTreeView = { UIStateManager.toggleTreeView() },
                             onConfigureRemote = onConfigureRemote,
                             onShowModelConfig = onShowModelConfig,
                             onShowToolConfig = onShowToolConfig,
@@ -294,6 +294,11 @@ fun CodingAgentPage(
 
                         AgentType.WEB_EDIT -> {
                             // WEB_EDIT has its own full-page interface
+                            // It should not reach here - handled by AgentInterfaceRouter
+                        }
+
+                        AgentType.ARTIFACT -> {
+                            // ARTIFACT has its own full-page interface (ArtifactPage)
                             // It should not reach here - handled by AgentInterfaceRouter
                         }
                     }

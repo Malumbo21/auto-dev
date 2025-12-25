@@ -6,6 +6,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
+import kotlin.test.assertFalse
 import kotlinx.coroutines.test.runTest
 
 class PathFilterPolicyTest {
@@ -50,22 +52,22 @@ class PathFilterPolicyTest {
     @Test
     fun pathPatternParsing() {
         val exact = PathPattern.parse("/exact/path")
-        assert(exact is PathPattern.Exact)
+        assertTrue(exact is PathPattern.Exact)
         
         val prefix = PathPattern.parse("/prefix/")
-        assert(prefix is PathPattern.Prefix)
+        assertTrue(prefix is PathPattern.Prefix)
         
         val wildcard = PathPattern.parse("/path/*/file")
-        assert(wildcard is PathPattern.Wildcard)
+        assertTrue(wildcard is PathPattern.Wildcard)
     }
     
     @Test
     fun wildcardPatternMatching() {
         val pattern = PathPattern.Wildcard("/api/*/users")
         
-        assert(pattern.matches(FsPath("/api/v1/users")))
-        assert(pattern.matches(FsPath("/api/v2/users")))
-        assert(!pattern.matches(FsPath("/api/v1/posts")))
+        assertTrue(pattern.matches(FsPath("/api/v1/users")))
+        assertTrue(pattern.matches(FsPath("/api/v2/users")))
+        assertFalse(pattern.matches(FsPath("/api/v1/posts")))
     }
 }
 
@@ -85,7 +87,7 @@ class DeleteApprovalPolicyTest {
         
         val error = policy.checkOperation(FsOperation.DELETE, FsPath("/important/file"))
         
-        assert(approvalRequested)
+        assertTrue(approvalRequested)
         assertEquals("/important/file", pathRequested?.value)
         assertNotNull(error)
         assertEquals(FsErrorCode.EACCES, error.code)
@@ -114,7 +116,7 @@ class DeleteApprovalPolicyTest {
         
         // Read should not require approval
         val error = policy.checkOperation(FsOperation.READ, FsPath("/file"))
-        assert(!approvalRequested)
+        assertFalse(approvalRequested)
         assertNull(error)
     }
 }

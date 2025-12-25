@@ -24,7 +24,7 @@ import kotlin.test.assertTrue
 class McpFilesystemServerIntegrationTest {
 
     @Test
-    fun `server-filesystem works with DefaultMcpBackend`() = kotlinx.coroutines.test.runTest {
+    fun `server-filesystem works with JvmMcpBackend`() = kotlinx.coroutines.test.runTest {
         if (System.getenv("RUN_MCP_INTEGRATION_TESTS") != "true") {
             println("Skipping MCP integration test (set RUN_MCP_INTEGRATION_TESTS=true to enable)")
             return@runTest
@@ -63,7 +63,7 @@ class McpFilesystemServerIntegrationTest {
 
                     client.connect(transport)
 
-                    val backend = DefaultMcpBackend(client)
+                    val backend = JvmMcpBackend(client)
 
                     // Validate tools are discoverable
                     val toolsDir = backend.list(cc.unitmesh.xiuper.fs.FsPath.of("/tools"))

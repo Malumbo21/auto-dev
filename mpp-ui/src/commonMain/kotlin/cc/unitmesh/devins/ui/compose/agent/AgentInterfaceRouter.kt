@@ -3,12 +3,14 @@ package cc.unitmesh.devins.ui.compose.agent
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import cc.unitmesh.agent.AgentType
+import cc.unitmesh.devins.ui.compose.agent.artifact.ArtifactPage
 import cc.unitmesh.devins.ui.compose.agent.chatdb.ChatDBPage
 import cc.unitmesh.devins.ui.compose.agent.codereview.CodeReviewPage
 import cc.unitmesh.devins.ui.compose.agent.webedit.WebEditPage
 import cc.unitmesh.devins.ui.remote.RemoteAgentPage
 import cc.unitmesh.devins.workspace.Workspace
 import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.agent.artifact.ArtifactBundle
 
 /**
  * Agent Interface Router
@@ -57,6 +59,7 @@ fun AgentInterfaceRouter(
     onGitUrlChange: (String) -> Unit = {},
     onNotification: (String, String) -> Unit = { _, _ -> },
     workspace: Workspace? = null,
+    initialBundle: ArtifactBundle? = null, // Bundle from file association
     modifier: Modifier = Modifier
 ) {
     when (selectedAgentType) {
@@ -138,6 +141,20 @@ fun AgentInterfaceRouter(
                     onAgentTypeChange(AgentType.CODING)
                 },
                 onNotification = onNotification
+            )
+        }
+
+        AgentType.ARTIFACT -> {
+            // Log when ArtifactPage is rendered
+            cc.unitmesh.agent.logging.AutoDevLogger.info("AgentInterfaceRouter") { "📦 Rendering ArtifactPage with initialBundle: ${initialBundle?.name ?: "null"}" }
+            ArtifactPage(
+                llmService = llmService,
+                modifier = modifier,
+                onBack = {
+                    onAgentTypeChange(AgentType.CODING)
+                },
+                onNotification = onNotification,
+                initialBundle = initialBundle // Pass bundle to ArtifactPage
             )
         }
 

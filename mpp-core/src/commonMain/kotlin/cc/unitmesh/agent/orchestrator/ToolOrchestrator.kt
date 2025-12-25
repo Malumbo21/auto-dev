@@ -281,6 +281,7 @@ class ToolOrchestrator(
     /**
      * Start background monitoring for an async shell session.
      * When the session completes, updates the renderer with the final status.
+     * If timeout occurs, the process continues running without being terminated.
      */
     private fun startSessionMonitoring(
         session: LiveShellSession,
@@ -327,6 +328,21 @@ class ToolOrchestrator(
 
                 logger.debug { "Updated renderer with session completion: ${session.sessionId}" }
             } catch (e: Exception) {
+                // Check if this is a timeout exception
+                val isTimeout = e is ToolException && e.errorType == ToolErrorType.TIMEOUT
+                
+                if (isTimeout) {
+                    // Timeout occurred - process is still running
+                    // DO NOT update renderer with error status
+                    // The terminal item will remain in its current state, showing the process is still running
+                    logger.info { "Session ${session.sessionId} timed out after ${timeoutMs}ms, process continues running" }
+                    
+                    // The LiveTerminalItem in UI will show the process is still running
+                    // AI can decide whether to wait longer (wait-process) or terminate (kill-process)
+                    return@launch
+                }
+                
+                // For non-timeout errors, show error status
                 logger.error(e) { "Error monitoring session ${session.sessionId}: ${e.message}" }
 
                 // Check if this was a user cancellation and get output from managedSession

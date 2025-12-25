@@ -13,6 +13,16 @@ repositories {
     mavenCentral()
 }
 
+// Force consistent Kotlin stdlib version across all dependencies
+configurations.all {
+    resolutionStrategy {
+        force("org.jetbrains.kotlin:kotlin-stdlib:2.2.0")
+        force("org.jetbrains.kotlin:kotlin-stdlib-common:2.2.0")
+        force("org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.2.0")
+        force("org.jetbrains.kotlin:kotlin-reflect:2.2.0")
+    }
+}
+
 sqldelight {
     databases {
         create("XiuperFsDatabase") {
@@ -76,9 +86,6 @@ kotlin {
                 implementation(libs.ktor.client.core)
                 implementation(libs.ktor.client.contentNegotiation)
                 implementation(libs.ktor.serialization.kotlinx.json)
-                
-                // MCP SDK for cross-platform Model Context Protocol support
-                implementation(libs.mcp.kotlin.sdk)
             }
         }
 
@@ -93,6 +100,8 @@ kotlin {
             dependencies {
                 implementation(libs.ktor.client.cio)
                 implementation(libs.sqldelight.sqlite)
+                // MCP SDK for JVM only (iOS not supported yet)
+                implementation(libs.mcp.kotlin.sdk)
             }
         }
 
@@ -100,12 +109,16 @@ kotlin {
             dependencies {
                 implementation(libs.ktor.client.cio)
                 implementation(libs.sqldelight.android)
+                // MCP SDK for Android
+                implementation(libs.mcp.kotlin.sdk)
             }
         }
 
         val jsMain by getting {
             dependencies {
                 implementation(libs.ktor.client.js)
+                // MCP SDK for JS
+                implementation(libs.mcp.kotlin.sdk)
             }
         }
 
@@ -117,6 +130,8 @@ kotlin {
                 implementation(libs.sqldelight.webWorker.wasmJs)
                 implementation(npm("sql.js", "1.8.0"))
                 implementation(npm("@cashapp/sqldelight-sqljs-worker", "2.1.0"))
+                // MCP SDK for WASM
+                implementation(libs.mcp.kotlin.sdk)
             }
         }
 
@@ -125,13 +140,11 @@ kotlin {
         val iosSimulatorArm64Main by getting
 
         val iosMain by creating {
-            dependsOn(commonMain)
-            iosX64Main.dependsOn(this)
-            iosArm64Main.dependsOn(this)
-            iosSimulatorArm64Main.dependsOn(this)
             dependencies {
                 implementation(libs.ktor.client.darwin)
                 implementation(libs.sqldelight.native)
+                // Note: MCP SDK doesn't support iOS targets yet
+                // TODO: Add MCP support when available for iOS
             }
         }
     }

@@ -379,13 +379,29 @@ actual fun WebEditView(
         }
     }
 
-    WebView(
-        state = webViewState,
-        navigator = webViewNavigator,
-        modifier = modifier,
-        captureBackPresses = false,
-        webViewJsBridge = jsBridge
-    )
+    var webViewError by remember { mutableStateOf<String?>(null) }
+
+    if (webViewError != null) {
+        // Show error state instead of crashing
+        androidx.compose.foundation.layout.Box(
+            modifier = modifier,
+            contentAlignment = androidx.compose.ui.Alignment.Center
+        ) {
+            androidx.compose.material3.Text(
+                text = "WebView initialization failed: ${webViewError}",
+                color = androidx.compose.material3.MaterialTheme.colorScheme.error
+            )
+        }
+    } else {
+        // Render WebView directly - errors should be handled at the KCEF initialization level
+        WebView(
+            state = webViewState,
+            navigator = webViewNavigator,
+            modifier = modifier,
+            captureBackPresses = false,
+            webViewJsBridge = jsBridge
+        )
+    }
 }
 
 /**

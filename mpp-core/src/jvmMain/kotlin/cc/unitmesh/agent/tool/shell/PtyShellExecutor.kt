@@ -280,8 +280,10 @@ class PtyShellExecutor : ShellExecutor, LiveShellExecutor {
             }
 
             if (exitCode == null) {
-                ptyHandle.destroyForcibly()
-                ptyHandle.waitFor(3000, TimeUnit.MILLISECONDS)
+                // Timeout occurred - DO NOT kill the process
+                // Let the AI decide whether to continue waiting or terminate
+                // The process remains alive and the session is still managed
+                logger().info { "Session ${session.sessionId} timed out after ${timeoutMs}ms, but process remains alive" }
                 throw ToolException("Command timed out after ${timeoutMs}ms", ToolErrorType.TIMEOUT)
             }
 

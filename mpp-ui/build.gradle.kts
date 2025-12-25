@@ -507,10 +507,61 @@ compose.desktop {
 
             modules("java.naming", "java.sql")
 
+            // File associations for .unit artifact bundles
+            fileAssociation(
+                mimeType = "application/x-autodev-unit",
+                extension = "unit",
+                description = "AutoDev Unit Bundle"
+            )
+
             // Custom app icon
             macOS {
                 bundleID = "cc.unitmesh.devins.desktop"
                 iconFile.set(project.file("src/jvmMain/resources/icon.icns"))
+
+                // macOS-specific: register UTI for .unit files
+                infoPlist {
+                    extraKeysRawXml = """
+                        <key>CFBundleDocumentTypes</key>
+                        <array>
+                            <dict>
+                                <key>CFBundleTypeName</key>
+                                <string>AutoDev Unit Bundle</string>
+                                <key>CFBundleTypeRole</key>
+                                <string>Editor</string>
+                                <key>LSHandlerRank</key>
+                                <string>Owner</string>
+                                <key>LSItemContentTypes</key>
+                                <array>
+                                    <string>cc.unitmesh.devins.unit</string>
+                                </array>
+                            </dict>
+                        </array>
+                        <key>UTExportedTypeDeclarations</key>
+                        <array>
+                            <dict>
+                                <key>UTTypeIdentifier</key>
+                                <string>cc.unitmesh.devins.unit</string>
+                                <key>UTTypeDescription</key>
+                                <string>AutoDev Unit Bundle</string>
+                                <key>UTTypeConformsTo</key>
+                                <array>
+                                    <string>public.data</string>
+                                    <string>public.archive</string>
+                                </array>
+                                <key>UTTypeTagSpecification</key>
+                                <dict>
+                                    <key>public.filename-extension</key>
+                                    <array>
+                                        <string>unit</string>
+                                    </array>
+                                    <key>public.mime-type</key>
+                                    <string>application/x-autodev-unit</string>
+                                </dict>
+                            </dict>
+                        </array>
+                    """
+                }
             }
             windows {
                 menuGroup = "AutoDev"
@@ -990,4 +1041,30 @@ tasks.register<JavaExec>("runNanoDSLDemo") {
     mainClass.set("cc.unitmesh.devins.ui.nano.NanoDSLDemoPreviewKt")
     classpath = kotlin.jvm().compilations.getByName("main").runtimeDependencyFiles +
             files(kotlin.jvm().compilations.getByName("main").output.classesDirs)
+}
+
+// Task to run Artifact CLI (HTML/JS artifact generation testing)
+tasks.register<JavaExec>("runArtifactCli") {
+    group = "application"
+    description = "Run Artifact Agent CLI for testing HTML/JS artifact generation"
+
+    val jvmCompilation = kotlin.jvm().compilations.getByName("main")
+    classpath(jvmCompilation.output, configurations["jvmRuntimeClasspath"])
+    mainClass.set("cc.unitmesh.server.cli.ArtifactCli")
+
+    // Pass properties
+    if (project.hasProperty("artifactPrompt")) {
+        systemProperty("artifactPrompt", project.property("artifactPrompt") as String)
+    }
+    if (project.hasProperty("artifactScenario")) {
+        systemProperty("artifactScenario", project.property("artifactScenario") as String)
+    }
+    if (project.hasProperty("artifactOutput")) {
+        systemProperty("artifactOutput", project.property("artifactOutput") as String)
+    }
+    if (project.hasProperty("artifactLanguage")) {
+        systemProperty("artifactLanguage", project.property("artifactLanguage") as String)
+    }
+
+    standardInput = System.`in`
 }

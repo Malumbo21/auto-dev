@@ -71,7 +71,7 @@ class ChartAgent(
                 llmService.streamPrompt(
                     userPrompt = prompt,
                     compileDevIns = false
-                ).toList().forEach { chunk ->
+                ).collect { chunk ->
                     responseBuilder.append(chunk)
                 }
 

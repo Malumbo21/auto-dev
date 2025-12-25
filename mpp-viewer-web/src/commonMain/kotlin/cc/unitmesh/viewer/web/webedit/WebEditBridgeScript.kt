@@ -13,14 +13,29 @@ package cc.unitmesh.viewer.web.webedit
 fun getWebEditBridgeScript(): String = """
 (function() {
     console.log('[WebEditBridge] Script injection starting...');
-    
+
     // Prevent multiple injections
     if (window.webEditBridge) {
         console.log('[WebEditBridge] Already injected, skipping');
         return;
     }
-    
+
     console.log('[WebEditBridge] Checking kmpJsBridge availability:', typeof window.kmpJsBridge);
+
+    // Fix for compose-webview-multiplatform library bug:
+    // When callbackId is -1, the library still calls onCallback, causing infinite console.log output.
+    // We override onCallback to suppress -1 callbacks.
+    if (window.kmpJsBridge && window.kmpJsBridge.onCallback) {
+        var originalOnCallback = window.kmpJsBridge.onCallback;
+        window.kmpJsBridge.onCallback = function(callbackId, data) {
+            if (callbackId === -1) {
+                // Suppress -1 callbacks to avoid infinite loop / excessive logging
+                return;
+            }
+            originalOnCallback.call(window.kmpJsBridge, callbackId, data);
+        };
+        console.log('[WebEditBridge] Patched kmpJsBridge.onCallback to suppress -1 callbacks');
+    }
     
     // ========== Shadow DOM Inspect Overlay ==========
     console.log('[WebEditBridge] Creating overlay host...');

@@ -6,6 +6,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import cc.unitmesh.agent.AgentType
+import cc.unitmesh.agent.artifact.ArtifactBundle
 import cc.unitmesh.viewer.web.KcefManager
 import cc.unitmesh.viewer.web.KcefProgressBar
 import kotlinx.coroutines.launch
@@ -31,9 +32,18 @@ fun DesktopAutoDevApp(
     onSidebarVisibilityChanged: (Boolean) -> Unit = {},
     onWorkspacePathChanged: (String) -> Unit = {},
     onHasHistoryChanged: (Boolean) -> Unit = {},
-    onNotification: (String, String) -> Unit = { _, _ -> }
+    onNotification: (String, String) -> Unit = { _, _ -> },
+    initialBundle: ArtifactBundle? = null // Bundle from file association
 ) {
     val scope = rememberCoroutineScope()
+
+    // Log bundle reception
+    LaunchedEffect(initialBundle) {
+        if (initialBundle != null) {
+            cc.unitmesh.agent.logging.AutoDevLogger.info("DesktopAutoDevApp") { "📦 Received bundle: ${initialBundle.name} (id: ${initialBundle.id})" }
+            cc.unitmesh.agent.logging.AutoDevLogger.info("DesktopAutoDevApp") { "📦 Passing bundle to AutoDevApp" }
+        }
+    }
 
     // KCEF initialization state
     val kcefInitState by KcefManager.initState.collectAsState()
@@ -76,7 +86,8 @@ fun DesktopAutoDevApp(
             onSidebarVisibilityChanged = onSidebarVisibilityChanged,
             onWorkspacePathChanged = onWorkspacePathChanged,
             onHasHistoryChanged = onHasHistoryChanged,
-            onNotification = onNotification
+            onNotification = onNotification,
+            initialBundle = initialBundle // Pass bundle to AutoDevApp
         )
 
         // KCEF progress bar at the bottom (overlays the main content)

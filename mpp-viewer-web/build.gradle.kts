@@ -121,10 +121,6 @@ kotlin {
         }
 
         val iosMain by creating {
-            dependsOn(commonMain.get())
-            iosX64Main.get().dependsOn(this)
-            iosArm64Main.get().dependsOn(this)
-            iosSimulatorArm64Main.get().dependsOn(this)
             dependencies {
                 // compose-webview-multiplatform - iOS support
                 implementation(libs.compose.webview)
