@@ -228,7 +228,7 @@ class RunConfigService(
                 _isRunning.value = false
                 _runningConfigId.value = null
                 currentSession = null
-                currentProcess = null
+                currentProcessHandle = null
                 executionJob = null
             }
         }
@@ -252,24 +252,23 @@ class RunConfigService(
             // Read output from PTY process incrementally
             val process = session.ptyHandle
             
-            return when (process) {
-                is Process -> {
-                    currentProcess = process
-                    readProcessOutput(process, session, onOutput, config.timeoutMs)
+            return if (isNativeProcess(process)) {
+                currentProcessHandle = process
+                readProcessOutputPlatform(process, onOutput, config.timeoutMs) { pid ->
+                    // Process started callback
                 }
-                else -> {
-                    // For PTY process, use the PTY-specific handling
-                    readPtyOutput(session, onOutput, config.timeoutMs)
-                }
+            } else {
+                // For PTY process, use the PTY-specific handling
+                readPtyOutput(session, onOutput, config.timeoutMs)
             }
         } finally {
             currentSession = null
-            currentProcess = null
+            currentProcessHandle = null
         }
     }
     
     private var currentSession: LiveShellSession? = null
-    private var currentProcess: Process? = null
+    private var currentProcessHandle: Any? = null
     private var executionJob: kotlinx.coroutines.Job? = null
     
     /**
@@ -286,13 +285,11 @@ class RunConfigService(
         // Cancel the execution job if it exists
         executionJob?.cancel()
         
-        // Kill the process
-        currentProcess?.let { process ->
+        // Kill the process using platform-specific implementation
+        currentProcessHandle?.let { handle ->
             try {
-                if (process.isAlive) {
-                    process.destroyForcibly()
-                    logger.info { "Process killed forcefully" }
-                }
+                killProcessPlatform(handle)
+                logger.info { "Process killed forcefully" }
             } catch (e: Exception) {
                 logger.error { "Failed to kill process: ${e.message}" }
             }
@@ -312,97 +309,8 @@ class RunConfigService(
         _isRunning.value = false
         _runningConfigId.value = null
         currentSession = null
-        currentProcess = null
+        currentProcessHandle = null
         executionJob = null
-    }
-    
-    /**
-     * Read output from a standard Process with streaming
-     */
-    private suspend fun readProcessOutput(
-        process: Process,
-        session: LiveShellSession,
-        onOutput: (String) -> Unit,
-        timeoutMs: Long
-    ): RunConfigResult = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-        val startTime = System.currentTimeMillis()
-        val outputBuilder = StringBuilder()
-        var cancelled = false
-        
-        // Read stdout in a separate thread
-        val stdoutReader = Thread {
-            try {
-                process.inputStream.bufferedReader().use { reader ->
-                    val buffer = CharArray(1024)
-                    while (!cancelled) {
-                        val charsRead = reader.read(buffer)
-                        if (charsRead == -1) break
-                        val chunk = String(buffer, 0, charsRead)
-                        outputBuilder.append(chunk)
-                        onOutput(chunk)
-                    }
-                }
-            } catch (e: Exception) {
-                // Stream closed, ignore
-            }
-        }.apply { start() }
-        
-        // Read stderr in a separate thread
-        val stderrReader = Thread {
-            try {
-                process.errorStream.bufferedReader().use { reader ->
-                    val buffer = CharArray(1024)
-                    while (!cancelled) {
-                        val charsRead = reader.read(buffer)
-                        if (charsRead == -1) break
-                        val chunk = String(buffer, 0, charsRead)
-                        outputBuilder.append(chunk)
-                        onOutput(chunk)
-                    }
-                }
-            } catch (e: Exception) {
-                // Stream closed, ignore
-            }
-        }.apply { start() }
-        
-        try {
-            // Wait for process with timeout, but don't kill on timeout
-            val completed = process.waitFor(timeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS)
-            
-            // Wait for readers to finish (with short timeout)
-            stdoutReader.join(2000)
-            stderrReader.join(2000)
-            
-            if (!completed) {
-                // Process still running after timeout - report but don't kill
-                // This is expected for servers like bootRun
-                onOutput("\n[INFO] Process still running after ${timeoutMs/1000}s timeout.\n")
-                return@withContext RunConfigResult(
-                    success = true,
-                    message = "Process started (may still be running)",
-                    pid = process.pid().toInt()
-                )
-            }
-            
-            val exitCode = process.exitValue()
-            val executionTime = System.currentTimeMillis() - startTime
-            
-            RunConfigResult(
-                success = exitCode == 0,
-                exitCode = exitCode,
-                message = if (exitCode == 0) {
-                    "Command completed successfully (${executionTime}ms)"
-                } else {
-                    "Command exited with code $exitCode"
-                }
-            )
-        } catch (e: kotlinx.coroutines.CancellationException) {
-            cancelled = true
-            // Interrupt readers
-            stdoutReader.interrupt()
-            stderrReader.interrupt()
-            throw e
-        }
     }
     
     /**

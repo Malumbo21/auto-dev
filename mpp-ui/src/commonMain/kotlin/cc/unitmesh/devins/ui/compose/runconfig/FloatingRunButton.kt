@@ -5,9 +5,6 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.TooltipArea
-import androidx.compose.foundation.TooltipPlacement
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.heightIn
@@ -34,6 +31,7 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import cc.unitmesh.agent.runconfig.RunConfig
 import cc.unitmesh.agent.runconfig.RunConfigState
+import cc.unitmesh.devins.ui.compose.components.TooltipWrapper
 import cc.unitmesh.devins.ui.compose.icons.AutoDevComposeIcons
 import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
 
@@ -46,7 +44,6 @@ import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
  * - CONFIGURED: shows Run/Stop FAB; tap opens menu with actions
  * - ERROR: shows "Config Error" FAB
  */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun FloatingRunButton(
     state: RunConfigState,
@@ -90,7 +87,7 @@ fun FloatingRunButton(
                 )
                 
                 // Tooltip showing AI analysis log
-                TooltipArea(
+                TooltipWrapper(
                     tooltip = {
                         if (analysisLog.isNotBlank()) {
                             Box(
@@ -112,8 +109,9 @@ fun FloatingRunButton(
                             }
                         }
                     },
-                    tooltipPlacement = TooltipPlacement.CursorPoint(offset = DpOffset(0.dp, 16.dp)),
-                    delayMillis = 300
+                    tooltipOffset = DpOffset(0.dp, 16.dp),
+                    delayMillis = 300,
+                    modifier = Modifier
                 ) {
                     SmallFloatingActionButton(
                         onClick = {},
