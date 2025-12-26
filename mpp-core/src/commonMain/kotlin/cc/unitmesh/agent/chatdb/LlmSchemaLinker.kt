@@ -2,7 +2,7 @@ package cc.unitmesh.agent.chatdb
 
 import cc.unitmesh.agent.database.DatabaseConnection
 import cc.unitmesh.agent.database.DatabaseSchema
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -21,7 +21,7 @@ import kotlinx.serialization.json.Json
  * - A Survey of NL2SQL with Large Language Models
  */
 class LlmSchemaLinker(
-    private val llmService: KoogLLMService,
+    private val llmService: LLMService,
     private val databaseConnection: DatabaseConnection? = null,
     private val fallbackLinker: KeywordSchemaLinker = KeywordSchemaLinker()
 ) : SchemaLinker() {

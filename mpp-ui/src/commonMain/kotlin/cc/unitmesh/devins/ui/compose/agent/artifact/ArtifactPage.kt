@@ -27,8 +27,7 @@ import cc.unitmesh.devins.ui.compose.editor.DevInEditorInput
 import cc.unitmesh.devins.ui.compose.icons.AutoDevComposeIcons
 import cc.unitmesh.devins.ui.compose.theme.AutoDevColors
 import cc.unitmesh.devins.workspace.WorkspaceManager
-import cc.unitmesh.llm.KoogLLMService
-import kotlinx.coroutines.launch
+import cc.unitmesh.llm.LLMService
 
 /**
  * ArtifactPage - Page for generating and previewing artifacts
@@ -48,7 +47,7 @@ import kotlinx.coroutines.launch
  */
 @Composable
 fun ArtifactPage(
-    llmService: KoogLLMService?,
+    llmService: LLMService?,
     modifier: Modifier = Modifier,
     onBack: () -> Unit = {},
     onNotification: (String, String) -> Unit = { _, _ -> },
@@ -126,7 +125,7 @@ fun ArtifactPage(
     // Derive the artifact to display (streaming or completed)
     // Directly compute without remember to ensure reactive updates when any state changes
     val displayArtifact: ArtifactAgent.Artifact? = currentArtifact ?: viewModel.lastArtifact ?: streamingArtifact?.toArtifact()
-    
+
     // Debug log only when relevant state changes (avoid INFO spam from recompositions)
     LaunchedEffect(
         displayArtifact?.title,
@@ -154,7 +153,7 @@ fun ArtifactPage(
     val isDesktop = Platform.isJvm && !Platform.isAndroid
 
     // Check if we should show welcome screen
-    val hasMessages = viewModel.renderer.timeline.isNotEmpty() || 
+    val hasMessages = viewModel.renderer.timeline.isNotEmpty() ||
                       viewModel.renderer.currentStreamingOutput.isNotEmpty()
 
     Row(modifier = modifier.fillMaxSize()) {
@@ -315,17 +314,17 @@ private fun ArtifactPreviewPanelWithStreaming(
 ) {
     // Reload key to force WebView refresh
     var reloadKey by remember { mutableStateOf(0) }
-    
+
     // Track if we've completed streaming (for showing reload button)
     var hasCompletedStreaming by remember { mutableStateOf(false) }
-    
+
     // Update hasCompletedStreaming when streaming finishes
     LaunchedEffect(isStreaming) {
         if (!isStreaming && !hasCompletedStreaming) {
             hasCompletedStreaming = true
         }
     }
-    
+
     // Reset when artifact changes
     LaunchedEffect(artifact.identifier, artifact.content.length) {
         if (isStreaming) {
@@ -384,7 +383,7 @@ private fun ArtifactPreviewPanelWithStreaming(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                
+
                 // Reload button - always visible, but more prominent after streaming completes
                 IconButton(
                     onClick = {
@@ -523,7 +522,7 @@ private fun ArtifactTopBar(
 /**
  * Artifact preview panel - shows WebView with generated HTML
  * This is an expect/actual pattern - JVM implementation uses KCEF
- * 
+ *
  * @param artifact The artifact to preview
  * @param onConsoleLog Callback for console log messages
  * @param onFixRequest Callback when user requests to fix a failed artifact (artifact, errorMessage)

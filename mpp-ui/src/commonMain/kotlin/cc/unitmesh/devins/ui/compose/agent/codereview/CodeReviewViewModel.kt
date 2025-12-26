@@ -20,7 +20,7 @@ import cc.unitmesh.agent.util.WalkthroughExtractor
 import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.devins.ui.wasm.WasmGitManager
 import cc.unitmesh.devins.workspace.Workspace
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -580,7 +580,7 @@ open class CodeReviewViewModel(
                 val modelConfig = configWrapper.getActiveModelConfig()
                     ?: error("No active model configuration found")
 
-                val llmService = KoogLLMService.create(modelConfig)
+                val llmService = LLMService.create(modelConfig)
 
                 // Use LLM service to generate plan with streaming
                 llmService.streamPrompt(planPrompt, compileDevIns = false).collect { chunk ->
@@ -1232,7 +1232,7 @@ open class CodeReviewViewModel(
                 val modelConfig = configWrapper.getActiveModelConfig()
                     ?: error("No active model configuration found. Please configure a model in settings.")
 
-                val llmService = KoogLLMService.create(modelConfig)
+                val llmService = LLMService.create(modelConfig)
 
                 val mcpToolConfigService = McpToolConfigService(toolConfig)
                 // Create renderer

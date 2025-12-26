@@ -1,7 +1,7 @@
 package cc.unitmesh.devins.idea.editor
 
 import cc.unitmesh.config.ConfigManager
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import com.intellij.openapi.application.runReadAction
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.Logger
@@ -51,7 +51,7 @@ class IdeaPromptEnhancer(private val project: Project) {
 
             logger.info("Using model: ${modelConfig.modelName}")
 
-            val llmService = KoogLLMService(modelConfig)
+            val llmService = LLMService(modelConfig)
             val result = StringBuilder()
 
             // Use streamPrompt with compileDevIns=false since we're sending a raw prompt

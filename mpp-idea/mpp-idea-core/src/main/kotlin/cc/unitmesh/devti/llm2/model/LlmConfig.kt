@@ -126,7 +126,7 @@ data class LlmConfig(
     }
 
     /**
-     * Convert to mpp-core ModelConfig for use with KoogLLMService
+     * Convert to mpp-core ModelConfig for use with LLMService
      *
      * If auth.token is empty, tries to load from ~/.autodev/config.yaml as fallback
      */

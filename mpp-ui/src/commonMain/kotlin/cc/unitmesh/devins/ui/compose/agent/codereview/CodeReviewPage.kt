@@ -11,7 +11,7 @@ import cc.unitmesh.devins.ui.compose.agent.AgentTopAppBar
 import cc.unitmesh.devins.ui.compose.agent.AgentTopAppBarActions
 import cc.unitmesh.devins.workspace.Workspace
 import cc.unitmesh.devins.workspace.WorkspaceManager
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import kotlinx.coroutines.launch
 
 /**
@@ -23,7 +23,7 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CodeReviewPage(
-    llmService: KoogLLMService?,
+    llmService: LLMService?,
     modifier: Modifier = Modifier,
     onBack: () -> Unit = {},
     onNotification: (String, String) -> Unit = { _, _ -> }

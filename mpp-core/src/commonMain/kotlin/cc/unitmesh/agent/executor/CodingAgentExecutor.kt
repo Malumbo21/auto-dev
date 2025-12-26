@@ -15,7 +15,7 @@ import cc.unitmesh.agent.tool.ToolResult
 import cc.unitmesh.agent.tool.ToolType
 import cc.unitmesh.agent.tool.toToolType
 import cc.unitmesh.devins.parser.CodeFence
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import kotlinx.coroutines.yield
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.async
@@ -37,7 +37,7 @@ data class AsyncShellConfig(
 
 class CodingAgentExecutor(
     projectPath: String,
-    llmService: KoogLLMService,
+    llmService: LLMService,
     toolOrchestrator: ToolOrchestrator,
     renderer: CodingAgentRenderer,
     maxIterations: Int = 100,

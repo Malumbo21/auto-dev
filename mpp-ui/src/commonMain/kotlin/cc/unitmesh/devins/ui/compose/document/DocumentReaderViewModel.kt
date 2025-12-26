@@ -9,7 +9,7 @@ import cc.unitmesh.devins.document.*
 import cc.unitmesh.devins.ui.compose.agent.ComposeRenderer
 import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.devins.workspace.Workspace
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import kotlinx.coroutines.*
 import kotlinx.datetime.Clock
 
@@ -30,7 +30,7 @@ class DocumentReaderViewModel(private val workspace: Workspace) {
     val renderer = ComposeRenderer()
 
     // LLM and Agent
-    private var llmService: KoogLLMService? = null
+    private var llmService: LLMService? = null
     private var documentAgent: DocumentAgent? = null
     private var currentExecutionJob: Job? = null
 
@@ -146,7 +146,7 @@ class DocumentReaderViewModel(private val workspace: Workspace) {
                 val configWrapper = ConfigManager.load()
                 val activeConfig = configWrapper.getActiveModelConfig()
                 if (activeConfig != null && activeConfig.isValid()) {
-                    llmService = KoogLLMService.create(activeConfig)
+                    llmService = LLMService.create(activeConfig)
 
                     // Create DocumentAgent
                     val toolConfigFile = cc.unitmesh.agent.config.ToolConfigFile.default()

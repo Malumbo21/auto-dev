@@ -107,7 +107,7 @@ class JsCodingAgent(
     // 内部使用 Kotlin 的 CodingAgent
     private val agent: CodingAgent = CodingAgent(
         projectPath = projectPath,
-        llmService = llmService.service,  // 访问内部 KoogLLMService
+        llmService = llmService.service,  // 访问内部 LLMService
         maxIterations = maxIterations,
         renderer = if (renderer != null) JsRendererAdapter(renderer) else DefaultCodingAgentRenderer(),
         mcpServers = parseMcpServers(mcpServers),

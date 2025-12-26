@@ -15,10 +15,10 @@ import kotlin.concurrent.Volatile
  * ```kotlin
  * // 在 mpp-idea 中使用 IDEA 编译器
  * val compilerService = IdeaDevInsCompilerService(project)
- * val llmService = KoogLLMService(config, compilerService = compilerService)
+ * val llmService = LLMService(config, compilerService = compilerService)
  *
  * // 在 CLI/Desktop 中使用默认编译器
- * val llmService = KoogLLMService(config)
+ * val llmService = LLMService(config)
  * // compilerService 默认为 DefaultDevInsCompilerService
  * ```
  */

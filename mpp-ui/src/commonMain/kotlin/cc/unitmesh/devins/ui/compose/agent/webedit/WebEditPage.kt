@@ -10,12 +10,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import cc.unitmesh.agent.CodingAgent
 import cc.unitmesh.agent.AgentTask
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import cc.unitmesh.devins.ui.compose.agent.webedit.automation.runOneSentenceCommand
 import cc.unitmesh.devins.ui.compose.editor.multimodal.*
 import cc.unitmesh.viewer.web.webedit.*
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 import kotlin.io.encoding.Base64
@@ -34,7 +33,7 @@ data class ChatMessage(
  */
 private suspend fun handleChatMessage(
     message: String,
-    llmService: KoogLLMService?,
+    llmService: LLMService?,
     currentUrl: String,
     pageTitle: String,
     selectedElement: DOMElement?,
@@ -158,7 +157,7 @@ private suspend fun handleChatWithCodingAgent(
  */
 @Composable
 fun WebEditPage(
-    llmService: KoogLLMService?,
+    llmService: LLMService?,
     bridge: WebEditBridge? = null,
     modifier: Modifier = Modifier,
     codingAgent: CodingAgent? = null,
@@ -190,11 +189,11 @@ fun WebEditPage(
     var chatHistory by remember { mutableStateOf<List<ChatMessage>>(emptyList()) }
     var showChatHistory by remember { mutableStateOf(false) }
     var automationMode by remember { mutableStateOf(true) }
-    
+
     // Screenshot state
     val lastScreenshot by internalBridge.lastScreenshot.collectAsState()
     var visionHelper by remember { mutableStateOf<WebEditVisionHelper?>(null) }
-    
+
     // Image upload manager for screenshots
     val imageUploadManager = remember(scope) {
         ImageUploadManager(
@@ -232,19 +231,19 @@ fun WebEditPage(
             onError = { error -> onNotification("Upload Error", error) }
         )
     }
-    
+
     // Collect multimodal state
     val multimodalState by imageUploadManager.state.collectAsState()
     var previewingImage by remember { mutableStateOf<AttachedImage?>(null) }
-    
+
     // Element tags state - stores selected elements as tags
     var elementTags by remember { mutableStateOf(ElementTagCollection()) }
-    
+
     // Initialize vision helper
     LaunchedEffect(Unit) {
         visionHelper = createWebEditVisionHelper(internalBridge)
     }
-    
+
     // Watch for screenshot and add to image upload manager
     @OptIn(ExperimentalEncodingApi::class)
     LaunchedEffect(lastScreenshot) {
@@ -320,13 +319,13 @@ fun WebEditPage(
 
                     val analysisResult = streamingContent.toString()
                     imageUploadManager.setAnalysisResult(analysisResult)
-                    
+
                     // Send the combined message with analysis result
                     scope.launch {
                         // Refresh actionable elements
                         internalBridge.refreshActionableElements()
                         delay(300)
-                        
+
                         // Build combined message
                         val combinedMessage = buildString {
                             if (originalText.isNotBlank()) {
@@ -342,12 +341,12 @@ fun WebEditPage(
                                 }
                             }
                         }
-                        
+
                         // Add user message to history
                         chatHistory = chatHistory + ChatMessage(role = "user", content = combinedMessage)
                         showChatHistory = true
                     }
-                    
+
                     // Clear input and images
                     chatInput = ""
                     elementTags = elementTags.clear()
@@ -363,7 +362,7 @@ fun WebEditPage(
                 // Refresh actionable elements
                 internalBridge.refreshActionableElements()
                 delay(300)
-                
+
                 // Build user message with element context
                 val userMessage = buildString {
                     append(fullText)
@@ -374,18 +373,18 @@ fun WebEditPage(
                         }
                     }
                 }
-                
+
                 // Add user message to history
                 chatHistory = chatHistory + ChatMessage(role = "user", content = userMessage)
                 showChatHistory = true
             }
-            
+
             // Clear input and files
             chatInput = ""
             elementTags = elementTags.clear()
         }
     }
-    
+
     /**
      * Send message directly (no multimodal analysis).
      */
@@ -394,7 +393,7 @@ fun WebEditPage(
             // Refresh actionable elements
             internalBridge.refreshActionableElements()
             delay(300)
-            
+
             // Build user message with element context
             val userMessage = buildString {
                 append(message)
@@ -405,16 +404,16 @@ fun WebEditPage(
                     }
                 }
             }
-            
+
             // Add user message to history
             chatHistory = chatHistory + ChatMessage(role = "user", content = userMessage)
             showChatHistory = true
-            
+
             // Continue with existing automation or chat logic...
             // (This will be handled by the existing onSend callback)
         }
     }
-    
+
 
     // Auto-add selected element as a tag when element is selected
     LaunchedEffect(selectedElement) {
@@ -503,7 +502,7 @@ fun WebEditPage(
                     onClose = { showChatHistory = false }
                 )
             }
-            
+
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -661,7 +660,7 @@ fun WebEditPage(
                     // Refresh actionable elements to ensure we have the latest context for current page
                     internalBridge.refreshActionableElements()
                     delay(300) // Give it time to update
-                    
+
                     // Build user message with element context
                     val userMessage = buildString {
                         append(message)
@@ -672,7 +671,7 @@ fun WebEditPage(
                             }
                         }
                     }
-                    
+
                     // Add user message to history
                     chatHistory = chatHistory + ChatMessage(role = "user", content = userMessage)
                     showChatHistory = true
@@ -790,7 +789,7 @@ fun WebEditPage(
                     // Refresh actionable elements to ensure we have the latest context for current page
                     internalBridge.refreshActionableElements()
                     delay(300) // Give it time to update
-                    
+
                     // Build user message with element context
                     val userMessage = buildString {
                         append(message)
@@ -806,11 +805,11 @@ fun WebEditPage(
                             }
                         }
                     }
-                    
+
                     // Add user message to history
                     chatHistory = chatHistory + ChatMessage(role = "user", content = userMessage)
                     showChatHistory = true
-                    
+
                     // Prefer CodingAgent for source code mapping if available
                     if (codingAgent != null && projectPath.isNotEmpty()) {
                         handleChatWithCodingAgent(

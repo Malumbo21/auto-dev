@@ -13,7 +13,7 @@ import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.devins.ui.compose.agent.webedit.ElementTagCollection
 import cc.unitmesh.devins.ui.compose.agent.webedit.WebEditPage
 import cc.unitmesh.devins.ui.compose.agent.webedit.buildWebEditLLMPrompt
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import cc.unitmesh.viewer.web.webedit.*
 import dev.datlag.kcef.KCEF
 import kotlinx.coroutines.Dispatchers
@@ -133,7 +133,7 @@ fun WebEditDebugContainer() {
     val errorMessage by bridge.errorMessage.collectAsState()
     val isReady by bridge.isReady.collectAsState()
 
-    var llmService by remember { mutableStateOf<KoogLLMService?>(null) }
+    var llmService by remember { mutableStateOf<LLMService?>(null) }
     var llmInitError by remember { mutableStateOf<String?>(null) }
     var hasRunAutoTest by remember { mutableStateOf(false) }
 
@@ -153,7 +153,7 @@ fun WebEditDebugContainer() {
                 return@LaunchedEffect
             }
 
-            llmService = KoogLLMService.create(activeConfig)
+            llmService = LLMService.create(activeConfig)
             println("[WebEditDebugContainer] ✅ LLM initialized: ${activeConfig.provider.displayName} / ${activeConfig.modelName}")
         } catch (e: Exception) {
             llmInitError = e.message ?: "Failed to init LLM"

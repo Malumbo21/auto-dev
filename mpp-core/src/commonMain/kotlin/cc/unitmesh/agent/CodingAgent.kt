@@ -31,7 +31,7 @@ import cc.unitmesh.agent.tool.shell.DefaultShellExecutor
 import cc.unitmesh.agent.tool.shell.ShellExecutor
 import cc.unitmesh.agent.logging.getLogger
 import cc.unitmesh.agent.tool.schema.ToolCategory
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import cc.unitmesh.llm.ModelConfig
 import cc.unitmesh.llm.image.ImageGenerationService
 import kotlinx.coroutines.CoroutineScope
@@ -41,7 +41,7 @@ import kotlinx.coroutines.launch
 
 class CodingAgent(
     private val projectPath: String,
-    private val llmService: KoogLLMService,
+    private val llmService: LLMService,
     override val maxIterations: Int = 100,
     private val renderer: CodingAgentRenderer = DefaultCodingAgentRenderer(),
     private val fileSystem: ToolFileSystem? = null,

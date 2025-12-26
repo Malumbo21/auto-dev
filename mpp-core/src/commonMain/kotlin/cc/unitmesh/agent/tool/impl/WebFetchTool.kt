@@ -7,7 +7,7 @@ import cc.unitmesh.agent.tool.impl.http.UrlParser
 import cc.unitmesh.agent.tool.schema.DeclarativeToolSchema
 import cc.unitmesh.agent.tool.schema.SchemaPropertyBuilder.string
 import cc.unitmesh.agent.tool.schema.ToolCategory
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import kotlinx.serialization.Serializable
 
 /**
@@ -65,7 +65,7 @@ object WebFetchSchema : DeclarativeToolSchema(
 class WebFetchInvocation(
     params: WebFetchParams,
     tool: WebFetchTool,
-    private val llmService: KoogLLMService?,
+    private val llmService: LLMService?,
     private val httpFetcher: HttpFetcher
 ) : BaseToolInvocation<WebFetchParams, ToolResult>(params, tool) {
     private val logger = getLogger("WebFetchInvocation")
@@ -176,7 +176,7 @@ data class FetchResult(
 )
 
 class WebFetchTool(
-    private val llmService: KoogLLMService? = null
+    private val llmService: LLMService? = null
 ) : BaseExecutableTool<WebFetchParams, ToolResult>() {
 
     private val httpFetcher: HttpFetcher by lazy {

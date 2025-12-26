@@ -14,12 +14,11 @@ import cc.unitmesh.agent.tool.schema.DeclarativeToolSchema
 import cc.unitmesh.agent.tool.schema.SchemaPropertyBuilder.string
 import cc.unitmesh.devins.parser.CodeFence
 import cc.unitmesh.llm.ModelConfig
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import cc.unitmesh.llm.KoogPromptStreamingServiceAdapter
 import cc.unitmesh.llm.PromptStreamingService
 import cc.unitmesh.llm.image.ImageGenerationResult
 import cc.unitmesh.llm.image.ImageGenerationService
-import kotlinx.coroutines.flow.toList
 import kotlinx.serialization.Serializable
 
 /**
@@ -48,7 +47,7 @@ class NanoDSLAgent(
 ) {
 
     constructor(
-        llmService: KoogLLMService,
+        llmService: LLMService,
         promptTemplate: String = DEFAULT_PROMPT,
         maxRetries: Int = 3,
         imageGenerationService: ImageGenerationService? = null

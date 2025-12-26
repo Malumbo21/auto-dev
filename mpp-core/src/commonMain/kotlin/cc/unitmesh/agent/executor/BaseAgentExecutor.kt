@@ -4,7 +4,7 @@ import cc.unitmesh.agent.conversation.ConversationManager
 import cc.unitmesh.agent.orchestrator.ToolOrchestrator
 import cc.unitmesh.agent.parser.ToolCallParser
 import cc.unitmesh.agent.render.CodingAgentRenderer
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import kotlinx.coroutines.flow.cancellable
 
 /**
@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.cancellable
  */
 abstract class BaseAgentExecutor(
     protected val projectPath: String,
-    protected val llmService: KoogLLMService,
+    protected val llmService: LLMService,
     protected val toolOrchestrator: ToolOrchestrator,
     protected val renderer: CodingAgentRenderer,
     protected val maxIterations: Int,

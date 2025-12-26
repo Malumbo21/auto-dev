@@ -7,14 +7,14 @@ import cc.unitmesh.agent.tool.filesystem.DefaultToolFileSystem
 import cc.unitmesh.agent.tool.filesystem.ToolFileSystem
 import cc.unitmesh.agent.tool.shell.DefaultShellExecutor
 import cc.unitmesh.agent.tool.shell.ShellExecutor
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 
 class ToolRegistry(
     private val fileSystem: ToolFileSystem = DefaultToolFileSystem(),
     private val shellExecutor: ShellExecutor = DefaultShellExecutor(),
     private val configService: cc.unitmesh.agent.config.McpToolConfigService? = null,
     private val subAgentManager: SubAgentManager? = SubAgentManager(),
-    private val llmService: KoogLLMService? = null
+    private val llmService: LLMService? = null
 ) {
     private val logger = getLogger("ToolRegistry")
     private val tools = mutableMapOf<String, ExecutableTool<*, *>>()

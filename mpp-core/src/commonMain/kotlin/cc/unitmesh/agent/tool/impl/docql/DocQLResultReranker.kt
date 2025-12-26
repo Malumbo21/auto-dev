@@ -8,7 +8,7 @@ import cc.unitmesh.agent.scoring.RerankerType
 import cc.unitmesh.agent.scoring.TextSegment
 import cc.unitmesh.devins.document.DocumentFile
 import cc.unitmesh.devins.document.DocumentRegistry
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.datetime.Clock
 
@@ -29,7 +29,7 @@ const val DEFAULT_CHAR_LENGTH = 500
  * - Hybrid approach (combines both)
  */
 class DocQLResultReranker(
-    private val llmService: KoogLLMService?
+    private val llmService: LLMService?
 ) {
     /**
      * Rerank search items according to the specified strategy.

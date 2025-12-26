@@ -4,15 +4,12 @@ import cc.unitmesh.devins.llm.Message
 import cc.unitmesh.devins.llm.MessageRole
 import cc.unitmesh.llm.compression.CompressionConfig
 import cc.unitmesh.llm.compression.CompressionStatus
-import cc.unitmesh.llm.compression.TokenInfo
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
-import kotlin.test.assertTrue
 
-class KoogLLMServiceCompressionTest {
+class LLMServiceCompressionTest {
     
     private fun createMockModelConfig(): ModelConfig {
         return ModelConfig(
@@ -31,7 +28,7 @@ class KoogLLMServiceCompressionTest {
             autoCompressionEnabled = true
         )
         
-        val llmService = KoogLLMService.create(
+        val llmService = LLMService.create(
             config = createMockModelConfig(),
             compressionConfig = compressionConfig
         )
@@ -43,7 +40,7 @@ class KoogLLMServiceCompressionTest {
     
     @Test
     fun testDefaultCompressionConfig() {
-        val llmService = KoogLLMService.create(createMockModelConfig())
+        val llmService = LLMService.create(createMockModelConfig())
         
         // 验证默认配置
         assertNotNull(llmService)
@@ -52,7 +49,7 @@ class KoogLLMServiceCompressionTest {
     
     @Test
     fun testGetLastTokenInfo() {
-        val llmService = KoogLLMService.create(createMockModelConfig())
+        val llmService = LLMService.create(createMockModelConfig())
         
         // 初始状态应该是空的 TokenInfo
         val initialTokenInfo = llmService.getLastTokenInfo()
@@ -63,7 +60,7 @@ class KoogLLMServiceCompressionTest {
     
     @Test
     fun testResetCompressionState() {
-        val llmService = KoogLLMService.create(createMockModelConfig())
+        val llmService = LLMService.create(createMockModelConfig())
         
         // 重置压缩状态不应该抛出异常
         llmService.resetCompressionState()
@@ -75,7 +72,7 @@ class KoogLLMServiceCompressionTest {
     
     @Test
     fun testTryCompressHistoryWithEmptyMessages() = runTest {
-        val llmService = KoogLLMService.create(createMockModelConfig())
+        val llmService = LLMService.create(createMockModelConfig())
         
         val result = llmService.tryCompressHistory(
             historyMessages = emptyList(),
@@ -89,7 +86,7 @@ class KoogLLMServiceCompressionTest {
     
     @Test
     fun testTryCompressHistoryWithForce() = runTest {
-        val llmService = KoogLLMService.create(createMockModelConfig())
+        val llmService = LLMService.create(createMockModelConfig())
         
         val messages = listOf(
             Message(MessageRole.SYSTEM, "你是一个助手"),

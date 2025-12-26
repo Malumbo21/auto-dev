@@ -6,13 +6,13 @@ import cc.unitmesh.llm.compression.TokenInfo
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Adapter to expose KoogLLMService through PromptStreamingService.
+ * Adapter to expose LLMService through PromptStreamingService.
  *
- * Kotlin doesn't allow default values on overriding functions, so KoogLLMService keeps its
+ * Kotlin doesn't allow default values on overriding functions, so LLMService keeps its
  * default-arg API while agents can depend on the interface for testability.
  */
 class KoogPromptStreamingServiceAdapter(
-    private val delegate: KoogLLMService
+    private val delegate: LLMService
 ) : PromptStreamingService {
     override fun streamPrompt(
         userPrompt: String,

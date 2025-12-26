@@ -1,7 +1,7 @@
 package cc.unitmesh.agent.subagent
 
 import cc.unitmesh.agent.tool.ToolResult
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.promise
 import kotlin.js.JsExport
@@ -59,7 +59,7 @@ data class JsAnalysisContext(
 @JsExport
 class JsErrorRecoveryAgent(
     private val projectPath: String,
-    private val llmService: KoogLLMService
+    private val llmService: LLMService
 ) {
     private val agent = ErrorRecoveryAgent(projectPath, llmService)
     
@@ -81,7 +81,7 @@ class JsErrorRecoveryAgent(
  */
 @JsExport
 class JsAnalysisAgent(
-    private val llmService: KoogLLMService,
+    private val llmService: LLMService,
     private val contentThreshold: Int = 5000
 ) {
     private val agent = AnalysisAgent(llmService, contentThreshold)
@@ -121,7 +121,7 @@ data class JsNanoDSLContext(
  */
 @JsExport
 class JsNanoDSLAgent(
-    private val llmService: KoogLLMService,
+    private val llmService: LLMService,
     private val promptTemplate: String? = null
 ) {
     private val agent = NanoDSLAgent(
@@ -175,7 +175,7 @@ data class JsChartContext(
  */
 @JsExport
 class JsChartAgent(
-    private val llmService: KoogLLMService,
+    private val llmService: LLMService,
     private val promptTemplate: String? = null
 ) {
     private val agent = ChartAgent(

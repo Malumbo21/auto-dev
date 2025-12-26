@@ -2,7 +2,7 @@ package cc.unitmesh.agent.conversation
 
 import cc.unitmesh.devins.llm.Message
 import cc.unitmesh.devins.llm.MessageRole
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import cc.unitmesh.llm.compression.CompressionResult
 import cc.unitmesh.llm.compression.CompressionStatus
 import cc.unitmesh.llm.compression.TokenInfo
@@ -21,7 +21,7 @@ import kotlinx.coroutines.flow.cancellable
  * 5. 自动上下文压缩
  */
 class ConversationManager(
-    private val llmService: KoogLLMService,
+    private val llmService: LLMService,
     private val systemPrompt: String,
     private val autoCompress: Boolean = true
 ) {

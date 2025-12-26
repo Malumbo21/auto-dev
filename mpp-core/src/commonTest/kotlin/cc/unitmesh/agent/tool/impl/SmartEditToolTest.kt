@@ -1,10 +1,9 @@
 package cc.unitmesh.agent.tool.impl
 
-import cc.unitmesh.agent.tool.LocationType
 import cc.unitmesh.agent.tool.ToolResult
 import cc.unitmesh.agent.tool.filesystem.FileInfo
 import cc.unitmesh.agent.tool.filesystem.ToolFileSystem
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.Clock
 import kotlin.test.BeforeTest
@@ -53,7 +52,7 @@ class SmartEditToolTest {
     }
 
     private lateinit var fileSystem: MockFileSystem
-    private lateinit var mockLLMService: KoogLLMService
+    private lateinit var mockLLMService: LLMService
     private lateinit var tool: SmartEditTool
 
     @BeforeTest
@@ -67,7 +66,7 @@ class SmartEditToolTest {
             temperature = 0.7,
             maxTokens = 4000
         )
-        mockLLMService = KoogLLMService(mockConfig)
+        mockLLMService = LLMService(mockConfig)
         tool = SmartEditTool(fileSystem, mockLLMService)
     }
 

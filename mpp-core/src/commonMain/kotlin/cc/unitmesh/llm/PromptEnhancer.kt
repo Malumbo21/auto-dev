@@ -13,7 +13,7 @@ import cc.unitmesh.indexer.template.TemplateEngine
  * designed to work across JVM, JS, and other Kotlin targets.
  */
 class PromptEnhancer(
-    private val llmService: KoogLLMService,
+    private val llmService: LLMService,
     private val fileSystem: ProjectFileSystem,
     private val domainDictService: DomainDictService? = null
 ) {

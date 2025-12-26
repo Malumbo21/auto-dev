@@ -22,7 +22,7 @@ import cc.unitmesh.agent.tool.shell.DefaultShellExecutor
 import cc.unitmesh.agent.tool.shell.ShellExecutor
 import cc.unitmesh.agent.tracker.IssueTracker
 import cc.unitmesh.agent.util.WalkthroughExtractor
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import cc.unitmesh.llm.ModelConfig
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -79,7 +79,7 @@ data class AnalysisTask(
 
 class CodeReviewAgent(
     private val projectPath: String,
-    private val llmService: KoogLLMService,
+    private val llmService: LLMService,
     override val maxIterations: Int = 50,
     private val renderer: CodingAgentRenderer = DefaultCodingAgentRenderer(),
     private val fileSystem: ToolFileSystem? = null,

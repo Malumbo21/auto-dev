@@ -8,7 +8,7 @@ import cc.unitmesh.agent.tool.filesystem.ToolFileSystem
 import cc.unitmesh.agent.tool.schema.DeclarativeToolSchema
 import cc.unitmesh.agent.tool.schema.SchemaPropertyBuilder.string
 import cc.unitmesh.agent.tool.schema.ToolCategory
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import kotlinx.serialization.Serializable
 
 /**
@@ -79,7 +79,7 @@ class SmartEditInvocation(
     params: SmartEditParams,
     tool: SmartEditTool,
     private val fileSystem: ToolFileSystem,
-    private val llmService: KoogLLMService?
+    private val llmService: LLMService?
 ) : BaseToolInvocation<SmartEditParams, ToolResult>(params, tool) {
 
     override fun getToolLocations(): List<ToolLocation> =
@@ -454,7 +454,7 @@ class SmartEditInvocation(
 
 class SmartEditTool(
     private val fileSystem: ToolFileSystem,
-    private val llmService: KoogLLMService?
+    private val llmService: LLMService?
 ) : BaseExecutableTool<SmartEditParams, ToolResult>() {
     override val name: String = "smart-edit"
     override val description: String = SMART_EDIT_DESCRIPTION

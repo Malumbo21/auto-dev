@@ -3,7 +3,7 @@ package cc.unitmesh.agent.runconfig
 import cc.unitmesh.agent.logging.getLogger
 import cc.unitmesh.agent.tool.filesystem.DefaultToolFileSystem
 import cc.unitmesh.agent.tool.filesystem.ToolFileSystem
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.Serializable
@@ -25,7 +25,7 @@ import kotlinx.serialization.json.Json
 class LLMRunConfigAnalyzer(
     private val projectPath: String,
     private val fileSystem: ToolFileSystem = DefaultToolFileSystem(projectPath = projectPath),
-    private val llmService: KoogLLMService
+    private val llmService: LLMService
 ) {
     private val logger = getLogger("LLMRunConfigAnalyzer")
     private val json = Json { 

@@ -27,14 +27,14 @@ import cc.unitmesh.agent.mcp.McpServerConfig
 import cc.unitmesh.agent.tool.schema.ToolCategory
 import cc.unitmesh.devins.ui.compose.icons.AutoDevComposeIcons
 import cc.unitmesh.config.ConfigManager
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import kotlinx.coroutines.launch
 
 @Composable
 fun ToolConfigDialog(
     onDismiss: () -> Unit,
     onSave: (ToolConfigFile) -> Unit,
-    llmService: KoogLLMService? = null
+    llmService: LLMService? = null
 ) {
     var toolConfig by remember { mutableStateOf(ToolConfigFile.default()) }
     // Built-in tools are now always enabled and not configurable via UI

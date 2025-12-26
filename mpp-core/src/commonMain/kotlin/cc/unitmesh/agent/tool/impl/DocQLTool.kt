@@ -32,7 +32,7 @@ import cc.unitmesh.agent.tool.schema.ToolCategory
 import cc.unitmesh.devins.document.DocumentRegistry
 import cc.unitmesh.devins.document.docql.DocQLResult
 import cc.unitmesh.devins.document.docql.initialMaxResults
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.serialization.Serializable
 
@@ -159,7 +159,7 @@ object DocQLSchema : DeclarativeToolSchema(
 class DocQLInvocation(
     params: DocQLParams,
     tool: DocQLTool,
-    private val llmService: KoogLLMService? = null
+    private val llmService: LLMService? = null
 ) : BaseToolInvocation<DocQLParams, ToolResult>(params, tool) {
 
     /** Parsed reranker type for this invocation */
@@ -468,7 +468,7 @@ class DocQLInvocation(
 }
 
 class DocQLTool(
-    private val llmService: KoogLLMService? = null
+    private val llmService: LLMService? = null
 ) : BaseExecutableTool<DocQLParams, ToolResult>() {
     override val name: String = "DocQL"
     override val description: String =

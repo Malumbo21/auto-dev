@@ -26,13 +26,13 @@ import kotlinx.datetime.Clock
  * @param compilerService 可选的编译器服务，用于编译 DevIns 命令
  *                        如果不提供，将使用 DevInsCompilerService.getInstance()
  */
-class KoogLLMService(
+class LLMService(
     private val config: ModelConfig,
     private val compressionConfig: CompressionConfig = CompressionConfig(),
     private val compilerService: DevInsCompilerService? = null
 ) {
     val activeConfig: ModelConfig = config
-    private val logger = getLogger("KoogLLMService")
+    private val logger = getLogger("LLMService")
 
     private val executor: SingleLLMPromptExecutor by lazy {
         ExecutorFactory.create(config)
@@ -144,10 +144,10 @@ class KoogLLMService(
         val compiledResult = actualCompilerService.compile(userPrompt, fileSystem)
 
         if (compiledResult.hasError) {
-            logger.warn { "⚠️ [KoogLLMService] 编译错误 (${actualCompilerService.getName()}): ${compiledResult.errorMessage}" }
+            logger.warn { "⚠️ [LLMService] 编译错误 (${actualCompilerService.getName()}): ${compiledResult.errorMessage}" }
         }
 
-        logger.debug { "📝 [KoogLLMService] 使用编译器: ${actualCompilerService.getName()}, IDE功能: ${actualCompilerService.supportsIdeFeatures()}" }
+        logger.debug { "📝 [LLMService] 使用编译器: ${actualCompilerService.getName()}, IDE功能: ${actualCompilerService.supportsIdeFeatures()}" }
 
         return compiledResult.output
     }
@@ -261,7 +261,7 @@ class KoogLLMService(
         fun create(
             config: ModelConfig, 
             compressionConfig: CompressionConfig = CompressionConfig()
-        ): KoogLLMService {
+        ): LLMService {
             require(config.isValid()) {
                 val requirement = if (config.provider == LLMProviderType.OLLAMA) {
                     "baseUrl and modelName"
@@ -270,7 +270,7 @@ class KoogLLMService(
                 }
                 "Invalid model configuration: ${config.provider} requires $requirement"
             }
-            return KoogLLMService(config, compressionConfig)
+            return LLMService(config, compressionConfig)
         }
     }
 }

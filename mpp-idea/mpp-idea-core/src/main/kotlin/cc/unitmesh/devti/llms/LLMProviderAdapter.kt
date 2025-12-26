@@ -12,7 +12,7 @@ import cc.unitmesh.devti.llms.custom.Message
 import cc.unitmesh.devti.observer.agent.AgentStateService
 import cc.unitmesh.devti.prompting.optimizer.PromptOptimizer
 import cc.unitmesh.devti.settings.coder.coderSetting
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import cc.unitmesh.llm.ModelConfig
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.logger
@@ -203,7 +203,7 @@ class LLMProviderAdapter(
     }
 
     /**
-     * Stream using KoogLLMService with ModelConfig directly (preferred)
+     * Stream using LLMService with ModelConfig directly (preferred)
      */
     private fun streamWithKoogLLMServiceDirect(
         modelConfig: ModelConfig,
@@ -211,8 +211,8 @@ class LLMProviderAdapter(
         keepHistory: Boolean
     ): Flow<String> {
         return try {
-            logger.info("Using KoogLLMService directly: provider=${modelConfig.provider}, model=${modelConfig.modelName}")
-            val koogService = KoogLLMService.create(modelConfig)
+            logger.info("Using LLMService directly: provider=${modelConfig.provider}, model=${modelConfig.modelName}")
+            val koogService = LLMService.create(modelConfig)
 
             // Convert IDEA messages to Koog messages (excluding the last user message as it's passed separately)
             val historyMessages = messages.dropLast(1).toKoogMessages()
@@ -235,7 +235,7 @@ class LLMProviderAdapter(
                 }
             }
         } catch (e: Exception) {
-            logger.error("Error in KoogLLMService stream", e)
+            logger.error("Error in LLMService stream", e)
             flowOf("Error: ${e.message}")
         }.also {
             if (!keepHistory || project.coderSetting.state.noChatHistory) {
@@ -245,7 +245,7 @@ class LLMProviderAdapter(
     }
 
     /**
-     * Stream using KoogLLMService for non-GitHub Copilot models (legacy LlmConfig)
+     * Stream using LLMService for non-GitHub Copilot models (legacy LlmConfig)
      */
     private fun streamWithKoogLLMService(
         llmConfig: LlmConfig,
@@ -253,7 +253,7 @@ class LLMProviderAdapter(
         keepHistory: Boolean
     ): Flow<String> {
         return try {
-            logger.info("Using KoogLLMService for model: ${llmConfig.name}, url: ${llmConfig.url}")
+            logger.info("Using LLMService for model: ${llmConfig.name}, url: ${llmConfig.url}")
             val modelConfig = llmConfig.toModelConfig()
             logger.info("ModelConfig created: provider=${modelConfig.provider}, model=${modelConfig.modelName}, hasApiKey=${modelConfig.apiKey.isNotEmpty()}")
             
@@ -265,7 +265,7 @@ class LLMProviderAdapter(
                 return flowOf("Error: $errorMsg\nPlease configure your LLM settings in Settings > AutoDev or ~/.autodev/config.yaml")
             }
             
-            val koogService = KoogLLMService.create(modelConfig)
+            val koogService = LLMService.create(modelConfig)
 
             // Convert IDEA messages to Koog messages (excluding the last user message as it's passed separately)
             val historyMessages = messages.dropLast(1).toKoogMessages()
@@ -288,7 +288,7 @@ class LLMProviderAdapter(
                 }
             }
         } catch (e: Exception) {
-            logger.error("Error in KoogLLMService stream", e)
+            logger.error("Error in LLMService stream", e)
             flowOf("Error: ${e.message}")
         }.also {
             if (!keepHistory || project.coderSetting.state.noChatHistory) {

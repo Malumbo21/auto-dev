@@ -20,7 +20,7 @@ import cc.unitmesh.agent.tool.shell.ShellExecutor
 import cc.unitmesh.devins.compiler.template.TemplateCompiler
 import cc.unitmesh.devins.compiler.variable.VariableTable
 import cc.unitmesh.devins.document.DocumentParserService
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -50,7 +50,7 @@ data class DocumentTask(
  * Extends MainAgent for consistency with the agent framework
  */
 class DocumentAgent(
-    private val llmService: KoogLLMService,
+    private val llmService: LLMService,
     private val parserService: DocumentParserService,
     private val renderer: CodingAgentRenderer,
     private val fileSystem: ToolFileSystem? = null,

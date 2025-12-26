@@ -10,7 +10,7 @@ import cc.unitmesh.devins.ui.compose.agent.AgentTopAppBar
 import cc.unitmesh.devins.ui.compose.agent.AgentTopAppBarActions
 import cc.unitmesh.devins.ui.compose.agent.chatdb.components.*
 import cc.unitmesh.devins.workspace.Workspace
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import kotlinx.coroutines.flow.collectLatest
 
 /**
@@ -23,7 +23,7 @@ import kotlinx.coroutines.flow.collectLatest
 @Composable
 fun ChatDBPage(
     workspace: Workspace? = null,
-    llmService: KoogLLMService?,
+    llmService: LLMService?,
     modifier: Modifier = Modifier,
     onBack: () -> Unit,
     onNotification: (String, String) -> Unit = { _, _ -> }

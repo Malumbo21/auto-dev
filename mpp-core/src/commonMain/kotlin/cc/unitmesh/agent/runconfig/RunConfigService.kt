@@ -8,7 +8,7 @@ import cc.unitmesh.agent.tool.shell.LiveShellExecutor
 import cc.unitmesh.agent.tool.shell.LiveShellSession
 import cc.unitmesh.agent.tool.shell.ShellExecutionConfig
 import cc.unitmesh.agent.tool.shell.ShellExecutor
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -30,7 +30,7 @@ class RunConfigService(
     private val projectPath: String,
     private val fileSystem: ToolFileSystem = DefaultToolFileSystem(projectPath = projectPath),
     private val shellExecutor: ShellExecutor = DefaultShellExecutor(),
-    private val llmService: KoogLLMService? = null
+    private val llmService: LLMService? = null
 ) {
     private val logger = getLogger("RunConfigService")
     private val json = Json { 

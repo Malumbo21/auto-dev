@@ -10,7 +10,7 @@ import cc.unitmesh.agent.tool.schema.DeclarativeToolSchema
 import cc.unitmesh.agent.tool.schema.SchemaPropertyBuilder.integer
 import cc.unitmesh.agent.tool.schema.SchemaPropertyBuilder.string
 import cc.unitmesh.devins.parser.CodeFence
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import cc.unitmesh.llm.ModelConfig
 import kotlinx.serialization.Serializable
 
@@ -60,7 +60,7 @@ object SqlReviseAgentSchema : DeclarativeToolSchema(
  * Implements the "Revise Agent (自我修正闭环)" feature
  */
 class SqlReviseAgent(
-    private val llmService: KoogLLMService,
+    private val llmService: LLMService,
     private val sqlValidator: SqlValidatorInterface? = null
 ) : SubAgent<SqlRevisionInput, ToolResult.AgentResult>(
     definition = createDefinition()

@@ -3,7 +3,7 @@ package cc.unitmesh.agent.tool.impl
 import cc.unitmesh.agent.tool.*
 import cc.unitmesh.agent.tool.impl.http.UrlParser
 import cc.unitmesh.agent.tool.schema.ToolCategory
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import kotlinx.coroutines.test.runTest
 import kotlin.test.*
 
@@ -37,7 +37,7 @@ class WebFetchToolTest {
     }
 
     private lateinit var mockHttpFetcher: MockHttpFetcher
-    private lateinit var mockLLMService: KoogLLMService
+    private lateinit var mockLLMService: LLMService
     private lateinit var webFetchTool: WebFetchTool
 
     @BeforeTest
@@ -51,7 +51,7 @@ class WebFetchToolTest {
             temperature = 0.7,
             maxTokens = 4000
         )
-        mockLLMService = KoogLLMService(mockConfig)
+        mockLLMService = LLMService(mockConfig)
         webFetchTool = WebFetchTool(mockLLMService)
     }
 

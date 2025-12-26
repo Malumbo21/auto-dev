@@ -9,7 +9,7 @@ import cc.unitmesh.devins.ui.compose.agent.codereview.CodeReviewPage
 import cc.unitmesh.devins.ui.compose.agent.webedit.WebEditPage
 import cc.unitmesh.devins.ui.remote.RemoteAgentPage
 import cc.unitmesh.devins.workspace.Workspace
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import cc.unitmesh.agent.artifact.ArtifactBundle
 
 /**
@@ -23,7 +23,7 @@ import cc.unitmesh.agent.artifact.ArtifactBundle
  */
 @Composable
 fun AgentInterfaceRouter(
-    llmService: KoogLLMService?,
+    llmService: LLMService?,
     isTreeViewVisible: Boolean = false,
     onConfigWarning: () -> Unit,
     onToggleTreeView: (Boolean) -> Unit = {},

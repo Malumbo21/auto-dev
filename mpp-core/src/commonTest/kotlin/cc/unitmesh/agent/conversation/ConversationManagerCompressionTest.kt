@@ -1,14 +1,10 @@
 package cc.unitmesh.agent.conversation
 
-import cc.unitmesh.devins.llm.Message
 import cc.unitmesh.devins.llm.MessageRole
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import cc.unitmesh.llm.LLMProviderType
 import cc.unitmesh.llm.ModelConfig
 import cc.unitmesh.llm.compression.CompressionConfig
-import cc.unitmesh.llm.compression.CompressionResult
-import cc.unitmesh.llm.compression.CompressionStatus
-import cc.unitmesh.llm.compression.TokenInfo
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -18,7 +14,7 @@ import kotlin.test.assertTrue
 
 class ConversationManagerCompressionTest {
     
-    private fun createMockLLMService(): KoogLLMService {
+    private fun createMockLLMService(): LLMService {
         val config = ModelConfig(
             provider = LLMProviderType.OPENAI,
             modelName = "gpt-3.5-turbo",
@@ -32,7 +28,7 @@ class ConversationManagerCompressionTest {
             autoCompressionEnabled = true
         )
         
-        return KoogLLMService.create(config, compressionConfig)
+        return LLMService.create(config, compressionConfig)
     }
     
     @Test

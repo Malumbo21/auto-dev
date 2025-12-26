@@ -6,7 +6,7 @@ import cc.unitmesh.agent.linter.LintFileResult
 import cc.unitmesh.agent.linter.LintIssue
 import cc.unitmesh.agent.linter.LintSeverity
 import cc.unitmesh.agent.render.DefaultCodingAgentRenderer
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import cc.unitmesh.llm.LLMProviderType
 import cc.unitmesh.llm.ModelConfig
 import kotlinx.coroutines.test.runTest
@@ -26,7 +26,7 @@ import kotlin.test.assertTrue
  */
 class CodeReviewAgentFixGenerationTest {
 
-    private lateinit var llmService: KoogLLMService
+    private lateinit var llmService: LLMService
     private lateinit var mcpToolConfigService: McpToolConfigService
     private lateinit var codeReviewAgent: CodeReviewAgent
     private val testProjectPath = "/tmp/test-project"
@@ -42,7 +42,7 @@ class CodeReviewAgentFixGenerationTest {
             temperature = 0.7,
             maxTokens = 4000
         )
-        llmService = KoogLLMService.create(config)
+        llmService = LLMService.create(config)
 
         // Create tool config service
         val toolConfig = ToolConfigFile.default()

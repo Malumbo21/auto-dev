@@ -1,7 +1,7 @@
 package cc.unitmesh.agent.linter
 
 import cc.unitmesh.agent.tool.shell.JsShellExecutor
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.promise
 import kotlin.js.Promise
@@ -235,7 +235,7 @@ data class JsLintResult(
 @JsExport
 class JsAILinterFactory(
     projectPath: String,
-    private val llmService: KoogLLMService
+    private val llmService: LLMService
 ) {
     private val shellExecutor = JsShellExecutor()
     private val lintDetector = LintDetector(shellExecutor)

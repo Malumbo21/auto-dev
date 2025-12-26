@@ -16,7 +16,7 @@ import cc.unitmesh.devins.idea.compiler.IdeaDevInsCompilerService
 import cc.unitmesh.devins.idea.renderer.JewelRenderer
 import cc.unitmesh.devins.idea.services.IdeaToolConfigService
 import cc.unitmesh.devins.idea.tool.IdeaToolProvider
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import cc.unitmesh.llm.ModelConfig
 import cc.unitmesh.llm.NamedModelConfig
 import com.intellij.openapi.Disposable
@@ -67,7 +67,7 @@ class IdeaAgentViewModel(
     val currentModelConfig: StateFlow<ModelConfig?> = _currentModelConfig.asStateFlow()
 
     // LLM Service (created from config)
-    private var llmService: KoogLLMService? = null
+    private var llmService: LLMService? = null
 
     // IDEA DevIns Compiler Service (uses PSI-based compiler with full IDE features)
     private val ideaCompilerService: DevInsCompilerService by lazy {
@@ -121,7 +121,7 @@ class IdeaAgentViewModel(
                 // Create LLM service if config is valid
                 // Inject IDEA compiler service for full IDE feature support
                 if (modelConfig != null && modelConfig.isValid()) {
-                    llmService = KoogLLMService(
+                    llmService = LLMService(
                         config = modelConfig,
                         compilerService = ideaCompilerService
                     )

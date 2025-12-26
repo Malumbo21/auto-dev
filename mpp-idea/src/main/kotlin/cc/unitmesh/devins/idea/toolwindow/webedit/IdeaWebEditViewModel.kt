@@ -1,10 +1,8 @@
 package cc.unitmesh.devins.idea.toolwindow.webedit
 
-import cc.unitmesh.agent.config.McpToolConfigService
-import cc.unitmesh.agent.config.ToolConfigFile
 import cc.unitmesh.devins.idea.renderer.JewelRenderer
 import cc.unitmesh.config.ConfigManager
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
@@ -45,7 +43,7 @@ class IdeaWebEditViewModel(
     private var scriptInjected = false
 
     // LLM Service for chat
-    private var llmService: KoogLLMService? = null
+    private var llmService: LLMService? = null
     private var currentJob: Job? = null
 
     // Check if JCEF is supported
@@ -121,7 +119,7 @@ class IdeaWebEditViewModel(
                 val configWrapper = ConfigManager.load()
                 val activeConfig = configWrapper.getActiveModelConfig()
                 if (activeConfig != null && activeConfig.isValid()) {
-                    llmService = KoogLLMService.create(activeConfig)
+                    llmService = LLMService.create(activeConfig)
                 }
             } catch (e: Exception) {
                 // LLM service is optional for WebEdit

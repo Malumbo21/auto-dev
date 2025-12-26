@@ -1,11 +1,7 @@
 package cc.unitmesh.llm
 
 import cc.unitmesh.llm.clients.CustomOpenAILLMClient
-import ai.koog.prompt.dsl.prompt
-import ai.koog.prompt.llm.LLModel
 import ai.koog.prompt.llm.LLMProvider
-import ai.koog.prompt.params.LLMParams
-import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -95,7 +91,7 @@ class CustomOpenAILLMClientTest {
     }
 
     @Test
-    fun `KoogLLMService should validate config before creation`() {
+    fun `LLMService should validate config before creation`() {
         val invalidConfig = ModelConfig(
             provider = LLMProviderType.CUSTOM_OPENAI_BASE,
             modelName = "glm-4-plus",
@@ -104,7 +100,7 @@ class CustomOpenAILLMClientTest {
         )
 
         try {
-            KoogLLMService.create(invalidConfig)
+            LLMService.create(invalidConfig)
             throw AssertionError("Should have thrown IllegalArgumentException")
         } catch (e: IllegalArgumentException) {
             assertTrue(e.message?.contains("Invalid model configuration") == true)

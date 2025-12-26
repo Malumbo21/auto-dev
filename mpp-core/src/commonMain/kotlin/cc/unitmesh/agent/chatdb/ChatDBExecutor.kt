@@ -15,7 +15,7 @@ import cc.unitmesh.agent.subagent.SqlValidator
 import cc.unitmesh.agent.subagent.SqlReviseAgent
 import cc.unitmesh.agent.subagent.SqlRevisionInput
 import cc.unitmesh.devins.parser.CodeFence
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 
@@ -40,7 +40,7 @@ import kotlin.coroutines.resume
  */
 class MultiDatabaseChatDBExecutor(
     projectPath: String,
-    llmService: KoogLLMService,
+    llmService: LLMService,
     toolOrchestrator: ToolOrchestrator,
     renderer: CodingAgentRenderer,
     private val databaseConnections: Map<String, DatabaseConnection>,

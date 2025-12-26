@@ -10,7 +10,7 @@ import cc.unitmesh.agent.render.CodingAgentRenderer
 import cc.unitmesh.agent.state.ToolCall
 import cc.unitmesh.agent.tool.ToolResult
 import cc.unitmesh.agent.tool.schema.ToolResultFormatter
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import kotlinx.coroutines.yield
 import kotlinx.datetime.Clock
 import cc.unitmesh.agent.orchestrator.ToolExecutionContext as OrchestratorContext
@@ -30,7 +30,7 @@ data class DocumentAgentResult(
  */
 class DocumentAgentExecutor(
     projectPath: String,
-    llmService: KoogLLMService,
+    llmService: LLMService,
     toolOrchestrator: ToolOrchestrator,
     renderer: CodingAgentRenderer,
     maxIterations: Int = 10,

@@ -26,7 +26,7 @@ import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.devins.ui.session.SessionViewModel
 import cc.unitmesh.devins.ui.session.SessionClient
 import cc.unitmesh.devins.workspace.WorkspaceManager
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import cc.unitmesh.llm.ModelConfig
 import kotlinx.coroutines.launch
 
@@ -74,7 +74,7 @@ private fun AndroidAutoDevContent(
 
     // 配置状态
     var currentModelConfig by remember { mutableStateOf<ModelConfig?>(null) }
-    var llmService by remember { mutableStateOf<KoogLLMService?>(null) }
+    var llmService by remember { mutableStateOf<LLMService?>(null) }
     var compilerOutput by remember { mutableStateOf("") }
 
     // Dialog 状态
@@ -112,7 +112,7 @@ private fun AndroidAutoDevContent(
 
             if (activeConfig != null && activeConfig.isValid()) {
                 currentModelConfig = activeConfig
-                llmService = KoogLLMService.create(activeConfig)
+                llmService = LLMService.create(activeConfig)
             }
 
             selectedAgentType = wrapper.getAgentType()
@@ -219,7 +219,7 @@ private fun AndroidAutoDevContent(
                             currentModelConfig = config
                             if (config.isValid()) {
                                 try {
-                                    llmService = KoogLLMService.create(config)
+                                    llmService = LLMService.create(config)
                                 } catch (e: Exception) {
                                     println("❌ 切换模型失败: ${e.message}")
                                 }
@@ -282,7 +282,7 @@ private fun AndroidAutoDevContent(
                             ConfigManager.saveConfig(namedConfig, setActive = true)
                         }
 
-                        llmService = KoogLLMService.create(newConfig)
+                        llmService = LLMService.create(newConfig)
                     } catch (e: Exception) {
                         println("❌ 配置 LLM 服务失败: ${e.message}")
                     }

@@ -12,7 +12,7 @@ import cc.unitmesh.agent.tool.schema.SchemaPropertyBuilder.array
 import cc.unitmesh.agent.tool.schema.SchemaPropertyBuilder.boolean
 import cc.unitmesh.agent.tool.schema.SchemaPropertyBuilder.integer
 import cc.unitmesh.agent.tool.schema.SchemaPropertyBuilder.string
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import cc.unitmesh.llm.ModelConfig
 import kotlinx.serialization.Serializable
 
@@ -92,7 +92,7 @@ data class InvestigationResult(
  */
 class CodebaseInvestigatorAgent(
     private val projectPath: String,
-    private val llmService: KoogLLMService
+    private val llmService: LLMService
 ) : SubAgent<InvestigationContext, ToolResult.AgentResult>(
     AgentDefinition(
         name = ToolType.CodeAgent.name,

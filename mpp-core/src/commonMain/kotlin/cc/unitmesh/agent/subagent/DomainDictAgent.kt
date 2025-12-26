@@ -19,7 +19,7 @@ import cc.unitmesh.codegraph.parser.Language
 import cc.unitmesh.devins.filesystem.ProjectFileSystem
 import cc.unitmesh.devins.parser.CodeFence
 import cc.unitmesh.indexer.DomainDictService
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import cc.unitmesh.llm.ModelConfig
 import kotlinx.coroutines.*
 import kotlinx.serialization.Serializable
@@ -85,7 +85,7 @@ data class DomainDictCallbacks(
  * 3. Save: Merge with existing dictionary
  */
 class DomainDictAgent(
-    private val llmService: KoogLLMService,
+    private val llmService: LLMService,
     private val fileSystem: ProjectFileSystem,
     private val domainDictService: DomainDictService,
     private val codeParser: CodeParser? = null,

@@ -16,7 +16,7 @@ import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.devins.ui.nano.ComposeNodeContext
 import cc.unitmesh.devins.ui.nano.NanoPropsResolver
 import cc.unitmesh.devins.ui.nano.renderAllChildren
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import cc.unitmesh.xuiper.action.NanoActionFactory
 import cc.unitmesh.xuiper.eval.evaluator.NanoExpressionEvaluator
 import cc.unitmesh.xuiper.ir.booleanProp
@@ -68,7 +68,7 @@ object FeedbackComponents {
         }
 
         // Optional LLM fallback if Modal has no title and no children
-        var llmService by remember { mutableStateOf<KoogLLMService?>(null) }
+        var llmService by remember { mutableStateOf<LLMService?>(null) }
         var generatedTitle by remember(ir.type, ir.props) { mutableStateOf<String?>(null) }
         var generatedBody by remember(ir.type, ir.props) { mutableStateOf<String?>(null) }
 
@@ -77,7 +77,7 @@ object FeedbackComponents {
                 val wrapper = ConfigManager.load()
                 val active = wrapper.getActiveModelConfig()
                 if (active != null) {
-                    llmService = KoogLLMService(active)
+                    llmService = LLMService(active)
                 }
             } catch (_: Exception) {
                 llmService = null
@@ -160,7 +160,7 @@ object FeedbackComponents {
         val onCloseAction = ir.actions?.get("onClose")
 
         // Optional LLM fallback if message is missing
-        var llmService by remember { mutableStateOf<KoogLLMService?>(null) }
+        var llmService by remember { mutableStateOf<LLMService?>(null) }
         var generatedMessage by remember(type) { mutableStateOf<String?>(null) }
 
         LaunchedEffect(Unit) {
@@ -168,7 +168,7 @@ object FeedbackComponents {
                 val wrapper = ConfigManager.load()
                 val active = wrapper.getActiveModelConfig()
                 if (active != null) {
-                    llmService = KoogLLMService(active)
+                    llmService = LLMService(active)
                 }
             } catch (_: Exception) {
                 llmService = null

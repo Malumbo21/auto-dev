@@ -7,7 +7,7 @@ import cc.unitmesh.agent.subagent.NanoDSLContext
 import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.devins.filesystem.EmptyFileSystem
 import cc.unitmesh.devins.parser.CodeFence
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import java.nio.charset.StandardCharsets
@@ -46,7 +46,7 @@ object NanoDslScenarioHarness {
             )
         }
 
-        val llm = KoogLLMService.create(activeModelConfig)
+        val llm = LLMService.create(activeModelConfig)
         val scenarios = if (config.useLlmScenarios) {
             generateScenariosWithLlm(llm, config)
         } else {
@@ -187,7 +187,7 @@ object NanoDslScenarioHarness {
         }
     }
 
-    private suspend fun generateScenariosWithLlm(llm: KoogLLMService, config: HarnessConfig): List<String> {
+    private suspend fun generateScenariosWithLlm(llm: LLMService, config: HarnessConfig): List<String> {
         val prompt = config.llmScenarioPrompt.replace("{count}", config.count.toString())
 
         val chunks = llm.streamPrompt(

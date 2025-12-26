@@ -5,7 +5,7 @@ import cc.unitmesh.devins.compiler.context.CompilerContext
 import cc.unitmesh.devins.filesystem.ProjectFileSystem
 import cc.unitmesh.devins.llm.ChatHistoryManager
 import cc.unitmesh.devins.llm.Message
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
@@ -15,7 +15,7 @@ import kotlinx.coroutines.launch
  */
 fun createChatCallbacks(
     fileSystem: ProjectFileSystem,
-    llmService: KoogLLMService?,
+    llmService: LLMService?,
     chatHistoryManager: ChatHistoryManager,
     scope: CoroutineScope,
     onCompilerOutput: (String) -> Unit,
@@ -99,7 +99,7 @@ private fun compileDevIns(
 private fun sendToLLM(
     text: String,
     fileSystem: ProjectFileSystem,
-    llmService: KoogLLMService,
+    llmService: LLMService,
     chatHistoryManager: ChatHistoryManager,
     scope: CoroutineScope,
     onUserMessage: (Message) -> Unit,

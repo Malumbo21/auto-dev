@@ -1,6 +1,6 @@
 package cc.unitmesh.xuiper.eval
 
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import cc.unitmesh.llm.LLMProviderType
 import cc.unitmesh.llm.ModelConfig
 import cc.unitmesh.devins.llm.Message
@@ -105,7 +105,7 @@ class DslEvalRunner(
     suspend fun runTest(
         testCase: TestCase,
         modelConfig: cc.unitmesh.xuiper.model.ModelConfig,
-        llmService: KoogLLMService,
+        llmService: LLMService,
         promptTemplateId: String
     ): TestResult {
         logger.info { "  Running: ${testCase.name}" }
@@ -194,7 +194,7 @@ class DslEvalRunner(
         )
     }
     
-    private fun createLLMService(config: cc.unitmesh.xuiper.model.ModelConfig): KoogLLMService {
+    private fun createLLMService(config: cc.unitmesh.xuiper.model.ModelConfig): LLMService {
         val provider = LLMProviderType.valueOf(config.provider.uppercase())
         val apiKey = getApiKey(config.provider)
 
@@ -231,7 +231,7 @@ class DslEvalRunner(
             maxTokens = config.maxTokens
         )
 
-        return KoogLLMService.create(modelConfig)
+        return LLMService.create(modelConfig)
     }
 
     private fun getEnvName(provider: String): String = when (provider.lowercase()) {

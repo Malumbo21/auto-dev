@@ -16,7 +16,7 @@ import cc.unitmesh.agent.subagent.NanoDSLContext
 import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.devins.ui.nano.ComposeNodeContext
 import cc.unitmesh.devins.ui.nano.NanoPropsResolver
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import cc.unitmesh.xuiper.eval.evaluator.NanoExpressionEvaluator
 import cc.unitmesh.xuiper.ir.NanoActionIR
 import cc.unitmesh.xuiper.ir.NanoIR
@@ -107,7 +107,7 @@ object ButtonComponents {
         onDismiss: () -> Unit,
         onAction: (NanoActionIR) -> Unit
     ) {
-        var llmService by remember { mutableStateOf<KoogLLMService?>(null) }
+        var llmService by remember { mutableStateOf<LLMService?>(null) }
         var generatedIR by remember { mutableStateOf<NanoIR?>(null) }
         var isLoading by remember { mutableStateOf(true) }
         var errorMessage by remember { mutableStateOf<String?>(null) }
@@ -117,7 +117,7 @@ object ButtonComponents {
                 val wrapper = ConfigManager.load()
                 val active = wrapper.getActiveModelConfig()
                 if (active != null) {
-                    llmService = KoogLLMService(active)
+                    llmService = LLMService(active)
                 } else {
                     errorMessage = "No LLM configuration found"
                     isLoading = false

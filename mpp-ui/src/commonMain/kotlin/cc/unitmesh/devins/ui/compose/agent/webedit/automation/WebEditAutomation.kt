@@ -1,6 +1,6 @@
 package cc.unitmesh.devins.ui.compose.agent.webedit.automation
 
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import cc.unitmesh.viewer.web.webedit.AccessibilityNode
 import cc.unitmesh.viewer.web.webedit.WebEditAction
 import cc.unitmesh.viewer.web.webedit.WebEditBridge
@@ -8,7 +8,6 @@ import cc.unitmesh.viewer.web.webedit.WebEditMessage
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
@@ -29,10 +28,10 @@ interface VisionFallbackProvider {
      * Check if vision fallback is available (requires COS + GLM config).
      */
     fun isAvailable(): Boolean
-    
+
     /**
      * Use vision to suggest browser actions when DOM-based approach fails.
-     * 
+     *
      * @param userIntent The user's command
      * @param failedAction The action that failed (optional)
      * @param actionableElements Current actionable elements from DOM
@@ -63,7 +62,7 @@ private val automationJson = Json {
  */
 suspend fun runOneSentenceCommand(
     bridge: WebEditBridge,
-    llmService: KoogLLMService,
+    llmService: LLMService,
     instruction: String,
     actionableElements: List<AccessibilityNode>,
     timeoutMsPerAction: Long = 6_000,

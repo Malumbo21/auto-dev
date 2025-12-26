@@ -13,14 +13,14 @@ import cc.unitmesh.agent.state.ToolCall
 import cc.unitmesh.agent.tool.ToolResult
 import cc.unitmesh.agent.tool.schema.ToolResultFormatter
 import cc.unitmesh.agent.vcs.context.DiffContextCompressor
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import kotlinx.coroutines.yield
 import kotlinx.serialization.json.Json
 import cc.unitmesh.agent.orchestrator.ToolExecutionContext as OrchestratorContext
 
 class CodeReviewAgentExecutor(
     projectPath: String,
-    llmService: KoogLLMService,
+    llmService: LLMService,
     toolOrchestrator: ToolOrchestrator,
     renderer: CodingAgentRenderer,
     maxIterations: Int = 50,

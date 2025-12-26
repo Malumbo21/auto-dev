@@ -1,44 +1,39 @@
 package cc.unitmesh.server.cli
 
 import cc.unitmesh.agent.CodeReviewAgent
-import cc.unitmesh.agent.ReviewType
 import cc.unitmesh.agent.config.McpToolConfigService
 import cc.unitmesh.agent.config.ToolConfigFile
 import cc.unitmesh.agent.linter.LintFileResult
-import cc.unitmesh.agent.linter.LintIssue
-import cc.unitmesh.agent.linter.LintResult
 import cc.unitmesh.agent.linter.LintSeverity
 import cc.unitmesh.agent.linter.LinterRegistry
-import cc.unitmesh.agent.render.CodingAgentRenderer
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import cc.unitmesh.llm.LLMProviderType
 import cc.unitmesh.llm.ModelConfig
-import cc.unitmesh.llm.compression.TokenInfo
 import com.charleskorn.kaml.Yaml
 import kotlinx.coroutines.runBlocking
 import java.io.File
 
 /**
  * JVM CLI for testing CodeReviewAgent.generateFixes with CodingAgent
- * 
+ *
  * Usage:
  * ```bash
  * ./gradlew :mpp-ui:runReviewCli -PreviewProjectPath=/path/to/project -PreviewPatch="diff..." -PreviewAnalysis="analysis..." [-PreviewUserFeedback="feedback"]
  * ```
- * 
+ *
  * Or with git diff:
  * ```bash
  * ./gradlew :mpp-ui:runReviewCli -PreviewProjectPath=/path/to/project -PreviewCommitHash=HEAD -PreviewAnalysis="analysis..."
  * ```
  */
 object ReviewCli {
-    
+
     @JvmStatic
     fun main(args: Array<String>) {
         println("=".repeat(80))
         println("AutoDev Code Review CLI (Fix Generation with CodingAgent)")
         println("=".repeat(80))
-        
+
         // Parse arguments
         val projectPath = System.getProperty("reviewProjectPath") ?: args.getOrNull(0) ?: run {
             System.err.println("Usage: -PreviewProjectPath=<path> -PreviewAnalysis=<analysis> [-PreviewPatch=<patch>] [-PreviewCommitHash=<hash>] [-PreviewUserFeedback=<feedback>]")
@@ -52,7 +47,7 @@ object ReviewCli {
         val commitHash = System.getProperty("reviewCommitHash") ?: args.getOrNull(3)
         val userFeedback = System.getProperty("reviewUserFeedback") ?: args.getOrNull(4) ?: ""
         val language = System.getProperty("reviewLanguage") ?: args.getOrNull(5) ?: "EN"
-        
+
         println("📂 Project Path: $projectPath")
         println("📊 Analysis Output: ${analysisOutput.take(100)}...")
         if (patch != null) {
@@ -66,7 +61,7 @@ object ReviewCli {
         }
         println("🌐 Language: $language")
         println()
-        
+
         runBlocking {
             try {
                 val projectDir = File(projectPath).absoluteFile
@@ -74,9 +69,9 @@ object ReviewCli {
                     System.err.println("❌ Project path does not exist: $projectPath")
                     return@runBlocking
                 }
-                
+
                 val startTime = System.currentTimeMillis()
-                
+
                 // Get patch from git if not provided
                 val finalPatch = patch ?: if (commitHash != null) {
                     println("📥 Fetching git diff from commit: $commitHash")
@@ -92,20 +87,20 @@ object ReviewCli {
                     System.err.println("❌ Either -PreviewPatch or -PreviewCommitHash must be provided")
                     return@runBlocking
                 }
-                
+
                 // Run linters on changed files
                 println("🔍 Running linters on changed files...")
                 val changedFiles = extractFilePathsFromPatch(finalPatch)
                 println("   Found ${changedFiles.size} changed files:")
                 changedFiles.forEach { println("   • $it") }
                 println()
-                
+
                 val lintResults = if (changedFiles.isNotEmpty()) {
                     runLinters(projectDir, changedFiles)
                 } else {
                     emptyList()
                 }
-                
+
                 println("📋 Lint Results:")
                 if (lintResults.isEmpty()) {
                     println("   No lint issues found")
@@ -121,7 +116,7 @@ object ReviewCli {
                     }
                 }
                 println()
-                
+
                 // Load LLM configuration
                 println("🧠 Loading LLM configuration...")
                 val configFile = File(System.getProperty("user.home"), ".autodev/config.yaml")
@@ -130,22 +125,22 @@ object ReviewCli {
                     System.err.println("   Please create ~/.autodev/config.yaml with your LLM configuration")
                     return@runBlocking
                 }
-                
+
                 val yamlContent = configFile.readText()
                 val yaml = Yaml(configuration = com.charleskorn.kaml.YamlConfiguration(strictMode = false))
                 val config = yaml.decodeFromString(AutoDevConfig.serializer(), yamlContent)
-                
+
                 val activeName = config.active
                 val activeConfig = config.configs.find { it.name == activeName }
-                
+
                 if (activeConfig == null) {
                     System.err.println("❌ Active configuration '$activeName' not found in config.yaml")
                     System.err.println("   Available configs: ${config.configs.map { it.name }.joinToString(", ")}")
                     return@runBlocking
                 }
-                
+
                 println("📝 Using config: ${activeConfig.name} (${activeConfig.provider}/${activeConfig.model})")
-                
+
                 // Convert provider string to LLMProviderType
                 val providerType = when (activeConfig.provider.lowercase()) {
                     "openai" -> LLMProviderType.OPENAI
@@ -159,8 +154,8 @@ object ReviewCli {
                     "kimi" -> LLMProviderType.KIMI
                     else -> LLMProviderType.CUSTOM_OPENAI_BASE
                 }
-                
-                val llmService = KoogLLMService(
+
+                val llmService = LLMService(
                     ModelConfig(
                         provider = providerType,
                         modelName = activeConfig.model,
@@ -170,10 +165,10 @@ object ReviewCli {
                         baseUrl = activeConfig.baseUrl ?: ""
                     )
                 )
-                
+
                 val renderer = ConsoleRenderer()
                 val mcpConfigService = McpToolConfigService(ToolConfigFile())
-                
+
                 // Create CodeReviewAgent
                 val reviewAgent = CodeReviewAgent(
                     projectPath = projectPath,
@@ -183,14 +178,14 @@ object ReviewCli {
                     mcpToolConfigService = mcpConfigService,
                     enableLLMStreaming = true
                 )
-                
+
                 println("✅ CodeReviewAgent created")
                 println()
-                
+
                 // Execute fix generation
                 println("🔧 Generating fixes using CodingAgent...")
                 println()
-                
+
                 val fixStartTime = System.currentTimeMillis()
                 val result = reviewAgent.generateFixes(
                     patch = finalPatch,
@@ -202,15 +197,15 @@ object ReviewCli {
                     print(progress)
                     System.out.flush()
                 }
-                
+
                 val fixTime = System.currentTimeMillis() - fixStartTime
-                
+
                 println()
                 println()
                 println("=".repeat(80))
                 println("📊 Fix Generation Result:")
                 println("=".repeat(80))
-                
+
                 if (result.success) {
                     println("✅ Fix generation completed successfully")
                     println("⏱️  Fix time: ${fixTime}ms")
@@ -235,14 +230,14 @@ object ReviewCli {
                     println(result.content)
                     println("-".repeat(80))
                 }
-                
+
             } catch (e: Exception) {
                 System.err.println("❌ Error: ${e.message}")
                 e.printStackTrace()
             }
         }
     }
-    
+
     /**
      * Get git diff for a commit
      */
@@ -252,10 +247,10 @@ object ReviewCli {
                 .directory(projectDir)
                 .redirectErrorStream(true)
                 .start()
-            
+
             val output = process.inputStream.bufferedReader().readText()
             val exitCode = process.waitFor()
-            
+
             if (exitCode == 0 && output.isNotBlank()) {
                 output
             } else {
@@ -266,14 +261,14 @@ object ReviewCli {
             null
         }
     }
-    
+
     /**
      * Extract file paths from patch
      */
     private fun extractFilePathsFromPatch(patch: String): List<String> {
         val filePaths = mutableSetOf<String>()
         val lines = patch.lines()
-        
+
         var i = 0
         while (i < lines.size) {
             val line = lines[i]
@@ -299,44 +294,44 @@ object ReviewCli {
             }
             i++
         }
-        
+
         return filePaths.toList()
     }
-    
+
     /**
      * Run linters on changed files
      */
     private suspend fun runLinters(projectDir: File, filePaths: List<String>): List<LintFileResult> {
         val lintResults = mutableListOf<LintFileResult>()
         val absolutePaths = filePaths.map { File(projectDir, it).absolutePath }
-        
+
         try {
             val linterRegistry = LinterRegistry.getInstance()
             val linters = linterRegistry.findLintersForFiles(absolutePaths)
-            
+
             if (linters.isEmpty()) {
                 println("   No suitable linters found for the given files")
                 return emptyList()
             }
-            
+
             println("   Running linters: ${linters.joinToString(", ") { it.name }}")
-            
+
             // Run each linter
             for (linter in linters) {
                 try {
                     val results = linter.lintFiles(absolutePaths, projectDir.absolutePath)
-                    
+
                     // Process each result
                     for (result in results) {
                         if (!result.hasIssues) continue
-                        
+
                         val relativePath = File(result.filePath).relativeTo(projectDir).path
                         val allIssues = result.issues
-                        
+
                         val errorCount = allIssues.count { it.severity == LintSeverity.ERROR }
                         val warningCount = allIssues.count { it.severity == LintSeverity.WARNING }
                         val infoCount = allIssues.count { it.severity == LintSeverity.INFO }
-                        
+
                         // Check if we already have results for this file
                         val existingIndex = lintResults.indexOfFirst { it.filePath == relativePath }
                         if (existingIndex >= 0) {
@@ -371,7 +366,7 @@ object ReviewCli {
             System.err.println("⚠️  Failed to run linters: ${e.message}")
             // Continue without lint results
         }
-        
+
         return lintResults
     }
 }

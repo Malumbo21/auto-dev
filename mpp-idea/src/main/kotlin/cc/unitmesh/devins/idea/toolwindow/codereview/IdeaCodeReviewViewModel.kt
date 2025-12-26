@@ -9,15 +9,13 @@ import cc.unitmesh.agent.config.ToolConfigFile
 import cc.unitmesh.agent.diff.ChangeType
 import cc.unitmesh.agent.diff.DiffLineType
 import cc.unitmesh.agent.diff.DiffParser
-import cc.unitmesh.agent.language.LanguageDetector
 import cc.unitmesh.agent.linter.LintFileResult
 import cc.unitmesh.agent.logging.AutoDevLogger
-import cc.unitmesh.agent.util.WalkthroughExtractor
 import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.devins.idea.renderer.JewelRenderer
 import cc.unitmesh.devins.workspace.DefaultWorkspace
 import cc.unitmesh.devins.workspace.Workspace
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.Logger
@@ -680,7 +678,7 @@ class IdeaCodeReviewViewModel(
             val modelConfig = configWrapper.getActiveModelConfig()
                 ?: error("No active model configuration found")
 
-            val llmService = KoogLLMService.create(modelConfig)
+            val llmService = LLMService.create(modelConfig)
 
             // Build plan prompt
             val planPrompt = buildString {
@@ -770,7 +768,7 @@ class IdeaCodeReviewViewModel(
                 val modelConfig = configWrapper.getActiveModelConfig()
                     ?: error("No active model configuration found. Please configure a model in settings.")
 
-                val llmService = KoogLLMService.create(modelConfig)
+                val llmService = LLMService.create(modelConfig)
                 val mcpToolConfigService = McpToolConfigService(toolConfig)
                 val renderer = JewelRenderer()
 

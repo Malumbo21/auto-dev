@@ -1,7 +1,7 @@
 package cc.unitmesh.indexer
 
 import cc.unitmesh.agent.logging.getLogger
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import cc.unitmesh.llm.ModelConfig
 import cc.unitmesh.devins.filesystem.ProjectFileSystem
 import kotlinx.coroutines.flow.Flow
@@ -27,7 +27,7 @@ class DomainDictGenerator(
     }
 
     private val domainDictService = DomainDictService(fileSystem)
-    private val llmService = KoogLLMService.create(modelConfig)
+    private val llmService = LLMService.create(modelConfig)
     
     /**
      * Generate domain dictionary and return as streaming response

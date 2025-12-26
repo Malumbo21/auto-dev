@@ -7,7 +7,7 @@ import cc.unitmesh.agent.document.DocumentTask
 import cc.unitmesh.devins.document.*
 import cc.unitmesh.devins.idea.renderer.JewelRenderer
 import cc.unitmesh.config.ConfigManager
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.project.Project
 import kotlinx.coroutines.*
@@ -41,7 +41,7 @@ class IdeaKnowledgeViewModel(
     private var initJob: Job? = null
     private var currentJob: Job? = null
     private var documentAgent: DocumentAgent? = null
-    private var llmService: KoogLLMService? = null
+    private var llmService: LLMService? = null
     private var agentInitialized = false
 
     init {
@@ -73,7 +73,7 @@ class IdeaKnowledgeViewModel(
             val configWrapper = ConfigManager.load()
             val activeConfig = configWrapper.getActiveModelConfig()
             if (activeConfig != null && activeConfig.isValid()) {
-                llmService = KoogLLMService.create(activeConfig)
+                llmService = LLMService.create(activeConfig)
 
                 // Create DocumentAgent
                 val toolConfigFile = ToolConfigFile.default()

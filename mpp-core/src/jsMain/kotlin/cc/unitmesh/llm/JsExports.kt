@@ -3,7 +3,6 @@
 package cc.unitmesh.llm
 
 import cc.unitmesh.agent.tool.schema.AgentToolFormatter
-import cc.unitmesh.agent.CodingAgentContext
 import cc.unitmesh.agent.tool.ToolType
 import cc.unitmesh.agent.tool.filesystem.DefaultToolFileSystem
 import cc.unitmesh.agent.tool.impl.GrepParams
@@ -21,18 +20,17 @@ import cc.unitmesh.devins.llm.Message
 import cc.unitmesh.devins.llm.MessageRole
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.promise
 import kotlin.js.Promise
 
 /**
- * JavaScript-friendly wrapper for KoogLLMService
+ * JavaScript-friendly wrapper for LLMService
  * This class is exported to JavaScript and provides a simpler API
  */
 @JsExport
 class JsKoogLLMService(config: JsModelConfig, compressionConfig: JsCompressionConfig? = null) {
     private val kotlinConfig: ModelConfig
-    internal val service: KoogLLMService  // 改为 internal 以便在同一模块访问
+    internal val service: LLMService  // 改为 internal 以便在同一模块访问
 
     init {
         // Convert string provider to LLMProviderType
@@ -62,7 +60,7 @@ class JsKoogLLMService(config: JsModelConfig, compressionConfig: JsCompressionCo
         val kotlinCompressionConfig = compressionConfig?.toKotlin()
             ?: cc.unitmesh.llm.compression.CompressionConfig()
 
-        service = KoogLLMService(kotlinConfig, kotlinCompressionConfig)
+        service = LLMService(kotlinConfig, kotlinCompressionConfig)
     }
     
     /**
@@ -1075,7 +1073,7 @@ class JsDomainDictService(
  */
 @JsExport
 class JsPromptEnhancer(
-    private val llmService: KoogLLMService,
+    private val llmService: LLMService,
     private val fileSystem: DefaultFileSystem,
     private val jsDomainDictService: JsDomainDictService
 ) {
@@ -1101,7 +1099,7 @@ class JsPromptEnhancer(
 @JsExport
 @OptIn(kotlinx.coroutines.DelicateCoroutinesApi::class)
 fun createPromptEnhancer(
-    llmService: KoogLLMService,
+    llmService: LLMService,
     fileSystem: DefaultFileSystem,
     jsDomainDictService: JsDomainDictService
 ): JsPromptEnhancer {

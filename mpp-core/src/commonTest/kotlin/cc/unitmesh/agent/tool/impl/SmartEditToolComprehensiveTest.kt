@@ -4,14 +4,13 @@ import cc.unitmesh.agent.tool.LocationType
 import cc.unitmesh.agent.tool.ToolResult
 import cc.unitmesh.agent.tool.filesystem.FileInfo
 import cc.unitmesh.agent.tool.filesystem.ToolFileSystem
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.Clock
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
-import kotlin.test.assertFalse
 
 /**
  * Comprehensive test suite for SmartEditTool covering edge cases and error conditions.
@@ -57,7 +56,7 @@ class SmartEditToolComprehensiveTest {
     }
 
     private lateinit var fileSystem: MockFileSystem
-    private lateinit var mockLLMService: KoogLLMService
+    private lateinit var mockLLMService: LLMService
     private lateinit var tool: SmartEditTool
 
     @BeforeTest
@@ -71,7 +70,7 @@ class SmartEditToolComprehensiveTest {
             temperature = 0.7,
             maxTokens = 4000
         )
-        mockLLMService = KoogLLMService(mockConfig)
+        mockLLMService = LLMService(mockConfig)
         tool = SmartEditTool(fileSystem, mockLLMService)
     }
 

@@ -37,7 +37,7 @@ import cc.unitmesh.devins.ui.i18n.Strings
 import cc.unitmesh.devins.ui.platform.createFileChooser
 import cc.unitmesh.devins.ui.state.UIStateManager
 import cc.unitmesh.devins.workspace.WorkspaceManager
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import cc.unitmesh.llm.ModelConfig
 import kotlinx.coroutines.launch
 
@@ -118,7 +118,7 @@ private fun AutoDevContent(
     }
 
     var currentModelConfig by remember { mutableStateOf<ModelConfig?>(null) }
-    var llmService by remember { mutableStateOf<KoogLLMService?>(null) }
+    var llmService by remember { mutableStateOf<LLMService?>(null) }
     var showConfigWarning by remember { mutableStateOf(false) }
     var showErrorDialog by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
@@ -283,7 +283,7 @@ private fun AutoDevContent(
 
             if (activeConfig != null && activeConfig.isValid()) {
                 currentModelConfig = activeConfig
-                llmService = KoogLLMService.create(activeConfig)
+                llmService = LLMService.create(activeConfig)
                 println("✅ 加载配置: ${activeConfig.provider.displayName} / ${activeConfig.modelName}")
             } else {
                 println("⚠️ 未找到有效配置")
@@ -529,7 +529,7 @@ private fun AutoDevContent(
                             currentModelConfig = config
                             if (config.isValid()) {
                                 try {
-                                    llmService = KoogLLMService.create(config)
+                                    llmService = LLMService.create(config)
                                     println("✅ 切换模型: ${config.provider.displayName} / ${config.modelName}")
                                 } catch (e: Exception) {
                                     println("❌ 切换模型失败: ${e.message}")
@@ -575,7 +575,7 @@ private fun AutoDevContent(
                                 currentModelConfig = config
                                 if (config.isValid()) {
                                     try {
-                                        llmService = KoogLLMService.create(config)
+                                        llmService = LLMService.create(config)
                                         println("✅ 切换模型: ${config.provider.displayName} / ${config.modelName}")
                                     } catch (e: Exception) {
                                         println("❌ 配置 LLM 服务失败: ${e.message}")
@@ -626,7 +626,7 @@ private fun AutoDevContent(
                             currentModelConfig = config
                             if (config.isValid()) {
                                 try {
-                                    llmService = KoogLLMService.create(config)
+                                    llmService = LLMService.create(config)
                                     println("✅ 切换模型: ${config.provider.displayName} / ${config.modelName}")
                                 } catch (e: Exception) {
                                     println("❌ 切换模型失败: ${e.message}")
@@ -688,7 +688,7 @@ private fun AutoDevContent(
                                 }
                             }
 
-                            llmService = KoogLLMService.create(newConfig)
+                            llmService = LLMService.create(newConfig)
                             println("✅ 模型配置已应用: $configName")
                         } catch (e: Exception) {
                             println("❌ 配置 LLM 服务失败: ${e.message}")

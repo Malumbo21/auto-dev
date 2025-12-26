@@ -6,7 +6,7 @@ import cc.unitmesh.agent.config.McpToolConfigService
 import cc.unitmesh.agent.config.ToolConfigFile
 import cc.unitmesh.agent.render.CodingAgentRenderer
 import cc.unitmesh.agent.tool.filesystem.DefaultToolFileSystem
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import cc.unitmesh.llm.LLMProviderType
 import cc.unitmesh.llm.ModelConfig
 import cc.unitmesh.llm.compression.TokenInfo
@@ -95,7 +95,7 @@ object CodingCli {
                     else -> LLMProviderType.CUSTOM_OPENAI_BASE
                 }
 
-                val llmService = KoogLLMService(
+                val llmService = LLMService(
                     ModelConfig(
                         provider = providerType,
                         modelName = activeConfig.model,

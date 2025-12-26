@@ -3,14 +3,14 @@ package cc.unitmesh.agent.recovery
 import cc.unitmesh.agent.logging.getLogger
 import cc.unitmesh.agent.subagent.ErrorRecoveryAgent
 import cc.unitmesh.agent.tool.ToolType
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 
 /**
  * 错误恢复管理器
  *
  * 负责处理工具执行失败时的错误恢复逻辑
  */
-class ErrorRecoveryManager(private val projectPath: String, private val llmService: KoogLLMService) {
+class ErrorRecoveryManager(private val projectPath: String, private val llmService: LLMService) {
     private val logger = getLogger("ErrorRecoveryManager")
     private val errorRecoveryAgent = ErrorRecoveryAgent(projectPath, llmService)
 

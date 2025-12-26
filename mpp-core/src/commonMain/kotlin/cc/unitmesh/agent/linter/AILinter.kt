@@ -3,7 +3,7 @@ package cc.unitmesh.agent.linter
 import cc.unitmesh.agent.logging.getLogger
 import cc.unitmesh.agent.tool.shell.ShellExecutor
 import cc.unitmesh.agent.tool.shell.ShellExecutionConfig
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -21,7 +21,7 @@ class AILinter(
     private val linterName: String,
     private val linterConfig: LinterConfig,
     private val shellExecutor: ShellExecutor,
-    private val llmService: KoogLLMService
+    private val llmService: LLMService
 ) : Linter {
     
     private val logger = getLogger("AILinter")
@@ -248,7 +248,7 @@ private data class AILintIssue(
  */
 class AILinterFactory(
     private val shellExecutor: ShellExecutor,
-    private val llmService: KoogLLMService,
+    private val llmService: LLMService,
     private val lintDetector: LintDetector
 ) {
     private val logger = getLogger("AILinterFactory")

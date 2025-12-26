@@ -10,7 +10,7 @@ import cc.unitmesh.devins.db.DocumentIndexDatabaseRepository
 import cc.unitmesh.devins.db.DocumentIndexRecord
 import cc.unitmesh.devins.db.DocumentIndexRepository
 import cc.unitmesh.devins.document.*
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import cc.unitmesh.llm.LLMProviderType
 import cc.unitmesh.llm.ModelConfig
 import cc.unitmesh.llm.compression.TokenInfo
@@ -233,7 +233,7 @@ object DocumentCli {
                     else -> LLMProviderType.CUSTOM_OPENAI_BASE
                 }
 
-                val llmService = KoogLLMService(
+                val llmService = LLMService(
                     ModelConfig(
                         provider = providerType,
                         modelName = activeConfig.model,

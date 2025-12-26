@@ -1,8 +1,7 @@
 package cc.unitmesh.agent.scoring
 
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.coroutines.flow.toList
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -126,7 +125,7 @@ data class LLMRerankResult(
  * ```
  */
 class LLMMetadataReranker(
-    private val llmService: KoogLLMService,
+    private val llmService: LLMService,
     private val config: LLMMetadataRerankerConfig = LLMMetadataRerankerConfig()
 ) {
     private val json = Json { 
@@ -426,7 +425,7 @@ object RerankerFactory {
      */
     fun create(
         type: RerankerType,
-        llmService: KoogLLMService? = null,
+        llmService: LLMService? = null,
         maxResults: Int = 20
     ): ScoringModel {
         return when (type) {

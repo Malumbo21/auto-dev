@@ -20,11 +20,11 @@ import cc.unitmesh.devins.llm.MessageRole
 import cc.unitmesh.devins.ui.i18n.LanguageManager
 import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.indexer.DomainDictGenerator
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import kotlinx.coroutines.*
 
 class CodingAgentViewModel(
-    private val llmService: KoogLLMService?,
+    private val llmService: LLMService?,
     private val projectPath: String,
     private val maxIterations: Int = 100,
     private val chatHistoryManager: ChatHistoryManager? = null  // 新增：会话管理

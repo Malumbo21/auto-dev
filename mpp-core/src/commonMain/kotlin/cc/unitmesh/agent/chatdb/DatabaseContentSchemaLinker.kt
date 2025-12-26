@@ -3,7 +3,7 @@ package cc.unitmesh.agent.chatdb
 import cc.unitmesh.agent.database.DatabaseConnection
 import cc.unitmesh.agent.database.DatabaseSchema
 import cc.unitmesh.agent.database.TableSchema
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -19,7 +19,7 @@ import kotlinx.serialization.json.Json
  * actual database content to understand table semantics.
  */
 class DatabaseContentSchemaLinker(
-    private val llmService: KoogLLMService,
+    private val llmService: LLMService,
     private val databaseConnection: DatabaseConnection,
     private val fallbackLinker: SchemaLinker = KeywordSchemaLinker()
 ) : SchemaLinker() {

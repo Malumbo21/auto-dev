@@ -26,7 +26,7 @@ import cc.unitmesh.devins.ui.compose.icons.AutoDevComposeIcons
 import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.devins.workspace.WorkspaceManager
 import cc.unitmesh.indexer.DomainDictService
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import cc.unitmesh.llm.PromptEnhancer
 import kotlinx.coroutines.launch
 
@@ -274,7 +274,7 @@ private fun ChatInputArea(
                 val configWrapper = ConfigManager.load()
                 val activeConfig = configWrapper.getActiveModelConfig()
                 if (activeConfig != null && activeConfig.isValid()) {
-                    val llmService = KoogLLMService.create(activeConfig)
+                    val llmService = LLMService.create(activeConfig)
                     val fileSystem = workspace.fileSystem
                     val domainDictService = DomainDictService(fileSystem)
                     enhancer = PromptEnhancer(llmService, fileSystem, domainDictService)

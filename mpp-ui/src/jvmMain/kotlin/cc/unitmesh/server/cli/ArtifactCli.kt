@@ -9,7 +9,7 @@ import cc.unitmesh.agent.render.ArtifactRenderer
 import cc.unitmesh.agent.render.ConsoleLogEntry
 import cc.unitmesh.agent.tool.ToolResult
 import cc.unitmesh.devins.ui.compose.agent.artifact.ArtifactScenarios
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import cc.unitmesh.llm.LLMProviderType
 import cc.unitmesh.llm.ModelConfig
 import cc.unitmesh.llm.compression.TokenInfo
@@ -29,7 +29,7 @@ import java.io.File
  *
  * Test Scenarios (from ArtifactScenarios):
  * - dashboard: Interactive dashboard with charts
- * - todolist: Simple todo list app  
+ * - todolist: Simple todo list app
  * - calculator: Calculator widget
  * - pomodoro: Pomodoro timer
  * - weather: Weather card widget
@@ -133,7 +133,7 @@ object ArtifactCli {
                     else -> LLMProviderType.CUSTOM_OPENAI_BASE
                 }
 
-                val llmService = KoogLLMService(
+                val llmService = LLMService(
                     ModelConfig(
                         provider = providerType,
                         modelName = activeConfig.model,
@@ -171,7 +171,7 @@ object ArtifactCli {
 
                     // Select best artifact for export
                     val bestArtifact = ArtifactBundle.selectBestArtifact(result.artifacts)
-                    
+
                     result.artifacts.forEachIndexed { index, artifact ->
                         println()
                         println("─".repeat(40))
@@ -253,7 +253,7 @@ object ArtifactCli {
                                 is PackResult.Error -> {
                                     println("  ❌ Failed to create .unit bundle: ${packResult.message}")
                                     packResult.cause?.printStackTrace()
-                                    
+
                                     // Fallback to HTML export
                                     val htmlPath = outputPath.replace(".unit", ".html")
                                     File(htmlPath).writeText(bestArtifact.content)

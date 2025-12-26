@@ -8,7 +8,7 @@ import cc.unitmesh.agent.tool.ToolResult
 import cc.unitmesh.agent.tool.ToolType
 import cc.unitmesh.agent.tool.schema.DeclarativeToolSchema
 import cc.unitmesh.agent.tool.schema.SchemaPropertyBuilder.string
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import cc.unitmesh.llm.ModelConfig
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -58,7 +58,7 @@ data class ContentHandlerResult(
 )
 
 class AnalysisAgent(
-    private val llmService: KoogLLMService,
+    private val llmService: LLMService,
     private val contentThreshold: Int = 128000
 ) : SubAgent<ContentHandlerContext, ToolResult.AgentResult>(
     definition = createDefinition()

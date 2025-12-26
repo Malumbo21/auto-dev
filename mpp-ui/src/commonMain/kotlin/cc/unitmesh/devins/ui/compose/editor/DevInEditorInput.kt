@@ -50,7 +50,7 @@ import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.devins.ui.platform.createClipboardImageReader
 import cc.unitmesh.devins.ui.platform.createFileChooser
 import cc.unitmesh.devins.workspace.WorkspaceManager
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import cc.unitmesh.llm.ModelConfig
 import cc.unitmesh.llm.NamedModelConfig
 import cc.unitmesh.llm.PromptEnhancer
@@ -307,7 +307,7 @@ fun DevInEditorInput(
         }
     }
 
-    var llmService by remember { mutableStateOf<KoogLLMService?>(null) }
+    var llmService by remember { mutableStateOf<LLMService?>(null) }
 
     LaunchedEffect(Unit) {
         try {
@@ -317,7 +317,7 @@ fun DevInEditorInput(
                 val configWrapper = ConfigManager.load()
                 val activeConfig = configWrapper.getActiveModelConfig()
                 if (activeConfig != null && activeConfig.isValid()) {
-                    llmService = KoogLLMService.create(activeConfig)
+                    llmService = LLMService.create(activeConfig)
 
                     // Use workspace file system
                     val fileSystem = workspace.fileSystem

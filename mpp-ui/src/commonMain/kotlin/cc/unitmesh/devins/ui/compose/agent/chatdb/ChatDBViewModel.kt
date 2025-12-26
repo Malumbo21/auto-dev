@@ -16,7 +16,7 @@ import cc.unitmesh.devins.db.DataSourceRepository
 import cc.unitmesh.devins.ui.compose.agent.ComposeRenderer
 import cc.unitmesh.devins.ui.compose.agent.chatdb.model.*
 import cc.unitmesh.devins.workspace.Workspace
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -36,7 +36,7 @@ class ChatDBViewModel(
     val renderer = ComposeRenderer()
 
     // LLM Service
-    private var llmService: KoogLLMService? = null
+    private var llmService: LLMService? = null
     private var currentExecutionJob: Job? = null
 
     // Database connections (multi-datasource support)
@@ -70,7 +70,7 @@ class ChatDBViewModel(
                 val configWrapper = ConfigManager.load()
                 val modelConfig = configWrapper.getActiveModelConfig()
                 if (modelConfig != null && modelConfig.isValid()) {
-                    llmService = KoogLLMService.create(modelConfig)
+                    llmService = LLMService.create(modelConfig)
                 }
             } catch (e: Exception) {
                 println("[ChatDB] Failed to initialize LLM service: ${e.message}")

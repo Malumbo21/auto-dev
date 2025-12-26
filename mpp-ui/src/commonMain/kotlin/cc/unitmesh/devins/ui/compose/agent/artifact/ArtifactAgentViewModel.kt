@@ -7,11 +7,10 @@ import cc.unitmesh.agent.ArtifactAgent
 import cc.unitmesh.agent.artifact.ArtifactBundle
 import cc.unitmesh.agent.artifact.ArtifactType
 import cc.unitmesh.devins.llm.ChatHistoryManager
-import cc.unitmesh.devins.llm.Message
 import cc.unitmesh.devins.llm.MessageRole
 import cc.unitmesh.devins.ui.compose.agent.ComposeRenderer
 import cc.unitmesh.devins.ui.i18n.LanguageManager
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import kotlinx.coroutines.*
 
 /**
@@ -21,7 +20,7 @@ import kotlinx.coroutines.*
  * Supports streaming preview - artifact content is rendered in real-time as it's generated.
  */
 class ArtifactAgentViewModel(
-    private val llmService: KoogLLMService?,
+    private val llmService: LLMService?,
     private val chatHistoryManager: ChatHistoryManager? = null
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -129,7 +128,7 @@ class ArtifactAgentViewModel(
 
     /**
      * Fix a failed artifact based on execution error
-     * 
+     *
      * @param artifact The artifact that failed to execute
      * @param errorMessage The error message from execution
      */
@@ -145,7 +144,7 @@ class ArtifactAgentViewModel(
 
         isExecuting = true
         renderer.clearError()
-        
+
         // Add a message indicating we're fixing the artifact
         renderer.addUserMessage("🔧 Fixing artifact due to execution error:\n```\n${errorMessage.take(500)}\n```")
         streamingArtifact = null

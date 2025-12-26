@@ -19,7 +19,7 @@ import cc.unitmesh.agent.tool.ToolResult
 import cc.unitmesh.agent.tool.filesystem.DefaultToolFileSystem
 import cc.unitmesh.agent.tool.filesystem.ToolFileSystem
 import cc.unitmesh.agent.tool.registry.ToolRegistry
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import cc.unitmesh.llm.ModelConfig
 
 /**
@@ -37,7 +37,7 @@ import cc.unitmesh.llm.ModelConfig
  */
 class ChatDBAgent(
     private val projectPath: String,
-    private val llmService: KoogLLMService,
+    private val llmService: LLMService,
     private val databaseConfigs: Map<String, DatabaseConfig>,
     override val maxIterations: Int = 10,
     private val renderer: CodingAgentRenderer = DefaultCodingAgentRenderer(),

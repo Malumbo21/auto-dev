@@ -6,8 +6,7 @@ import cc.unitmesh.agent.render.CodingAgentRenderer
 import cc.unitmesh.agent.render.DefaultCodingAgentRenderer
 import cc.unitmesh.devins.llm.Message
 import cc.unitmesh.devins.llm.MessageRole
-import cc.unitmesh.llm.KoogLLMService
-import kotlinx.coroutines.flow.collect
+import cc.unitmesh.llm.LLMService
 
 /**
  * ArtifactAgent - Generates self-contained, executable artifacts (HTML/JS, Python, React)
@@ -17,7 +16,7 @@ import kotlinx.coroutines.flow.collect
  * without file system or shell access. The artifacts are displayed in a WebView preview.
  */
 class ArtifactAgent(
-    private val llmService: KoogLLMService,
+    private val llmService: LLMService,
     private val renderer: CodingAgentRenderer = DefaultCodingAgentRenderer(),
     private val language: String = "EN"
 ) {

@@ -5,14 +5,14 @@ import cc.unitmesh.agent.config.McpToolConfigService
 import cc.unitmesh.agent.render.CodingAgentRenderer
 import cc.unitmesh.agent.tool.filesystem.AndroidToolFileSystem
 import cc.unitmesh.devins.ui.platform.AndroidActivityProvider
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 
 /**
  * Android-specific factory for creating CodingAgent with SAF support
  */
 actual fun createPlatformCodingAgent(
     projectPath: String,
-    llmService: KoogLLMService,
+    llmService: LLMService,
     maxIterations: Int,
     renderer: CodingAgentRenderer,
     mcpToolConfigService: McpToolConfigService

@@ -4,13 +4,13 @@ import cc.unitmesh.agent.core.SubAgentManager
 import cc.unitmesh.agent.tool.ExecutableTool
 import cc.unitmesh.agent.tool.filesystem.ToolFileSystem
 import cc.unitmesh.agent.tool.shell.ShellExecutor
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 
 data class ToolDependencies(
     val fileSystem: ToolFileSystem,
     val shellExecutor: ShellExecutor,
     val subAgentManager: SubAgentManager? = null,
-    val llmService: KoogLLMService? = null
+    val llmService: LLMService? = null
 )
 
 interface ToolProvider {

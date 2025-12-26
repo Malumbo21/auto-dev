@@ -10,9 +10,8 @@ import cc.unitmesh.agent.tool.ToolResult
 import cc.unitmesh.agent.tool.schema.DeclarativeToolSchema
 import cc.unitmesh.agent.tool.schema.SchemaPropertyBuilder.string
 import cc.unitmesh.devins.parser.CodeFence
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import cc.unitmesh.llm.ModelConfig
-import kotlinx.coroutines.flow.toList
 import kotlinx.serialization.Serializable
 
 /**
@@ -33,7 +32,7 @@ import kotlinx.serialization.Serializable
  * - iOS/JS/WASM: Fallback to code display
  */
 class PlotDSLAgent(
-    private val llmService: KoogLLMService,
+    private val llmService: LLMService,
     private val promptTemplate: String = DEFAULT_PROMPT,
     private val maxRetries: Int = 3
 ) : SubAgent<PlotDSLContext, ToolResult.AgentResult>(

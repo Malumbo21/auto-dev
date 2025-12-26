@@ -24,13 +24,13 @@ import cc.unitmesh.devins.ui.compose.editor.multimodal.ImageUploader
 import cc.unitmesh.devins.ui.compose.editor.multimodal.VisionAnalysisService
 import cc.unitmesh.devins.ui.state.UIStateManager
 import cc.unitmesh.devins.workspace.WorkspaceManager
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import cc.unitmesh.llm.LLMProviderType
 import cc.unitmesh.llm.NamedModelConfig
 
 @Composable
 fun CodingAgentPage(
-    llmService: KoogLLMService?,
+    llmService: LLMService?,
     isTreeViewVisible: Boolean = false, // 保留供外部读取，但内部使用全局状态
     onConfigWarning: () -> Unit,
     onToggleTreeView: (Boolean) -> Unit = {}, // 保留供外部回调，但不再主动调用

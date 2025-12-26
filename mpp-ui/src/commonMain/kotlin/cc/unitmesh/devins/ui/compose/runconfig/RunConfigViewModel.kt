@@ -7,7 +7,7 @@ import cc.unitmesh.agent.Platform
 import cc.unitmesh.agent.runconfig.*
 import cc.unitmesh.agent.tool.filesystem.DefaultToolFileSystem
 import cc.unitmesh.agent.tool.shell.DefaultShellExecutor
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -27,7 +27,7 @@ import kotlinx.coroutines.launch
  */
 class RunConfigViewModel(
     projectPath: String,
-    llmService: KoogLLMService? = null
+    llmService: LLMService? = null
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 

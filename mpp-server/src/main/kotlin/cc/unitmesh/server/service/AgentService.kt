@@ -8,7 +8,7 @@ import cc.unitmesh.agent.CodingAgent
 import cc.unitmesh.agent.config.McpToolConfigService
 import cc.unitmesh.agent.config.ToolConfigFile
 import cc.unitmesh.agent.render.DefaultCodingAgentRenderer
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import cc.unitmesh.llm.LLMProviderType
 import cc.unitmesh.llm.ModelConfig
 import cc.unitmesh.llm.NamedModelConfig
@@ -180,7 +180,7 @@ class AgentService(private val fallbackLLMConfig: ServerLLMConfig) {
      * 2. Otherwise use server's ~/.autodev/config.yaml configuration
      * 3. Otherwise use fallback config from environment variables
      */
-    private fun createLLMService(clientConfig: LLMConfig? = null): KoogLLMService {
+    private fun createLLMService(clientConfig: LLMConfig? = null): LLMService {
         val (provider, modelName, apiKey, baseUrl) = when {
             clientConfig != null -> {
                 Quadruple(
@@ -217,7 +217,7 @@ class AgentService(private val fallbackLLMConfig: ServerLLMConfig) {
             baseUrl = baseUrl.ifEmpty { "" }
         )
 
-        return KoogLLMService(modelConfig)
+        return LLMService(modelConfig)
     }
 
     // Helper data class for multiple return values
@@ -225,7 +225,7 @@ class AgentService(private val fallbackLLMConfig: ServerLLMConfig) {
 
     private fun createCodingAgent(
         projectPath: String,
-        llmService: KoogLLMService,
+        llmService: LLMService,
         renderer: cc.unitmesh.agent.render.CodingAgentRenderer
     ): CodingAgent {
         // Create a simple tool config with default settings

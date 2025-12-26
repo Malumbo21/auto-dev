@@ -1,6 +1,6 @@
 package cc.unitmesh.xuiper.integration
 
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import cc.unitmesh.llm.LLMProviderType
 import cc.unitmesh.llm.ModelConfig
 import cc.unitmesh.devins.llm.Message
@@ -34,7 +34,7 @@ private val logger = KotlinLogging.logger {}
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 abstract class NanoDSLIntegrationTestBase {
     
-    protected lateinit var llmService: KoogLLMService
+    protected lateinit var llmService: LLMService
     protected var isConfigured = false
     
     companion object {
@@ -62,7 +62,7 @@ abstract class NanoDSLIntegrationTestBase {
                 baseUrl = activeConfig.baseUrl
             )
             
-            llmService = KoogLLMService.create(modelConfig)
+            llmService = LLMService.create(modelConfig)
             isConfigured = true
             logger.info { "Integration test configured with provider: ${activeConfig.provider}" }
         } else {
@@ -86,7 +86,7 @@ abstract class NanoDSLIntegrationTestBase {
                     maxTokens = 2048
                 )
                 
-                llmService = KoogLLMService.create(modelConfig)
+                llmService = LLMService.create(modelConfig)
                 isConfigured = true
                 logger.info { "Integration test configured with provider: $provider" }
             }

@@ -1,6 +1,6 @@
 package cc.unitmesh.devins.ui.compose.agent
 
-import cc.unitmesh.llm.KoogLLMService
+import cc.unitmesh.llm.LLMService
 import cc.unitmesh.llm.LLMProviderType
 import cc.unitmesh.llm.ModelConfig
 import kotlinx.coroutines.test.runTest
@@ -12,7 +12,7 @@ import kotlin.test.assertTrue
  * Tests for CodingAgentViewModel built-in command handling
  */
 class CodingAgentViewModelTest {
-    private fun createMockLLMService(): KoogLLMService {
+    private fun createMockLLMService(): LLMService {
         val config =
             ModelConfig(
                 provider = LLMProviderType.DEEPSEEK,
@@ -22,7 +22,7 @@ class CodingAgentViewModelTest {
                 maxTokens = 128000,
                 baseUrl = "https://api.deepseek.com"
             )
-        return KoogLLMService.create(config)
+        return LLMService.create(config)
     }
 
     @Test
