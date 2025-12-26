@@ -147,7 +147,7 @@ fun CodingAgentPage(
             llmService = llmService
         )
     }
-    
+
     val runConfigState by runConfigViewModel.state.collectAsState()
     val runConfigs by runConfigViewModel.configs.collectAsState()
     val defaultRunConfig by runConfigViewModel.defaultConfig.collectAsState()
@@ -157,7 +157,7 @@ fun CodingAgentPage(
     val runAnalysisLog by runConfigViewModel.analysisLog.collectAsState()
 
     var showRunOutputDock by remember { mutableStateOf(false) }
-    
+
     // Track which mode the dock is in (analysis or run output)
     val isAnalyzing = runConfigState == cc.unitmesh.agent.runconfig.RunConfigState.ANALYZING
     val dockTitle = if (isAnalyzing) "AI Analysis" else "Run Output"
@@ -168,6 +168,27 @@ fun CodingAgentPage(
         if (isRunning || runOutput.isNotBlank() || isAnalyzing || runAnalysisLog.isNotBlank()) {
             showRunOutputDock = true
         }
+    }
+
+    // Extracted RunOutputDock composable to avoid duplication
+    val runOutputDockContent: @Composable () -> Unit = {
+        RunOutputDock(
+            isVisible = showRunOutputDock,
+            title = dockTitle,
+            output = dockOutput,
+            isRunning = isRunning,
+            onClear = {
+                runConfigViewModel.clearOutput()
+                runConfigViewModel.clearAnalysisLog()
+            },
+            onClose = { showRunOutputDock = false },
+            onStop = if (!isAnalyzing) {
+                { runConfigViewModel.stopRunning() }
+            } else null,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp)
+        )
     }
 
     // Main content
@@ -260,23 +281,7 @@ fun CodingAgentPage(
                     when (selectedAgentType) {
                         AgentType.LOCAL_CHAT,
                         AgentType.CODING -> {
-                            RunOutputDock(
-                                isVisible = showRunOutputDock,
-                                title = dockTitle,
-                                output = dockOutput,
-                                isRunning = isRunning,
-                                onClear = { 
-                                    runConfigViewModel.clearOutput()
-                                    runConfigViewModel.clearAnalysisLog()
-                                },
-                                onClose = { showRunOutputDock = false },
-                                onStop = if (!isAnalyzing) { 
-                                    { runConfigViewModel.stopRunning() }
-                                } else null,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 12.dp)
-                            )
+                            runOutputDockContent()
                             DevInEditorInput(
                                 initialText = "",
                                 placeholder = "Describe your coding task...",
@@ -484,23 +489,7 @@ fun CodingAgentPage(
                     )
                 }
 
-            RunOutputDock(
-                isVisible = showRunOutputDock,
-                title = dockTitle,
-                output = dockOutput,
-                isRunning = isRunning,
-                onClear = { 
-                    runConfigViewModel.clearOutput()
-                    runConfigViewModel.clearAnalysisLog()
-                },
-                onClose = { showRunOutputDock = false },
-                onStop = if (!isAnalyzing) { 
-                    { runConfigViewModel.stopRunning() }
-                } else null,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp)
-            )
+            runOutputDockContent()
             DevInEditorInput(
                 initialText = "",
                 placeholder = "Describe your coding task...",

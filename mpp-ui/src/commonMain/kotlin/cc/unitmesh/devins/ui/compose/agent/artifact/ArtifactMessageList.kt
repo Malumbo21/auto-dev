@@ -22,7 +22,7 @@ import kotlinx.coroutines.launch
 
 /**
  * Custom message list optimized for artifact generation.
- * 
+ *
  * Unlike AgentMessageList which shows full code details, this component:
  * - Shows user messages compactly
  * - Displays streaming output in a height-limited scrollable code block
@@ -114,7 +114,7 @@ fun ArtifactMessageList(
             userScrolledAway = false
         }
     }
-    
+
     LazyColumn(
         state = listState,
         modifier = modifier.padding(horizontal = 12.dp),
@@ -138,7 +138,7 @@ fun ArtifactMessageList(
                 }
             }
         }
-        
+
         // Show thinking block if active
         if (renderer.isThinking && renderer.currentThinkingOutput.isNotEmpty()) {
             item(key = "thinking") {
@@ -149,7 +149,7 @@ fun ArtifactMessageList(
                 )
             }
         }
-        
+
         // Show streaming artifact content
         if (streamingArtifact != null) {
             item(key = "streaming-artifact") {
@@ -189,7 +189,7 @@ private fun ArtifactMessageItem(
     content: String
 ) {
     val isUser = role == MessageRole.USER
-    
+
     if (isUser) {
         // User messages - right aligned, limited width
         Row(
@@ -204,7 +204,7 @@ private fun ArtifactMessageItem(
                     bottomStart = 12.dp,
                     bottomEnd = 4.dp
                 ),
-                modifier = Modifier.widthIn(max = 400.dp)
+                modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
                     text = content,
@@ -268,7 +268,7 @@ private fun StreamingOutputBlock(
 ) {
     // Extract artifact info if present in streaming output
     val hasArtifactTag = content.contains("<autodev-artifact")
-    
+
     Surface(
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
         shape = RoundedCornerShape(8.dp),
@@ -291,7 +291,7 @@ private fun StreamingOutputBlock(
                     color = MaterialTheme.colorScheme.onSurface
                 )
             }
-            
+
             if (!hasArtifactTag && content.length < 500) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Surface(
