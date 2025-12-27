@@ -18,6 +18,7 @@ VSCode, CLI, Web, Desktop, Android, iOS, Server).
 - **CLI Tool**: `npm install -g @xiuper/cli`
 - **Web Version**: https://web.xiuper.com/
 - **Desktop & Android**: [Release Pages](https://github.com/phodal/auto-dev/releases)
+- **iOS**: You need to build it from source code.
 
 ### Previous Versions
 
@@ -71,6 +72,21 @@ AutoDev Xiuper includes 7 specialized AI agents mapped to the complete Software 
 | **Ops**       | Operations   | Operations monitoring agent for log analysis, performance monitoring, and alert handling           | Logs / Metrics / Alerts           | 🚧 Coming |
 
 Each agent is designed to handle specific phases of the development lifecycle, providing comprehensive AI assistance from requirements gathering to production operations.
+
+### Special-Purpose Agents
+
+In addition to SDLC agents, AutoDev Xiuper includes specialized agents for specific use cases:
+
+| Agent        | Purpose     | Description                                                                                                    | Capabilities                                          | Status   |
+|--------------|-------------|----------------------------------------------------------------------------------------------------------------|-------------------------------------------------------|----------|
+| **Artifact** | Quick Demos | Generate self-contained, executable artifacts (HTML/JS, React, Node.js, Python) inspired by Claude's Artifacts | Interactive preview / Auto-fix / Multi-format support | ✅ Stable |
+
+**Artifact Agent** focuses on creating complete, runnable artifacts without file system or shell access. Perfect for:
+- Quick prototyping and demos
+- Interactive web applications
+- Data visualizations
+- Python scripts with dependencies
+- SVG graphics and Mermaid diagrams
 
 ### SubAgents
 
