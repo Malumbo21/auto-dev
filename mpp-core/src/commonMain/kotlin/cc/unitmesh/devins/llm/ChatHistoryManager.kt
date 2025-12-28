@@ -44,11 +44,19 @@ class ChatHistoryManager {
             var titlesFixed = 0
             loadedSessions.forEach { session ->
                 // Fix sessions with null title by generating from first user message
-                if (session.title == null) {
+                // or first assistant message if no user message exists
+                if (session.title == null && session.messages.isNotEmpty()) {
                     val firstUserMessage = session.messages.firstOrNull { it.role == MessageRole.USER }
                     if (firstUserMessage != null) {
                         session.title = generateTitleFromContent(firstUserMessage.content)
                         titlesFixed++
+                    } else {
+                        // Fallback: use first assistant message if no user message
+                        val firstAssistantMessage = session.messages.firstOrNull { it.role == MessageRole.ASSISTANT }
+                        if (firstAssistantMessage != null) {
+                            session.title = generateTitleFromContent(firstAssistantMessage.content)
+                            titlesFixed++
+                        }
                     }
                 }
                 sessions[session.id] = session
@@ -57,7 +65,7 @@ class ChatHistoryManager {
             // Save if we fixed any titles
             if (titlesFixed > 0) {
                 saveSessions()
-                println("✅ Fixed $titlesFixed session titles")
+                println("Fixed $titlesFixed session titles")
             }
 
             // 如果有会话，设置最新的为当前会话
@@ -65,13 +73,13 @@ class ChatHistoryManager {
                 currentSessionId = sessions.values.maxByOrNull { it.updatedAt }?.id
             }
 
-            println("✅ Loaded ${sessions.size} chat sessions from disk")
+            println("Loaded ${sessions.size} chat sessions from disk")
             initialized = true
 
             // 通知 UI 更新，确保初始加载的会话能够显示
             _sessionsUpdateTrigger.value++
         } catch (e: Exception) {
-            println("⚠️ Failed to initialize ChatHistoryManager: ${e.message}")
+            println("Failed to initialize ChatHistoryManager: ${e.message}")
             initialized = true
         }
     }
@@ -247,7 +255,8 @@ class ChatHistoryManager {
 
     /**
      * 批量添加多个 Message 对象到当前会话
-     * 如果是第一条用户消息且 title 为空，自动设置 title
+     * 如果 title 为空，自动从第一条用户消息设置 title
+     * 如果没有用户消息，则从第一条助手消息设置 title
      * 完成后立即同步保存到磁盘
      */
     suspend fun addMessages(messages: List<Message>) {
@@ -255,15 +264,24 @@ class ChatHistoryManager {
 
         val session = getCurrentSession()
 
-        // Auto-generate title from first user message if title is null
-        val firstUserMessage = messages.firstOrNull { it.role == MessageRole.USER }
-        if (firstUserMessage != null && session.title == null) {
-            // Set title from first user message content
-            session.title = generateTitleFromContent(firstUserMessage.content)
-        }
-
+        // Add messages first
         session.messages.addAll(messages)
         session.updatedAt = kotlinx.datetime.Clock.System.now().toEpochMilliseconds()
+
+        // Auto-generate title from first user message in session if title is still null
+        // Check session.messages (which now includes the new messages) for the first user message
+        if (session.title == null && session.messages.isNotEmpty()) {
+            val firstUserMessage = session.messages.firstOrNull { it.role == MessageRole.USER }
+            if (firstUserMessage != null) {
+                session.title = generateTitleFromContent(firstUserMessage.content)
+            } else {
+                // Fallback: use first assistant message if no user message
+                val firstAssistantMessage = session.messages.firstOrNull { it.role == MessageRole.ASSISTANT }
+                if (firstAssistantMessage != null) {
+                    session.title = generateTitleFromContent(firstAssistantMessage.content)
+                }
+            }
+        }
 
         // 立即同步保存
         saveSessions()

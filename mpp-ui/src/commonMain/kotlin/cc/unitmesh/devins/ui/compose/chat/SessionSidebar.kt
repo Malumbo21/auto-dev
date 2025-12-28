@@ -255,7 +255,9 @@ private fun ExpandedSessionSidebarContent(
                         )
                     }
 
-                    items(localSessions, key = { "local_${it.id}" }) { session ->
+                    // Include updatedAt in key to force recomposition when session is updated
+                    // (e.g., when title is set after first user message)
+                    items(localSessions, key = { "local_${it.id}_${it.updatedAt}" }) { session ->
                         LocalSessionItem(
                             session = session,
                             isSelected = session.id == currentSessionId,
@@ -347,13 +349,15 @@ private fun LocalSessionItem(
         MaterialTheme.colorScheme.onSurface
     }
 
-    // 获取会话标题（第一条用户消息的摘要）
-    val title = remember(session) {
-        session.title ?: run {
-            val firstUserMessage = session.messages.firstOrNull { it.role == MessageRole.USER }
-            firstUserMessage?.content?.take(50) ?: "New Chat"
-        }
-    }
+    // Get session title (prefer explicit title, fallback to first user message snippet).
+    // IMPORTANT: do NOT use `remember(session)` here because `session` is a mutable object.
+    // If `session.title` updates later (e.g. after first user message), Compose would keep the old cached value.
+    val title =
+        session.title?.takeIf { it.isNotBlank() }
+            ?: run {
+                val firstUserMessage = session.messages.firstOrNull { it.role == MessageRole.USER }
+                firstUserMessage?.content?.take(50) ?: "New Chat"
+            }
 
     // 格式化时间
     val timeText = remember(session.updatedAt) {
