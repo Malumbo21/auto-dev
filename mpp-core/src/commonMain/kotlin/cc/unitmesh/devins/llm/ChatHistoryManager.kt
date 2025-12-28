@@ -41,8 +41,23 @@ class ChatHistoryManager {
 
         try {
             val loadedSessions = SessionStorage.loadSessions()
+            var titlesFixed = 0
             loadedSessions.forEach { session ->
+                // Fix sessions with null title by generating from first user message
+                if (session.title == null) {
+                    val firstUserMessage = session.messages.firstOrNull { it.role == MessageRole.USER }
+                    if (firstUserMessage != null) {
+                        session.title = generateTitleFromContent(firstUserMessage.content)
+                        titlesFixed++
+                    }
+                }
                 sessions[session.id] = session
+            }
+
+            // Save if we fixed any titles
+            if (titlesFixed > 0) {
+                saveSessions()
+                println("✅ Fixed $titlesFixed session titles")
             }
 
             // 如果有会话，设置最新的为当前会话
@@ -52,7 +67,7 @@ class ChatHistoryManager {
 
             println("✅ Loaded ${sessions.size} chat sessions from disk")
             initialized = true
-            
+
             // 通知 UI 更新，确保初始加载的会话能够显示
             _sessionsUpdateTrigger.value++
         } catch (e: Exception) {
@@ -168,12 +183,35 @@ class ChatHistoryManager {
     /**
      * 添加用户消息到当前会话
      * 立即同步保存到磁盘，确保消息不会丢失
+     * 如果是第一条用户消息且 title 为空，自动设置 title
      */
     suspend fun addUserMessage(content: String) {
-        getCurrentSession().addUserMessage(content)
+        val session = getCurrentSession()
+
+        // Auto-generate title from first user message if title is null
+        if (session.title == null && session.messages.none { it.role == MessageRole.USER }) {
+            session.title = generateTitleFromContent(content)
+        }
+
+        session.addUserMessage(content)
 
         // 立即同步保存
         saveSessions()
+    }
+
+    /**
+     * Generate a session title from message content
+     * Takes the first 50 characters of the content as title
+     */
+    private fun generateTitleFromContent(content: String): String {
+        val cleanContent = content.trim()
+            .replace("\n", " ")
+            .replace("\r", "")
+        return if (cleanContent.length > 50) {
+            cleanContent.take(47) + "..."
+        } else {
+            cleanContent
+        }
     }
 
     /**
@@ -182,6 +220,50 @@ class ChatHistoryManager {
      */
     suspend fun addAssistantMessage(content: String) {
         getCurrentSession().addAssistantMessage(content)
+
+        // 立即同步保存
+        saveSessions()
+    }
+
+    /**
+     * 添加完整的 Message 对象到当前会话（包含 metadata）
+     * 如果是用户消息且 title 为空，自动设置 title
+     * 立即同步保存到磁盘
+     */
+    suspend fun addMessage(message: Message) {
+        val session = getCurrentSession()
+
+        // Auto-generate title from user message if title is null
+        if (message.role == MessageRole.USER && session.title == null) {
+            session.title = generateTitleFromContent(message.content)
+        }
+
+        session.messages.add(message)
+        session.updatedAt = kotlinx.datetime.Clock.System.now().toEpochMilliseconds()
+
+        // 立即同步保存
+        saveSessions()
+    }
+
+    /**
+     * 批量添加多个 Message 对象到当前会话
+     * 如果是第一条用户消息且 title 为空，自动设置 title
+     * 完成后立即同步保存到磁盘
+     */
+    suspend fun addMessages(messages: List<Message>) {
+        if (messages.isEmpty()) return
+
+        val session = getCurrentSession()
+
+        // Auto-generate title from first user message if title is null
+        val firstUserMessage = messages.firstOrNull { it.role == MessageRole.USER }
+        if (firstUserMessage != null && session.title == null) {
+            // Set title from first user message content
+            session.title = generateTitleFromContent(firstUserMessage.content)
+        }
+
+        session.messages.addAll(messages)
+        session.updatedAt = kotlinx.datetime.Clock.System.now().toEpochMilliseconds()
 
         // 立即同步保存
         saveSessions()

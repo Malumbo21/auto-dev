@@ -211,28 +211,14 @@ class CodingAgentViewModel(
                 // Get existing messages count to avoid duplicates
                 val existingMessagesCount = manager.getMessages().size
 
-                // Only save new messages
-                val newMessages = timelineMessages.drop(existingMessagesCount)
+                // Only save new messages (USER and ASSISTANT only)
+                val newMessages = timelineMessages
+                    .drop(existingMessagesCount)
+                    .filter { it.role == MessageRole.USER || it.role == MessageRole.ASSISTANT }
 
-                newMessages.forEach { message ->
-                    when (message.role) {
-                        MessageRole.USER -> {
-                            // Save user message with metadata
-                            manager.getCurrentSession().messages.add(message)
-                        }
-
-                        MessageRole.ASSISTANT -> {
-                            // Save assistant message with metadata
-                            manager.getCurrentSession().messages.add(message)
-                        }
-
-                        else -> {} // Ignore SYSTEM messages
-                    }
-                }
-
-                // Trigger save to disk
+                // Use ChatHistoryManager's addMessages method to properly save with auto-title
                 if (newMessages.isNotEmpty()) {
-                    manager.getCurrentSession().updatedAt = kotlinx.datetime.Clock.System.now().toEpochMilliseconds()
+                    manager.addMessages(newMessages)
                 }
             } catch (e: Exception) {
                 println("[ERROR] Failed to save conversation history: ${e.message}")
@@ -341,6 +327,11 @@ class CodingAgentViewModel(
      * This should be called when user explicitly wants to start fresh.
      */
     fun newSession() {
+        // Cancel any running task before starting a new session
+        if (isExecuting) {
+            cancelTask()
+        }
+
         renderer.clearMessages()
         chatHistoryManager?.createSession()
 
