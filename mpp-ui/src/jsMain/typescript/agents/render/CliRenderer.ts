@@ -11,8 +11,6 @@ import chalk from 'chalk';
 import hljs from 'highlight.js';
 import { semanticChalk, dividers } from '../../design-system/theme-helpers.js';
 import { BaseRenderer } from './BaseRenderer.js';
-import { cc } from 'autodev-mpp-core/autodev-mpp-core';
-import JsPlanSummaryData = cc.unitmesh.agent.JsPlanSummaryData;
 
 /**
  * CliRenderer extends BaseRenderer and implements the unified JsCodingAgentRenderer interface
@@ -44,9 +42,9 @@ export class CliRenderer extends BaseRenderer {
 
   /**
    * Render a compact plan summary bar
-   * Example: 📋 Plan: Create Tag System (3/5 steps, 60%) ████████░░░░░░░░
+   * Example: Plan: Create Tag System (3/5 steps, 60%)
    */
-  renderPlanSummary(summary: JsPlanSummaryData): void {
+  renderPlanSummary(summary: any): void {
     const { title, completedSteps, totalSteps, progressPercent, status, currentStepDescription } = summary;
 
     // Build progress bar (16 chars wide)

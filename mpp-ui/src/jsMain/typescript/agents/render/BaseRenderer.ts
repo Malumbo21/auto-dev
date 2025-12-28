@@ -9,11 +9,7 @@
  * @see mpp-core/src/jsMain/kotlin/cc/unitmesh/agent/RendererExports.kt - JsCodingAgentRenderer interface
  */
 
-import {cc} from "autodev-mpp-core/autodev-mpp-core";
-import JsCodingAgentRenderer = cc.unitmesh.agent.JsCodingAgentRenderer;
-import JsPlanSummaryData = cc.unitmesh.agent.JsPlanSummaryData;
-
-export abstract class BaseRenderer implements JsCodingAgentRenderer {
+export abstract class BaseRenderer {
   // Required by Kotlin JS export interface
   readonly __doNotUseOrImplementIt: any = {};
 
@@ -237,7 +233,7 @@ export abstract class BaseRenderer implements JsCodingAgentRenderer {
    *
    * @param summary The plan summary data
    */
-  renderPlanSummary(summary: JsPlanSummaryData): void {
+  renderPlanSummary(summary: any): void {
     // Default: no-op, subclasses can override
   }
 
