@@ -2,8 +2,8 @@
 
 - **Kotlin Multiplatform**: Always consider all platforms: JS, WASM, Desktop JVM, Android, iOS
 - **Build & Test**: Always run build and tests before completing tasks
-- **Preserve Intent**: If existing solution doesn't work, preserve its intent
-- **Module Clean**: Use `./gradlew :module:clean` instead of global clean
+- **Preserve Intent**: If an existing solution doesn't work, preserve its intent
+- **Module Clean**: Use `./gradlew :xxx:clean` instead of global clean, avoid polluting global caches.
 - **Test Scripts**: Put temporary scripts under `docs/test-scripts`
 - **Logs**: Check `~/.autodev/logs/autodev-app.log` for debugging
 - Code comments should be in English, for documentation and user-facing strings should be followed user's langauge 
@@ -11,8 +11,8 @@
 ## KMP Best Practices
 
 - Use `expect`/`actual` for platform-specific code, for example `Platform`
+- Avoid emoji and UTF-8 in source code which **WASM** doesn't support
 - **@JsExport**: Use concrete classes (not interfaces), `Promise` (not `Flow`)
-- **WASM**: Avoid emoji and UTF-8 in code
 - **i18n**: Run `./gradlew :mpp-ui:generateI18n4kFiles`
 
 ## Renderer System
