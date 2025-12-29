@@ -175,6 +175,7 @@ fun Application.configureRouting() {
                                 val eventType = when (event) {
                                     is AgentEvent.IterationStart -> "iteration"
                                     is AgentEvent.LLMResponseChunk -> "llm_chunk"
+                                    is AgentEvent.ThinkingChunk -> "thinking_chunk"
                                     is AgentEvent.ToolCall -> "tool_call"
                                     is AgentEvent.ToolResult -> "tool_result"
                                     is AgentEvent.CloneLog -> "clone_log"
@@ -187,6 +188,7 @@ fun Application.configureRouting() {
                                 val data = when (event) {
                                     is AgentEvent.IterationStart -> json.encodeToString(event)
                                     is AgentEvent.LLMResponseChunk -> json.encodeToString(event)
+                                    is AgentEvent.ThinkingChunk -> json.encodeToString(event)
                                     is AgentEvent.ToolCall -> json.encodeToString(event)
                                     is AgentEvent.ToolResult -> json.encodeToString(event)
                                     is AgentEvent.CloneLog -> json.encodeToString(event)
@@ -252,6 +254,7 @@ fun Application.configureRouting() {
                             val eventType = when (event) {
                                 is AgentEvent.IterationStart -> "iteration"
                                 is AgentEvent.LLMResponseChunk -> "llm_chunk"
+                                is AgentEvent.ThinkingChunk -> "thinking_chunk"
                                 is AgentEvent.ToolCall -> "tool_call"
                                 is AgentEvent.ToolResult -> "tool_result"
                                 is AgentEvent.CloneLog -> "clone_log"
@@ -264,6 +267,7 @@ fun Application.configureRouting() {
                             val data = when (event) {
                                 is AgentEvent.IterationStart -> json.encodeToString(event)
                                 is AgentEvent.LLMResponseChunk -> json.encodeToString(event)
+                                is AgentEvent.ThinkingChunk -> json.encodeToString(event)
                                 is AgentEvent.ToolCall -> json.encodeToString(event)
                                 is AgentEvent.ToolResult -> json.encodeToString(event)
                                 is AgentEvent.CloneLog -> json.encodeToString(event)

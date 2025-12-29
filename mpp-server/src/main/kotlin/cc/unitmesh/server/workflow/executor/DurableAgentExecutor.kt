@@ -132,6 +132,8 @@ class DurableAgentExecutor(
                 buildJsonObject { put("current", event.current); put("max", event.max) }.toString()
             is AgentEvent.LLMResponseChunk -> "LLMResponseChunk" to
                 buildJsonObject { put("chunk", event.chunk) }.toString()
+            is AgentEvent.ThinkingChunk -> "ThinkingChunk" to
+                buildJsonObject { put("chunk", event.chunk); put("isStart", event.isStart); put("isEnd", event.isEnd) }.toString()
             is AgentEvent.ToolCall -> "ToolCall" to
                 buildJsonObject { put("toolName", event.toolName); put("params", event.params) }.toString()
             is AgentEvent.ToolResult -> "ToolResult" to

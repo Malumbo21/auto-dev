@@ -108,10 +108,11 @@ class SessionManager {
             return
         }
         
-        // 将 AgentEvent 序列化为 JSON
+        // Serialize AgentEvent to JSON
         val eventType = when (event) {
             is AgentEvent.IterationStart -> "iteration"
             is AgentEvent.LLMResponseChunk -> "llm_chunk"
+            is AgentEvent.ThinkingChunk -> "thinking_chunk"
             is AgentEvent.ToolCall -> "tool_call"
             is AgentEvent.ToolResult -> "tool_result"
             is AgentEvent.CloneLog -> "clone_log"
