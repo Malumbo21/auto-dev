@@ -1,24 +1,29 @@
 package cc.unitmesh.agent.e2etest.planner
 
 import cc.unitmesh.agent.e2etest.E2ETestContext
+import cc.unitmesh.agent.e2etest.currentTimeMillis
 import cc.unitmesh.agent.e2etest.model.*
 import cc.unitmesh.llm.LLMService
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.intOrNull
 
 /**
  * Plans test actions based on natural language instructions and page state.
- * 
+ *
  * Uses LLM to understand user intent and generate appropriate test actions.
  * Maintains memory to prevent loops and provide context.
- * 
+ *
  * @see <a href="https://github.com/phodal/auto-dev/issues/532">Issue #532</a>
  */
 class TestActionPlanner(
     private val llmService: LLMService,
     private val config: PlannerConfig = PlannerConfig()
 ) {
-    private val json = Json { 
-        ignoreUnknownKeys = true 
+    private val json = Json {
+        ignoreUnknownKeys = true
         isLenient = true
     }
 
@@ -51,7 +56,7 @@ class TestActionPlanner(
     }
 
     /**
-     * Generate a test scenario from natural language description
+     * Generate a test scenario from natural language description using LLM
      */
     suspend fun generateScenario(
         description: String,
@@ -59,10 +64,13 @@ class TestActionPlanner(
         pageState: PageState
     ): TestScenario? {
         val prompt = buildScenarioGenerationPrompt(description, startUrl, pageState)
-        
-        // TODO: Call LLM and parse response into TestScenario
-        // For now, return a simple placeholder
-        return null
+
+        return try {
+            val response = llmService.sendPrompt(prompt)
+            parseScenarioResponse(response, description, startUrl)
+        } catch (e: Exception) {
+            null
+        }
     }
 
     /**
@@ -70,9 +78,124 @@ class TestActionPlanner(
      */
     private suspend fun planWithLLM(context: E2ETestContext): PlannedAction? {
         val prompt = buildPlanningPrompt(context)
-        
-        // TODO: Call LLM service and parse structured response
-        // For now, return null
+
+        return try {
+            val response = llmService.sendPrompt(prompt)
+            parseActionResponse(response)
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /**
+     * Parse LLM response into a PlannedAction
+     */
+    private fun parseActionResponse(response: String): PlannedAction? {
+        val jsonStr = extractJson(response) ?: return null
+
+        return try {
+            val jsonObj = json.decodeFromString<JsonObject>(jsonStr)
+            val actionType = jsonObj["action_type"]?.jsonPrimitive?.content ?: return null
+            val targetId = jsonObj["target_id"]?.jsonPrimitive?.intOrNull
+            val value = jsonObj["value"]?.jsonPrimitive?.content
+            val reasoning = jsonObj["reasoning"]?.jsonPrimitive?.content ?: "LLM planned action"
+            val confidence = jsonObj["confidence"]?.jsonPrimitive?.content?.toDoubleOrNull() ?: 0.8
+
+            val action = when (actionType.lowercase()) {
+                "click" -> targetId?.let { TestAction.Click(it) }
+                "type" -> targetId?.let { id -> value?.let { TestAction.Type(id, it) } }
+                "scroll_down" -> TestAction.Scroll(ScrollDirection.DOWN)
+                "scroll_up" -> TestAction.Scroll(ScrollDirection.UP)
+                "wait" -> TestAction.Wait(WaitCondition.Duration(value?.toLongOrNull() ?: 1000))
+                "navigate" -> value?.let { TestAction.Navigate(it) }
+                "go_back" -> TestAction.GoBack
+                "press_key" -> value?.let { TestAction.PressKey(it) }
+                "assert_visible" -> targetId?.let { TestAction.Assert(it, AssertionType.Visible) }
+                "assert_text" -> targetId?.let { id ->
+                    value?.let { TestAction.Assert(id, AssertionType.TextContains(it)) }
+                }
+                "done" -> null // Signal completion
+                else -> null
+            }
+
+            action?.let {
+                PlannedAction(
+                    action = it,
+                    reasoning = reasoning,
+                    confidence = confidence
+                )
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /**
+     * Parse LLM response into a TestScenario
+     */
+    private fun parseScenarioResponse(response: String, fallbackName: String, startUrl: String): TestScenario? {
+        val jsonStr = extractJson(response) ?: return null
+
+        return try {
+            val parsed = json.decodeFromString<ScenarioResponse>(jsonStr)
+            TestScenario(
+                id = "scenario_${currentTimeMillis()}",
+                name = parsed.name ?: fallbackName,
+                description = parsed.description ?: fallbackName,
+                startUrl = startUrl,
+                steps = parsed.steps.mapIndexed { index, step ->
+                    TestStep(
+                        id = "step_$index",
+                        description = step.description,
+                        action = parseStepAction(step) ?: TestAction.Wait(WaitCondition.Duration(100)),
+                        expectedOutcome = step.expected_outcome
+                    )
+                }
+            )
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun parseStepAction(step: StepResponse): TestAction? {
+        val actionType = step.action_type ?: return null
+        val targetId = step.target_id
+        val value = step.value
+
+        return when (actionType.lowercase()) {
+            "click" -> targetId?.let { TestAction.Click(it) }
+            "type" -> targetId?.let { id -> value?.let { TestAction.Type(id, it) } }
+            "scroll_down" -> TestAction.Scroll(ScrollDirection.DOWN)
+            "scroll_up" -> TestAction.Scroll(ScrollDirection.UP)
+            "wait" -> TestAction.Wait(WaitCondition.Duration(value?.toLongOrNull() ?: 1000))
+            "navigate" -> value?.let { TestAction.Navigate(it) }
+            "go_back" -> TestAction.GoBack
+            "press_key" -> value?.let { TestAction.PressKey(it) }
+            "assert_visible" -> targetId?.let { TestAction.Assert(it, AssertionType.Visible) }
+            else -> null
+        }
+    }
+
+    /**
+     * Extract JSON from LLM response (handles markdown code blocks)
+     */
+    private fun extractJson(response: String): String? {
+        val trimmed = response.trim()
+
+        // Try to find JSON in code blocks
+        val codeBlockPattern = Regex("```(?:json)?\\s*([\\s\\S]*?)```")
+        val codeBlockMatch = codeBlockPattern.find(trimmed)
+        if (codeBlockMatch != null) {
+            return codeBlockMatch.groupValues[1].trim()
+        }
+
+        // Try to find raw JSON object
+        val jsonStart = trimmed.indexOf('{')
+        val jsonEnd = trimmed.lastIndexOf('}')
+        if (jsonStart >= 0 && jsonEnd > jsonStart) {
+            return trimmed.substring(jsonStart, jsonEnd + 1)
+        }
+
         return null
     }
 
@@ -208,4 +331,26 @@ data class PlannerConfig(
      * Enable chain-of-thought reasoning
      */
     val enableCoT: Boolean = true
+)
+
+/**
+ * Response structure for scenario generation
+ */
+@Serializable
+internal data class ScenarioResponse(
+    val name: String? = null,
+    val description: String? = null,
+    val steps: List<StepResponse> = emptyList()
+)
+
+/**
+ * Response structure for a single step
+ */
+@Serializable
+internal data class StepResponse(
+    val description: String = "",
+    val action_type: String? = null,
+    val target_id: Int? = null,
+    val value: String? = null,
+    val expected_outcome: String? = null
 )
