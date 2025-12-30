@@ -4,9 +4,9 @@ import cc.unitmesh.agent.e2etest.model.*
 
 /**
  * JVM implementation of BrowserActionExecutor.
- * 
- * Uses KCEF for browser control, integrating with WebEditBridge.
- * 
+ *
+ * Delegates to DriverBasedBrowserActionExecutor with a BrowserDriver.
+ *
  * @see <a href="https://github.com/phodal/auto-dev/issues/532">Issue #532</a>
  */
 actual interface BrowserActionExecutor {
@@ -23,137 +23,82 @@ actual interface BrowserActionExecutor {
 }
 
 /**
- * JVM implementation using KCEF
+ * JVM implementation that wraps DriverBasedBrowserActionExecutor.
+ *
+ * Use [JvmBrowserActionExecutor.withDriver] to create an instance with a BrowserDriver.
  */
-class JvmBrowserActionExecutor(
-    private val config: BrowserExecutorConfig
+class JvmBrowserActionExecutor private constructor(
+    private val delegate: DriverBasedBrowserActionExecutor
 ) : BrowserActionExecutor {
-    
-    private var selfHealingLocator: SelfHealingLocator? = null
-    
-    override val isAvailable: Boolean = true
-    
-    fun setSelfHealingLocator(locator: SelfHealingLocator) {
-        this.selfHealingLocator = locator
+
+    override val isAvailable: Boolean get() = delegate.isAvailable
+
+    /**
+     * Update the current execution context (tag mapping, etc.)
+     */
+    fun setContext(context: ActionExecutionContext) {
+        delegate.setContext(context)
     }
-    
+
     override suspend fun execute(action: TestAction, context: ActionExecutionContext): ActionResult {
-        val startTime = System.currentTimeMillis()
-        
-        return try {
-            when (action) {
-                is TestAction.Click -> click(action.targetId, ClickOptions(action.button, action.clickCount))
-                is TestAction.Type -> type(action.targetId, action.text, TypeOptions(action.clearFirst, action.pressEnter))
-                is TestAction.Hover -> hover(action.targetId)
-                is TestAction.Scroll -> scroll(action.direction, action.amount, action.targetId)
-                is TestAction.Wait -> waitFor(action.condition)
-                is TestAction.PressKey -> pressKey(action.key, action.modifiers)
-                is TestAction.Navigate -> navigateTo(action.url)
-                is TestAction.GoBack -> goBack()
-                is TestAction.GoForward -> goForward()
-                is TestAction.Refresh -> refresh()
-                is TestAction.Assert -> executeAssert(action)
-                is TestAction.Select -> select(action.targetId, action.value, action.label, action.index)
-                is TestAction.UploadFile -> uploadFile(action.targetId, action.filePath)
-                is TestAction.Screenshot -> {
-                    val result = screenshot(action.name, action.fullPage)
-                    if (result.success) ActionResult.success(System.currentTimeMillis() - startTime)
-                    else ActionResult.failure(result.error ?: "Screenshot failed", System.currentTimeMillis() - startTime)
-                }
-            }
-        } catch (e: Exception) {
-            ActionResult.failure(e.message ?: "Unknown error", System.currentTimeMillis() - startTime)
-        }
+        return delegate.execute(action, context)
     }
-    
+
     override suspend fun navigateTo(url: String): ActionResult {
-        val startTime = System.currentTimeMillis()
-        // TODO: Integrate with WebEditBridge.navigateTo
-        return ActionResult.success(System.currentTimeMillis() - startTime)
+        return delegate.navigateTo(url)
     }
-    
+
     override suspend fun click(tagId: Int, options: ClickOptions): ActionResult {
-        val startTime = System.currentTimeMillis()
-        // TODO: Get element by tagId and execute click via KCEF
-        return ActionResult.success(System.currentTimeMillis() - startTime)
+        return delegate.click(tagId, options)
     }
-    
+
     override suspend fun type(tagId: Int, text: String, options: TypeOptions): ActionResult {
-        val startTime = System.currentTimeMillis()
-        // TODO: Get element by tagId and type text via KCEF
-        return ActionResult.success(System.currentTimeMillis() - startTime)
+        return delegate.type(tagId, text, options)
     }
-    
+
     override suspend fun scroll(direction: ScrollDirection, amount: Int, tagId: Int?): ActionResult {
-        val startTime = System.currentTimeMillis()
-        // TODO: Execute scroll via KCEF JavaScript
-        return ActionResult.success(System.currentTimeMillis() - startTime)
+        return delegate.scroll(direction, amount, tagId)
     }
-    
+
     override suspend fun waitFor(condition: WaitCondition): ActionResult {
-        val startTime = System.currentTimeMillis()
-        // TODO: Implement wait conditions
-        return ActionResult.success(System.currentTimeMillis() - startTime)
+        return delegate.waitFor(condition)
     }
-    
+
     override suspend fun pressKey(key: String, modifiers: List<KeyModifier>): ActionResult {
-        val startTime = System.currentTimeMillis()
-        // TODO: Send key events via KCEF
-        return ActionResult.success(System.currentTimeMillis() - startTime)
+        return delegate.pressKey(key, modifiers)
     }
-    
+
     override suspend fun screenshot(name: String, fullPage: Boolean): ScreenshotResult {
-        // TODO: Capture screenshot via WebEditBridge
-        return ScreenshotResult(success = false, error = "Not implemented")
+        return delegate.screenshot(name, fullPage)
     }
-    
-    private suspend fun hover(tagId: Int): ActionResult {
-        val startTime = System.currentTimeMillis()
-        // TODO: Hover via KCEF
-        return ActionResult.success(System.currentTimeMillis() - startTime)
-    }
-    
-    private suspend fun goBack(): ActionResult {
-        val startTime = System.currentTimeMillis()
-        // TODO: Browser back via KCEF
-        return ActionResult.success(System.currentTimeMillis() - startTime)
-    }
-    
-    private suspend fun goForward(): ActionResult {
-        val startTime = System.currentTimeMillis()
-        // TODO: Browser forward via KCEF
-        return ActionResult.success(System.currentTimeMillis() - startTime)
-    }
-    
-    private suspend fun refresh(): ActionResult {
-        val startTime = System.currentTimeMillis()
-        // TODO: Refresh via KCEF
-        return ActionResult.success(System.currentTimeMillis() - startTime)
-    }
-    
-    private suspend fun executeAssert(action: TestAction.Assert): ActionResult {
-        val startTime = System.currentTimeMillis()
-        // TODO: Execute assertion
-        return ActionResult.success(System.currentTimeMillis() - startTime)
-    }
-    
-    private suspend fun select(tagId: Int, value: String?, label: String?, index: Int?): ActionResult {
-        val startTime = System.currentTimeMillis()
-        // TODO: Select option via KCEF
-        return ActionResult.success(System.currentTimeMillis() - startTime)
-    }
-    
-    private suspend fun uploadFile(tagId: Int, filePath: String): ActionResult {
-        val startTime = System.currentTimeMillis()
-        // TODO: File upload via KCEF
-        return ActionResult.success(System.currentTimeMillis() - startTime)
-    }
-    
+
     override fun close() {
-        // Cleanup resources
+        delegate.close()
+    }
+
+    companion object {
+        /**
+         * Create a JvmBrowserActionExecutor with a BrowserDriver.
+         *
+         * @param driver The BrowserDriver to use for browser operations
+         * @param config Configuration for the executor
+         */
+        fun withDriver(driver: BrowserDriver, config: BrowserExecutorConfig = BrowserExecutorConfig()): JvmBrowserActionExecutor {
+            return JvmBrowserActionExecutor(DriverBasedBrowserActionExecutor(driver, config))
+        }
     }
 }
 
+/**
+ * Factory function - returns null as no default driver is available.
+ * Use [JvmBrowserActionExecutor.withDriver] to create with a specific driver.
+ */
 actual fun createBrowserActionExecutor(config: BrowserExecutorConfig): BrowserActionExecutor? {
-    return JvmBrowserActionExecutor(config)
+    // No default driver available - use JvmBrowserActionExecutor.withDriver() instead
+    return null
 }
+
+/**
+ * JVM implementation of currentTimeMillis
+ */
+internal actual fun currentTimeMillis(): Long = System.currentTimeMillis()

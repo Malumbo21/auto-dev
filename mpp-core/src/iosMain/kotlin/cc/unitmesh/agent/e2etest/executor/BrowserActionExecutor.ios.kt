@@ -1,10 +1,14 @@
 package cc.unitmesh.agent.e2etest.executor
 
 import cc.unitmesh.agent.e2etest.model.*
+import platform.Foundation.NSDate
+import platform.Foundation.timeIntervalSince1970
 
 /**
  * iOS implementation of BrowserActionExecutor.
- * 
+ *
+ * Delegates to DriverBasedBrowserActionExecutor with a BrowserDriver.
+ *
  * @see <a href="https://github.com/phodal/auto-dev/issues/532">Issue #532</a>
  */
 actual interface BrowserActionExecutor {
@@ -21,49 +25,40 @@ actual interface BrowserActionExecutor {
 }
 
 /**
- * iOS stub implementation
+ * iOS implementation that wraps DriverBasedBrowserActionExecutor.
+ *
+ * Use [IosBrowserActionExecutor.withDriver] to create an instance with a BrowserDriver.
  */
-class IosBrowserActionExecutor(
-    private val config: BrowserExecutorConfig
+class IosBrowserActionExecutor private constructor(
+    private val delegate: DriverBasedBrowserActionExecutor
 ) : BrowserActionExecutor {
-    
-    override val isAvailable: Boolean = false
-    
+
+    override val isAvailable: Boolean get() = delegate.isAvailable
+
+    fun setContext(context: ActionExecutionContext) {
+        delegate.setContext(context)
+    }
+
     override suspend fun execute(action: TestAction, context: ActionExecutionContext): ActionResult {
-        return ActionResult.failure("Not implemented on iOS", 0)
+        return delegate.execute(action, context)
     }
-    
-    override suspend fun navigateTo(url: String): ActionResult {
-        return ActionResult.failure("Not implemented", 0)
+
+    override suspend fun navigateTo(url: String): ActionResult = delegate.navigateTo(url)
+    override suspend fun click(tagId: Int, options: ClickOptions): ActionResult = delegate.click(tagId, options)
+    override suspend fun type(tagId: Int, text: String, options: TypeOptions): ActionResult = delegate.type(tagId, text, options)
+    override suspend fun scroll(direction: ScrollDirection, amount: Int, tagId: Int?): ActionResult = delegate.scroll(direction, amount, tagId)
+    override suspend fun waitFor(condition: WaitCondition): ActionResult = delegate.waitFor(condition)
+    override suspend fun pressKey(key: String, modifiers: List<KeyModifier>): ActionResult = delegate.pressKey(key, modifiers)
+    override suspend fun screenshot(name: String, fullPage: Boolean): ScreenshotResult = delegate.screenshot(name, fullPage)
+    override fun close() = delegate.close()
+
+    companion object {
+        fun withDriver(driver: BrowserDriver, config: BrowserExecutorConfig = BrowserExecutorConfig()): IosBrowserActionExecutor {
+            return IosBrowserActionExecutor(DriverBasedBrowserActionExecutor(driver, config))
+        }
     }
-    
-    override suspend fun click(tagId: Int, options: ClickOptions): ActionResult {
-        return ActionResult.failure("Not implemented", 0)
-    }
-    
-    override suspend fun type(tagId: Int, text: String, options: TypeOptions): ActionResult {
-        return ActionResult.failure("Not implemented", 0)
-    }
-    
-    override suspend fun scroll(direction: ScrollDirection, amount: Int, tagId: Int?): ActionResult {
-        return ActionResult.failure("Not implemented", 0)
-    }
-    
-    override suspend fun waitFor(condition: WaitCondition): ActionResult {
-        return ActionResult.failure("Not implemented", 0)
-    }
-    
-    override suspend fun pressKey(key: String, modifiers: List<KeyModifier>): ActionResult {
-        return ActionResult.failure("Not implemented", 0)
-    }
-    
-    override suspend fun screenshot(name: String, fullPage: Boolean): ScreenshotResult {
-        return ScreenshotResult(success = false, error = "Not implemented")
-    }
-    
-    override fun close() {}
 }
 
-actual fun createBrowserActionExecutor(config: BrowserExecutorConfig): BrowserActionExecutor? {
-    return IosBrowserActionExecutor(config)
-}
+actual fun createBrowserActionExecutor(config: BrowserExecutorConfig): BrowserActionExecutor? = null
+
+internal actual fun currentTimeMillis(): Long = (NSDate().timeIntervalSince1970 * 1000).toLong()
