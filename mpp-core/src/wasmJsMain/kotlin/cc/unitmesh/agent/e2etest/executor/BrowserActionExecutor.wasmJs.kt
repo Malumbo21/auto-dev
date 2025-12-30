@@ -1,7 +1,6 @@
 package cc.unitmesh.agent.e2etest.executor
 
 import cc.unitmesh.agent.e2etest.model.*
-import kotlinx.datetime.Clock
 
 /**
  * WASM JS implementation of BrowserActionExecutor.
@@ -60,4 +59,7 @@ class WasmJsBrowserActionExecutor private constructor(
 
 actual fun createBrowserActionExecutor(config: BrowserExecutorConfig): BrowserActionExecutor? = null
 
-internal actual fun currentTimeMillis(): Long = Clock.System.now().toEpochMilliseconds()
+@JsFun("() => Date.now()")
+private external fun dateNow(): Double
+
+internal actual fun currentTimeMillis(): Long = dateNow().toLong()

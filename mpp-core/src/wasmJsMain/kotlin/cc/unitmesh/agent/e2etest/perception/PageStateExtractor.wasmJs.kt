@@ -1,13 +1,15 @@
 package cc.unitmesh.agent.e2etest.perception
 
 import cc.unitmesh.agent.e2etest.model.*
-import kotlinx.datetime.Clock
+
+@JsFun("() => Date.now()")
+private external fun dateNow(): Double
 
 /**
  * WASM JS implementation of PageStateExtractor.
- * 
+ *
  * Uses browser APIs or Playwright MCP server.
- * 
+ *
  * @see <a href="https://github.com/phodal/auto-dev/issues/532">Issue #532</a>
  */
 actual interface PageStateExtractor {
@@ -31,16 +33,16 @@ actual interface PageStateExtractor {
 class WasmJsPageStateExtractor(
     private val config: PageStateExtractorConfig
 ) : PageStateExtractor {
-    
+
     override val isAvailable: Boolean = false
-    
+
     override suspend fun extractPageState(): PageState {
         return PageState(
             url = "",
             title = "",
             viewport = Viewport(config.viewportWidth, config.viewportHeight),
             actionableElements = emptyList(),
-            capturedAt = Clock.System.now().toEpochMilliseconds()
+            capturedAt = dateNow().toLong()
         )
     }
     
