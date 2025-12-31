@@ -16,6 +16,8 @@ import kotlinx.serialization.json.intOrNull
  * Uses LLM to understand user intent and generate appropriate test actions.
  * Maintains memory to prevent loops and provide context.
  *
+ * Supports both JSON and DSL formats for scenario generation.
+ *
  * @see <a href="https://github.com/phodal/auto-dev/issues/532">Issue #532</a>
  */
 class TestActionPlanner(
@@ -26,6 +28,8 @@ class TestActionPlanner(
         ignoreUnknownKeys = true
         isLenient = true
     }
+
+    private val dslParser = SimpleDslParser()
 
     /**
      * Plan the next action based on current context
@@ -56,18 +60,28 @@ class TestActionPlanner(
     }
 
     /**
-     * Generate a test scenario from natural language description using LLM
+     * Generate a test scenario from natural language description using LLM.
+     *
+     * Uses DSL format by default for better readability and reliability.
      */
     suspend fun generateScenario(
         description: String,
         startUrl: String,
         pageState: PageState
     ): TestScenario? {
-        val prompt = buildScenarioGenerationPrompt(description, startUrl, pageState)
+        val prompt = if (config.useDslFormat) {
+            buildDslScenarioGenerationPrompt(description, startUrl, pageState)
+        } else {
+            buildScenarioGenerationPrompt(description, startUrl, pageState)
+        }
 
         return try {
             val response = llmService.sendPrompt(prompt)
-            parseScenarioResponse(response, description, startUrl)
+            if (config.useDslFormat) {
+                parseDslScenarioResponse(response, description, startUrl)
+            } else {
+                parseScenarioResponse(response, description, startUrl)
+            }
         } catch (e: Exception) {
             null
         }
@@ -242,7 +256,7 @@ class TestActionPlanner(
     }
 
     /**
-     * Build prompt for scenario generation
+     * Build prompt for scenario generation (JSON format)
      */
     private fun buildScenarioGenerationPrompt(
         description: String,
@@ -275,6 +289,121 @@ class TestActionPlanner(
             appendLine("  - action: {action_type, target_id, value}")
             appendLine("  - expected_outcome: what should happen after this step")
         }
+    }
+
+    /**
+     * Build prompt for scenario generation using DSL format
+     */
+    private fun buildDslScenarioGenerationPrompt(
+        description: String,
+        startUrl: String,
+        pageState: PageState
+    ): String {
+        return buildString {
+            appendLine("You are an E2E test DSL generator. Generate a test scenario in the E2E DSL format.")
+            appendLine()
+            appendLine(DSL_SYNTAX_REFERENCE)
+            appendLine()
+            appendLine("## Test Goal")
+            appendLine(description)
+            appendLine()
+            appendLine("## Target URL")
+            appendLine(startUrl)
+            appendLine()
+            appendLine("## Current Page State")
+            appendLine("Title: ${pageState.title}")
+            appendLine("URL: ${pageState.url}")
+            appendLine()
+            appendLine("## Available Elements (Set-of-Mark)")
+            pageState.actionableElements.take(config.maxElementsInPrompt).forEach { element ->
+                appendLine("[${element.tagId}] ${element.role} \"${element.name}\" - ${element.tagName}")
+            }
+            appendLine()
+            appendLine("Generate a test scenario in DSL format that achieves the test goal.")
+            appendLine("Use the element tag IDs (e.g., #1, #2) to reference elements.")
+            appendLine("Output ONLY the DSL code, no explanations.")
+        }
+    }
+
+    /**
+     * Parse DSL scenario response from LLM
+     */
+    private fun parseDslScenarioResponse(response: String, fallbackName: String, startUrl: String): TestScenario? {
+        val dsl = extractDsl(response)
+        if (dsl.isEmpty()) return null
+
+        return dslParser.parse(dsl, fallbackName, startUrl)
+    }
+
+    /**
+     * Extract DSL from LLM response (handles markdown code blocks)
+     */
+    private fun extractDsl(response: String): String {
+        val trimmed = response.trim()
+
+        // Try to find DSL in code blocks
+        val codeBlockPattern = Regex("```(?:e2e|dsl)?\\s*([\\s\\S]*?)```")
+        val codeBlockMatch = codeBlockPattern.find(trimmed)
+        if (codeBlockMatch != null) {
+            return codeBlockMatch.groupValues[1].trim()
+        }
+
+        // If no code block, check if it starts with 'scenario'
+        if (trimmed.startsWith("scenario")) {
+            return trimmed
+        }
+
+        // Try to find scenario block
+        val scenarioStart = trimmed.indexOf("scenario")
+        if (scenarioStart >= 0) {
+            return trimmed.substring(scenarioStart)
+        }
+
+        return ""
+    }
+
+    companion object {
+        /**
+         * DSL syntax reference for prompts
+         */
+        const val DSL_SYNTAX_REFERENCE = """## E2E DSL Syntax Reference
+
+```
+scenario "Scenario Name" {
+    description "What this test verifies"
+    url "https://example.com/page"
+    tags ["tag1", "tag2"]
+    priority high|medium|low|critical
+
+    step "Step description" {
+        <action>
+        expect "Expected outcome"
+        timeout 5000
+        retry 2
+    }
+}
+```
+
+## Available Actions
+
+- click #id [left|right|middle] [double]
+- type #id "text" [clearFirst] [pressEnter]
+- hover #id
+- scroll up|down|left|right [amount] [#id]
+- wait duration|visible|hidden|enabled|textPresent|urlContains|pageLoaded|networkIdle [value] [timeout]
+- pressKey "key" [ctrl] [alt] [shift] [meta]
+- navigate "url"
+- goBack
+- goForward
+- refresh
+- assert #id visible|hidden|enabled|disabled|checked|unchecked|textEquals|textContains|attributeEquals|hasClass [value]
+- select #id [value "v"] [label "l"] [index n]
+- uploadFile #id "path"
+- screenshot "name" [fullPage]
+
+## Target ID Convention
+
+Use #id where id is a number representing the element's Set-of-Mark tag."""
     }
 }
 
@@ -330,7 +459,13 @@ data class PlannerConfig(
     /**
      * Enable chain-of-thought reasoning
      */
-    val enableCoT: Boolean = true
+    val enableCoT: Boolean = true,
+
+    /**
+     * Use DSL format for scenario generation instead of JSON.
+     * DSL format is more readable and reliable for LLM generation.
+     */
+    val useDslFormat: Boolean = true
 )
 
 /**
@@ -354,3 +489,274 @@ internal data class StepResponse(
     val value: String? = null,
     val expected_outcome: String? = null
 )
+
+/**
+ * Simple DSL parser for E2E test scenarios.
+ *
+ * Parses the DSL format into TestScenario objects.
+ * This is a lightweight parser that handles the core DSL syntax.
+ */
+internal class SimpleDslParser {
+
+    /**
+     * Parse DSL text into a TestScenario
+     */
+    fun parse(dsl: String, fallbackName: String, startUrl: String): TestScenario? {
+        val lines = dsl.lines()
+        var scenarioName = fallbackName
+        var scenarioDescription = ""
+        var scenarioUrl = startUrl
+        val steps = mutableListOf<TestStep>()
+
+        var currentStepDescription = ""
+        var currentStepAction: TestAction? = null
+        var currentStepExpect = ""
+        var inStep = false
+        var stepIndex = 0
+
+        for (line in lines) {
+            val trimmed = line.trim()
+
+            // Skip empty lines and comments
+            if (trimmed.isEmpty() || trimmed.startsWith("//") || trimmed.startsWith("#")) {
+                continue
+            }
+
+            when {
+                // Parse scenario name
+                trimmed.startsWith("scenario ") -> {
+                    scenarioName = extractQuotedString(trimmed.removePrefix("scenario ")) ?: fallbackName
+                }
+
+                // Parse description
+                trimmed.startsWith("description ") && !inStep -> {
+                    scenarioDescription = extractQuotedString(trimmed.removePrefix("description ")) ?: ""
+                }
+
+                // Parse url
+                trimmed.startsWith("url ") && !inStep -> {
+                    scenarioUrl = extractQuotedString(trimmed.removePrefix("url ")) ?: startUrl
+                }
+
+                // Parse step start
+                trimmed.startsWith("step ") -> {
+                    // Save previous step if exists
+                    if (inStep && currentStepAction != null) {
+                        steps.add(TestStep(
+                            id = "step_$stepIndex",
+                            description = currentStepDescription,
+                            action = currentStepAction!!,
+                            expectedOutcome = currentStepExpect.ifEmpty { null }
+                        ))
+                        stepIndex++
+                    }
+
+                    inStep = true
+                    currentStepDescription = extractQuotedString(trimmed.removePrefix("step ")) ?: "Step ${stepIndex + 1}"
+                    currentStepAction = null
+                    currentStepExpect = ""
+                }
+
+                // Parse expect in step
+                trimmed.startsWith("expect ") && inStep -> {
+                    currentStepExpect = extractQuotedString(trimmed.removePrefix("expect ")) ?: ""
+                }
+
+                // Parse actions in step
+                inStep -> {
+                    val action = parseAction(trimmed)
+                    if (action != null) {
+                        currentStepAction = action
+                    }
+                }
+            }
+        }
+
+        // Save last step
+        if (inStep && currentStepAction != null) {
+            steps.add(TestStep(
+                id = "step_$stepIndex",
+                description = currentStepDescription,
+                action = currentStepAction!!,
+                expectedOutcome = currentStepExpect.ifEmpty { null }
+            ))
+        }
+
+        if (steps.isEmpty()) return null
+
+        return TestScenario(
+            id = "scenario_${cc.unitmesh.agent.e2etest.currentTimeMillis()}",
+            name = scenarioName,
+            description = scenarioDescription,
+            startUrl = scenarioUrl,
+            steps = steps
+        )
+    }
+
+    /**
+     * Parse a single action line
+     */
+    private fun parseAction(line: String): TestAction? {
+        val parts = tokenizeLine(line)
+        if (parts.isEmpty()) return null
+
+        val actionType = parts[0].lowercase()
+
+        return when (actionType) {
+            "click" -> {
+                val targetId = extractTargetId(parts.getOrNull(1))
+                targetId?.let { TestAction.Click(it) }
+            }
+
+            "type" -> {
+                val targetId = extractTargetId(parts.getOrNull(1))
+                val text = parts.drop(2).firstOrNull { it.startsWith("\"") }?.let { extractQuotedString(it) }
+                if (targetId != null && text != null) {
+                    TestAction.Type(targetId, text)
+                } else null
+            }
+
+            "hover" -> {
+                val targetId = extractTargetId(parts.getOrNull(1))
+                targetId?.let { TestAction.Hover(it) }
+            }
+
+            "scroll" -> {
+                val direction = when (parts.getOrNull(1)?.lowercase()) {
+                    "up" -> ScrollDirection.UP
+                    "down" -> ScrollDirection.DOWN
+                    "left" -> ScrollDirection.LEFT
+                    "right" -> ScrollDirection.RIGHT
+                    else -> ScrollDirection.DOWN
+                }
+                TestAction.Scroll(direction)
+            }
+
+            "wait" -> {
+                val condition = parts.getOrNull(1)?.lowercase()
+                val value = parts.getOrNull(2)
+                when (condition) {
+                    "duration" -> TestAction.Wait(WaitCondition.Duration(value?.toLongOrNull() ?: 1000))
+                    "visible" -> {
+                        val targetId = extractTargetId(value)
+                        targetId?.let { TestAction.Wait(WaitCondition.ElementVisible(it)) }
+                    }
+                    "hidden" -> {
+                        val targetId = extractTargetId(value)
+                        targetId?.let { TestAction.Wait(WaitCondition.ElementHidden(it)) }
+                    }
+                    "pageloaded" -> TestAction.Wait(WaitCondition.PageLoaded())
+                    "networkidle" -> TestAction.Wait(WaitCondition.NetworkIdle())
+                    else -> {
+                        // Default: treat as duration
+                        val duration = condition?.toLongOrNull() ?: 1000
+                        TestAction.Wait(WaitCondition.Duration(duration))
+                    }
+                }
+            }
+
+            "presskey" -> {
+                val key = extractQuotedString(parts.getOrNull(1) ?: "") ?: parts.getOrNull(1)
+                key?.let { TestAction.PressKey(it) }
+            }
+
+            "navigate" -> {
+                val url = extractQuotedString(parts.getOrNull(1) ?: "")
+                url?.let { TestAction.Navigate(it) }
+            }
+
+            "goback" -> TestAction.GoBack
+
+            "goforward" -> TestAction.GoForward
+
+            "refresh" -> TestAction.Refresh
+
+            "assert" -> {
+                val targetId = extractTargetId(parts.getOrNull(1))
+                val assertType = parts.getOrNull(2)?.lowercase()
+                val value = parts.getOrNull(3)?.let { extractQuotedString(it) }
+
+                if (targetId != null) {
+                    val assertion = when (assertType) {
+                        "visible" -> AssertionType.Visible
+                        "hidden" -> AssertionType.Hidden
+                        "enabled" -> AssertionType.Enabled
+                        "disabled" -> AssertionType.Disabled
+                        "textequals" -> value?.let { AssertionType.TextEquals(it) }
+                        "textcontains" -> value?.let { AssertionType.TextContains(it) }
+                        else -> AssertionType.Visible
+                    }
+                    assertion?.let { TestAction.Assert(targetId, it) }
+                } else null
+            }
+
+            "screenshot" -> {
+                val name = extractQuotedString(parts.getOrNull(1) ?: "") ?: "screenshot"
+                val fullPage = parts.any { it.lowercase() == "fullpage" }
+                TestAction.Screenshot(name, fullPage)
+            }
+
+            else -> null
+        }
+    }
+
+    /**
+     * Tokenize a line into parts, respecting quoted strings
+     */
+    private fun tokenizeLine(line: String): List<String> {
+        val parts = mutableListOf<String>()
+        var current = StringBuilder()
+        var inQuotes = false
+
+        for (char in line) {
+            when {
+                char == '"' -> {
+                    inQuotes = !inQuotes
+                    current.append(char)
+                }
+                char.isWhitespace() && !inQuotes -> {
+                    if (current.isNotEmpty()) {
+                        parts.add(current.toString())
+                        current = StringBuilder()
+                    }
+                }
+                else -> current.append(char)
+            }
+        }
+
+        if (current.isNotEmpty()) {
+            parts.add(current.toString())
+        }
+
+        return parts
+    }
+
+    /**
+     * Extract a quoted string value
+     */
+    private fun extractQuotedString(input: String): String? {
+        val trimmed = input.trim()
+        if (trimmed.startsWith("\"") && trimmed.endsWith("\"") && trimmed.length >= 2) {
+            return trimmed.substring(1, trimmed.length - 1)
+        }
+        // Also try to find quoted string within the input
+        val startQuote = trimmed.indexOf('"')
+        val endQuote = trimmed.lastIndexOf('"')
+        if (startQuote >= 0 && endQuote > startQuote) {
+            return trimmed.substring(startQuote + 1, endQuote)
+        }
+        return null
+    }
+
+    /**
+     * Extract target ID from #N format
+     */
+    private fun extractTargetId(input: String?): Int? {
+        if (input == null) return null
+        val trimmed = input.trim()
+        if (trimmed.startsWith("#")) {
+            return trimmed.substring(1).toIntOrNull()
+        }
+        return trimmed.toIntOrNull()
+    }
+}

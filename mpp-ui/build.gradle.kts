@@ -723,6 +723,29 @@ tasks.register<JavaExec>("runCodingCli") {
     standardInput = System.`in`
 }
 
+// Task to run E2E Test CLI
+tasks.register<JavaExec>("runE2ECli") {
+    group = "application"
+    description = "Run E2E Test Agent CLI for AI-driven test scenario generation"
+
+    val jvmCompilation = kotlin.jvm().compilations.getByName("main")
+    classpath(jvmCompilation.output, configurations["jvmRuntimeClasspath"])
+    mainClass.set("cc.unitmesh.server.cli.E2ECli")
+
+    // Pass properties
+    if (project.hasProperty("e2eUrl")) {
+        systemProperty("e2eUrl", project.property("e2eUrl") as String)
+    }
+    if (project.hasProperty("e2eGoal")) {
+        systemProperty("e2eGoal", project.property("e2eGoal") as String)
+    }
+    if (project.hasProperty("e2eOutput")) {
+        systemProperty("e2eOutput", project.property("e2eOutput") as String)
+    }
+
+    standardInput = System.`in`
+}
+
 // Task to run Review CLI
 tasks.register<JavaExec>("runReviewCli") {
     group = "application"
