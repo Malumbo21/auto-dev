@@ -20,13 +20,13 @@ import kotlinx.serialization.json.Json
 
 /**
  * E2E Testing Agent - AI-driven end-to-end testing with visual understanding.
- * 
+ *
  * Features:
  * - Natural language test scenario generation
  * - Multi-modal perception (DOM + Accessibility Tree + Vision)
  * - Self-healing locators with two-level strategy
  * - Deterministic execution with AI planning
- * 
+ *
  * @see <a href="https://github.com/phodal/auto-dev/issues/532">Issue #532</a>
  */
 class E2ETestAgent(
@@ -51,7 +51,7 @@ class E2ETestAgent(
     )
 ) {
     private var pageStateExtractor: PageStateExtractor? = null
-    private var browserExecutor: BrowserActionExecutor? = null
+    private var browserExecutor: DriverBasedBrowserActionExecutor? = null
     private var planner: TestActionPlanner? = null
     private var selfHealingLocator: SelfHealingLocator? = null
 
@@ -62,7 +62,11 @@ class E2ETestAgent(
         get() = pageStateExtractor?.isAvailable == true && browserExecutor?.isAvailable == true
 
     /**
-     * Initialize the agent with browser components
+     * Initialize the agent with browser components using platform factory functions.
+     *
+     * Note: This method only initializes the PageStateExtractor and planner.
+     * The browserExecutor will be null - use [initializeWithDriver] or [initializeWithComponents]
+     * to provide a BrowserDriver for full functionality.
      */
     fun initialize() {
         val extractorConfig = PageStateExtractorConfig(
@@ -71,14 +75,43 @@ class E2ETestAgent(
         )
         pageStateExtractor = createPageStateExtractor(extractorConfig)
 
-        val executorConfig = BrowserExecutorConfig(
-            headless = config.headless,
-            viewportWidth = config.viewportWidth,
-            viewportHeight = config.viewportHeight,
-            defaultTimeoutMs = config.defaultTimeoutMs,
-            slowMotionMs = config.slowMotionMs
+        // Note: browserExecutor is not set here because createBrowserActionExecutor
+        // returns BrowserActionExecutor? which is platform-specific.
+        // Use initializeWithDriver() to provide a BrowserDriver.
+        browserExecutor = null
+
+        selfHealingLocator = SelfHealingLocator(
+            llmService = if (config.enableLLMHealing) llmService else null,
+            config = SelfHealingConfig(threshold = config.healingThreshold)
         )
-        browserExecutor = createBrowserActionExecutor(executorConfig)
+
+        planner = TestActionPlanner(llmService)
+    }
+
+    /**
+     * Initialize the agent with a BrowserDriver.
+     *
+     * This creates a DriverBasedBrowserActionExecutor from the driver.
+     * You still need to provide a PageStateExtractor.
+     *
+     * @param driver The BrowserDriver to use for browser operations
+     * @param extractor The PageStateExtractor to use for page state extraction
+     */
+    fun initializeWithDriver(
+        driver: BrowserDriver,
+        extractor: PageStateExtractor
+    ) {
+        pageStateExtractor = extractor
+        browserExecutor = DriverBasedBrowserActionExecutor(
+            driver = driver,
+            config = BrowserExecutorConfig(
+                headless = config.headless,
+                viewportWidth = config.viewportWidth,
+                viewportHeight = config.viewportHeight,
+                defaultTimeoutMs = config.defaultTimeoutMs,
+                slowMotionMs = config.slowMotionMs
+            )
+        )
 
         selfHealingLocator = SelfHealingLocator(
             llmService = if (config.enableLLMHealing) llmService else null,

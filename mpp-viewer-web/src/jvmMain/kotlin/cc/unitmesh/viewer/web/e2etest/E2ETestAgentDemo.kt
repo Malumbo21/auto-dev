@@ -16,12 +16,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
-import cc.unitmesh.agent.e2etest.E2ETestContext
+import cc.unitmesh.agent.e2etest.E2ETestAgent
+import cc.unitmesh.agent.e2etest.E2ETestConfig
+import cc.unitmesh.agent.e2etest.E2ETestInput
 import cc.unitmesh.agent.e2etest.TestMemory
 import cc.unitmesh.agent.e2etest.executor.*
 import cc.unitmesh.agent.e2etest.model.*
 import cc.unitmesh.agent.e2etest.perception.PageStateExtractor
-import cc.unitmesh.agent.e2etest.planner.TestActionPlanner
 import cc.unitmesh.llm.LLMService
 import cc.unitmesh.llm.ModelConfig
 import cc.unitmesh.llm.LLMProviderType
@@ -308,7 +309,7 @@ private fun LogPanel(logs: List<LogEntry>, modifier: Modifier = Modifier) {
 }
 
 /**
- * AI-driven E2E test execution using LLM for planning and decision making
+ * AI-driven E2E test execution using E2ETestAgent
  */
 private suspend fun runAIE2ETest(
     bridge: JvmWebEditBridge,
@@ -322,35 +323,7 @@ private suspend fun runAIE2ETest(
     onStepUpdate: (Int, Int) -> Unit
 ) {
     try {
-        // Step 1: Navigate to target URL
-        onLog("Navigating to $targetUrl...", LogType.INFO)
-        onStatusChange("Navigating...")
-        bridge.navigateTo(targetUrl)
-
-        // Wait for page load
-        var waitCount = 0
-        while (!bridge.isReady.value && waitCount < 100) {
-            delay(100)
-            waitCount++
-        }
-        delay(2000) // Extra time for rendering
-
-        // Step 2: Extract initial page state
-        onLog("Extracting page state...", LogType.INFO)
-        onStatusChange("Analyzing page...")
-        bridge.refreshAccessibilityTree()
-        bridge.refreshActionableElements()
-        delay(500)
-
-        val initialPageState = pageStateExtractor.extractPageState()
-        onLog("Found ${initialPageState.actionableElements.size} actionable elements", LogType.SUCCESS)
-
-        // Log some elements for visibility
-        initialPageState.actionableElements.take(5).forEach { element ->
-            onLog("  [${element.tagId}] ${element.role}: ${element.name?.take(25) ?: "..."}", LogType.INFO)
-        }
-
-        // Step 3: Create LLM service (check for API key in environment)
+        // Step 1: Check for LLM API key
         val apiKey = System.getenv("OPENAI_API_KEY")
             ?: System.getenv("ANTHROPIC_API_KEY")
             ?: System.getenv("DEEPSEEK_API_KEY")
@@ -385,83 +358,72 @@ private suspend fun runAIE2ETest(
         )
 
         val llmService = LLMService.create(modelConfig)
-        val planner = TestActionPlanner(llmService)
 
-        // Step 4: Generate test scenario using LLM
-        onLog("AI is analyzing the page and planning test steps...", LogType.INFO)
-        onStatusChange("AI Planning...")
-        onReasoningUpdate("Analyzing page structure and understanding test goal: \"$testGoal\"")
+        // Step 2: Create and initialize E2ETestAgent
+        onLog("Initializing E2ETestAgent...", LogType.INFO)
+        onStatusChange("Initializing Agent...")
 
-        val scenario = planner.generateScenario(testGoal, targetUrl, initialPageState)
+        val agentConfig = E2ETestConfig(
+            headless = false,
+            viewportWidth = 1280,
+            viewportHeight = 720,
+            defaultTimeoutMs = 10000,
+            slowMotionMs = 500,
+            enableSelfHealing = true,
+            enableLLMHealing = true
+        )
 
-        if (scenario == null) {
-            onLog("LLM failed to generate scenario. Using intelligent fallback.", LogType.WARNING)
-            onReasoningUpdate("Could not generate scenario from LLM. Falling back to rule-based approach.")
+        val agent = E2ETestAgent(llmService, agentConfig)
+
+        // Initialize with our bridge-based components
+        agent.initializeWithDriver(browserDriver, pageStateExtractor)
+
+        if (!agent.isAvailable) {
+            onLog("E2ETestAgent is not available. Using fallback.", LogType.WARNING)
+            onReasoningUpdate("Agent initialization failed. Falling back to rule-based approach.")
             runRuleBasedTest(bridge, browserDriver, pageStateExtractor, testGoal, onLog, onStatusChange, onStepUpdate)
             return
         }
 
-        onLog("AI generated scenario: ${scenario.name}", LogType.SUCCESS)
-        onLog("Steps: ${scenario.steps.size}", LogType.INFO)
-        onStepUpdate(0, scenario.steps.size)
+        onLog("E2ETestAgent initialized successfully!", LogType.SUCCESS)
+        onReasoningUpdate("Agent ready. Preparing to execute test: \"$testGoal\"")
 
-        // Step 5: Execute each step
-        val executor = JvmBrowserActionExecutor.withDriver(browserDriver)
-        var memory = TestMemory.empty()
+        // Step 3: Create input and execute
+        val input = E2ETestInput(
+            naturalLanguage = testGoal,
+            startUrl = targetUrl
+        )
 
-        for ((index, step) in scenario.steps.withIndex()) {
-            onStepUpdate(index + 1, scenario.steps.size)
-            onStatusChange("Step ${index + 1}: ${step.description}")
-            onLog("Executing: ${step.description}", LogType.INFO)
-            onReasoningUpdate("Step ${index + 1}/${scenario.steps.size}: ${step.description}\nExpected: ${step.expectedOutcome ?: "Action completes successfully"}")
+        onLog("Starting E2ETestAgent execution...", LogType.INFO)
+        onStatusChange("Agent Running...")
 
-            // Refresh page state before each action
-            bridge.refreshActionableElements()
-            delay(300)
-            val currentPageState = pageStateExtractor.extractPageState()
-
-            val context = ActionExecutionContext(
-                tagMapping = currentPageState.actionableElements.associateBy { it.tagId }
-            )
-            executor.setContext(context)
-
-            val result = executor.execute(step.action, context)
-
-            if (result.success) {
-                onLog("Step ${index + 1} succeeded (${result.durationMs}ms)", LogType.SUCCESS)
-                delay(1000) // Wait for page to update
-            } else {
-                onLog("Step ${index + 1} failed: ${result.error}", LogType.ERROR)
-
-                // Try self-healing: ask LLM for alternative
-                onReasoningUpdate("Step failed. Attempting self-healing...")
-                // For now, continue to next step
-            }
-
-            memory = memory.withAction(
-                cc.unitmesh.agent.e2etest.ActionRecord(
-                    actionType = step.action::class.simpleName ?: "Unknown",
-                    targetId = getTargetIdFromAction(step.action),
-                    timestamp = System.currentTimeMillis(),
-                    success = result.success,
-                    description = step.description
-                )
-            )
+        var stepCount = 0
+        val result = agent.execute(input) { progress ->
+            stepCount++
+            onLog(progress, LogType.INFO)
+            onStatusChange(progress.take(50))
+            onStepUpdate(stepCount, stepCount + 1) // Approximate progress
+            onReasoningUpdate("Agent progress: $progress")
         }
 
-        // Step 6: Report results
-        val passedSteps = memory.recentActions.count { it.success }
-        val totalSteps = scenario.steps.size
-
-        if (passedSteps == totalSteps) {
-            onLog("All $totalSteps steps passed!", LogType.SUCCESS)
+        // Step 4: Report results
+        if (result.success) {
+            onLog("E2ETestAgent completed successfully!", LogType.SUCCESS)
             onStatusChange("Test Passed!")
-            onReasoningUpdate("Test completed successfully. All $totalSteps steps executed without errors.")
+            onReasoningUpdate("Test completed successfully.\n\n${result.content}")
         } else {
-            onLog("$passedSteps/$totalSteps steps passed", LogType.WARNING)
-            onStatusChange("Partial Success: $passedSteps/$totalSteps")
-            onReasoningUpdate("Test completed with some failures. $passedSteps out of $totalSteps steps succeeded.")
+            onLog("E2ETestAgent failed: ${result.content}", LogType.ERROR)
+            onStatusChange("Test Failed")
+            onReasoningUpdate("Test failed.\n\n${result.content}")
         }
+
+        // Log metadata if available
+        result.metadata?.forEach { (key, value) ->
+            onLog("  $key: $value", LogType.INFO)
+        }
+
+        // Cleanup
+        agent.close()
 
     } catch (e: Exception) {
         onLog("Error: ${e.message}", LogType.ERROR)
