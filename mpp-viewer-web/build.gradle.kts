@@ -150,6 +150,22 @@ compose.desktop {
     }
 }
 
+// Task to run E2E Test Agent Demo
+tasks.register<JavaExec>("runE2ETestDemo") {
+    group = "application"
+    description = "Run the E2E Test Agent Demo application"
+    mainClass.set("cc.unitmesh.viewer.web.e2etest.E2ETestAgentDemoKt")
+    classpath = sourceSets["jvmMain"].runtimeClasspath
+
+    jvmArgs("--add-opens", "java.desktop/sun.awt=ALL-UNNAMED")
+    jvmArgs("--add-opens", "java.desktop/java.awt.peer=ALL-UNNAMED")
+
+    if (System.getProperty("os.name").contains("Mac")) {
+        jvmArgs("--add-opens", "java.desktop/sun.lwawt=ALL-UNNAMED")
+        jvmArgs("--add-opens", "java.desktop/sun.lwawt.macosx=ALL-UNNAMED")
+    }
+}
+
 // Add JVM flags for KCEF
 afterEvaluate {
     tasks.withType<JavaExec> {

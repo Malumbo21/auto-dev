@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,10 +18,8 @@ import androidx.compose.ui.window.rememberWindowState
 import cc.unitmesh.agent.e2etest.E2ETestAgent
 import cc.unitmesh.agent.e2etest.E2ETestConfig
 import cc.unitmesh.agent.e2etest.E2ETestInput
-import cc.unitmesh.agent.e2etest.TestMemory
 import cc.unitmesh.agent.e2etest.executor.*
-import cc.unitmesh.agent.e2etest.model.*
-import cc.unitmesh.agent.e2etest.perception.PageStateExtractor
+import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.llm.LLMService
 import cc.unitmesh.llm.ModelConfig
 import cc.unitmesh.llm.LLMProviderType
@@ -103,8 +100,8 @@ private fun E2ETestAgentDemoApp() {
     var logs by remember { mutableStateOf(listOf<LogEntry>()) }
     var testStatus by remember { mutableStateOf("Ready") }
     var isRunning by remember { mutableStateOf(false) }
-    var targetUrl by remember { mutableStateOf("https://www.phodal.com") }
-    var testGoal by remember { mutableStateOf("Navigate to the blog section and find an article about AI") }
+    var targetUrl by remember { mutableStateOf("https://www.google.com") }
+    var testGoal by remember { mutableStateOf("Search for 'Kotlin Multiplatform' and click on the first result") }
     var aiReasoning by remember { mutableStateOf("") }
     var currentStep by remember { mutableStateOf(0) }
     var totalSteps by remember { mutableStateOf(0) }
@@ -122,6 +119,50 @@ private fun E2ETestAgentDemoApp() {
     // Create BrowserDriver and PageStateExtractor from bridge
     val browserDriver = remember { bridge.asBrowserDriver() }
     val pageStateExtractor = remember { bridge.asPageStateExtractor() }
+
+    // Auto-run test on startup
+    LaunchedEffect(Unit) {
+        println("[E2ETestDemo] LaunchedEffect started, waiting for KCEF...")
+        // Wait for KCEF to initialize
+        delay(3000)
+
+        println("[E2ETestDemo] Starting auto-test...")
+        addLog("Auto-starting E2E test...", LogType.INFO)
+        testStatus = "Starting..."
+
+        isRunning = true
+        logs = emptyList()
+        aiReasoning = ""
+        currentStep = 0
+        totalSteps = 0
+
+        try {
+            runAIE2ETest(
+                bridge = bridge,
+                browserDriver = browserDriver,
+                pageStateExtractor = pageStateExtractor,
+                targetUrl = targetUrl,
+                testGoal = testGoal,
+                onLog = { msg, type ->
+                    println("[E2ETestDemo] $msg")
+                    addLog(msg, type)
+                },
+                onStatusChange = { testStatus = it },
+                onReasoningUpdate = { aiReasoning = it },
+                onStepUpdate = { step, total ->
+                    currentStep = step
+                    totalSteps = total
+                }
+            )
+        } catch (e: Exception) {
+            println("[E2ETestDemo] Error: ${e.message}")
+            e.printStackTrace()
+        }
+
+        isRunning = false
+        addLog("Test completed!", LogType.SUCCESS)
+        println("[E2ETestDemo] Test completed!")
+    }
 
     Row(modifier = Modifier.fillMaxSize()) {
         // Left panel: Controls and Logs
@@ -323,43 +364,90 @@ private suspend fun runAIE2ETest(
     onStepUpdate: (Int, Int) -> Unit
 ) {
     try {
-        // Step 1: Check for LLM API key
-        val apiKey = System.getenv("OPENAI_API_KEY")
-            ?: System.getenv("ANTHROPIC_API_KEY")
-            ?: System.getenv("DEEPSEEK_API_KEY")
+        // Step 1: Load LLM config from ConfigManager (~/.autodev/config.yaml)
+        onLog("Loading LLM config from ~/.autodev/config.yaml...", LogType.INFO)
 
-        if (apiKey.isNullOrBlank()) {
-            onLog("No LLM API key found. Using rule-based fallback.", LogType.WARNING)
-            onReasoningUpdate("No API key configured. Set OPENAI_API_KEY, ANTHROPIC_API_KEY, or DEEPSEEK_API_KEY environment variable.")
-            runRuleBasedTest(bridge, browserDriver, pageStateExtractor, testGoal, onLog, onStatusChange, onStepUpdate)
+        val configWrapper = ConfigManager.load()
+        val activeConfig = configWrapper.getActiveModelConfig()
+
+        val modelConfig: ModelConfig? = if (activeConfig != null && configWrapper.isValid()) {
+            onLog("Found config: ${configWrapper.getActiveName()} (${activeConfig.provider}/${activeConfig.modelName})", LogType.SUCCESS)
+            activeConfig
+        } else {
+            // Fallback to environment variables
+            onLog("No valid config in ~/.autodev/config.yaml, checking environment variables...", LogType.INFO)
+
+            val apiKey = System.getenv("OPENAI_API_KEY")
+                ?: System.getenv("ANTHROPIC_API_KEY")
+                ?: System.getenv("DEEPSEEK_API_KEY")
+
+            if (apiKey.isNullOrBlank()) {
+                null
+            } else {
+                val provider = when {
+                    System.getenv("DEEPSEEK_API_KEY") != null -> LLMProviderType.DEEPSEEK
+                    System.getenv("ANTHROPIC_API_KEY") != null -> LLMProviderType.ANTHROPIC
+                    else -> LLMProviderType.OPENAI
+                }
+
+                val modelName = when (provider) {
+                    LLMProviderType.DEEPSEEK -> "deepseek-chat"
+                    LLMProviderType.ANTHROPIC -> "claude-3-5-sonnet-20241022"
+                    else -> "gpt-4o-mini"
+                }
+
+                onLog("Using environment variable: $provider / $modelName", LogType.INFO)
+
+                ModelConfig(
+                    provider = provider,
+                    modelName = modelName,
+                    apiKey = apiKey,
+                    temperature = 0.3,
+                    maxTokens = 2048
+                )
+            }
+        }
+
+        if (modelConfig == null) {
+            onLog("No LLM API key found. Please configure in ~/.autodev/config.yaml or set environment variable.", LogType.ERROR)
+            onStatusChange("No API Key")
+            onReasoningUpdate("No API key configured. Please configure in ~/.autodev/config.yaml or set OPENAI_API_KEY/ANTHROPIC_API_KEY/DEEPSEEK_API_KEY environment variable.")
             return
         }
 
-        val provider = when {
-            System.getenv("DEEPSEEK_API_KEY") != null -> LLMProviderType.DEEPSEEK
-            System.getenv("ANTHROPIC_API_KEY") != null -> LLMProviderType.ANTHROPIC
-            else -> LLMProviderType.OPENAI
-        }
-
-        val modelName = when (provider) {
-            LLMProviderType.DEEPSEEK -> "deepseek-chat"
-            LLMProviderType.ANTHROPIC -> "claude-3-5-sonnet-20241022"
-            else -> "gpt-4o-mini"
-        }
-
-        onLog("Using LLM: $provider / $modelName", LogType.INFO)
-
-        val modelConfig = ModelConfig(
-            provider = provider,
-            modelName = modelName,
-            apiKey = apiKey,
-            temperature = 0.3,
-            maxTokens = 2048
-        )
+        onLog("Using LLM: ${modelConfig.provider} / ${modelConfig.modelName}", LogType.INFO)
 
         val llmService = LLMService.create(modelConfig)
 
-        // Step 2: Create and initialize E2ETestAgent
+        // Step 2: Navigate to target URL first (required for bridge.isReady to become true)
+        onLog("Navigating to $targetUrl...", LogType.INFO)
+        onStatusChange("Navigating...")
+        bridge.navigateTo(targetUrl)
+
+        // Wait for page load - bridge.isReady becomes true after page loads
+        var waitCount = 0
+        while (!bridge.isReady.value && waitCount < 100) {
+            delay(100)
+            waitCount++
+        }
+        delay(2000) // Extra time for rendering and JS bridge initialization
+
+        if (!bridge.isReady.value) {
+            onLog("Page failed to load within timeout", LogType.ERROR)
+            onStatusChange("Page Load Failed")
+            onReasoningUpdate("Failed to load page: $targetUrl")
+            return
+        }
+
+        onLog("Page loaded successfully", LogType.SUCCESS)
+
+        // Step 3: Refresh accessibility tree and actionable elements
+        onLog("Extracting page state...", LogType.INFO)
+        bridge.refreshAccessibilityTree()
+        bridge.refreshActionableElements()
+        delay(500)
+
+        // Step 4: Create and initialize E2ETestAgent
         onLog("Initializing E2ETestAgent...", LogType.INFO)
         onStatusChange("Initializing Agent...")
 
@@ -379,9 +467,9 @@ private suspend fun runAIE2ETest(
         agent.initializeWithDriver(browserDriver, pageStateExtractor)
 
         if (!agent.isAvailable) {
-            onLog("E2ETestAgent is not available. Using fallback.", LogType.WARNING)
-            onReasoningUpdate("Agent initialization failed. Falling back to rule-based approach.")
-            runRuleBasedTest(bridge, browserDriver, pageStateExtractor, testGoal, onLog, onStatusChange, onStepUpdate)
+            onLog("E2ETestAgent is not available", LogType.ERROR)
+            onStatusChange("Agent Not Available")
+            onReasoningUpdate("Agent initialization failed. Check browser driver and page state extractor.")
             return
         }
 
@@ -430,76 +518,6 @@ private suspend fun runAIE2ETest(
         onStatusChange("Error: ${e.message?.take(50)}")
         onReasoningUpdate("An error occurred: ${e.message}")
         e.printStackTrace()
-    }
-}
-
-/**
- * Rule-based fallback when LLM is not available
- */
-private suspend fun runRuleBasedTest(
-    bridge: JvmWebEditBridge,
-    browserDriver: BrowserDriver,
-    pageStateExtractor: cc.unitmesh.agent.e2etest.perception.PageStateExtractor,
-    testGoal: String,
-    onLog: (String, LogType) -> Unit,
-    onStatusChange: (String) -> Unit,
-    onStepUpdate: (Int, Int) -> Unit
-) {
-    onLog("Running rule-based test for: $testGoal", LogType.INFO)
-    onStatusChange("Rule-based execution...")
-
-    val pageState = pageStateExtractor.extractPageState()
-    val executor = JvmBrowserActionExecutor.withDriver(browserDriver)
-
-    // Simple heuristic: find elements matching keywords in the goal
-    val keywords = testGoal.lowercase().split(" ").filter { it.length > 3 }
-
-    val matchingElements = pageState.actionableElements.filter { element ->
-        val name = element.name?.lowercase() ?: ""
-        keywords.any { keyword -> name.contains(keyword) }
-    }
-
-    if (matchingElements.isEmpty()) {
-        onLog("No elements matching goal keywords found", LogType.WARNING)
-        onStatusChange("No matching elements")
-        return
-    }
-
-    onLog("Found ${matchingElements.size} elements matching goal", LogType.SUCCESS)
-    onStepUpdate(0, matchingElements.size.coerceAtMost(3))
-
-    // Click up to 3 matching elements
-    matchingElements.take(3).forEachIndexed { index, element ->
-        onStepUpdate(index + 1, matchingElements.size.coerceAtMost(3))
-        onLog("Clicking: [${element.tagId}] ${element.name}", LogType.INFO)
-
-        val context = ActionExecutionContext(
-            tagMapping = pageState.actionableElements.associateBy { it.tagId }
-        )
-        executor.setContext(context)
-
-        val result = executor.click(element.tagId, ClickOptions())
-        if (result.success) {
-            onLog("Click succeeded", LogType.SUCCESS)
-        } else {
-            onLog("Click failed: ${result.error}", LogType.ERROR)
-        }
-
-        delay(1000)
-    }
-
-    onStatusChange("Rule-based test completed")
-}
-
-private fun getTargetIdFromAction(action: TestAction): Int? {
-    return when (action) {
-        is TestAction.Click -> action.targetId
-        is TestAction.Type -> action.targetId
-        is TestAction.Hover -> action.targetId
-        is TestAction.Assert -> action.targetId
-        is TestAction.Select -> action.targetId
-        is TestAction.Scroll -> action.targetId
-        else -> null
     }
 }
 
