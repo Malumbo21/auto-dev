@@ -11,6 +11,7 @@ import { InputRouter } from '../processors/InputRouter.js';
 import { SlashCommandProcessor } from '../processors/SlashCommandProcessor.js';
 import { AtCommandProcessor } from '../processors/AtCommandProcessor.js';
 import { VariableProcessor } from '../processors/VariableProcessor.js';
+import { SkillCommandProcessor } from '../processors/SkillCommandProcessor.js';
 import { compileDevIns, hasDevInsCommands } from '../utils/commandUtils.js';
 import { findLastSafeSplitPoint } from '../utils/markdownSplitter.js';
 
@@ -43,6 +44,7 @@ export class ChatMode implements Mode {
       // 注册处理器（排除模式切换命令，因为它们由外部处理）
       const slashProcessor = new SlashCommandProcessor();
       this.router.register(slashProcessor, 100);
+      this.router.register(new SkillCommandProcessor(), 90); // Claude Skills
       this.router.register(new AtCommandProcessor(), 50);
       this.router.register(new VariableProcessor(), 30);
 

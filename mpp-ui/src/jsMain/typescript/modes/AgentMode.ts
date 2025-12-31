@@ -11,6 +11,7 @@ import { ConfigManager } from '../config/ConfigManager.js';
 import { TuiRenderer } from '../agents/render/TuiRenderer.js';
 import { InputRouter } from '../processors/InputRouter.js';
 import { SlashCommandProcessor } from '../processors/SlashCommandProcessor.js';
+import { SkillCommandProcessor } from '../processors/SkillCommandProcessor.js';
 import { compileDevIns } from '../utils/commandUtils.js';
 import mppCore from '@xiuper/mpp-core';
 import * as path from 'path';
@@ -64,6 +65,7 @@ export class AgentMode implements Mode {
       // 注册斜杠命令处理器（高优先级）
       const slashProcessor = new SlashCommandProcessor();
       this.router.register(slashProcessor, 100);
+      this.router.register(new SkillCommandProcessor(), 90); // Claude Skills
 
       // 创建 LLM 服务
       const llmService = new KotlinCC.unitmesh.llm.JsKoogLLMService(

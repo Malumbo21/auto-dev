@@ -16,7 +16,9 @@ const {
   JsModelRegistry,
   JsCompletionManager,
   JsDevInsCompiler,
-  JsToolRegistry
+  JsToolRegistry,
+  JsClaudeSkillManager,
+  JsClaudeSkill
 } = MppCore.cc.unitmesh.llm;
 
 const { JsCodingAgent, JsAgentTask } = MppCore.cc.unitmesh.agent;
@@ -602,5 +604,122 @@ export function getAvailableModels(provider: string): string[] {
  */
 export function getAllProviders(): string[] {
   return Array.from(JsModelRegistry.getAllProviders());
+}
+
+/**
+ * Claude Skill interface
+ */
+export interface ClaudeSkill {
+  skillName: string;
+  description: string;
+  template: string;
+  skillPath: string;
+  fullCommandName: string;
+}
+
+/**
+ * Skill Manager - provides access to Claude Skills
+ * Claude Skills are organized folders of instructions that agents can discover and load dynamically.
+ *
+ * Skills can be located in:
+ * - Project root directories containing SKILL.md
+ * - ~/.claude/skills/ directory (user-level skills)
+ *
+ * Example usage:
+ * ```typescript
+ * const manager = new SkillManager('/path/to/project');
+ * await manager.loadSkills();
+ * const skills = manager.getSkills();
+ * const output = await manager.executeSkill('pdf', 'Extract tables from report.pdf');
+ * ```
+ */
+export class SkillManager {
+  private manager: any;
+  private cachedSkills: ClaudeSkill[] = [];
+
+  constructor(private projectPath: string) {
+    this.manager = new JsClaudeSkillManager(projectPath);
+  }
+
+  /**
+   * Load all available Claude Skills from project and user directories
+   */
+  async loadSkills(): Promise<ClaudeSkill[]> {
+    const skills = await this.manager.loadSkills();
+    this.cachedSkills = Array.from(skills).map((skill: any) => ({
+      skillName: skill.skillName,
+      description: skill.description,
+      template: skill.template,
+      skillPath: skill.skillPath,
+      fullCommandName: skill.fullCommandName
+    }));
+    return this.cachedSkills;
+  }
+
+  /**
+   * Get cached skills (synchronous, returns empty if not loaded)
+   */
+  getSkills(): ClaudeSkill[] {
+    const skills = this.manager.getSkills();
+    return Array.from(skills).map((skill: any) => ({
+      skillName: skill.skillName,
+      description: skill.description,
+      template: skill.template,
+      skillPath: skill.skillPath,
+      fullCommandName: skill.fullCommandName
+    }));
+  }
+
+  /**
+   * Find a skill by name
+   * @param skillName The skill name (without "skill." prefix)
+   */
+  findSkill(skillName: string): ClaudeSkill | null {
+    const skill = this.manager.findSkill(skillName);
+    if (!skill) return null;
+
+    return {
+      skillName: skill.skillName,
+      description: skill.description,
+      template: skill.template,
+      skillPath: skill.skillPath,
+      fullCommandName: skill.fullCommandName
+    };
+  }
+
+  /**
+   * Execute a skill with the given arguments
+   * @param skillName The skill name
+   * @param arguments_ The arguments to pass to the skill
+   * @returns The compiled template output
+   */
+  async executeSkill(skillName: string, arguments_: string): Promise<string> {
+    return await this.manager.executeSkill(skillName, arguments_);
+  }
+
+  /**
+   * Check if any skills are available
+   */
+  hasSkills(): boolean {
+    return this.manager.hasSkills();
+  }
+
+  /**
+   * Get skill names for completion
+   */
+  getSkillNames(): string[] {
+    return this.getSkills().map(s => s.skillName);
+  }
+
+  /**
+   * Get skill completion items for VSCode
+   */
+  getSkillCompletionItems(): Array<{ label: string; detail: string; documentation: string }> {
+    return this.getSkills().map(skill => ({
+      label: `/skill.${skill.skillName}`,
+      detail: skill.description,
+      documentation: `Execute Claude Skill: ${skill.skillName}\n\nPath: ${skill.skillPath}`
+    }));
+  }
 }
 

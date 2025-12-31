@@ -1106,3 +1106,116 @@ fun createPromptEnhancer(
     return JsPromptEnhancer(llmService, fileSystem, jsDomainDictService)
 }
 
+/**
+ * JavaScript-friendly Claude Skill data class
+ */
+@JsExport
+data class JsClaudeSkill(
+    val skillName: String,
+    val description: String,
+    val template: String,
+    val skillPath: String,
+    val fullCommandName: String
+)
+
+/**
+ * JavaScript-friendly Claude Skill Manager
+ * Provides access to Claude Skills from JavaScript
+ */
+@JsExport
+class JsClaudeSkillManager(projectPath: String) {
+    private val fileSystem = DefaultFileSystem(projectPath)
+    private var cachedSkills: List<cc.unitmesh.devins.command.ClaudeSkillCommand>? = null
+
+    /**
+     * Load all available Claude Skills
+     * @return Promise with array of skills
+     */
+    @JsName("loadSkills")
+    @OptIn(kotlinx.coroutines.DelicateCoroutinesApi::class)
+    fun loadSkills(): Promise<Array<JsClaudeSkill>> {
+        return kotlinx.coroutines.GlobalScope.promise {
+            val skills = cc.unitmesh.devins.command.ClaudeSkillCommand.loadAll(fileSystem)
+            cachedSkills = skills
+            skills.map { skill ->
+                JsClaudeSkill(
+                    skillName = skill.skillName,
+                    description = skill.description,
+                    template = skill.template,
+                    skillPath = skill.skillPath,
+                    fullCommandName = skill.fullCommandName
+                )
+            }.toTypedArray()
+        }
+    }
+
+    /**
+     * Get cached skills (synchronous, returns empty if not loaded)
+     */
+    @JsName("getSkills")
+    fun getSkills(): Array<JsClaudeSkill> {
+        return (cachedSkills ?: emptyList()).map { skill ->
+            JsClaudeSkill(
+                skillName = skill.skillName,
+                description = skill.description,
+                template = skill.template,
+                skillPath = skill.skillPath,
+                fullCommandName = skill.fullCommandName
+            )
+        }.toTypedArray()
+    }
+
+    /**
+     * Find a skill by name
+     * @param skillName The skill name (without "skill." prefix)
+     * @return The skill or null if not found
+     */
+    @JsName("findSkill")
+    fun findSkill(skillName: String): JsClaudeSkill? {
+        val skills = cachedSkills ?: return null
+        val skill = cc.unitmesh.devins.command.ClaudeSkillCommand.findBySkillName(skills, skillName)
+        return skill?.let {
+            JsClaudeSkill(
+                skillName = it.skillName,
+                description = it.description,
+                template = it.template,
+                skillPath = it.skillPath,
+                fullCommandName = it.fullCommandName
+            )
+        }
+    }
+
+    /**
+     * Execute a skill with the given arguments
+     * @param skillName The skill name
+     * @param arguments The arguments to pass to the skill
+     * @return Promise with the compiled template output
+     */
+    @JsName("executeSkill")
+    @OptIn(kotlinx.coroutines.DelicateCoroutinesApi::class)
+    fun executeSkill(skillName: String, arguments: String): Promise<String> {
+        return kotlinx.coroutines.GlobalScope.promise {
+            val skills = cachedSkills ?: cc.unitmesh.devins.command.ClaudeSkillCommand.loadAll(fileSystem)
+            val skill = cc.unitmesh.devins.command.ClaudeSkillCommand.findBySkillName(skills, skillName)
+                ?: throw IllegalArgumentException("Skill not found: $skillName")
+
+            val compiler = cc.unitmesh.devins.command.SpecKitTemplateCompiler(
+                fileSystem = fileSystem,
+                template = skill.template,
+                command = skill.fullCommandName,
+                input = arguments
+            )
+
+            compiler.compile()
+        }
+    }
+
+    /**
+     * Check if any skills are available
+     */
+    @JsName("hasSkills")
+    fun hasSkills(): Boolean {
+        return (cachedSkills?.isNotEmpty()) ?: false
+    }
+}
+

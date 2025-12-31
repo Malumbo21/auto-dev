@@ -590,6 +590,12 @@ export class ChatViewProvider implements vscode.WebviewViewProvider, vscode.Disp
     this.messages.push({ role: 'user', content: trimmedContent });
     this.postMessage({ type: 'userMessage', content: trimmedContent });
 
+    // Check if this is a skill command
+    if (trimmedContent.startsWith('/skill.')) {
+      await this.handleSkillCommand(trimmedContent);
+      return;
+    }
+
     // Check if LLM is configured
     if (!this.llmService) {
       this.postMessage({
@@ -614,6 +620,74 @@ export class ChatViewProvider implements vscode.WebviewViewProvider, vscode.Disp
       const message = error instanceof Error ? error.message : String(error);
       this.log(`Error in chat: ${message}`);
       this.postMessage({ type: 'error', content: message });
+    } finally {
+      this.isExecuting = false;
+    }
+  }
+
+  /**
+   * Handle Claude Skill commands (/skill.*)
+   * Skills are loaded from project directories containing SKILL.md or ~/.claude/skills/
+   */
+  private async handleSkillCommand(content: string): Promise<void> {
+    const match = content.match(/^\/skill\.([^\s]+)(?:\s+(.*))?$/);
+
+    if (!match) {
+      this.postMessage({ type: 'error', content: 'Invalid skill command format. Use /skill.<name> <arguments>' });
+      return;
+    }
+
+    const skillName = match[1];
+    const arguments_ = match[2] || '';
+    const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || process.cwd();
+
+    this.isExecuting = true;
+
+    try {
+      // Initialize skill manager
+      const skillManager = new KotlinCC.llm.JsClaudeSkillManager(workspacePath);
+      await skillManager.loadSkills();
+
+      // Find the skill
+      const skill = skillManager.findSkill(skillName);
+
+      if (!skill) {
+        const skills = skillManager.getSkills();
+        const availableSkills = Array.from(skills).map((s: any) => s.skillName).join(', ');
+        this.postMessage({
+          type: 'error',
+          content: `Skill not found: ${skillName}\nAvailable skills: ${availableSkills || 'none'}`
+        });
+        return;
+      }
+
+      this.log(`Executing skill: ${skill.fullCommandName}`);
+      this.postMessage({ type: 'startResponse' });
+
+      // Execute the skill
+      const output = await skillManager.executeSkill(skillName, arguments_);
+
+      // Send the compiled template as a response
+      this.postMessage({ type: 'responseChunk', content: output });
+      this.postMessage({ type: 'endResponse' });
+
+      // If LLM is configured, send the compiled template to the agent
+      if (this.llmService) {
+        this.postMessage({ type: 'responseChunk', content: '\n\n---\n\n**Executing skill with AI...**\n\n' });
+
+        const agent = this.initializeCodingAgent();
+        const task = new KotlinCC.agent.JsAgentTask(output, workspacePath);
+        const result = await agent.executeTask(task);
+
+        if (result && result.message) {
+          this.messages.push({ role: 'assistant', content: result.message });
+        }
+      }
+
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.log(`Error executing skill: ${message}`);
+      this.postMessage({ type: 'error', content: `Failed to execute skill '${skillName}': ${message}` });
     } finally {
       this.isExecuting = false;
     }
