@@ -19,6 +19,7 @@ include("mpp-viewer")
 include("mpp-viewer-web")
 include("xiuper-ui")
 include("xiuper-fs")
+include("xiuper-e2e")
 
 // IDEA plugin as composite build
 includeBuild("mpp-idea")
