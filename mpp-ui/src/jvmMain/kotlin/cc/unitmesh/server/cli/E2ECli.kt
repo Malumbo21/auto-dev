@@ -1,7 +1,7 @@
 package cc.unitmesh.server.cli
 
-import cc.unitmesh.agent.e2etest.planner.PlannerConfig
-import cc.unitmesh.agent.e2etest.planner.TestActionPlanner
+import cc.unitmesh.e2e.dsl.E2EDslGenerator
+import cc.unitmesh.e2e.dsl.E2EDslIntegration
 import cc.unitmesh.llm.LLMProviderType
 import cc.unitmesh.llm.LLMService
 import cc.unitmesh.llm.ModelConfig
@@ -66,18 +66,16 @@ object E2ECli {
                 println()
 
                 val llmService = LLMService.create(modelConfig)
-                val planner = TestActionPlanner(llmService, PlannerConfig(useDslFormat = true))
+                val dslIntegration = E2EDslIntegration(llmService)
+                val dslGenerator = E2EDslGenerator()
 
-                println("🧠 Generating E2E test scenario...")
+                println("🧠 Generating E2E test scenario from description...")
                 println()
 
-                // Create a mock page state for scenario generation
-                val mockPageState = createMockPageState(targetUrl)
-
-                val scenario = planner.generateScenario(
+                // Generate scenario directly from description - no page state needed
+                val scenario = dslIntegration.generateScenarioFromDescription(
                     description = testGoal,
-                    startUrl = targetUrl,
-                    pageState = mockPageState
+                    startUrl = targetUrl
                 )
 
                 val totalTime = System.currentTimeMillis() - startTime
@@ -90,12 +88,12 @@ object E2ECli {
                     println("=".repeat(80))
                     println()
 
-                    val dsl = generateDsl(scenario)
+                    val dsl = dslGenerator.generate(scenario)
                     println(dsl)
 
                     // Save to file if specified
                     if (outputFile != null) {
-                        java.io.File(outputFile).writeText(dsl)
+                        File(outputFile).writeText(dsl)
                         println()
                         println("💾 Saved to: $outputFile")
                     }
@@ -183,158 +181,6 @@ object E2ECli {
             temperature = 0.3,
             maxTokens = 4096
         )
-    }
-
-    /**
-     * Create a mock page state for scenario generation.
-     * In a real implementation, this would use Playwright to extract actual page state.
-     */
-    private fun createMockPageState(url: String): cc.unitmesh.agent.e2etest.model.PageState {
-        val defaultBoundingBox = cc.unitmesh.agent.e2etest.model.BoundingBox(0.0, 0.0, 100.0, 30.0)
-
-        fun createFingerprint(selector: String, tagName: String, name: String, role: String) =
-            cc.unitmesh.agent.e2etest.model.ElementFingerprint(
-                selector = selector,
-                tagName = tagName,
-                textContent = name,
-                role = role
-            )
-
-        return cc.unitmesh.agent.e2etest.model.PageState(
-            url = url,
-            title = "Page at $url",
-            viewport = cc.unitmesh.agent.e2etest.model.Viewport(1280, 720),
-            actionableElements = listOf(
-                // Common elements that might be on a page
-                cc.unitmesh.agent.e2etest.model.ActionableElement(
-                    tagId = 1,
-                    tagName = "input",
-                    role = "textbox",
-                    name = "username",
-                    selector = "input[name='username']",
-                    isVisible = true,
-                    isEnabled = true,
-                    boundingBox = defaultBoundingBox,
-                    fingerprint = createFingerprint("input[name='username']", "input", "username", "textbox")
-                ),
-                cc.unitmesh.agent.e2etest.model.ActionableElement(
-                    tagId = 2,
-                    tagName = "input",
-                    role = "textbox",
-                    name = "password",
-                    selector = "input[name='password']",
-                    isVisible = true,
-                    isEnabled = true,
-                    boundingBox = defaultBoundingBox,
-                    fingerprint = createFingerprint("input[name='password']", "input", "password", "textbox")
-                ),
-                cc.unitmesh.agent.e2etest.model.ActionableElement(
-                    tagId = 3,
-                    tagName = "button",
-                    role = "button",
-                    name = "Login",
-                    selector = "button[type='submit']",
-                    isVisible = true,
-                    isEnabled = true,
-                    boundingBox = defaultBoundingBox,
-                    fingerprint = createFingerprint("button[type='submit']", "button", "Login", "button")
-                ),
-                cc.unitmesh.agent.e2etest.model.ActionableElement(
-                    tagId = 4,
-                    tagName = "input",
-                    role = "searchbox",
-                    name = "search",
-                    selector = "input[type='search']",
-                    isVisible = true,
-                    isEnabled = true,
-                    boundingBox = defaultBoundingBox,
-                    fingerprint = createFingerprint("input[type='search']", "input", "search", "searchbox")
-                ),
-                cc.unitmesh.agent.e2etest.model.ActionableElement(
-                    tagId = 5,
-                    tagName = "button",
-                    role = "button",
-                    name = "Search",
-                    selector = "button.search-btn",
-                    isVisible = true,
-                    isEnabled = true,
-                    boundingBox = defaultBoundingBox,
-                    fingerprint = createFingerprint("button.search-btn", "button", "Search", "button")
-                )
-            ),
-            capturedAt = System.currentTimeMillis()
-        )
-    }
-
-    /**
-     * Generate DSL from a TestScenario
-     */
-    private fun generateDsl(scenario: cc.unitmesh.agent.e2etest.model.TestScenario): String {
-        return buildString {
-            appendLine("scenario \"${scenario.name}\" {")
-            appendLine("    description \"${scenario.description}\"")
-            appendLine("    url \"${scenario.startUrl}\"")
-            appendLine()
-
-            scenario.steps.forEach { step ->
-                appendLine("    step \"${step.description}\" {")
-                appendLine("        ${formatAction(step.action)}")
-                step.expectedOutcome?.let {
-                    appendLine("        expect \"$it\"")
-                }
-                appendLine("    }")
-                appendLine()
-            }
-
-            appendLine("}")
-        }
-    }
-
-    private fun formatAction(action: cc.unitmesh.agent.e2etest.model.TestAction): String {
-        return when (action) {
-            is cc.unitmesh.agent.e2etest.model.TestAction.Click -> "click #${action.targetId}"
-            is cc.unitmesh.agent.e2etest.model.TestAction.Type -> "type #${action.targetId} \"${action.text}\""
-            is cc.unitmesh.agent.e2etest.model.TestAction.Hover -> "hover #${action.targetId}"
-            is cc.unitmesh.agent.e2etest.model.TestAction.Scroll -> "scroll ${action.direction.name.lowercase()}"
-            is cc.unitmesh.agent.e2etest.model.TestAction.Wait -> formatWaitAction(action)
-            is cc.unitmesh.agent.e2etest.model.TestAction.PressKey -> "pressKey \"${action.key}\""
-            is cc.unitmesh.agent.e2etest.model.TestAction.Navigate -> "navigate \"${action.url}\""
-            is cc.unitmesh.agent.e2etest.model.TestAction.GoBack -> "goBack"
-            is cc.unitmesh.agent.e2etest.model.TestAction.GoForward -> "goForward"
-            is cc.unitmesh.agent.e2etest.model.TestAction.Refresh -> "refresh"
-            is cc.unitmesh.agent.e2etest.model.TestAction.Assert -> "assert #${action.targetId} ${formatAssertion(action.assertion)}"
-            is cc.unitmesh.agent.e2etest.model.TestAction.Select -> "select #${action.targetId}"
-            is cc.unitmesh.agent.e2etest.model.TestAction.UploadFile -> "uploadFile #${action.targetId} \"${action.filePath}\""
-            is cc.unitmesh.agent.e2etest.model.TestAction.Screenshot -> "screenshot \"${action.name}\""
-        }
-    }
-
-    private fun formatWaitAction(action: cc.unitmesh.agent.e2etest.model.TestAction.Wait): String {
-        return when (val condition = action.condition) {
-            is cc.unitmesh.agent.e2etest.model.WaitCondition.Duration -> "wait duration ${condition.ms}"
-            is cc.unitmesh.agent.e2etest.model.WaitCondition.ElementVisible -> "wait visible #${condition.targetId}"
-            is cc.unitmesh.agent.e2etest.model.WaitCondition.ElementHidden -> "wait hidden #${condition.targetId}"
-            is cc.unitmesh.agent.e2etest.model.WaitCondition.ElementEnabled -> "wait enabled #${condition.targetId}"
-            is cc.unitmesh.agent.e2etest.model.WaitCondition.TextPresent -> "wait textPresent \"${condition.text}\""
-            is cc.unitmesh.agent.e2etest.model.WaitCondition.UrlContains -> "wait urlContains \"${condition.substring}\""
-            is cc.unitmesh.agent.e2etest.model.WaitCondition.PageLoaded -> "wait pageLoaded"
-            is cc.unitmesh.agent.e2etest.model.WaitCondition.NetworkIdle -> "wait networkIdle"
-        }
-    }
-
-    private fun formatAssertion(assertion: cc.unitmesh.agent.e2etest.model.AssertionType): String {
-        return when (assertion) {
-            is cc.unitmesh.agent.e2etest.model.AssertionType.Visible -> "visible"
-            is cc.unitmesh.agent.e2etest.model.AssertionType.Hidden -> "hidden"
-            is cc.unitmesh.agent.e2etest.model.AssertionType.Enabled -> "enabled"
-            is cc.unitmesh.agent.e2etest.model.AssertionType.Disabled -> "disabled"
-            is cc.unitmesh.agent.e2etest.model.AssertionType.Checked -> "checked"
-            is cc.unitmesh.agent.e2etest.model.AssertionType.Unchecked -> "unchecked"
-            is cc.unitmesh.agent.e2etest.model.AssertionType.TextEquals -> "textEquals \"${assertion.text}\""
-            is cc.unitmesh.agent.e2etest.model.AssertionType.TextContains -> "textContains \"${assertion.text}\""
-            is cc.unitmesh.agent.e2etest.model.AssertionType.AttributeEquals -> "attributeEquals \"${assertion.attribute}\" \"${assertion.value}\""
-            is cc.unitmesh.agent.e2etest.model.AssertionType.HasClass -> "hasClass \"${assertion.className}\""
-        }
     }
 }
 

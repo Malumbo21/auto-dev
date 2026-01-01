@@ -198,6 +198,7 @@ kotlin {
                 implementation(project(":mpp-viewer"))
                 implementation(project(":mpp-viewer-web"))
                 implementation(project(":xiuper-ui"))
+                implementation(project(":xiuper-e2e"))
                 implementation(compose.desktop.currentOs)
 
                 // compose.webview for desktop WebView support
