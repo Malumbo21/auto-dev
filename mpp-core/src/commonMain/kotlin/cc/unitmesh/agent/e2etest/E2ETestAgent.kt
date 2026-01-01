@@ -36,7 +36,7 @@ class E2ETestAgent(
     AgentDefinition(
         name = "E2ETestAgent",
         displayName = "E2E Testing Agent",
-        description = "AI-driven end-to-end testing with visual understanding and self-healing locators",
+        description = "AI-driven end-to-end testing with visual understanding and self-healing locators for WebView",
         promptConfig = PromptConfig(
             systemPrompt = E2E_TEST_SYSTEM_PROMPT,
             queryTemplate = null,
@@ -65,7 +65,7 @@ class E2ETestAgent(
      * Initialize the agent with browser components using platform factory functions.
      *
      * Note: This method only initializes the PageStateExtractor and planner.
-     * The browserExecutor will be null - use [initializeWithDriver] or [initializeWithComponents]
+     * The browserExecutor will be null - use [initializeWithDriver]
      * to provide a BrowserDriver for full functionality.
      */
     fun initialize() {
