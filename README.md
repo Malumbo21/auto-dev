@@ -66,7 +66,7 @@ AutoDev Xiuper includes 7 specialized AI agents mapped to the complete Software 
 | **Knowledge** | Requirements | Requirements understanding and knowledge construction with AI-native document reading and analysis | DocQL / Context Engineering       | ✅ Stable  |
 | **Coding**    | Development  | Autonomous coding agent with complete file system, shell, and tool access capabilities             | MCP / SubAgents / DevIns DSL      | ✅ Stable  |
 | **Review**    | Code Review  | Professional code review analyzing code quality, security, performance, and best practices         | Linter / Summary / AutoFix        | ✅ Stable  |
-| **Testing**   | Testing      | Automated testing agent that generates test cases, executes tests, and analyzes coverage           | E2E / Self-healing / Coverage     | 🚧 Coming |
+| **Testing**   | Testing      | Automated testing agent that generates test cases, executes tests, and analyzes coverage           | E2E / Self-healing / Coverage     | 🚧 WIP    |
 | **ChatDB**    | Data         | Database conversation agent supporting Text-to-SQL and natural language data queries               | Schema Linking / Multi-DB / Query | ✅ Stable  |
 | **WebEdit**   | Deployment   | Web editing agent for browsing pages, selecting DOM elements, and interacting with web content     | Inspect / Chat / Mapping          | 🔄 Beta   |
 | **Ops**       | Operations   | Operations monitoring agent for log analysis, performance monitoring, and alert handling           | Logs / Metrics / Alerts           | 🚧 Coming |
@@ -102,6 +102,7 @@ SubAgents are specialized micro-agents that can be invoked by the main Coding Ag
 | **Domain Dict Agent**     | Generate domain dictionaries from codebase analysis for better context understanding     | Hot file detection / Class/method extraction / Domain term identification             | All platforms         |
 | **Error Recovery Agent**  | Analyze errors and suggest fixes with self-healing capabilities                          | Error pattern recognition / Fix suggestion / Auto-retry logic                         | All platforms         |
 | **SQL Revise Agent**      | Revise and optimize SQL queries based on schema and execution feedback                   | Schema-aware correction / Query optimization / Syntax validation                      | All platforms         |
+| **E2E Testing Agent**     | Perform end-to-end testing with visual understanding and self-healing locators           | Natural language test scenario generation / Multi-modal perception / Self-healing     | All platforms         |
 
 SubAgents enable modular, composable AI workflows where complex tasks are broken down into specialized sub-tasks, each handled by an expert agent.
 
