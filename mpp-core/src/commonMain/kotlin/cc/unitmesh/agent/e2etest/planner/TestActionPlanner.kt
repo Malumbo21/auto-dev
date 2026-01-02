@@ -110,24 +110,26 @@ class TestActionPlanner(
         return try {
             val jsonObj = json.decodeFromString<JsonObject>(jsonStr)
             val actionType = jsonObj["action_type"]?.jsonPrimitive?.content ?: return null
-            val targetId = jsonObj["target_id"]?.jsonPrimitive?.intOrNull
+            val targetId = jsonObj["target_id"]?.jsonPrimitive?.intOrNull ?: 0
+            val selector = jsonObj["selector"]?.jsonPrimitive?.content
             val value = jsonObj["value"]?.jsonPrimitive?.content
             val reasoning = jsonObj["reasoning"]?.jsonPrimitive?.content ?: "LLM planned action"
             val confidence = jsonObj["confidence"]?.jsonPrimitive?.content?.toDoubleOrNull() ?: 0.8
 
             val action = when (actionType.lowercase()) {
-                "click" -> targetId?.let { TestAction.Click(targetId = it) }
-                "type" -> targetId?.let { id -> value?.let { TestAction.Type(targetId = id, text = it) } }
-                "scroll_down" -> TestAction.Scroll(ScrollDirection.DOWN)
-                "scroll_up" -> TestAction.Scroll(ScrollDirection.UP)
+                "click" -> TestAction.Click(targetId = targetId, selector = selector)
+                "type" -> value?.let { TestAction.Type(targetId = targetId, selector = selector, text = it) }
+                "scroll_down" -> TestAction.Scroll(ScrollDirection.DOWN, selector = selector)
+                "scroll_up" -> TestAction.Scroll(ScrollDirection.UP, selector = selector)
                 "wait" -> TestAction.Wait(WaitCondition.Duration(value?.toLongOrNull() ?: 1000))
                 "navigate" -> value?.let { TestAction.Navigate(it) }
                 "go_back" -> TestAction.GoBack
                 "press_key" -> value?.let { TestAction.PressKey(it) }
-                "assert_visible" -> targetId?.let { TestAction.Assert(targetId = it, assertion = AssertionType.Visible) }
-                "assert_text" -> targetId?.let { id ->
-                    value?.let { TestAction.Assert(targetId = id, assertion = AssertionType.TextContains(it)) }
+                "assert_visible" -> TestAction.Assert(targetId = targetId, selector = selector, assertion = AssertionType.Visible)
+                "assert_text" -> value?.let {
+                    TestAction.Assert(targetId = targetId, selector = selector, assertion = AssertionType.TextContains(it))
                 }
+                "hover" -> TestAction.Hover(targetId = targetId, selector = selector)
                 "done" -> null // Signal completion
                 else -> null
             }
@@ -228,9 +230,9 @@ class TestActionPlanner(
             appendLine("URL: ${context.pageState.url}")
             appendLine("Title: ${context.pageState.title}")
             appendLine()
-            appendLine("## Actionable Elements (Set-of-Mark)")
+            appendLine("## Actionable Elements")
             context.pageState.actionableElements.take(config.maxElementsInPrompt).forEach { element ->
-                appendLine("[${element.tagId}] ${element.role} \"${element.name}\" - ${element.tagName}")
+                appendLine("[#${element.tagId}] ${element.role} \"${element.name}\" - selector: ${element.selector}")
             }
             appendLine()
             appendLine("## Recent Actions")
@@ -247,11 +249,12 @@ class TestActionPlanner(
             appendLine("## Output Format")
             appendLine("Output a JSON object with:")
             appendLine("- action_type: click | type | scroll | wait | press_key | navigate | assert")
-            appendLine("- target_id: Set-of-Mark tag number (for element actions)")
+            appendLine("- selector: CSS selector (preferred) OR target_id: Set-of-Mark tag number")
             appendLine("- value: text to type or key to press (if applicable)")
             appendLine("- reasoning: brief explanation of why this action")
             appendLine()
-            appendLine("Example: {\"action_type\":\"click\",\"target_id\":5,\"reasoning\":\"Click login button\"}")
+            appendLine("Example: {\"action_type\":\"click\",\"selector\":\"#login-btn\",\"reasoning\":\"Click login button\"}")
+            appendLine("Or: {\"action_type\":\"click\",\"target_id\":5,\"reasoning\":\"Click login button\"}")
         }
     }
 
@@ -314,13 +317,14 @@ class TestActionPlanner(
             appendLine("Title: ${pageState.title}")
             appendLine("URL: ${pageState.url}")
             appendLine()
-            appendLine("## Available Elements (Set-of-Mark)")
+            appendLine("## Available Elements")
             pageState.actionableElements.take(config.maxElementsInPrompt).forEach { element ->
-                appendLine("[${element.tagId}] ${element.role} \"${element.name}\" - ${element.tagName}")
+                appendLine("[#${element.tagId}] ${element.role} \"${element.name}\" - selector: ${element.selector}")
             }
             appendLine()
             appendLine("Generate a test scenario in DSL format that achieves the test goal.")
-            appendLine("Use the element tag IDs (e.g., #1, #2) to reference elements.")
+            appendLine("Prefer CSS selectors (e.g., \"#login-btn\", \"[data-testid='submit']\") for stability.")
+            appendLine("Use Set-of-Mark IDs (e.g., #1, #2) only when CSS selectors are not available.")
             appendLine("Output ONLY the DSL code, no explanations.")
         }
     }
@@ -384,26 +388,39 @@ scenario "Scenario Name" {
 }
 ```
 
+## Element Targeting
+
+Use CSS selectors (preferred) or Set-of-Mark tag IDs:
+- "selector" - CSS selector (e.g., "#login-btn", ".submit", "[data-testid='login']")
+- #id - Set-of-Mark tag number (e.g., #1, #2, #3)
+
+Common CSS selector patterns:
+- #elementId - by ID
+- .className - by class
+- [name="fieldName"] - by name attribute
+- [data-testid="testId"] - by test ID (preferred for stability)
+- button[type="submit"] - by tag and attribute
+
 ## Available Actions
 
+- click "selector" [left|right|middle] [double]
 - click #id [left|right|middle] [double]
+- type "selector" "text" [clearFirst] [pressEnter]
 - type #id "text" [clearFirst] [pressEnter]
-- hover #id
-- scroll up|down|left|right [amount] [#id]
+- hover "selector" | hover #id
+- scroll up|down|left|right [amount] ["selector" | #id]
 - wait duration|visible|hidden|enabled|textPresent|urlContains|pageLoaded|networkIdle [value] [timeout]
 - pressKey "key" [ctrl] [alt] [shift] [meta]
 - navigate "url"
 - goBack
 - goForward
 - refresh
+- assert "selector" visible|hidden|enabled|disabled|checked|unchecked|textEquals|textContains|attributeEquals|hasClass [value]
 - assert #id visible|hidden|enabled|disabled|checked|unchecked|textEquals|textContains|attributeEquals|hasClass [value]
+- select "selector" [value "v"] [label "l"] [index n]
 - select #id [value "v"] [label "l"] [index n]
-- uploadFile #id "path"
-- screenshot "name" [fullPage]
-
-## Target ID Convention
-
-Use #id where id is a number representing the element's Set-of-Mark tag."""
+- uploadFile "selector" "path" | uploadFile #id "path"
+- screenshot "name" [fullPage]"""
     }
 }
 

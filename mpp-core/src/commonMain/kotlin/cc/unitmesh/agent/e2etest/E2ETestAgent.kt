@@ -412,7 +412,29 @@ Capabilities:
 - Self-heal broken selectors using element fingerprints
 - Generate test scenarios from natural language descriptions
 
-Always output structured JSON for actions."""
+## E2E DSL Format
+
+Use CSS selectors to identify elements:
+- #elementId - by ID
+- .className - by class
+- [name="fieldName"] - by name attribute
+- [data-testid="testId"] - by test ID (preferred)
+
+Actions:
+- click "selector" [left|right|middle] [double]
+- type "selector" "text" [clearFirst] [pressEnter]
+- hover "selector"
+- scroll up|down|left|right [amount] ["selector"]
+- wait duration|visible|hidden|enabled [value] [timeout]
+- pressKey "key" [ctrl] [alt] [shift] [meta]
+- navigate "url"
+- goBack / goForward / refresh
+- assert "selector" visible|hidden|enabled|disabled|checked|textEquals|textContains [value]
+- select "selector" [value "v"] [label "l"] [index n]
+- uploadFile "selector" "path"
+- screenshot "name" [fullPage]
+
+Output actions in DSL format, one per line."""
     }
 }
 
