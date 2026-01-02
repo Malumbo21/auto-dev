@@ -415,12 +415,14 @@ class E2EDslParser {
 
     private fun parseClickFromList(tokens: List<Token>): TestAction.Click? {
         var targetId: Int? = null
+        var selector: String? = null
         var button = MouseButton.LEFT
         var clickCount = 1
 
         for (token in tokens) {
             when {
                 token.type == TokenType.TARGET_ID -> targetId = token.value.toIntOrNull()
+                token.type == TokenType.STRING && selector == null -> selector = token.value
                 token.type == TokenType.KEYWORD -> when (token.value.lowercase()) {
                     E2EDsl.Keywords.LEFT -> button = MouseButton.LEFT
                     E2EDsl.Keywords.RIGHT -> button = MouseButton.RIGHT
@@ -430,19 +432,39 @@ class E2EDslParser {
             }
         }
 
-        return targetId?.let { TestAction.Click(it, button, clickCount) }
+        // Support both targetId and selector
+        return if (targetId != null || selector != null) {
+            TestAction.Click(targetId ?: 0, selector, button, clickCount)
+        } else null
     }
 
     private fun parseTypeFromList(tokens: List<Token>): TestAction.Type? {
         var targetId: Int? = null
+        var selector: String? = null
         var text = ""
         var clearFirst = false
         var pressEnter = false
+        var foundFirstString = false
 
         for (token in tokens) {
             when {
                 token.type == TokenType.TARGET_ID -> targetId = token.value.toIntOrNull()
-                token.type == TokenType.STRING -> text = token.value
+                token.type == TokenType.STRING -> {
+                    if (!foundFirstString) {
+                        // First string is selector or text
+                        // If it looks like a selector, treat it as selector
+                        if (token.value.startsWith("#") || token.value.startsWith(".") ||
+                            token.value.startsWith("[") || token.value.contains("=")) {
+                            selector = token.value
+                        } else {
+                            text = token.value
+                        }
+                        foundFirstString = true
+                    } else {
+                        // Second string is always text
+                        text = token.value
+                    }
+                }
                 token.type == TokenType.KEYWORD -> when (token.value.lowercase()) {
                     E2EDsl.Keywords.CLEAR_FIRST, "clearfirst" -> clearFirst = true
                     E2EDsl.Keywords.PRESS_ENTER, "pressenter" -> pressEnter = true
@@ -450,22 +472,31 @@ class E2EDslParser {
             }
         }
 
-        return targetId?.let { TestAction.Type(it, text, clearFirst, pressEnter) }
+        // Support both targetId and selector
+        return if (targetId != null || selector != null || text.isNotEmpty()) {
+            TestAction.Type(targetId ?: 0, selector, text, clearFirst, pressEnter)
+        } else null
     }
 
     private fun parseHoverFromList(tokens: List<Token>): TestAction.Hover? {
         val targetId = tokens.firstOrNull { it.type == TokenType.TARGET_ID }?.value?.toIntOrNull()
-        return targetId?.let { TestAction.Hover(it) }
+        val selector = tokens.firstOrNull { it.type == TokenType.STRING }?.value
+
+        return if (targetId != null || selector != null) {
+            TestAction.Hover(targetId ?: 0, selector)
+        } else null
     }
 
     private fun parseScrollFromList(tokens: List<Token>): TestAction.Scroll {
         var direction = ScrollDirection.DOWN
         var amount = 300
         var targetId: Int? = null
+        var selector: String? = null
 
         for (token in tokens) {
             when {
                 token.type == TokenType.TARGET_ID -> targetId = token.value.toIntOrNull()
+                token.type == TokenType.STRING -> selector = token.value
                 token.type == TokenType.NUMBER -> amount = token.value.toIntOrNull() ?: 300
                 token.type == TokenType.KEYWORD -> when (token.value.lowercase()) {
                     E2EDsl.Keywords.UP -> direction = ScrollDirection.UP
@@ -476,7 +507,7 @@ class E2EDslParser {
             }
         }
 
-        return TestAction.Scroll(direction, amount, targetId)
+        return TestAction.Scroll(direction, amount, targetId, selector)
     }
 
     private fun parseWaitFromList(tokens: List<Token>): TestAction.Wait {
@@ -498,21 +529,42 @@ class E2EDslParser {
                         }
                     }
                     E2EDsl.Keywords.VISIBLE -> {
-                        if (i + 1 < tokens.size && tokens[i + 1].type == TokenType.TARGET_ID) {
-                            condition = WaitCondition.ElementVisible(tokens[i + 1].value.toInt())
-                            i++
+                        val nextToken = tokens.getOrNull(i + 1)
+                        when {
+                            nextToken?.type == TokenType.TARGET_ID -> {
+                                condition = WaitCondition.ElementVisible(nextToken.value.toInt())
+                                i++
+                            }
+                            nextToken?.type == TokenType.STRING -> {
+                                condition = WaitCondition.ElementVisible(selector = nextToken.value)
+                                i++
+                            }
                         }
                     }
                     E2EDsl.Keywords.HIDDEN -> {
-                        if (i + 1 < tokens.size && tokens[i + 1].type == TokenType.TARGET_ID) {
-                            condition = WaitCondition.ElementHidden(tokens[i + 1].value.toInt())
-                            i++
+                        val nextToken = tokens.getOrNull(i + 1)
+                        when {
+                            nextToken?.type == TokenType.TARGET_ID -> {
+                                condition = WaitCondition.ElementHidden(nextToken.value.toInt())
+                                i++
+                            }
+                            nextToken?.type == TokenType.STRING -> {
+                                condition = WaitCondition.ElementHidden(selector = nextToken.value)
+                                i++
+                            }
                         }
                     }
                     E2EDsl.Keywords.ENABLED -> {
-                        if (i + 1 < tokens.size && tokens[i + 1].type == TokenType.TARGET_ID) {
-                            condition = WaitCondition.ElementEnabled(tokens[i + 1].value.toInt())
-                            i++
+                        val nextToken = tokens.getOrNull(i + 1)
+                        when {
+                            nextToken?.type == TokenType.TARGET_ID -> {
+                                condition = WaitCondition.ElementEnabled(nextToken.value.toInt())
+                                i++
+                            }
+                            nextToken?.type == TokenType.STRING -> {
+                                condition = WaitCondition.ElementEnabled(selector = nextToken.value)
+                                i++
+                            }
                         }
                     }
                     E2EDsl.Keywords.TEXT_PRESENT, "textpresent" -> {
@@ -573,6 +625,7 @@ class E2EDslParser {
 
     private fun parseAssertFromList(tokens: List<Token>): TestAction.Assert? {
         var targetId: Int? = null
+        var selector: String? = null
         var assertion: AssertionType = AssertionType.Visible
 
         var i = 0
@@ -580,6 +633,7 @@ class E2EDslParser {
             val token = tokens[i]
             when {
                 token.type == TokenType.TARGET_ID -> targetId = token.value.toIntOrNull()
+                token.type == TokenType.STRING && selector == null && i == 0 -> selector = token.value
                 token.type == TokenType.KEYWORD -> when (token.value.lowercase()) {
                     E2EDsl.Keywords.VISIBLE -> assertion = AssertionType.Visible
                     E2EDsl.Keywords.HIDDEN -> assertion = AssertionType.Hidden
@@ -618,11 +672,14 @@ class E2EDslParser {
             i++
         }
 
-        return targetId?.let { TestAction.Assert(it, assertion) }
+        return if (targetId != null || selector != null) {
+            TestAction.Assert(targetId ?: 0, selector, assertion)
+        } else null
     }
 
     private fun parseSelectFromList(tokens: List<Token>): TestAction.Select? {
         var targetId: Int? = null
+        var selector: String? = null
         var value: String? = null
         var label: String? = null
         var index: Int? = null
@@ -632,6 +689,7 @@ class E2EDslParser {
             val token = tokens[i]
             when {
                 token.type == TokenType.TARGET_ID -> targetId = token.value.toIntOrNull()
+                token.type == TokenType.STRING && selector == null && i == 0 -> selector = token.value
                 token.type == TokenType.KEYWORD -> when (token.value.lowercase()) {
                     E2EDsl.Keywords.VALUE -> {
                         if (i + 1 < tokens.size && tokens[i + 1].type == TokenType.STRING) {
@@ -656,23 +714,41 @@ class E2EDslParser {
             i++
         }
 
-        return targetId?.let { TestAction.Select(it, value, label, index) }
+        return if (targetId != null || selector != null) {
+            TestAction.Select(targetId ?: 0, selector, value, label, index)
+        } else null
     }
 
     private fun parseUploadFileFromList(tokens: List<Token>): TestAction.UploadFile? {
         var targetId: Int? = null
+        var selector: String? = null
         var filePath = ""
+        var foundFirstString = false
 
         for (token in tokens) {
             when (token.type) {
                 TokenType.TARGET_ID -> targetId = token.value.toIntOrNull()
-                TokenType.STRING -> filePath = token.value
+                TokenType.STRING -> {
+                    if (!foundFirstString) {
+                        // First string could be selector or file path
+                        if (token.value.startsWith("#") || token.value.startsWith(".") ||
+                            token.value.startsWith("[") || token.value.contains("=")) {
+                            selector = token.value
+                        } else {
+                            filePath = token.value
+                        }
+                        foundFirstString = true
+                    } else {
+                        // Second string is always file path
+                        filePath = token.value
+                    }
+                }
                 else -> {}
             }
         }
 
-        return if (targetId != null && filePath.isNotEmpty()) {
-            TestAction.UploadFile(targetId, filePath)
+        return if ((targetId != null || selector != null) && filePath.isNotEmpty()) {
+            TestAction.UploadFile(targetId ?: 0, selector, filePath)
         } else null
     }
 
@@ -710,7 +786,7 @@ class E2EDslParser {
             }
         }
 
-        return targetId?.let { TestAction.Click(it, button, clickCount) }
+        return targetId?.let { TestAction.Click(targetId = it, button = button, clickCount = clickCount) }
     }
 
     private fun parseTypeAction(iterator: Iterator<Token>): TestAction.Type? {
@@ -731,13 +807,13 @@ class E2EDslParser {
             }
         }
 
-        return targetId?.let { TestAction.Type(it, text, clearFirst, pressEnter) }
+        return targetId?.let { TestAction.Type(targetId = it, text = text, clearFirst = clearFirst, pressEnter = pressEnter) }
     }
 
     private fun parseHoverAction(iterator: Iterator<Token>): TestAction.Hover? {
         val remaining = collectRemainingTokens(iterator)
         val targetId = remaining.firstOrNull { it.type == TokenType.TARGET_ID }?.value?.toIntOrNull()
-        return targetId?.let { TestAction.Hover(it) }
+        return targetId?.let { TestAction.Hover(targetId = it) }
     }
 
     private fun parseScrollAction(iterator: Iterator<Token>): TestAction.Scroll {
@@ -905,7 +981,7 @@ class E2EDslParser {
             i++
         }
 
-        return targetId?.let { TestAction.Assert(it, assertion) }
+        return targetId?.let { TestAction.Assert(targetId = it, assertion = assertion) }
     }
 
     private fun parseSelectAction(iterator: Iterator<Token>): TestAction.Select? {
@@ -944,7 +1020,7 @@ class E2EDslParser {
             i++
         }
 
-        return targetId?.let { TestAction.Select(it, value, label, index) }
+        return targetId?.let { TestAction.Select(targetId = it, value = value, label = label, index = index) }
     }
 
     private fun parseUploadFileAction(iterator: Iterator<Token>): TestAction.UploadFile? {
@@ -961,7 +1037,7 @@ class E2EDslParser {
         }
 
         return if (targetId != null && filePath.isNotEmpty()) {
-            TestAction.UploadFile(targetId, filePath)
+            TestAction.UploadFile(targetId = targetId, filePath = filePath)
         } else null
     }
 

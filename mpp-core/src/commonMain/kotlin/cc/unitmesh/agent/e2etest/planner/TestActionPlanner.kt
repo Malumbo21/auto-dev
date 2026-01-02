@@ -116,17 +116,17 @@ class TestActionPlanner(
             val confidence = jsonObj["confidence"]?.jsonPrimitive?.content?.toDoubleOrNull() ?: 0.8
 
             val action = when (actionType.lowercase()) {
-                "click" -> targetId?.let { TestAction.Click(it) }
-                "type" -> targetId?.let { id -> value?.let { TestAction.Type(id, it) } }
+                "click" -> targetId?.let { TestAction.Click(targetId = it) }
+                "type" -> targetId?.let { id -> value?.let { TestAction.Type(targetId = id, text = it) } }
                 "scroll_down" -> TestAction.Scroll(ScrollDirection.DOWN)
                 "scroll_up" -> TestAction.Scroll(ScrollDirection.UP)
                 "wait" -> TestAction.Wait(WaitCondition.Duration(value?.toLongOrNull() ?: 1000))
                 "navigate" -> value?.let { TestAction.Navigate(it) }
                 "go_back" -> TestAction.GoBack
                 "press_key" -> value?.let { TestAction.PressKey(it) }
-                "assert_visible" -> targetId?.let { TestAction.Assert(it, AssertionType.Visible) }
+                "assert_visible" -> targetId?.let { TestAction.Assert(targetId = it, assertion = AssertionType.Visible) }
                 "assert_text" -> targetId?.let { id ->
-                    value?.let { TestAction.Assert(id, AssertionType.TextContains(it)) }
+                    value?.let { TestAction.Assert(targetId = id, assertion = AssertionType.TextContains(it)) }
                 }
                 "done" -> null // Signal completion
                 else -> null
@@ -177,15 +177,15 @@ class TestActionPlanner(
         val value = step.value
 
         return when (actionType.lowercase()) {
-            "click" -> targetId?.let { TestAction.Click(it) }
-            "type" -> targetId?.let { id -> value?.let { TestAction.Type(id, it) } }
+            "click" -> targetId?.let { TestAction.Click(targetId = it) }
+            "type" -> targetId?.let { id -> value?.let { TestAction.Type(targetId = id, text = it) } }
             "scroll_down" -> TestAction.Scroll(ScrollDirection.DOWN)
             "scroll_up" -> TestAction.Scroll(ScrollDirection.UP)
             "wait" -> TestAction.Wait(WaitCondition.Duration(value?.toLongOrNull() ?: 1000))
             "navigate" -> value?.let { TestAction.Navigate(it) }
             "go_back" -> TestAction.GoBack
             "press_key" -> value?.let { TestAction.PressKey(it) }
-            "assert_visible" -> targetId?.let { TestAction.Assert(it, AssertionType.Visible) }
+            "assert_visible" -> targetId?.let { TestAction.Assert(targetId = it, assertion = AssertionType.Visible) }
             else -> null
         }
     }
@@ -612,13 +612,13 @@ internal class SimpleDslParser {
                 val targetId = extractTargetId(parts.getOrNull(1))
                 val text = parts.drop(2).firstOrNull { it.startsWith("\"") }?.let { extractQuotedString(it) }
                 if (targetId != null && text != null) {
-                    TestAction.Type(targetId, text)
+                    TestAction.Type(targetId = targetId, text = text)
                 } else null
             }
 
             "hover" -> {
                 val targetId = extractTargetId(parts.getOrNull(1))
-                targetId?.let { TestAction.Hover(it) }
+                targetId?.let { TestAction.Hover(targetId = it) }
             }
 
             "scroll" -> {
@@ -686,7 +686,7 @@ internal class SimpleDslParser {
                         "textcontains" -> value?.let { AssertionType.TextContains(it) }
                         else -> AssertionType.Visible
                     }
-                    assertion?.let { TestAction.Assert(targetId, it) }
+                    assertion?.let { TestAction.Assert(targetId = targetId, assertion = it) }
                 } else null
             }
 

@@ -21,12 +21,12 @@ class E2EDslGeneratorTest {
                 TestStep(
                     id = "step-1",
                     description = "Enter username",
-                    action = TestAction.Type(1, "testuser")
+                    action = TestAction.Type(targetId = 1, text = "testuser")
                 ),
                 TestStep(
                     id = "step-2",
                     description = "Click login",
-                    action = TestAction.Click(2)
+                    action = TestAction.Click(targetId = 2)
                 )
             ),
             priority = TestPriority.HIGH
@@ -55,12 +55,12 @@ class E2EDslGeneratorTest {
                 TestStep(
                     id = "step-1",
                     description = "Click button",
-                    action = TestAction.Click(1, MouseButton.LEFT, 1)
+                    action = TestAction.Click(targetId = 1, button = MouseButton.LEFT, clickCount = 1)
                 ),
                 TestStep(
                     id = "step-2",
                     description = "Type text",
-                    action = TestAction.Type(2, "hello", clearFirst = true, pressEnter = true)
+                    action = TestAction.Type(targetId = 2, text = "hello", clearFirst = true, pressEnter = true)
                 ),
                 TestStep(
                     id = "step-3",
@@ -70,7 +70,7 @@ class E2EDslGeneratorTest {
                 TestStep(
                     id = "step-4",
                     description = "Assert visible",
-                    action = TestAction.Assert(3, AssertionType.Visible)
+                    action = TestAction.Assert(targetId = 3, assertion = AssertionType.Visible)
                 )
             ),
             tags = listOf("test", "roundtrip"),
@@ -100,9 +100,9 @@ class E2EDslGeneratorTest {
             description = "Test all action types",
             startUrl = "https://example.com",
             steps = listOf(
-                TestStep("s1", "Click", TestAction.Click(1)),
-                TestStep("s2", "Type", TestAction.Type(2, "text")),
-                TestStep("s3", "Hover", TestAction.Hover(3)),
+                TestStep("s1", "Click", TestAction.Click(targetId = 1)),
+                TestStep("s2", "Type", TestAction.Type(targetId = 2, text = "text")),
+                TestStep("s3", "Hover", TestAction.Hover(targetId = 3)),
                 TestStep("s4", "Scroll", TestAction.Scroll(ScrollDirection.DOWN)),
                 TestStep("s5", "Wait", TestAction.Wait(WaitCondition.Duration(1000))),
                 TestStep("s6", "Press Key", TestAction.PressKey("Enter")),
@@ -110,9 +110,9 @@ class E2EDslGeneratorTest {
                 TestStep("s8", "Go Back", TestAction.GoBack),
                 TestStep("s9", "Go Forward", TestAction.GoForward),
                 TestStep("s10", "Refresh", TestAction.Refresh),
-                TestStep("s11", "Assert", TestAction.Assert(4, AssertionType.Visible)),
-                TestStep("s12", "Select", TestAction.Select(5, value = "opt1")),
-                TestStep("s13", "Upload", TestAction.UploadFile(6, "/path/to/file")),
+                TestStep("s11", "Assert", TestAction.Assert(targetId = 4, assertion = AssertionType.Visible)),
+                TestStep("s12", "Select", TestAction.Select(targetId = 5, value = "opt1")),
+                TestStep("s13", "Upload", TestAction.UploadFile(targetId = 6, filePath = "/path/to/file")),
                 TestStep("s14", "Screenshot", TestAction.Screenshot("test", fullPage = true))
             )
         )

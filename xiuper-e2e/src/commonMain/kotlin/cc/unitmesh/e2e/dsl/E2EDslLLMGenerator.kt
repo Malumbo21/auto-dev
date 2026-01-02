@@ -108,29 +108,28 @@ scenario "Scenario Name" {
 
 ## Available Actions
 
-- click #id [left|right|middle] [double]
-- type #id "text" [clearFirst] [pressEnter]
-- hover #id
-- scroll up|down|left|right [amount] [#id]
+Use CSS selectors to identify elements. Common selector patterns:
+- #elementId - by ID
+- .className - by class
+- [name="fieldName"] - by name attribute
+- [data-testid="testId"] - by test ID (preferred)
+- button[type="submit"] - by tag and attribute
+
+Actions:
+- click "selector" [left|right|middle] [double]
+- type "selector" "text" [clearFirst] [pressEnter]
+- hover "selector"
+- scroll up|down|left|right [amount] ["selector"]
 - wait duration|visible|hidden|enabled|textPresent|urlContains|pageLoaded|networkIdle [value] [timeout]
 - pressKey "key" [ctrl] [alt] [shift] [meta]
 - navigate "url"
 - goBack
 - goForward
 - refresh
-- assert #id visible|hidden|enabled|disabled|checked|unchecked|textEquals|textContains|attributeEquals|hasClass [value]
-- select #id [value "v"] [label "l"] [index n]
-- uploadFile #id "path"
+- assert "selector" visible|hidden|enabled|disabled|checked|unchecked|textEquals|textContains|attributeEquals|hasClass [value]
+- select "selector" [value "v"] [label "l"] [index n]
+- uploadFile "selector" "path"
 - screenshot "name" [fullPage]
-
-## Target ID Convention
-
-Use #id where id is a number representing the element's Set-of-Mark tag.
-For common elements, use these conventions:
-- #1-#10: Form inputs (username, password, email, etc.)
-- #11-#20: Buttons (submit, cancel, etc.)
-- #21-#30: Navigation elements
-- #31-#50: Content elements
 
 ## Task
 
@@ -163,17 +162,24 @@ scenario "Scenario Name" {
 
 ## Available Actions
 
-- click #id [left|right|middle] [double]
-- type #id "text" [clearFirst] [pressEnter]
-- hover #id
+Use CSS selectors to identify elements. Common selector patterns:
+- #elementId - by ID
+- .className - by class
+- [name="fieldName"] - by name attribute
+- [data-testid="testId"] - by test ID (preferred)
+
+Actions:
+- click "selector" [left|right|middle] [double]
+- type "selector" "text" [clearFirst] [pressEnter]
+- hover "selector"
 - scroll up|down|left|right [amount]
 - wait duration|visible|hidden|textPresent|urlContains|pageLoaded|networkIdle [value]
 - pressKey "key" [ctrl] [alt] [shift] [meta]
 - navigate "url"
 - goBack / goForward / refresh
-- assert #id visible|hidden|enabled|disabled|textEquals|textContains [value]
-- select #id [value "v"] [label "l"] [index n]
-- uploadFile #id "path"
+- assert "selector" visible|hidden|enabled|disabled|textEquals|textContains [value]
+- select "selector" [value "v"] [label "l"] [index n]
+- uploadFile "selector" "path"
 - screenshot "name" [fullPage]
 
 ## Task

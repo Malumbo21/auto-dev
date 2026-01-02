@@ -63,7 +63,7 @@ class E2EDslGenerator {
         return when (action) {
             is TestAction.Click -> generateClickAction(action)
             is TestAction.Type -> generateTypeAction(action)
-            is TestAction.Hover -> "hover #${action.targetId}"
+            is TestAction.Hover -> generateHoverAction(action)
             is TestAction.Scroll -> generateScrollAction(action)
             is TestAction.Wait -> generateWaitAction(action)
             is TestAction.PressKey -> generatePressKeyAction(action)
@@ -73,13 +73,24 @@ class E2EDslGenerator {
             is TestAction.Refresh -> "refresh"
             is TestAction.Assert -> generateAssertAction(action)
             is TestAction.Select -> generateSelectAction(action)
-            is TestAction.UploadFile -> "uploadFile #${action.targetId} \"${escapeString(action.filePath)}\""
+            is TestAction.UploadFile -> generateUploadFileAction(action)
             is TestAction.Screenshot -> generateScreenshotAction(action)
         }
     }
 
+    /**
+     * Generate target reference - prefers selector over targetId
+     */
+    private fun generateTarget(targetId: Int, selector: String?): String {
+        return if (selector != null) {
+            "\"${escapeString(selector)}\""
+        } else {
+            "#$targetId"
+        }
+    }
+
     private fun generateClickAction(action: TestAction.Click): String {
-        val parts = mutableListOf("click", "#${action.targetId}")
+        val parts = mutableListOf("click", generateTarget(action.targetId, action.selector))
 
         if (action.button != MouseButton.LEFT) {
             parts.add(action.button.name.lowercase())
@@ -93,7 +104,7 @@ class E2EDslGenerator {
     }
 
     private fun generateTypeAction(action: TestAction.Type): String {
-        val parts = mutableListOf("type", "#${action.targetId}", "\"${escapeString(action.text)}\"")
+        val parts = mutableListOf("type", generateTarget(action.targetId, action.selector), "\"${escapeString(action.text)}\"")
 
         if (action.clearFirst) {
             parts.add("clearFirst")
@@ -106,6 +117,10 @@ class E2EDslGenerator {
         return parts.joinToString(" ")
     }
 
+    private fun generateHoverAction(action: TestAction.Hover): String {
+        return "hover ${generateTarget(action.targetId, action.selector)}"
+    }
+
     private fun generateScrollAction(action: TestAction.Scroll): String {
         val parts = mutableListOf("scroll", action.direction.name.lowercase())
 
@@ -113,8 +128,10 @@ class E2EDslGenerator {
             parts.add(action.amount.toString())
         }
 
-        action.targetId?.let {
-            parts.add("#$it")
+        action.selector?.let { sel ->
+            parts.add("\"${escapeString(sel)}\"")
+        } ?: action.targetId?.let { id ->
+            parts.add("#$id")
         }
 
         return parts.joinToString(" ")
@@ -123,9 +140,9 @@ class E2EDslGenerator {
     private fun generateWaitAction(action: TestAction.Wait): String {
         val conditionStr = when (val condition = action.condition) {
             is WaitCondition.Duration -> "duration ${condition.ms}"
-            is WaitCondition.ElementVisible -> "visible #${condition.targetId}"
-            is WaitCondition.ElementHidden -> "hidden #${condition.targetId}"
-            is WaitCondition.ElementEnabled -> "enabled #${condition.targetId}"
+            is WaitCondition.ElementVisible -> "visible ${generateTarget(condition.targetId, condition.selector)}"
+            is WaitCondition.ElementHidden -> "hidden ${generateTarget(condition.targetId, condition.selector)}"
+            is WaitCondition.ElementEnabled -> "enabled ${generateTarget(condition.targetId, condition.selector)}"
             is WaitCondition.TextPresent -> "textPresent \"${escapeString(condition.text)}\""
             is WaitCondition.UrlContains -> "urlContains \"${escapeString(condition.substring)}\""
             is WaitCondition.PageLoaded -> "pageLoaded"
@@ -163,11 +180,11 @@ class E2EDslGenerator {
             is AssertionType.HasClass -> "hasClass \"${escapeString(assertion.className)}\""
         }
 
-        return "assert #${action.targetId} $assertionStr"
+        return "assert ${generateTarget(action.targetId, action.selector)} $assertionStr"
     }
 
     private fun generateSelectAction(action: TestAction.Select): String {
-        val parts = mutableListOf("select", "#${action.targetId}")
+        val parts = mutableListOf("select", generateTarget(action.targetId, action.selector))
 
         action.value?.let {
             parts.add("value")
@@ -185,6 +202,10 @@ class E2EDslGenerator {
         }
 
         return parts.joinToString(" ")
+    }
+
+    private fun generateUploadFileAction(action: TestAction.UploadFile): String {
+        return "uploadFile ${generateTarget(action.targetId, action.selector)} \"${escapeString(action.filePath)}\""
     }
 
     private fun generateScreenshotAction(action: TestAction.Screenshot): String {
