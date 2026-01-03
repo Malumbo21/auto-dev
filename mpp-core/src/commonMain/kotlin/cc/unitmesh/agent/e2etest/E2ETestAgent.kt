@@ -1,6 +1,5 @@
 package cc.unitmesh.agent.e2etest
 
-import cc.unitmesh.agent.Platform
 import cc.unitmesh.agent.core.SubAgent
 import cc.unitmesh.agent.e2etest.executor.*
 import cc.unitmesh.agent.e2etest.model.*
@@ -15,8 +14,6 @@ import cc.unitmesh.llm.LLMService
 import cc.unitmesh.llm.ModelConfig
 import kotlinx.coroutines.delay
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 
 /**
  * E2E Testing Agent - AI-driven end-to-end testing with visual understanding.
@@ -38,7 +35,7 @@ class E2ETestAgent(
         displayName = "E2E Testing Agent",
         description = "AI-driven end-to-end testing with visual understanding and self-healing locators for WebView",
         promptConfig = PromptConfig(
-            systemPrompt = E2E_TEST_SYSTEM_PROMPT,
+            systemPrompt = SYSTEM_PROMPT,
             queryTemplate = null,
             initialMessages = emptyList()
         ),
@@ -403,7 +400,7 @@ class E2ETestAgent(
     }
 
     companion object {
-        private const val E2E_TEST_SYSTEM_PROMPT = """You are an AI-powered E2E testing agent.
+        private const val SYSTEM_PROMPT = """You are an AI-powered E2E testing agent.
 Your task is to execute web UI tests by understanding page structure and user intent.
 
 Capabilities:
