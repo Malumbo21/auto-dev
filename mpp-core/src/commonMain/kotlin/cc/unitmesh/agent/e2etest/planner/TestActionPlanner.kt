@@ -3,6 +3,7 @@ package cc.unitmesh.agent.e2etest.planner
 import cc.unitmesh.agent.e2etest.E2ETestContext
 import cc.unitmesh.agent.e2etest.currentTimeMillis
 import cc.unitmesh.agent.e2etest.model.*
+import cc.unitmesh.agent.e2etest.prompt.E2EPrompts
 import cc.unitmesh.llm.LLMService
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -220,7 +221,7 @@ class TestActionPlanner(
      */
     private fun buildPlanningPrompt(context: E2ETestContext): String {
         return buildString {
-            appendLine("You are an E2E testing agent. Analyze the current page state and determine the next action.")
+            appendLine(E2EPrompts.actionPlanningIntro)
             appendLine()
             appendLine("## Test Scenario")
             appendLine("Name: ${context.scenario.name}")
@@ -303,9 +304,9 @@ class TestActionPlanner(
         pageState: PageState
     ): String {
         return buildString {
-            appendLine("You are an E2E test DSL generator. Generate a test scenario in the E2E DSL format.")
+            appendLine(E2EPrompts.scenarioGenerationIntro)
             appendLine()
-            appendLine(DSL_SYNTAX_REFERENCE)
+            appendLine(E2EPrompts.dslSyntaxReference)
             appendLine()
             appendLine("## Test Goal")
             appendLine(description)
@@ -323,9 +324,8 @@ class TestActionPlanner(
             }
             appendLine()
             appendLine("Generate a test scenario in DSL format that achieves the test goal.")
-            appendLine("Prefer CSS selectors (e.g., \"#login-btn\", \"[data-testid='submit']\") for stability.")
-            appendLine("Use Set-of-Mark IDs (e.g., #1, #2) only when CSS selectors are not available.")
-            appendLine("Output ONLY the DSL code, no explanations.")
+            appendLine(E2EPrompts.preferCssSelectorsHint)
+            appendLine(E2EPrompts.outputOnlyDslHint)
         }
     }
 
@@ -366,62 +366,6 @@ class TestActionPlanner(
         return ""
     }
 
-    companion object {
-        /**
-         * DSL syntax reference for prompts
-         */
-        const val DSL_SYNTAX_REFERENCE = """## E2E DSL Syntax Reference
-
-```
-scenario "Scenario Name" {
-    description "What this test verifies"
-    url "https://example.com/page"
-    tags ["tag1", "tag2"]
-    priority high|medium|low|critical
-
-    step "Step description" {
-        <action>
-        expect "Expected outcome"
-        timeout 5000
-        retry 2
-    }
-}
-```
-
-## Element Targeting
-
-Use CSS selectors (preferred) or Set-of-Mark tag IDs:
-- "selector" - CSS selector (e.g., "#login-btn", ".submit", "[data-testid='login']")
-- #id - Set-of-Mark tag number (e.g., #1, #2, #3)
-
-Common CSS selector patterns:
-- #elementId - by ID
-- .className - by class
-- [name="fieldName"] - by name attribute
-- [data-testid="testId"] - by test ID (preferred for stability)
-- button[type="submit"] - by tag and attribute
-
-## Available Actions
-
-- click "selector" [left|right|middle] [double]
-- click #id [left|right|middle] [double]
-- type "selector" "text" [clearFirst] [pressEnter]
-- type #id "text" [clearFirst] [pressEnter]
-- hover "selector" | hover #id
-- scroll up|down|left|right [amount] ["selector" | #id]
-- wait duration|visible|hidden|enabled|textPresent|urlContains|pageLoaded|networkIdle [value] [timeout]
-- pressKey "key" [ctrl] [alt] [shift] [meta]
-- navigate "url"
-- goBack
-- goForward
-- refresh
-- assert "selector" visible|hidden|enabled|disabled|checked|unchecked|textEquals|textContains|attributeEquals|hasClass [value]
-- assert #id visible|hidden|enabled|disabled|checked|unchecked|textEquals|textContains|attributeEquals|hasClass [value]
-- select "selector" [value "v"] [label "l"] [index n]
-- select #id [value "v"] [label "l"] [index n]
-- uploadFile "selector" "path" | uploadFile #id "path"
-- screenshot "name" [fullPage]"""
-    }
 }
 
 /**
