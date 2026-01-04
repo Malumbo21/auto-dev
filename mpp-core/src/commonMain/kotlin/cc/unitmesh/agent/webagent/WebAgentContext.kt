@@ -6,15 +6,15 @@ import cc.unitmesh.devins.compiler.variable.VariableType
 import kotlinx.serialization.Serializable
 
 /**
- * Context for E2E Testing Agent execution.
- * 
+ * Context for Web Agent execution.
+ *
  * Contains all information needed for the agent to understand the current state
  * and make decisions about next actions.
- * 
+ *
  * @see <a href="https://github.com/phodal/auto-dev/issues/532">Issue #532</a>
  */
 @Serializable
-data class E2ETestContext(
+data class WebAgentContext(
     /**
      * The test scenario being executed
      */
@@ -48,7 +48,7 @@ data class E2ETestContext(
     /**
      * Configuration options
      */
-    val config: E2ETestConfig
+    val config: WebAgentConfig
 ) : cc.unitmesh.agent.AgentContext {
     
     override fun toVariableTable(): VariableTable {
@@ -219,10 +219,10 @@ enum class HealingLevel {
 }
 
 /**
- * Configuration for E2E test execution
+ * Configuration for Web Agent execution
  */
 @Serializable
-data class E2ETestConfig(
+data class WebAgentConfig(
     /**
      * Default timeout for actions in milliseconds
      */
@@ -283,3 +283,10 @@ data class E2ETestConfig(
      */
     val maxMemorySize: Int = 10
 )
+
+// Type aliases for backward compatibility
+@Deprecated("Use WebAgentConfig instead", ReplaceWith("WebAgentConfig"))
+typealias E2ETestConfig = WebAgentConfig
+
+@Deprecated("Use WebAgentContext instead", ReplaceWith("WebAgentContext"))
+typealias E2ETestContext = WebAgentContext

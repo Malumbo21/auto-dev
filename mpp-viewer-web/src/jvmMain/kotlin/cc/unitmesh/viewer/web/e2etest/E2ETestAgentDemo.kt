@@ -15,9 +15,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
-import cc.unitmesh.agent.webagent.E2ETestAgent
-import cc.unitmesh.agent.webagent.E2ETestConfig
-import cc.unitmesh.agent.webagent.E2ETestInput
+import cc.unitmesh.agent.webagent.WebAgent
+import cc.unitmesh.agent.webagent.WebAgentConfig
+import cc.unitmesh.agent.webagent.WebAgentInput
 import cc.unitmesh.agent.webagent.executor.*
 import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.llm.LLMService
@@ -350,7 +350,7 @@ private fun LogPanel(logs: List<LogEntry>, modifier: Modifier = Modifier) {
 }
 
 /**
- * AI-driven E2E test execution using E2ETestAgent
+ * AI-driven E2E test execution using WebAgent
  */
 private suspend fun runAIE2ETest(
     bridge: JvmWebEditBridge,
@@ -447,11 +447,11 @@ private suspend fun runAIE2ETest(
         bridge.refreshActionableElements()
         delay(500)
 
-        // Step 4: Create and initialize E2ETestAgent
-        onLog("Initializing E2ETestAgent...", LogType.INFO)
+        // Step 4: Create and initialize WebAgent
+        onLog("Initializing WebAgent...", LogType.INFO)
         onStatusChange("Initializing Agent...")
 
-        val agentConfig = E2ETestConfig(
+        val agentConfig = WebAgentConfig(
             headless = false,
             viewportWidth = 1280,
             viewportHeight = 720,
@@ -461,28 +461,28 @@ private suspend fun runAIE2ETest(
             enableLLMHealing = true
         )
 
-        val agent = E2ETestAgent(llmService, agentConfig)
+        val agent = WebAgent(llmService, agentConfig)
 
         // Initialize with our bridge-based components
         agent.initializeWithDriver(browserDriver, pageStateExtractor)
 
         if (!agent.isAvailable) {
-            onLog("E2ETestAgent is not available", LogType.ERROR)
+            onLog("WebAgent is not available", LogType.ERROR)
             onStatusChange("Agent Not Available")
             onReasoningUpdate("Agent initialization failed. Check browser driver and page state extractor.")
             return
         }
 
-        onLog("E2ETestAgent initialized successfully!", LogType.SUCCESS)
+        onLog("WebAgent initialized successfully!", LogType.SUCCESS)
         onReasoningUpdate("Agent ready. Preparing to execute test: \"$testGoal\"")
 
         // Step 3: Create input and execute
-        val input = E2ETestInput(
+        val input = WebAgentInput(
             naturalLanguage = testGoal,
             startUrl = targetUrl
         )
 
-        onLog("Starting E2ETestAgent execution...", LogType.INFO)
+        onLog("Starting WebAgent execution...", LogType.INFO)
         onStatusChange("Agent Running...")
 
         var stepCount = 0

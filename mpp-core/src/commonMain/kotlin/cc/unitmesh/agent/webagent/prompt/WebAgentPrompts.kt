@@ -1,12 +1,12 @@
 package cc.unitmesh.agent.webagent.prompt
 
 /**
- * E2E Test Prompts - Centralized prompt management for E2E testing agent.
+ * Web Agent Prompts - Centralized prompt management for web automation agent.
  *
  * Supports internationalization by providing prompts in multiple languages.
  * Default language is English.
  */
-object E2EPrompts {
+object WebAgentPrompts {
 
     /**
      * Supported languages for prompts

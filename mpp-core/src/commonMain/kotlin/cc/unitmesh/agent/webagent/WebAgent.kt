@@ -7,7 +7,7 @@ import cc.unitmesh.agent.webagent.perception.PageStateExtractor
 import cc.unitmesh.agent.webagent.perception.PageStateExtractorConfig
 import cc.unitmesh.agent.webagent.perception.createPageStateExtractor
 import cc.unitmesh.agent.webagent.planner.TestActionPlanner
-import cc.unitmesh.agent.webagent.prompt.E2EPrompts
+import cc.unitmesh.agent.webagent.prompt.WebAgentPrompts
 import cc.unitmesh.agent.model.AgentDefinition
 import cc.unitmesh.agent.model.PromptConfig
 import cc.unitmesh.agent.tool.ToolResult
@@ -17,26 +17,26 @@ import kotlinx.coroutines.delay
 import kotlinx.serialization.Serializable
 
 /**
- * E2E Testing Agent - AI-driven end-to-end testing with visual understanding.
+ * Web Agent - AI-driven web automation with visual understanding.
  *
  * Features:
- * - Natural language test scenario generation
+ * - Natural language scenario generation for testing and RPA
  * - Multi-modal perception (DOM + Accessibility Tree + Vision)
  * - Self-healing locators with two-level strategy
  * - Deterministic execution with AI planning
  *
  * @see <a href="https://github.com/phodal/auto-dev/issues/532">Issue #532</a>
  */
-class E2ETestAgent(
+class WebAgent(
     private val llmService: LLMService,
-    private val config: E2ETestConfig = E2ETestConfig()
-) : SubAgent<E2ETestInput, ToolResult.AgentResult>(
+    private val config: WebAgentConfig = WebAgentConfig()
+) : SubAgent<WebAgentInput, ToolResult.AgentResult>(
     AgentDefinition(
-        name = "E2ETestAgent",
-        displayName = "E2E Testing Agent",
-        description = "AI-driven end-to-end testing with visual understanding and self-healing locators for WebView",
+        name = "WebAgent",
+        displayName = "Web Automation Agent",
+        description = "AI-driven web automation with visual understanding and self-healing locators for testing and RPA",
         promptConfig = PromptConfig(
-            systemPrompt = E2EPrompts.systemPrompt,
+            systemPrompt = WebAgentPrompts.systemPrompt,
             queryTemplate = null,
             initialMessages = emptyList()
         ),
@@ -119,7 +119,7 @@ class E2ETestAgent(
         planner = TestActionPlanner(llmService)
     }
 
-    override fun validateInput(input: Map<String, Any>): E2ETestInput {
+    override fun validateInput(input: Map<String, Any>): WebAgentInput {
         val scenario = input["scenario"] as? TestScenario
         val naturalLanguage = input["naturalLanguage"] as? String
         val startUrl = input["startUrl"] as? String
@@ -128,7 +128,7 @@ class E2ETestAgent(
             throw IllegalArgumentException("Either 'scenario' or 'naturalLanguage' is required")
         }
 
-        return E2ETestInput(
+        return WebAgentInput(
             scenario = scenario,
             naturalLanguage = naturalLanguage,
             startUrl = startUrl ?: "about:blank"
@@ -136,7 +136,7 @@ class E2ETestAgent(
     }
 
     override suspend fun execute(
-        input: E2ETestInput,
+        input: WebAgentInput,
         onProgress: (String) -> Unit
     ): ToolResult.AgentResult {
         if (!isAvailable) {
@@ -403,10 +403,10 @@ class E2ETestAgent(
 }
 
 /**
- * Input for E2E Test Agent
+ * Input for Web Agent
  */
 @Serializable
-data class E2ETestInput(
+data class WebAgentInput(
     /**
      * Predefined test scenario (optional)
      */
@@ -418,7 +418,7 @@ data class E2ETestInput(
     val naturalLanguage: String? = null,
 
     /**
-     * Starting URL for the test
+     * Starting URL for the automation
      */
     val startUrl: String
 )

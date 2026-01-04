@@ -1,9 +1,9 @@
 package cc.unitmesh.agent.webagent.planner
 
-import cc.unitmesh.agent.webagent.E2ETestContext
+import cc.unitmesh.agent.webagent.WebAgentContext
 import cc.unitmesh.agent.webagent.currentTimeMillis
 import cc.unitmesh.agent.webagent.model.*
-import cc.unitmesh.agent.webagent.prompt.E2EPrompts
+import cc.unitmesh.agent.webagent.prompt.WebAgentPrompts
 import cc.unitmesh.llm.LLMService
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -35,7 +35,7 @@ class TestActionPlanner(
     /**
      * Plan the next action based on current context
      */
-    suspend fun planNextAction(context: E2ETestContext): PlannedAction? {
+    suspend fun planNextAction(context: WebAgentContext): PlannedAction? {
         // Check if we're in a loop
         if (context.memory.isInLoop()) {
             return PlannedAction(
@@ -91,7 +91,7 @@ class TestActionPlanner(
     /**
      * Plan action using LLM
      */
-    private suspend fun planWithLLM(context: E2ETestContext): PlannedAction? {
+    private suspend fun planWithLLM(context: WebAgentContext): PlannedAction? {
         val prompt = buildPlanningPrompt(context)
 
         return try {
@@ -219,9 +219,9 @@ class TestActionPlanner(
     /**
      * Build prompt for action planning
      */
-    private fun buildPlanningPrompt(context: E2ETestContext): String {
+    private fun buildPlanningPrompt(context: WebAgentContext): String {
         return buildString {
-            appendLine(E2EPrompts.actionPlanningIntro)
+            appendLine(WebAgentPrompts.actionPlanningIntro)
             appendLine()
             appendLine("## Test Scenario")
             appendLine("Name: ${context.scenario.name}")
@@ -304,9 +304,9 @@ class TestActionPlanner(
         pageState: PageState
     ): String {
         return buildString {
-            appendLine(E2EPrompts.scenarioGenerationIntro)
+            appendLine(WebAgentPrompts.scenarioGenerationIntro)
             appendLine()
-            appendLine(E2EPrompts.dslSyntaxReference)
+            appendLine(WebAgentPrompts.dslSyntaxReference)
             appendLine()
             appendLine("## Test Goal")
             appendLine(description)
@@ -324,8 +324,8 @@ class TestActionPlanner(
             }
             appendLine()
             appendLine("Generate a test scenario in DSL format that achieves the test goal.")
-            appendLine(E2EPrompts.preferCssSelectorsHint)
-            appendLine(E2EPrompts.outputOnlyDslHint)
+            appendLine(WebAgentPrompts.preferCssSelectorsHint)
+            appendLine(WebAgentPrompts.outputOnlyDslHint)
         }
     }
 
