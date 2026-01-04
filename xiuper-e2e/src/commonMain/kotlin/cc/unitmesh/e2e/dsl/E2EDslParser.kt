@@ -1,6 +1,6 @@
 package cc.unitmesh.e2e.dsl
 
-import cc.unitmesh.agent.e2etest.model.*
+import cc.unitmesh.agent.webagent.model.*
 
 /**
  * Parser for E2E Test DSL.

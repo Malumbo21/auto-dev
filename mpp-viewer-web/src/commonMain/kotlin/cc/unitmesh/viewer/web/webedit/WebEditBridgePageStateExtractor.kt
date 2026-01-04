@@ -1,10 +1,10 @@
 package cc.unitmesh.viewer.web.webedit
 
-import cc.unitmesh.agent.e2etest.model.*
-import cc.unitmesh.agent.e2etest.perception.PageStateExtractor
-import cc.unitmesh.agent.e2etest.perception.PageStateExtractorConfig
-import cc.unitmesh.agent.e2etest.model.AccessibilityNode as E2EAccessibilityNode
-import cc.unitmesh.agent.e2etest.model.BoundingBox as E2EBoundingBox
+import cc.unitmesh.agent.webagent.model.*
+import cc.unitmesh.agent.webagent.perception.PageStateExtractor
+import cc.unitmesh.agent.webagent.perception.PageStateExtractorConfig
+import cc.unitmesh.agent.webagent.model.AccessibilityNode as E2EAccessibilityNode
+import cc.unitmesh.agent.webagent.model.BoundingBox as E2EBoundingBox
 
 /**
  * PageStateExtractor implementation that uses WebEditBridge.

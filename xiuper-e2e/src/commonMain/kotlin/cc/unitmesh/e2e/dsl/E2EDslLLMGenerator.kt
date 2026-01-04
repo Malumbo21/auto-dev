@@ -258,7 +258,7 @@ Output ONLY the DSL code for all scenarios, separated by blank lines. No explana
 data class DslGenerationResult(
     val success: Boolean,
     val dsl: String,
-    val scenario: cc.unitmesh.agent.e2etest.model.TestScenario? = null,
+    val scenario: cc.unitmesh.agent.webagent.model.TestScenario? = null,
     val errors: List<String> = emptyList(),
     val rawResponse: String? = null
 )

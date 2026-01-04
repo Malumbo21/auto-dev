@@ -1,6 +1,6 @@
 package cc.unitmesh.e2e.dsl
 
-import cc.unitmesh.agent.e2etest.model.TestScenario
+import cc.unitmesh.agent.webagent.model.TestScenario
 import cc.unitmesh.llm.LLMService
 
 /**

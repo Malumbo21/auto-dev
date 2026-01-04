@@ -1,6 +1,6 @@
 package cc.unitmesh.e2e.dsl
 
-import cc.unitmesh.agent.e2etest.model.*
+import cc.unitmesh.agent.webagent.model.*
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull

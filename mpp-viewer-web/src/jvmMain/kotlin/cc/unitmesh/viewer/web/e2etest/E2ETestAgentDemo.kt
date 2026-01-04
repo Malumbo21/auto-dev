@@ -15,10 +15,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
-import cc.unitmesh.agent.e2etest.E2ETestAgent
-import cc.unitmesh.agent.e2etest.E2ETestConfig
-import cc.unitmesh.agent.e2etest.E2ETestInput
-import cc.unitmesh.agent.e2etest.executor.*
+import cc.unitmesh.agent.webagent.E2ETestAgent
+import cc.unitmesh.agent.webagent.E2ETestConfig
+import cc.unitmesh.agent.webagent.E2ETestInput
+import cc.unitmesh.agent.webagent.executor.*
 import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.llm.LLMService
 import cc.unitmesh.llm.ModelConfig
@@ -355,7 +355,7 @@ private fun LogPanel(logs: List<LogEntry>, modifier: Modifier = Modifier) {
 private suspend fun runAIE2ETest(
     bridge: JvmWebEditBridge,
     browserDriver: BrowserDriver,
-    pageStateExtractor: cc.unitmesh.agent.e2etest.perception.PageStateExtractor,
+    pageStateExtractor: cc.unitmesh.agent.webagent.perception.PageStateExtractor,
     targetUrl: String,
     testGoal: String,
     onLog: (String, LogType) -> Unit,

@@ -1,9 +1,9 @@
 package cc.unitmesh.viewer.web.webedit
 
-import cc.unitmesh.agent.e2etest.executor.BrowserDriver
-import cc.unitmesh.agent.e2etest.executor.BrowserDriverResult
-import cc.unitmesh.agent.e2etest.executor.BrowserDriverScreenshot
-import cc.unitmesh.agent.e2etest.model.ScrollDirection
+import cc.unitmesh.agent.webagent.executor.BrowserDriver
+import cc.unitmesh.agent.webagent.executor.BrowserDriverResult
+import cc.unitmesh.agent.webagent.executor.BrowserDriverScreenshot
+import cc.unitmesh.agent.webagent.model.ScrollDirection
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.time.TimeSource
