@@ -283,10 +283,3 @@ data class WebAgentConfig(
      */
     val maxMemorySize: Int = 10
 )
-
-// Type aliases for backward compatibility
-@Deprecated("Use WebAgentConfig instead", ReplaceWith("WebAgentConfig"))
-typealias E2ETestConfig = WebAgentConfig
-
-@Deprecated("Use WebAgentContext instead", ReplaceWith("WebAgentContext"))
-typealias E2ETestContext = WebAgentContext

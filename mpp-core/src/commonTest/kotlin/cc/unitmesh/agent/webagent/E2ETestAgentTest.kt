@@ -126,7 +126,7 @@ class E2ETestAgentTest {
 
     @Test
     fun testE2ETestConfig() {
-        val config = E2ETestConfig(
+        val config = WebAgentConfig(
             defaultTimeoutMs = 10000,
             enableSelfHealing = true,
             healingThreshold = 0.85,
