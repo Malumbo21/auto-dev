@@ -1,7 +1,7 @@
 package cc.unitmesh.agent.webagent.planner
 
 import cc.unitmesh.agent.webagent.WebAgentContext
-import cc.unitmesh.agent.webagent.currentTimeMillis
+import cc.unitmesh.agent.subagent.currentTimeMillis
 import cc.unitmesh.agent.webagent.model.*
 import cc.unitmesh.agent.webagent.prompt.WebAgentPrompts
 import cc.unitmesh.llm.LLMService
@@ -546,7 +546,7 @@ internal class SimpleDslParser {
         if (steps.isEmpty()) return null
 
         return TestScenario(
-            id = "scenario_${cc.unitmesh.agent.webagent.currentTimeMillis()}",
+            id = "scenario_${_root_ide_package_.cc.unitmesh.agent.subagent.currentTimeMillis()}",
             name = scenarioName,
             description = scenarioDescription,
             startUrl = scenarioUrl,

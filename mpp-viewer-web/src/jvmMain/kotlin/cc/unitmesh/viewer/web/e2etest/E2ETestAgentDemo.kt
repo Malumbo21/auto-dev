@@ -15,9 +15,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
-import cc.unitmesh.agent.webagent.WebAgent
+import cc.unitmesh.agent.subagent.WebAgent
 import cc.unitmesh.agent.webagent.WebAgentConfig
-import cc.unitmesh.agent.webagent.WebAgentInput
+import cc.unitmesh.agent.subagent.WebAgentInput
 import cc.unitmesh.agent.webagent.executor.*
 import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.llm.LLMService

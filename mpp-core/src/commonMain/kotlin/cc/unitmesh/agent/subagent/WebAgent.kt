@@ -1,4 +1,4 @@
-package cc.unitmesh.agent.webagent
+package cc.unitmesh.agent.subagent
 
 import cc.unitmesh.agent.core.SubAgent
 import cc.unitmesh.agent.webagent.executor.*
@@ -29,7 +29,7 @@ import kotlinx.serialization.Serializable
  */
 class WebAgent(
     private val llmService: LLMService,
-    private val config: WebAgentConfig = WebAgentConfig()
+    private val config: cc.unitmesh.agent.webagent.WebAgentConfig = _root_ide_package_.cc.unitmesh.agent.webagent.WebAgentConfig()
 ) : SubAgent<WebAgentInput, ToolResult.AgentResult>(
     AgentDefinition(
         name = "WebAgent",
@@ -221,7 +221,7 @@ class WebAgent(
     ): E2ETestResult {
         val startTime = currentTimeMillis()
         val stepResults = mutableListOf<StepResult>()
-        var memory = TestMemory.empty(config.maxMemorySize)
+        var memory = _root_ide_package_.cc.unitmesh.agent.webagent.TestMemory.Companion.empty(config.maxMemorySize)
 
         // Execute setup actions
         scenario.setup.forEach { action ->
@@ -237,7 +237,7 @@ class WebAgent(
 
             // Update memory
             memory = memory.withAction(
-                ActionRecord(
+                _root_ide_package_.cc.unitmesh.agent.webagent.ActionRecord(
                     actionType = step.action::class.simpleName ?: "Unknown",
                     targetId = getTargetId(step.action),
                     timestamp = currentTimeMillis(),
@@ -288,7 +288,7 @@ class WebAgent(
     /**
      * Execute a single test step with self-healing
      */
-    private suspend fun executeStep(step: TestStep, memory: TestMemory): StepResult {
+    private suspend fun executeStep(step: TestStep, memory: cc.unitmesh.agent.webagent.TestMemory): StepResult {
         val startTime = currentTimeMillis()
         var retries = 0
         var lastError: String? = null

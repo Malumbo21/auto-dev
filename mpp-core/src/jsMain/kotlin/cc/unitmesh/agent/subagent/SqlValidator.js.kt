@@ -2,12 +2,12 @@ package cc.unitmesh.agent.subagent
 
 /**
  * JavaScript implementation of SqlValidator.
- * 
+ *
  * Performs basic SQL syntax validation without full parsing.
  * Full parsing with JSqlParser is only available on JVM platforms.
  */
 actual class SqlValidator actual constructor() : SqlValidatorInterface {
-    
+
     actual override fun validate(sql: String): SqlValidationResult {
         if (sql.isBlank()) {
             return SqlValidationResult(
@@ -15,23 +15,23 @@ actual class SqlValidator actual constructor() : SqlValidatorInterface {
                 errors = listOf("Empty SQL query")
             )
         }
-        
+
         return performBasicValidation(sql)
     }
-    
+
     actual override fun validateWithTableWhitelist(sql: String, allowedTables: Set<String>): SqlValidationResult {
         val basicResult = validate(sql)
         if (!basicResult.isValid) {
             return basicResult
         }
-        
+
         // Extract table names using regex and validate against whitelist
         val usedTables = extractTableNames(sql)
         val allowedTablesLower = allowedTables.map { it.lowercase() }.toSet()
         val invalidTables = usedTables.filter { tableName ->
             tableName.lowercase() !in allowedTablesLower
         }
-        
+
         return if (invalidTables.isNotEmpty()) {
             SqlValidationResult(
                 isValid = false,
@@ -45,7 +45,7 @@ actual class SqlValidator actual constructor() : SqlValidatorInterface {
             basicResult
         }
     }
-    
+
     actual override fun extractTableNames(sql: String): List<String> {
         val tables = mutableListOf<String>()
 
@@ -99,7 +99,7 @@ actual class SqlValidator actual constructor() : SqlValidatorInterface {
             else -> SqlOperationType.UNKNOWN
         }
     }
-    
+
     private fun cleanTableName(name: String): String {
         // Remove quotes and brackets, extract table name from schema.table format
         val cleaned = name.replace(Regex("""[`"\[\]]"""), "")
@@ -109,13 +109,13 @@ actual class SqlValidator actual constructor() : SqlValidatorInterface {
             cleaned
         }
     }
-    
+
     private fun performBasicValidation(sql: String): SqlValidationResult {
         val errors = mutableListOf<String>()
         val warnings = mutableListOf<String>()
-        
+
         val upperSql = sql.uppercase()
-        
+
         // Check for basic SQL structure
         val hasValidStart = upperSql.trimStart().let { trimmed ->
             trimmed.startsWith("SELECT") ||
@@ -127,11 +127,11 @@ actual class SqlValidator actual constructor() : SqlValidatorInterface {
             trimmed.startsWith("DROP") ||
             trimmed.startsWith("WITH")
         }
-        
+
         if (!hasValidStart) {
             errors.add("SQL must start with a valid statement (SELECT, INSERT, UPDATE, DELETE, etc.)")
         }
-        
+
         // Check for balanced parentheses
         var parenCount = 0
         for (char in sql) {
@@ -147,17 +147,17 @@ actual class SqlValidator actual constructor() : SqlValidatorInterface {
         if (parenCount > 0) {
             errors.add("Unbalanced parentheses: missing ')'")
         }
-        
+
         // Warnings
         if (upperSql.contains("SELECT *")) {
             warnings.add("Consider specifying explicit columns instead of SELECT *")
         }
-        
-        if (!upperSql.contains("WHERE") && 
+
+        if (!upperSql.contains("WHERE") &&
             (upperSql.contains("UPDATE") || upperSql.contains("DELETE"))) {
             warnings.add("UPDATE/DELETE without WHERE clause will affect all rows")
         }
-        
+
         return SqlValidationResult(
             isValid = errors.isEmpty(),
             errors = errors,

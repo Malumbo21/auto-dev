@@ -168,7 +168,7 @@ actual class SqlValidator actual constructor() : SqlValidatorInterface {
             )
         }
     }
-    
+
     /**
      * Extract a clean error message from the exception
      */
@@ -197,28 +197,28 @@ actual class SqlValidator actual constructor() : SqlValidatorInterface {
             else -> message.take(200)
         }
     }
-    
+
     /**
      * Collect warnings from parsed statement (e.g., deprecated syntax)
      */
     private fun collectWarnings(statement: Statement): List<String> {
         val warnings = mutableListOf<String>()
-        
+
         // Check for common issues that aren't errors but might be problematic
         val sql = statement.toString()
-        
+
         if (sql.contains("SELECT *")) {
             warnings.add("Consider specifying explicit columns instead of SELECT *")
         }
-        
-        if (!sql.contains("WHERE", ignoreCase = true) && 
+
+        if (!sql.contains("WHERE", ignoreCase = true) &&
             (sql.contains("UPDATE", ignoreCase = true) || sql.contains("DELETE", ignoreCase = true))) {
             warnings.add("UPDATE/DELETE without WHERE clause will affect all rows")
         }
-        
+
         return warnings
     }
-    
+
     companion object {
         /**
          * Quick validation check - returns true if SQL is syntactically valid
