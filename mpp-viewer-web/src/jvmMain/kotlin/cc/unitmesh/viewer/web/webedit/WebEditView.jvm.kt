@@ -51,7 +51,7 @@ actual fun WebEditView(
     val loadingState = webViewState.loadingState
     if (loadingState is LoadingState.Loading) {
         LinearProgressIndicator(
-            progress = loadingState.progress,
+            progress = { loadingState.progress },
             modifier = Modifier.fillMaxWidth(),
         )
     }
@@ -63,34 +63,26 @@ actual fun WebEditView(
 
     // Configure the JVM bridge with WebView callbacks
     LaunchedEffect(Unit) {
-        println("[WebEditView] 🔧 Configuring bridge callbacks...")
         if (bridge is JvmWebEditBridge) {
-            println("[WebEditView] ✅ Setting up JvmWebEditBridge callbacks")
             bridge.executeJavaScript = { script ->
-                println("[WebEditView] 📜 Executing JS: ${script.take(100)}...")
                 webViewNavigator.evaluateJavaScript(script)
             }
             bridge.navigateCallback = { url ->
-                println("[WebEditView] 🌐 Navigate to: $url")
                 webViewNavigator.loadUrl(url)
             }
             bridge.reloadCallback = {
-                println("[WebEditView] 🔄 Reload")
                 webViewNavigator.reload()
             }
             bridge.goBackCallback = {
-                println("[WebEditView] ⬅️ Go back (canGoBack=${webViewNavigator.canGoBack})")
                 if (webViewNavigator.canGoBack) {
                     webViewNavigator.navigateBack()
                 }
             }
             bridge.goForwardCallback = {
-                println("[WebEditView] ➡️ Go forward (canGoForward=${webViewNavigator.canGoForward})")
                 if (webViewNavigator.canGoForward) {
                     webViewNavigator.navigateForward()
                 }
             }
-            println("[WebEditView] ✅ All bridge callbacks configured")
         } else {
             println("[WebEditView] ⚠️ Bridge is not JvmWebEditBridge: ${bridge::class.simpleName}")
         }
@@ -113,10 +105,6 @@ actual fun WebEditView(
                 navigator: WebViewNavigator?,
                 callback: (String) -> Unit
             ) {
-                println("[WebEditView] 📨 Received JS message:")
-                println("  - Params length: ${message.params.length} chars")
-                println("  - Params preview: ${message.params.take(200)}...")
-                
                 try {
                     val json = Json.parseToJsonElement(message.params).jsonObject
                     val type = json["type"]?.jsonPrimitive?.content
@@ -393,7 +381,6 @@ actual fun WebEditView(
             )
         }
     } else {
-        // Render WebView directly - errors should be handled at the KCEF initialization level
         WebView(
             state = webViewState,
             navigator = webViewNavigator,
