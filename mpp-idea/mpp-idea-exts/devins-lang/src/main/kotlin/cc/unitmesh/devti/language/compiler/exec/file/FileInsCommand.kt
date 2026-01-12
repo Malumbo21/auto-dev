@@ -13,7 +13,6 @@ import cc.unitmesh.devti.util.relativePath
 import com.intellij.openapi.application.runReadAction
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.psi.PsiCompiledFile
 import com.intellij.psi.PsiManager
 import com.intellij.psi.search.FilenameIndex
 import com.intellij.psi.search.GlobalSearchScope
@@ -64,15 +63,15 @@ class FileInsCommand(private val myProject: Project, private val prop: String) :
             val psiFile = PsiManager.getInstance(myProject).findFile(virtualFile)
             val language = psiFile?.language?.displayName ?: ""
 
-            val fileContent = when (psiFile) {
-                is PsiCompiledFile -> {
-                    // For compiled files (like .class files), get the decompiled text
-                    psiFile.decompiledPsiFile?.text ?: virtualFile.readText()
-                }
-
-                else -> {
-                    virtualFile.readText()
-                }
+            // Try to get decompiled text for compiled files, otherwise read the file directly
+            val fileContent = try {
+                // For compiled files (like .class files), try to get the decompiled text
+                // Use reflection to avoid ClassNotFoundException in newer IntelliJ versions
+                val decompiledPsiFile = psiFile?.javaClass?.getMethod("getDecompiledPsiFile")?.invoke(psiFile)
+                (decompiledPsiFile as? com.intellij.psi.PsiFile)?.text ?: virtualFile.readText()
+            } catch (e: Exception) {
+                // If decompilation fails or method doesn't exist, just read the file
+                virtualFile.readText()
             }
 
             Pair(fileContent, language)
