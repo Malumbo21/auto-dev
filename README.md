@@ -1,4 +1,4 @@
-# AutoDev Xiuper
+# AutoDev 3.0 Xiuper (alpha) 
 
 > **One Platform. All Phases. Every Device.**  
 > 统一平台·全开发阶段·跨全设备
