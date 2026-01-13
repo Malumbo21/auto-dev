@@ -1,5 +1,6 @@
 package cc.unitmesh.devins.ui.compose.agent.codereview
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -13,6 +14,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import cc.unitmesh.devins.ui.compose.icons.AutoDevComposeIcons
+import cc.unitmesh.devins.ui.platform.UrlOpener
 import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.config.IssueTrackerConfig
 import kotlinx.coroutines.launch
@@ -197,21 +199,37 @@ fun IssueTrackerConfigDialog(
                                     text = "Create token at: github.com/settings/tokens",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.primary,
-                                    textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline
+                                    textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline,
+                                    modifier = Modifier.clickable {
+                                        UrlOpener.openUrl("https://github.com/settings/tokens")
+                                    }
                                 )
                             }
                             "gitlab" -> {
                                 Text(
                                     text = "Create a personal access token in your GitLab settings",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = MaterialTheme.colorScheme.primary,
+                                    textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline,
+                                    modifier = Modifier.clickable {
+                                        val url = if (serverUrl.isNotBlank()) {
+                                            "$serverUrl/-/profile/personal_access_tokens"
+                                        } else {
+                                            "https://gitlab.com/-/profile/personal_access_tokens"
+                                        }
+                                        UrlOpener.openUrl(url)
+                                    }
                                 )
                             }
                             "jira" -> {
                                 Text(
                                     text = "Create an API token in your Atlassian account settings",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = MaterialTheme.colorScheme.primary,
+                                    textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline,
+                                    modifier = Modifier.clickable {
+                                        UrlOpener.openUrl("https://id.atlassian.com/manage-profile/security/api-tokens")
+                                    }
                                 )
                             }
                             else -> {
