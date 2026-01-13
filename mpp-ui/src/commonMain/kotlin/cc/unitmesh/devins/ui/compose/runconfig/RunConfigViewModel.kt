@@ -63,9 +63,9 @@ class RunConfigViewModel(
 
     init {
         // Initialize on creation
-        scope.launch {
-            service.initialize()
-        }
+//        scope.launch {
+//            service.initialize()
+//        }
     }
 
     /**
