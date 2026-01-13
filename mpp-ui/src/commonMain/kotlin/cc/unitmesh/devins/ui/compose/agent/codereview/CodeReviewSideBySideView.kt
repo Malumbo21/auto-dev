@@ -73,14 +73,14 @@ fun CodeReviewSideBySideView(viewModel: CodeReviewViewModel, modifier: Modifier 
 
     // Issue Tracker Configuration Dialog
     if (showConfigDialog) {
-        var currentConfig by remember {
+        var currentConfig by remember(showConfigDialog) {
             mutableStateOf(IssueTrackerConfig())
         }
-        var autoDetectedRepo by remember {
+        var autoDetectedRepo by remember(showConfigDialog) {
             mutableStateOf<Pair<String, String>?>(null)
         }
 
-        LaunchedEffect(Unit) {
+        LaunchedEffect(showConfigDialog) {
             currentConfig = ConfigManager.getIssueTracker()
             autoDetectedRepo = viewModel.detectRepositoryFromGit()
         }

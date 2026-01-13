@@ -106,14 +106,14 @@ private fun CodeReviewTopBar(
 
     // Issue Tracker Configuration Dialog
     if (showIssueTrackerDialog) {
-        var currentConfig by remember {
+        var currentConfig by remember(showIssueTrackerDialog) {
             mutableStateOf(IssueTrackerConfig())
         }
-        var autoDetectedRepo by remember {
+        var autoDetectedRepo by remember(showIssueTrackerDialog) {
             mutableStateOf<Pair<String, String>?>(null)
         }
 
-        LaunchedEffect(Unit) {
+        LaunchedEffect(showIssueTrackerDialog) {
             currentConfig = ConfigManager.getIssueTracker()
             // Try to auto-detect repo from Git
             autoDetectedRepo = viewModel.detectRepositoryFromGit()

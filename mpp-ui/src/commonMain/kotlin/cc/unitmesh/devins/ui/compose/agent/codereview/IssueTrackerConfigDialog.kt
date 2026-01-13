@@ -19,7 +19,7 @@ import kotlinx.coroutines.launch
 
 /**
  * Dialog for configuring issue tracker settings
- * 
+ *
  * Allows users to configure:
  * - Issue tracker type (GitHub, GitLab, Jira, etc.)
  * - API token
@@ -34,20 +34,24 @@ fun IssueTrackerConfigDialog(
     initialConfig: IssueTrackerConfig = IssueTrackerConfig(),
     autoDetectedRepo: Pair<String, String>? = null // (owner, name)
 ) {
-    var type by remember { mutableStateOf(initialConfig.type) }
-    var token by remember { mutableStateOf(initialConfig.token) }
+    var type by remember(initialConfig) { mutableStateOf(initialConfig.type) }
+    var token by remember(initialConfig) { mutableStateOf(initialConfig.token) }
     // Use auto-detected values if available
-    var repoOwner by remember { mutableStateOf(autoDetectedRepo?.first ?: initialConfig.repoOwner) }
-    var repoName by remember { mutableStateOf(autoDetectedRepo?.second ?: initialConfig.repoName) }
-    var serverUrl by remember { mutableStateOf(initialConfig.serverUrl) }
-    var enabled by remember { mutableStateOf(initialConfig.enabled) }
+    var repoOwner by remember(initialConfig, autoDetectedRepo) {
+        mutableStateOf(autoDetectedRepo?.first ?: initialConfig.repoOwner)
+    }
+    var repoName by remember(initialConfig, autoDetectedRepo) {
+        mutableStateOf(autoDetectedRepo?.second ?: initialConfig.repoName)
+    }
+    var serverUrl by remember(initialConfig) { mutableStateOf(initialConfig.serverUrl) }
+    var enabled by remember(initialConfig) { mutableStateOf(initialConfig.enabled) }
     var showToken by remember { mutableStateOf(false) }
     var isSaving by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     val isAutoDetected = autoDetectedRepo != null
-    
+
     val scope = rememberCoroutineScope()
-    
+
     Dialog(onDismissRequest = onDismiss) {
         Card(
             modifier = Modifier
@@ -74,7 +78,7 @@ fun IssueTrackerConfigDialog(
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold
                     )
-                    
+
                     IconButton(onClick = onDismiss) {
                         Icon(
                             imageVector = AutoDevComposeIcons.Close,
@@ -82,9 +86,9 @@ fun IssueTrackerConfigDialog(
                         )
                     }
                 }
-                
+
                 Spacer(modifier = Modifier.height(16.dp))
-                
+
                 // Content
                 Column(
                     modifier = Modifier
@@ -107,16 +111,16 @@ fun IssueTrackerConfigDialog(
                             onCheckedChange = { enabled = it }
                         )
                     }
-                    
+
                     HorizontalDivider()
-                    
+
                     // Type selector
                     Text(
                         text = "Issue Tracker Type",
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold
                     )
-                    
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -142,14 +146,14 @@ fun IssueTrackerConfigDialog(
                             enabled = false // Jira support coming soon
                         )
                     }
-                    
+
                     // Token field
                     Text(
                         text = "API Token",
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold
                     )
-                    
+
                     OutlinedTextField(
                         value = token,
                         onValueChange = { token = it },
@@ -174,7 +178,7 @@ fun IssueTrackerConfigDialog(
                         },
                         singleLine = true
                     )
-                    
+
                     // Clickable link for creating token
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -219,7 +223,7 @@ fun IssueTrackerConfigDialog(
                             }
                         }
                     }
-                    
+
                     // Repository fields (for GitHub/GitLab)
                     if (type == "github" || type == "gitlab") {
                         Text(
@@ -227,7 +231,7 @@ fun IssueTrackerConfigDialog(
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold
                         )
-                        
+
                         if (isAutoDetected) {
                             // Show auto-detected repo as read-only info
                             Card(
@@ -281,7 +285,7 @@ fun IssueTrackerConfigDialog(
                                 placeholder = { Text("e.g., unitmesh") },
                                 singleLine = true
                             )
-                            
+
                             OutlinedTextField(
                                 value = repoName,
                                 onValueChange = { repoName = it },
@@ -290,7 +294,7 @@ fun IssueTrackerConfigDialog(
                                 placeholder = { Text("e.g., auto-dev") },
                                 singleLine = true
                             )
-                            
+
                             Text(
                                 text = "Repository not detected automatically. Please enter manually.",
                                 style = MaterialTheme.typography.bodySmall,
@@ -298,7 +302,7 @@ fun IssueTrackerConfigDialog(
                             )
                         }
                     }
-                    
+
                     // Server URL (for GitLab/Jira)
                     if (type == "gitlab" || type == "jira") {
                         Text(
@@ -306,13 +310,13 @@ fun IssueTrackerConfigDialog(
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold
                         )
-                        
+
                         OutlinedTextField(
                             value = serverUrl,
                             onValueChange = { serverUrl = it },
                             modifier = Modifier.fillMaxWidth(),
                             label = { Text("Server URL") },
-                            placeholder = { 
+                            placeholder = {
                                 Text(
                                     when (type) {
                                         "gitlab" -> "https://gitlab.com"
@@ -324,7 +328,7 @@ fun IssueTrackerConfigDialog(
                             singleLine = true
                         )
                     }
-                    
+
                     // Error message
                     if (errorMessage != null) {
                         Card(
@@ -354,9 +358,9 @@ fun IssueTrackerConfigDialog(
                         }
                     }
                 }
-                
+
                 Spacer(modifier = Modifier.height(16.dp))
-                
+
                 // Action buttons
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -369,15 +373,15 @@ fun IssueTrackerConfigDialog(
                     ) {
                         Text("Cancel")
                     }
-                    
+
                     Spacer(modifier = Modifier.width(8.dp))
-                    
+
                     Button(
                         onClick = {
                             scope.launch {
                                 isSaving = true
                                 errorMessage = null
-                                
+
                                 try {
                                     val config = IssueTrackerConfig(
                                         type = type,
@@ -387,7 +391,7 @@ fun IssueTrackerConfigDialog(
                                         serverUrl = serverUrl.trim(),
                                         enabled = enabled
                                     )
-                                    
+
                                     // Validate configuration
                                     if (enabled) {
                                         if (token.isBlank()) {
@@ -395,12 +399,12 @@ fun IssueTrackerConfigDialog(
                                             isSaving = false
                                             return@launch
                                         }
-                                        
+
                                         if (type == "github" || type == "gitlab") {
                                             // Allow empty repo fields for auto-detection
                                             // Validation will happen in IssueService
                                         }
-                                        
+
                                         if (type == "gitlab" || type == "jira") {
                                             if (serverUrl.isBlank()) {
                                                 errorMessage = "Server URL is required for ${type.uppercase()}"
@@ -409,10 +413,10 @@ fun IssueTrackerConfigDialog(
                                             }
                                         }
                                     }
-                                    
+
                                     // Save configuration
                                     ConfigManager.saveIssueTracker(config)
-                                    
+
                                     isSaving = false
                                     onConfigured()
                                     onDismiss()

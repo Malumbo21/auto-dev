@@ -45,7 +45,7 @@ data class IssueCacheEntry(
             cachedAt = Instant.fromEpochMilliseconds(cachedAtEpochMs)
         )
     }
-    
+
     companion object {
         fun fromIssueInfo(issueInfo: IssueInfo): IssueCacheEntry {
             val cachedAt = issueInfo.cachedAt ?: Clock.System.now()
@@ -67,7 +67,7 @@ data class IssueCacheEntry(
 
 /**
  * Service for managing issue tracker integration and caching
- * 
+ *
  * Features:
  * - Create appropriate IssueTracker based on configuration
  * - Extract issue IDs from commit messages
@@ -77,34 +77,29 @@ data class IssueCacheEntry(
  * - Show cache age for user transparency
  */
 class IssueService(private val workspacePath: String) {
-    
+
     // Cache for issue information (issue ID -> cached issue info with timestamp)
     private val issueCache = mutableMapOf<String, IssueInfo>()
-    
+
     // Cache for extracted issue IDs (commit hash -> issue ID)
     private val issueIdCache = mutableMapOf<String, String?>()
-    
+
     // Cache expiry time (default: 1 hour)
     private val cacheExpiryMinutes: Long = 60
-    
+
     private var issueTracker: IssueTracker = NoOpIssueTracker()
     private var isInitialized = false
-    
-    private val json = Json { 
-        ignoreUnknownKeys = true 
-        prettyPrint = false
-    }
-    
+
     /**
      * Initialize the issue service
      * Loads configuration and creates appropriate issue tracker
-     * 
+     *
      * @param gitOps Optional GitOperations instance for auto-detecting repo
      */
     suspend fun initialize(gitOps: GitOperations? = null) {
         try {
             val config = ConfigManager.getIssueTracker()
-            
+
             // If no config or disabled, try to auto-detect and create default config
             if (config == null || !config.enabled) {
                 // Try to auto-detect from Git
@@ -119,7 +114,7 @@ class IssueService(private val workspacePath: String) {
                         return
                     }
                 }
-                
+
                 AutoDevLogger.info("IssueService") {
                     "Issue tracker not configured or disabled, and auto-detection failed"
                 }
@@ -127,17 +122,17 @@ class IssueService(private val workspacePath: String) {
                 isInitialized = true
                 return
             }
-            
+
             // Always try to auto-detect repo from Git remote (override config)
             val finalConfig = if (gitOps != null && gitOps.isSupported()) {
                 autoDetectRepo(gitOps, config)
             } else {
                 config
             }
-            
+
             // Create appropriate issue tracker based on type
             issueTracker = createIssueTracker(finalConfig)
-            
+
             isInitialized = true
             AutoDevLogger.info("IssueService") {
                 "Issue tracker initialized: ${finalConfig.type} (${finalConfig.repoOwner}/${finalConfig.repoName})"
@@ -150,7 +145,7 @@ class IssueService(private val workspacePath: String) {
             isInitialized = true
         }
     }
-    
+
     /**
      * Auto-detect repository from Git remote URL (without existing config)
      */
@@ -179,11 +174,20 @@ class IssueService(private val workspacePath: String) {
             null
         }
     }
-    
+
     /**
      * Auto-detect repository owner and name from Git remote URL
+     * Only auto-detects if repoOwner or repoName are empty
      */
     private suspend fun autoDetectRepo(gitOps: GitOperations, config: IssueTrackerConfig): IssueTrackerConfig {
+        // Only auto-detect if repo info is missing
+        if (config.repoOwner.isNotBlank() && config.repoName.isNotBlank()) {
+            AutoDevLogger.info("IssueService") {
+                "Using manually configured repo: ${config.repoOwner}/${config.repoName}"
+            }
+            return config
+        }
+
         return try {
             val remoteUrl = gitOps.getRemoteUrl("origin")
             if (remoteUrl != null) {
@@ -211,7 +215,7 @@ class IssueService(private val workspacePath: String) {
             config
         }
     }
-    
+
     /**
      * Create issue tracker based on configuration
      */
@@ -240,7 +244,7 @@ class IssueService(private val workspacePath: String) {
             }
         }
     }
-    
+
     /**
      * Extract issue ID from commit message
      * Supports common patterns like:
@@ -248,7 +252,7 @@ class IssueService(private val workspacePath: String) {
      * - GH-123
      * - fixes #123
      * - closes #123
-     * 
+     *
      * @param commitMessage Commit message
      * @param commitHash Commit hash (for caching)
      * @return Issue ID or null if not found
@@ -258,14 +262,14 @@ class IssueService(private val workspacePath: String) {
         if (issueIdCache.containsKey(commitHash)) {
             return issueIdCache[commitHash]
         }
-        
+
         // Common patterns for issue references
         val patterns = listOf(
             Regex("""#(\d+)"""),           // #123
             Regex("""GH-(\d+)""", RegexOption.IGNORE_CASE),  // GH-123
             Regex("""(?:fixes|closes|resolves)\s+#(\d+)""", RegexOption.IGNORE_CASE) // fixes #123
         )
-        
+
         for (pattern in patterns) {
             val match = pattern.find(commitMessage)
             if (match != null) {
@@ -274,12 +278,12 @@ class IssueService(private val workspacePath: String) {
                 return issueId
             }
         }
-        
+
         // Cache null result to avoid repeated parsing
         issueIdCache[commitHash] = null
         return null
     }
-    
+
     /**
      * Result of issue fetch attempt
      */
@@ -296,18 +300,18 @@ class IssueService(private val workspacePath: String) {
          */
         val cacheAgeDisplay: String? = null
     )
-    
+
     /**
      * Get issue information asynchronously
      * Uses cache to avoid repeated API calls (especially for GitHub rate limiting)
-     * 
+     *
      * @param commitHash Commit hash
      * @param commitMessage Commit message
      * @param forceRefresh If true, bypass cache and fetch fresh data
      * @return Deferred<IssueResult> that resolves to issue result
      */
     fun getIssueAsync(
-        commitHash: String, 
+        commitHash: String,
         commitMessage: String,
         forceRefresh: Boolean = false
     ): Deferred<IssueResult> {
@@ -316,19 +320,19 @@ class IssueService(private val workspacePath: String) {
             if (!isInitialized) {
                 initialize()
             }
-            
+
             // Extract issue ID
             val issueId = extractIssueId(commitMessage, commitHash)
             if (issueId == null) {
                 return@async IssueResult(issueInfo = null)
             }
-            
+
             // Check cache first (unless force refresh)
             if (!forceRefresh) {
                 val cachedIssue = issueCache[issueId]
                 if (cachedIssue != null) {
                     val cacheAgeMinutes = cachedIssue.getCacheAgeMinutes() ?: 0
-                    
+
                     // Return cached if not expired
                     if (cacheAgeMinutes < cacheExpiryMinutes) {
                         AutoDevLogger.debug("IssueService") {
@@ -350,20 +354,20 @@ class IssueService(private val workspacePath: String) {
                     "Force refreshing issue #$issueId"
                 }
             }
-            
+
             // Fetch issue info from remote
             try {
                 val issueInfo = issueTracker.getIssue(issueId)
-                
+
                 if (issueInfo != null) {
                     // Add cache timestamp and store
                     val cachedInfo = issueInfo.withCacheTimestamp()
                     issueCache[issueId] = cachedInfo
-                    
+
                     AutoDevLogger.info("IssueService") {
                         "Fetched issue #$issueId: ${issueInfo.title}"
                     }
-                    
+
                     IssueResult(
                         issueInfo = cachedInfo,
                         fromCache = false
@@ -378,12 +382,12 @@ class IssueService(private val workspacePath: String) {
                 AutoDevLogger.error("IssueService") {
                     "Failed to fetch issue #$issueId: ${e.message}"
                 }
-                
+
                 // Check if it's a rate limiting or authentication error
                 val is403 = e.message?.contains("403") == true
                 val is401 = e.message?.contains("401") == true
                 val needsToken = is401 || e.message?.contains("authentication") == true
-                
+
                 // On 403 rate limit, try to return cached data if available
                 if (is403) {
                     val cachedIssue = issueCache[issueId]
@@ -399,7 +403,7 @@ class IssueService(private val workspacePath: String) {
                         )
                     }
                 }
-                
+
                 IssueResult(
                     issueInfo = null,
                     error = when {
@@ -412,21 +416,21 @@ class IssueService(private val workspacePath: String) {
             }
         }
     }
-    
+
     /**
      * Force refresh issue for a specific commit (bypasses cache)
      */
     fun refreshIssueAsync(commitHash: String, commitMessage: String): Deferred<IssueResult> {
         return getIssueAsync(commitHash, commitMessage, forceRefresh = true)
     }
-    
+
     /**
      * Get cached issue info for an issue ID (if available)
      */
     fun getCachedIssue(issueId: String): IssueInfo? {
         return issueCache[issueId]
     }
-    
+
     /**
      * Check if an issue is cached and not expired
      */
@@ -435,7 +439,7 @@ class IssueService(private val workspacePath: String) {
         val ageMinutes = cached.getCacheAgeMinutes() ?: return false
         return ageMinutes < cacheExpiryMinutes
     }
-    
+
     /**
      * Get issue information synchronously (blocking)
      * Prefer getIssueAsync for better performance
@@ -444,14 +448,14 @@ class IssueService(private val workspacePath: String) {
         val result = getIssueAsync(commitHash, commitMessage, forceRefresh).await()
         return result.issueInfo
     }
-    
+
     /**
      * Check if issue tracker is configured and ready
      */
     fun isConfigured(): Boolean {
         return issueTracker.isConfigured()
     }
-    
+
     /**
      * Get cache statistics
      */
@@ -460,7 +464,7 @@ class IssueService(private val workspacePath: String) {
         val expiredCount = issueCache.size - validCount
         val oldestCache = issueCache.values.mapNotNull { it.cachedAt }.minOrNull()
         val newestCache = issueCache.values.mapNotNull { it.cachedAt }.maxOrNull()
-        
+
         return CacheStats(
             totalCached = issueCache.size,
             validCached = validCount,
@@ -469,7 +473,7 @@ class IssueService(private val workspacePath: String) {
             newestCacheTime = newestCache
         )
     }
-    
+
     /**
      * Clear cache (useful when configuration changes)
      */
@@ -480,7 +484,7 @@ class IssueService(private val workspacePath: String) {
             "Issue cache cleared"
         }
     }
-    
+
     /**
      * Clear cache for a specific issue ID
      */
@@ -490,7 +494,7 @@ class IssueService(private val workspacePath: String) {
             "Cache cleared for issue #$issueId"
         }
     }
-    
+
     /**
      * Reload configuration and reinitialize issue tracker
      * Note: This does NOT clear the cache to preserve cached data
@@ -499,7 +503,7 @@ class IssueService(private val workspacePath: String) {
         isInitialized = false
         initialize(gitOps)
     }
-    
+
     /**
      * Reload configuration and clear all cache
      */
