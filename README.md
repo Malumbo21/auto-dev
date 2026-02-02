@@ -1,24 +1,24 @@
-# AutoDev 3.0 Xiuper (alpha) 
+# AutoDev 3.0 Xiuper (Alpha)
 
 > **One Platform. All Phases. Every Device.**  
-> 统一平台·全开发阶段·跨全设备
+> 统一平台 · 全开发阶段 · 跨全设备
 
-**AutoDev Xiuper** is  the AI-native Multi-Agent development platform built on Kotlin Multiplatform, covering all 7 phases of
-SDLC (Requirements → Development → Review → Testing → Data → Deployment → Operations) and supporting 8+ platforms (IDEA,
-VSCode, CLI, Web, Desktop, Android, iOS, Server).
+**AutoDev Xiuper** is an AI-native, multi-agent development platform built on Kotlin Multiplatform. It covers all seven phases of
+the software development lifecycle (Requirements → Development → Review → Testing → Data → Deployment → Operations) and runs
+on 8+ platforms: IntelliJ IDEA, VS Code, CLI, Web, Desktop, Android, iOS, and Server.
 
 ![ScreenShot](https://xiuper.com/screenshot.png)
 
-## 🚀 Get Started
+## Get Started
 
 ### Download AutoDev Xiuper
 
 - **IntelliJ IDEA Plugin**: [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/29223-autodev-experiment)
 - **VSCode Extension**: [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=Phodal.autodev)
 - **CLI Tool**: `npm install -g @xiuper/cli`
-- **Web Version**: https://web.xiuper.com/
-- **Desktop & Android**: [Release Pages](https://github.com/phodal/auto-dev/releases)
-- **iOS**: You need to build it from source code.
+- **Web App**: [web.xiuper.com](https://web.xiuper.com/)
+- **Desktop & Android**: [GitHub Releases](https://github.com/phodal/auto-dev/releases)
+- **iOS**: Build from source.
 
 ### Previous Versions
 
@@ -37,29 +37,29 @@ VSCode, CLI, Web, Desktop, Android, iOS, Server).
 | **mpp-server**       | Server              | ✅ Production        | JVM (Ktor)                                            |
 | **mpp-ios**          | iOS                 | 🚧 Production Ready | Native iOS app (SwiftUI + Compose)                    |
 
-### 🌟 Key Features
+### Key Features
 
-**Xiuper Edition** represents a major milestone in AI-powered development:
+**Xiuper Edition** marks a major milestone in AI-assisted development:
 
-- **One Platform**: Unified Kotlin Multiplatform architecture - write once, deploy everywhere
-- **All Phases**: 7 specialized agents covering complete software development lifecycle
+- **One Platform**: Unified Kotlin Multiplatform architecture—write once, run anywhere
+- **All Phases**: Seven specialized agents covering the full software development lifecycle
   - Requirements → Development → Review → Testing → Data → Deployment → Operations
-- **Every Device**: Native support for 8+ platforms with zero compromise on performance
-  - IDE: IntelliJ IDEA, VSCode
+- **Every Device**: Native support for 8+ platforms without compromising performance
+  - IDE: IntelliJ IDEA, VS Code
   - Desktop: macOS, Windows, Linux (Compose Multiplatform)
   - Mobile: Android, iOS (Native + Compose)
-  - Terminal: CLI (Node.js with React/Ink)
-  - Web: Modern web app
+  - Terminal: CLI (Node.js + React/Ink)
+  - Web: Web app
   - Server: Remote agent server (Ktor)
 - **Multi-LLM Support**: OpenAI, Anthropic, Google, DeepSeek, Ollama, and more
-- **DevIns Language**: Executable AI Agent scripting language for workflow automation
-- **MCP Protocol**: Extensible tool ecosystem via Model Context Protocol
-- **Code Intelligence**: TreeSitter-based parsing for Java, Kotlin, Python, JS, TS, Go, Rust, C#
+- **DevIns Language**: Executable agent scripting language for workflow automation
+- **MCP Protocol**: Extensible tool ecosystem via Model Context Protocol (MCP)
+- **Code Intelligence**: Tree-sitter based parsing for Java, Kotlin, Python, JavaScript/TypeScript, Go, Rust, C#
 - **Global Ready**: Full internationalization (Chinese/English)
 
-## 🤖 Builtin Agents
+## Built-in Agents
 
-AutoDev Xiuper includes 7 specialized AI agents mapped to the complete Software Development Lifecycle (SDLC):
+AutoDev Xiuper includes seven specialized agents mapped to the SDLC:
 
 | Agent         | SDLC Phase   | Description                                                                                        | Capabilities                      | Status    |
 |---------------|--------------|----------------------------------------------------------------------------------------------------|-----------------------------------|-----------|
@@ -71,7 +71,7 @@ AutoDev Xiuper includes 7 specialized AI agents mapped to the complete Software 
 | **WebEdit**   | Deployment   | Web editing agent for browsing pages, selecting DOM elements, and interacting with web content     | Inspect / Chat / Mapping          | 🔄 Beta   |
 | **Ops**       | Operations   | Operations monitoring agent for log analysis, performance monitoring, and alert handling           | Logs / Metrics / Alerts           | 🚧 Coming |
 
-Each agent is designed to handle specific phases of the development lifecycle, providing comprehensive AI assistance from requirements gathering to production operations.
+Each agent focuses on a specific phase of the lifecycle, providing end-to-end AI assistance—from requirements to production operations.
 
 ### Special-Purpose Agents
 
@@ -81,7 +81,7 @@ In addition to SDLC agents, AutoDev Xiuper includes specialized agents for speci
 |--------------|-------------|----------------------------------------------------------------------------------------------------------------|-------------------------------------------------------|----------|
 | **Artifact** | Quick Demos | Generate self-contained, executable artifacts (HTML/JS, React, Node.js, Python) inspired by Claude's Artifacts | Interactive preview / Auto-fix / Multi-format support | ✅ Stable |
 
-**Artifact Agent** focuses on creating complete, runnable artifacts without file system or shell access. Perfect for:
+**Artifact Agent** focuses on creating complete, runnable artifacts without file system or shell access. It's ideal for:
 - Quick prototyping and demos
 - Interactive web applications
 - Data visualizations
@@ -90,7 +90,7 @@ In addition to SDLC agents, AutoDev Xiuper includes specialized agents for speci
 
 ### SubAgents
 
-SubAgents are specialized micro-agents that can be invoked by the main Coding Agent to handle specific tasks. They follow the "Agent as Tool" architecture pattern:
+SubAgents are specialized micro-agents invoked by the main Coding Agent for focused tasks. They follow the "agent as tool" architecture pattern:
 
 | SubAgent                  | Purpose                                                                                  | Key Features                                                                          | Platform Support      |
 |---------------------------|------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------|-----------------------|
@@ -104,7 +104,7 @@ SubAgents are specialized micro-agents that can be invoked by the main Coding Ag
 | **SQL Revise Agent**      | Revise and optimize SQL queries based on schema and execution feedback                   | Schema-aware correction / Query optimization / Syntax validation                      | All platforms         |
 | **E2E Testing Agent**     | Perform end-to-end testing with visual understanding and self-healing locators           | Natural language test scenario generation / Multi-modal perception / Self-healing     | All platforms         |
 
-SubAgents enable modular, composable AI workflows where complex tasks are broken down into specialized sub-tasks, each handled by an expert agent.
+SubAgents enable modular, composable workflows: complex work is decomposed into focused sub-tasks, each handled by a specialized agent.
 
 ## License
 
