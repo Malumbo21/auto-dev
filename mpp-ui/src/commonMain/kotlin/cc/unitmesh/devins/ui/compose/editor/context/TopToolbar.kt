@@ -30,6 +30,7 @@ fun TopToolbar(
     autoAddCurrentFile: Boolean = true,
     onToggleAutoAdd: () -> Unit = {},
     searchProvider: FileSearchProvider = DefaultFileSearchProvider,
+    trailingContent: @Composable RowScope.() -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var isExpanded by remember { mutableStateOf(false) }
@@ -129,6 +130,9 @@ fun TopToolbar(
                 isActive = autoAddCurrentFile,
                 onClick = onToggleAutoAdd
             )
+
+            // Optional trailing content (engine selectors, etc.)
+            trailingContent()
 
             // Expand/Collapse button (only when multiple files)
             if (selectedFiles.size > 1) {

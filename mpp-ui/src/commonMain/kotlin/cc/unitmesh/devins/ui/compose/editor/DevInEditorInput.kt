@@ -4,9 +4,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -83,6 +86,13 @@ fun DevInEditorInput(
     onStopClick: () -> Unit = {},
     modifier: Modifier = Modifier,
     onModelConfigChange: (ModelConfig) -> Unit = {},
+    /**
+     * Optional agent engine selector (desktop only).
+     * When provided, the editor shows a dropdown in the top toolbar.
+     */
+    engine: String = "",
+    engineOptions: List<String> = emptyList(),
+    onEngineChange: (String) -> Unit = {},
     dismissKeyboardOnSend: Boolean = true,
     renderer: cc.unitmesh.devins.ui.compose.agent.ComposeRenderer? = null,
     fileSearchProvider: FileSearchProvider? = null,
@@ -645,7 +655,16 @@ fun DevInEditorInput(
                             onClearFiles = { selectedFiles = emptyList() },
                             autoAddCurrentFile = autoAddCurrentFile,
                             onToggleAutoAdd = { autoAddCurrentFile = !autoAddCurrentFile },
-                            searchProvider = effectiveSearchProvider
+                            searchProvider = effectiveSearchProvider,
+                            trailingContent = {
+                                if (engineOptions.isNotEmpty()) {
+                                    EngineSelector(
+                                        engine = engine,
+                                        engineOptions = engineOptions,
+                                        onEngineChange = onEngineChange
+                                    )
+                                }
+                            }
                         )
                     }
 
@@ -899,4 +918,41 @@ fun DevInEditorInput(
 
     // No auto-focus on any platform - user must tap to show keyboard
     // This provides consistent behavior across mobile and desktop
+}
+
+@Composable
+private fun RowScope.EngineSelector(
+    engine: String,
+    engineOptions: List<String>,
+    onEngineChange: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Box {
+        TextButton(
+            onClick = { expanded = true },
+            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+            modifier = Modifier.height(28.dp)
+        ) {
+            Text(
+                text = if (engine.isNotBlank()) "Engine: $engine" else "Engine",
+                style = MaterialTheme.typography.labelSmall
+            )
+        }
+
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            engineOptions.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option) },
+                    onClick = {
+                        onEngineChange(option)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
 }

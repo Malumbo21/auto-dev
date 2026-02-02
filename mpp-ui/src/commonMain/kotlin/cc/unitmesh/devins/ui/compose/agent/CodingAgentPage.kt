@@ -282,6 +282,7 @@ fun CodingAgentPage(
                         AgentType.LOCAL_CHAT,
                         AgentType.CODING -> {
                             runOutputDockContent()
+                            val engineOptions = remember { GuiAgentEngine.entries.map { it.displayName } }
                             DevInEditorInput(
                                 initialText = "",
                                 placeholder = "Describe your coding task...",
@@ -291,6 +292,11 @@ fun CodingAgentPage(
                                 isExecuting = viewModel.isExecuting,
                                 onStopClick = { viewModel.cancelTask() },
                                 onModelConfigChange = { /* Handle model config change if needed */ },
+                                engine = viewModel.currentEngine.displayName,
+                                engineOptions = engineOptions,
+                                onEngineChange = { display ->
+                                    GuiAgentEngine.fromDisplayName(display)?.let { viewModel.switchEngine(it) }
+                                },
                                 renderer = viewModel.renderer,
                                 modifier =
                                     Modifier

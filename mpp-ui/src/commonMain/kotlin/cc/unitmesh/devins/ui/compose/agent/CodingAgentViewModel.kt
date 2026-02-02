@@ -7,6 +7,9 @@ import cc.unitmesh.agent.AgentTask
 import cc.unitmesh.agent.AgentType
 import cc.unitmesh.agent.CodeReviewAgent
 import cc.unitmesh.agent.CodingAgent
+import cc.unitmesh.agent.external.ExternalCliCodingAgent
+import cc.unitmesh.agent.external.ExternalCliKind
+import cc.unitmesh.agent.external.ExternalCliMode
 import cc.unitmesh.agent.config.McpToolConfigManager
 import cc.unitmesh.agent.config.McpToolConfigService
 import cc.unitmesh.agent.config.PreloadingStatus
@@ -34,6 +37,14 @@ class CodingAgentViewModel(
     val renderer = ComposeRenderer()
 
     var currentAgentType by mutableStateOf(AgentType.CODING)
+        private set
+
+    /**
+     * GUI execution engine selection.
+     * - AUTODEV: our built-in CodingAgent (requires LLM config)
+     * - CLAUDE_CLI / CODEX_CLI: external CLIs (do not require LLM config inside Xiuper)
+     */
+    var currentEngine by mutableStateOf(GuiAgentEngine.AUTODEV)
         private set
 
     private var _codingAgent: CodingAgent? = null
@@ -150,6 +161,12 @@ class CodingAgentViewModel(
         }
     }
 
+    fun switchEngine(engine: GuiAgentEngine) {
+        if (currentEngine != engine) {
+            currentEngine = engine
+        }
+    }
+
     fun isConfigured(): Boolean = llmService != null
 
     fun executeTask(task: String, onConfigRequired: (() -> Unit)? = null) {
@@ -157,7 +174,10 @@ class CodingAgentViewModel(
             return
         }
 
-        if (!isConfigured()) {
+        // Engine-dependent config check:
+        // - AUTODEV engine requires local LLM config
+        // - External engines do not require Xiuper LLM config
+        if (currentEngine == GuiAgentEngine.AUTODEV && !isConfigured()) {
             renderer.addUserMessage(task)
             renderer.renderError("WARNING: LLM model is not configured. Please configure your model to continue.")
             onConfigRequired?.invoke()
@@ -173,36 +193,50 @@ class CodingAgentViewModel(
         renderer.clearError()
         renderer.addUserMessage(task)
 
-        currentExecutionJob =
-            scope.launch {
-                val codingAgent = initializeCodingAgent()
-                try {
-                    val agentTask =
-                        AgentTask(
-                            requirement = task,
-                            projectPath = projectPath,
-                            language = LanguageManager.getLanguage().code.uppercase()
-                        )
+        currentExecutionJob = scope.launch {
+            try {
+                val agentTask = AgentTask(
+                    requirement = task,
+                    projectPath = projectPath,
+                    language = LanguageManager.getLanguage().code.uppercase()
+                )
 
-                    val result = codingAgent.executeTask(agentTask)
-                    isExecuting = false
-                    currentExecutionJob = null
-                } catch (e: CancellationException) {
-                    renderer.forceStop() // Stop all loading states
-                    renderer.renderError("Task cancelled by user")
-                    isExecuting = false
-                    currentExecutionJob = null
-                } catch (e: Exception) {
-                    renderer.renderError(e.message ?: "Unknown error")
-                    isExecuting = false
-                    currentExecutionJob = null
-                } finally {
-                    saveConversationHistory(codingAgent)
+                when (currentEngine) {
+                    GuiAgentEngine.AUTODEV -> {
+                        val codingAgent = initializeCodingAgent()
+                        codingAgent.executeTask(agentTask)
+                    }
+                    GuiAgentEngine.CLAUDE_CLI -> {
+                        ExternalCliCodingAgent(
+                            projectPath = projectPath,
+                            kind = ExternalCliKind.CLAUDE,
+                            renderer = renderer,
+                            mode = ExternalCliMode.NON_INTERACTIVE
+                        ).executeTask(agentTask)
+                    }
+                    GuiAgentEngine.CODEX_CLI -> {
+                        ExternalCliCodingAgent(
+                            projectPath = projectPath,
+                            kind = ExternalCliKind.CODEX,
+                            renderer = renderer,
+                            mode = ExternalCliMode.NON_INTERACTIVE
+                        ).executeTask(agentTask)
+                    }
                 }
+            } catch (e: CancellationException) {
+                renderer.forceStop() // Stop all loading states
+                renderer.renderError("Task cancelled by user")
+            } catch (e: Exception) {
+                renderer.renderError(e.message ?: "Unknown error")
+            } finally {
+                isExecuting = false
+                currentExecutionJob = null
+                saveConversationHistory()
             }
+        }
     }
 
-    private suspend fun saveConversationHistory(codingAgent: CodingAgent) {
+    private suspend fun saveConversationHistory() {
         chatHistoryManager?.let { manager ->
             try {
                 // Get timeline snapshot with metadata from renderer
@@ -473,6 +507,18 @@ class CodingAgentViewModel(
             mcpToolsTotal = mcpToolsTotal,
             isLoading = McpToolConfigManager.isPreloading()
         )
+    }
+}
+
+enum class GuiAgentEngine(val displayName: String) {
+    AUTODEV("AutoDev"),
+    CLAUDE_CLI("Claude"),
+    CODEX_CLI("Codex");
+
+    companion object {
+        fun fromDisplayName(name: String): GuiAgentEngine? {
+            return entries.firstOrNull { it.displayName.equals(name, ignoreCase = true) }
+        }
     }
 }
 
