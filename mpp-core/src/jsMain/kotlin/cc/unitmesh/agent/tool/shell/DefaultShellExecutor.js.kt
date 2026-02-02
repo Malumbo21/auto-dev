@@ -59,38 +59,97 @@ class JsShellExecutor : ShellExecutor {
                 val childProcess = js("require('child_process')")
                 val startTime = js("Date.now()") as Double
 
-                val options = js("{}")
-                options.shell = config.shell ?: getDefaultShell()
-                config.workingDirectory?.let { options.cwd = it }
+                // Build env: inherit process.env then override with config.environment
+                val env = js("Object.assign({}, process.env)")
                 if (config.environment.isNotEmpty()) {
-                    options.env = js("{}")
                     config.environment.forEach { (key, value) ->
-                        options.env[key] = value
+                        env[key] = value
                     }
                 }
-                // Convert Long to Number for JavaScript
-                options.timeout = config.timeoutMs.toDouble()
 
-                childProcess.exec(command, options) { error: dynamic, stdout: dynamic, stderr: dynamic ->
-                    val endTime = js("Date.now()") as Double
-                    val executionTime = (endTime - startTime).toLong()
+                // Interactive mode: use spawn + stdio inherit to behave like a real terminal.
+                // This is important for CLIs (e.g., Claude Code) that require a TTY or print progressively.
+                if (config.inheritIO) {
+                    val spawnOptions = js("{}")
+                    spawnOptions.shell = config.shell ?: getDefaultShell()
+                    config.workingDirectory?.let { spawnOptions.cwd = it }
+                    spawnOptions.env = env
+                    spawnOptions.stdio = "inherit"
 
-                    val exitCode = if (error != null) {
-                        (error.code as? Int) ?: 1
-                    } else {
-                        0
+                    val child = childProcess.spawn(command, js("[]"), spawnOptions)
+
+                    // Enforce timeout manually (spawn doesn't support options.timeout like exec).
+                    val setTimeoutFn: dynamic = js("setTimeout")
+                    val clearTimeoutFn: dynamic = js("clearTimeout")
+                    val timeoutId: dynamic = setTimeoutFn({
+                        try {
+                            child.kill("SIGTERM")
+                        } catch (_: dynamic) {
+                            // ignore
+                        }
+                    }, config.timeoutMs.toDouble())
+
+                    child.on("error") { err: dynamic ->
+                        try {
+                            clearTimeoutFn(timeoutId)
+                        } catch (_: dynamic) {
+                            // ignore
+                        }
+                        reject(err)
                     }
 
-                    val result = ShellResult(
-                        exitCode = exitCode,
-                        stdout = stdout?.toString() ?: "",
-                        stderr = stderr?.toString() ?: "",
-                        command = command,
-                        workingDirectory = config.workingDirectory,
-                        executionTimeMs = executionTime
-                    )
+                    child.on("close") { code: dynamic ->
+                        try {
+                            clearTimeoutFn(timeoutId)
+                        } catch (_: dynamic) {
+                            // ignore
+                        }
 
-                    resolve(result)
+                        val endTime = js("Date.now()") as Double
+                        val executionTime = (endTime - startTime).toLong()
+                        val exitCode = (code as? Int) ?: 0
+
+                        resolve(
+                            ShellResult(
+                                exitCode = exitCode,
+                                stdout = "",
+                                stderr = "",
+                                command = command,
+                                workingDirectory = config.workingDirectory,
+                                executionTimeMs = executionTime
+                            )
+                        )
+                    }
+                } else {
+                    // Non-interactive mode: use exec and capture output.
+                    val options = js("{}")
+                    options.shell = config.shell ?: getDefaultShell()
+                    config.workingDirectory?.let { options.cwd = it }
+                    options.env = env
+                    // Convert Long to Number for JavaScript
+                    options.timeout = config.timeoutMs.toDouble()
+
+                    childProcess.exec(command, options) { error: dynamic, stdout: dynamic, stderr: dynamic ->
+                        val endTime = js("Date.now()") as Double
+                        val executionTime = (endTime - startTime).toLong()
+
+                        val exitCode = if (error != null) {
+                            (error.code as? Int) ?: 1
+                        } else {
+                            0
+                        }
+
+                        val result = ShellResult(
+                            exitCode = exitCode,
+                            stdout = stdout?.toString() ?: "",
+                            stderr = stderr?.toString() ?: "",
+                            command = command,
+                            workingDirectory = config.workingDirectory,
+                            executionTimeMs = executionTime
+                        )
+
+                        resolve(result)
+                    }
                 }
             } catch (e: Exception) {
                 reject(e)
