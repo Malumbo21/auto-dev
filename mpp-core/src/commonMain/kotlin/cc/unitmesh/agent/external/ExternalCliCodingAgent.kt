@@ -151,20 +151,10 @@ class ExternalCliCodingAgent(
             ExternalCliKind.CLAUDE -> when (mode) {
                 ExternalCliMode.NON_INTERACTIVE -> buildString {
                     append(kind.binary)
-                    append(" -p --output-format text ")
-                    if (args.isNotBlank()) append(args).append(' ')
-                    append(promptArg)
-                }
-                ExternalCliMode.INTERACTIVE -> buildString {
-                    append(kind.binary).append(' ')
-                    if (args.isNotBlank()) append(args).append(' ')
-                    append(promptArg)
-                }
-            }
-            ExternalCliKind.CODEX -> when (mode) {
-                ExternalCliMode.NON_INTERACTIVE -> buildString {
-                    append(kind.binary)
-                    append(" exec --color auto -a never -s workspace-write -C ")
+                    // -p: print mode (non-interactive), --output-format text: plain text output
+                    // --add-dir: allow tool access to project directory
+                    // --permission-mode default: use default permissions (no interactive prompts in -p mode)
+                    append(" -p --output-format text --add-dir ")
                     append(ShellUtils.escapeShellArg(projectPath))
                     append(' ')
                     if (args.isNotBlank()) append(args).append(' ')
@@ -172,7 +162,27 @@ class ExternalCliCodingAgent(
                 }
                 ExternalCliMode.INTERACTIVE -> buildString {
                     append(kind.binary)
-                    append(" -C ")
+                    append(" --add-dir ")
+                    append(ShellUtils.escapeShellArg(projectPath))
+                    append(' ')
+                    if (args.isNotBlank()) append(args).append(' ')
+                    append(promptArg)
+                }
+            }
+            ExternalCliKind.CODEX -> when (mode) {
+                ExternalCliMode.NON_INTERACTIVE -> buildString {
+                    append(kind.binary)
+                    // codex exec: --full-auto = auto approval + workspace-write sandbox
+                    append(" exec --full-auto --color auto -C ")
+                    append(ShellUtils.escapeShellArg(projectPath))
+                    append(' ')
+                    if (args.isNotBlank()) append(args).append(' ')
+                    append(promptArg)
+                }
+                ExternalCliMode.INTERACTIVE -> buildString {
+                    append(kind.binary)
+                    // Interactive mode: use main codex command with full-auto for sandboxed execution
+                    append(" --full-auto -C ")
                     append(ShellUtils.escapeShellArg(projectPath))
                     append(" --no-alt-screen ")
                     if (args.isNotBlank()) append(args).append(' ')
