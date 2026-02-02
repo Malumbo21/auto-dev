@@ -15,6 +15,24 @@ import com.intellij.util.xmlb.XmlSerializerUtil
 class AutoDevSettingsState : PersistentStateComponent<AutoDevSettingsState> {
     var delaySeconds = ""
 
+    // ===== ACP (Agent Client Protocol) integration =====
+    /**
+     * ACP agent command to run (local process).
+     * Example: `node`, `python`, `autodev-agent`, etc.
+     */
+    var acpCommand = ""
+
+    /**
+     * ACP agent args as a single string (will be parsed into argv).
+     * Example: `path/to/agent.js --stdio`.
+     */
+    var acpArgs = ""
+
+    /**
+     * ACP agent environment variables in "KEY=VALUE" lines.
+     */
+    var acpEnv = ""
+
     // Legacy fields - kept for backward compatibility but deprecated
     @Deprecated("Use defaultModelId instead")
     var customOpenAiHost = ""
