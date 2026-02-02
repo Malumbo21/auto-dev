@@ -1,6 +1,9 @@
 package cc.unitmesh.agent
 
 import cc.unitmesh.agent.config.JsToolConfigFile
+import cc.unitmesh.agent.external.ExternalCliCodingAgent
+import cc.unitmesh.agent.external.ExternalCliKind
+import cc.unitmesh.agent.external.ExternalCliMode
 import cc.unitmesh.agent.render.DefaultCodingAgentRenderer
 import cc.unitmesh.llm.JsMessage
 import kotlinx.coroutines.GlobalScope
@@ -215,6 +218,47 @@ class JsCodingAgent(
 
         return {
             job.cancel()
+        }
+    }
+}
+
+@JsExport
+class JsExternalCliAgent(
+    private val projectPath: String,
+    /**
+     * External engine id: "claude" or "codex"
+     */
+    private val engine: String,
+    /**
+     * "non-interactive" or "interactive"
+     */
+    private val mode: String = "non-interactive",
+    private val timeoutMs: Int = 30 * 60 * 1000,
+    private val extraArgs: Array<String> = emptyArray(),
+    private val renderer: JsCodingAgentRenderer? = null,
+) {
+    private val agent: ExternalCliCodingAgent = ExternalCliCodingAgent(
+        projectPath = projectPath,
+        kind = ExternalCliKind.fromId(engine) ?: ExternalCliKind.CLAUDE,
+        renderer = if (renderer != null) JsRendererAdapter(renderer) else DefaultCodingAgentRenderer(),
+        mode = ExternalCliMode.fromId(mode) ?: ExternalCliMode.NON_INTERACTIVE,
+        timeoutMs = timeoutMs.toLong(),
+        extraArgs = extraArgs.toList()
+    )
+
+    @JsName("executeTask")
+    fun executeTask(task: JsAgentTask): Promise<JsAgentResult> {
+        return GlobalScope.promise {
+            val kotlinTask = task.toCommon()
+            val result = agent.executeTask(kotlinTask)
+            JsAgentResult.fromCommon(result)
+        }
+    }
+
+    @JsName("initializeWorkspace")
+    fun initializeWorkspace(): Promise<Unit> {
+        return GlobalScope.promise {
+            agent.initializeWorkspace(projectPath)
         }
     }
 }

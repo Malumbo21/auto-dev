@@ -187,6 +187,63 @@ async function runCodingAgent(projectPath: string, task: string, quiet: boolean 
 }
 
 /**
+ * Run via an external CLI coding agent (e.g., Claude Code / Codex CLI).
+ * This mode does not require local LLM configuration in Xiuper.
+ */
+async function runExternalCliAgent(
+  projectPath: string,
+  task: string,
+  engine: string,
+  engineMode: string,
+  engineArgs: string[] = [],
+  timeoutMs: number = 30 * 60 * 1000,
+  quiet: boolean = false
+) {
+  try {
+    const resolvedPath = path.resolve(projectPath);
+
+    if (!fs.existsSync(resolvedPath)) {
+      console.error(`❌ Project path does not exist: ${resolvedPath}`);
+      process.exit(1);
+    }
+
+    if (!quiet) {
+      console.log(`\n🚀 Xiuper External Coding Agent`);
+      console.log(`🔧 Engine: ${engine} (${engineMode})`);
+      if (engineArgs.length > 0) {
+        console.log(`🧩 Engine args: ${engineArgs.join(' ')}`);
+      }
+      console.log();
+    }
+
+    const renderer = new CliRenderer();
+    const agent = new KotlinCC.unitmesh.agent.JsExternalCliAgent(
+      resolvedPath,
+      engine,
+      engineMode,
+      timeoutMs,
+      engineArgs,
+      renderer
+    );
+
+    const taskObj = new KotlinCC.unitmesh.agent.JsAgentTask(task, resolvedPath);
+    const result = await agent.executeTask(taskObj);
+
+    if (!quiet) {
+      console.log(result.success ? '✅ Task completed successfully' : '❌ Task failed');
+      if (result.message) {
+        console.log(result.message);
+      }
+    }
+
+    process.exit(result.success ? 0 : 1);
+  } catch (error) {
+    console.error('❌ Fatal error:', error);
+    process.exit(1);
+  }
+}
+
+/**
  * Run in server mode - connect to remote mpp-server
  */
 async function runServerAgent(
@@ -397,12 +454,34 @@ async function main() {
     .description('Run autonomous coding agent to complete a task (local)')
     .requiredOption('-p, --path <path>', 'Project path (e.g., /path/to/project or . for current directory)')
     .requiredOption('-t, --task <task>', 'Development task or requirement to complete')
+    .option('--engine <engine>', 'Engine: autodev | claude | codex', 'autodev')
+    .option('--engine-mode <mode>', 'Engine mode: non-interactive | interactive', 'non-interactive')
+    .option('--engine-arg <arg>', 'Extra argument for external engine (repeatable)', (value, previous: string[]) => {
+      previous.push(value);
+      return previous;
+    }, [])
+    .option('--timeout-ms <ms>', 'Timeout in milliseconds for external engine', '1800000')
     .option('-m, --max-iterations <number>', 'Maximum iterations', '20')
     .option('-q, --quiet', 'Quiet mode - only show important messages', false)
     .option('-v, --verbose', 'Verbose mode - show all debug information', false)
     .action(async (options) => {
       const projectPath = options.path === '.' ? process.cwd() : options.path;
-      await runCodingAgent(projectPath, options.task, options.quiet && !options.verbose);
+      const quiet = options.quiet && !options.verbose;
+
+      if (options.engine && options.engine !== 'autodev') {
+        const timeoutMs = Number.parseInt(options.timeoutMs, 10);
+        await runExternalCliAgent(
+          projectPath,
+          options.task,
+          options.engine,
+          options.engineMode,
+          options.engineArg || [],
+          Number.isFinite(timeoutMs) ? timeoutMs : 30 * 60 * 1000,
+          quiet
+        );
+      } else {
+        await runCodingAgent(projectPath, options.task, quiet);
+      }
     });
 
   // Server mode (remote)
