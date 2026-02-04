@@ -396,6 +396,23 @@ project(":") {
         // Note: We use Dispatchers.EDT from IntelliJ Platform instead of Dispatchers.Swing
         compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
 
+        // ===== ACP (Agent Client Protocol) =====
+        // Local ACP agent integration uses JSON-RPC over stdio.
+        // Exclude kotlinx deps to avoid conflicts with IntelliJ's bundled versions.
+        implementation("com.agentclientprotocol:acp:0.10.5") {
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core-jvm")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json-jvm")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-core")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-core-jvm")
+            // We provide kotlinx-io explicitly below.
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-io-core")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-io-core-jvm")
+        }
+        // ACP stdio transport uses kotlinx-io (not bundled by IntelliJ).
+        implementation("org.jetbrains.kotlinx:kotlinx-io-core:0.8.0")
+
         // mpp-core dependency for root project - use published artifact
         implementation("cc.unitmesh:mpp-core:${prop("mppVersion")}") {
             // Exclude Compose dependencies from mpp-core as well

@@ -15,10 +15,14 @@ import cc.unitmesh.devins.idea.toolwindow.codereview.IdeaCodeReviewContent
 import cc.unitmesh.devins.idea.toolwindow.codereview.IdeaCodeReviewViewModel
 import cc.unitmesh.devins.idea.components.header.IdeaAgentTabsHeader
 import cc.unitmesh.devins.idea.components.IdeaVerticalResizableSplitPane
+import cc.unitmesh.devins.idea.toolwindow.acp.IdeaAcpAgentContent
+import cc.unitmesh.devins.idea.toolwindow.acp.IdeaAcpAgentViewModel
 import cc.unitmesh.devins.idea.toolwindow.knowledge.IdeaKnowledgeContent
 import cc.unitmesh.devins.idea.toolwindow.knowledge.IdeaKnowledgeViewModel
 import cc.unitmesh.devins.idea.toolwindow.remote.IdeaRemoteAgentContent
 import cc.unitmesh.devins.idea.toolwindow.remote.IdeaRemoteAgentViewModel
+import cc.unitmesh.devins.idea.toolwindow.remote.IdeaRemoteModeSelector
+import cc.unitmesh.devins.idea.toolwindow.remote.RemoteAgentMode
 import cc.unitmesh.devins.idea.toolwindow.remote.getEffectiveProjectId
 import cc.unitmesh.devins.idea.toolwindow.webedit.IdeaWebEditContent
 import cc.unitmesh.devins.idea.toolwindow.webedit.IdeaWebEditViewModel
@@ -130,6 +134,9 @@ fun IdeaAgentApp(
     // Remote Agent ViewModel (created lazily when needed)
     var remoteAgentViewModel by remember { mutableStateOf<IdeaRemoteAgentViewModel?>(null) }
 
+    // ACP Agent ViewModel (created lazily when needed)
+    var acpAgentViewModel by remember { mutableStateOf<IdeaAcpAgentViewModel?>(null) }
+
     // WebEdit ViewModel (created lazily when needed)
     var webEditViewModel by remember { mutableStateOf<IdeaWebEditViewModel?>(null) }
 
@@ -164,30 +171,28 @@ fun IdeaAgentApp(
                 serverUrl = "http://localhost:8080"
             )
         }
+        if (currentAgentType == AgentType.REMOTE && acpAgentViewModel == null) {
+            acpAgentViewModel = IdeaAcpAgentViewModel(project, coroutineScope)
+        }
         if (currentAgentType == AgentType.WEB_EDIT && webEditViewModel == null) {
             webEditViewModel = IdeaWebEditViewModel(project, coroutineScope)
         }
     }
 
-    // Dispose ViewModels when leaving their tabs
-    DisposableEffect(currentAgentType) {
+    // Dispose ViewModels when the tool window is disposed.
+    // Keeping them alive across tab switches avoids reconnect churn and prevents leaks.
+    DisposableEffect(Unit) {
         onDispose {
-            if (currentAgentType != AgentType.CODE_REVIEW) {
-                codeReviewViewModel?.dispose()
-                codeReviewViewModel = null
-            }
-            if (currentAgentType != AgentType.KNOWLEDGE) {
-                knowledgeViewModel?.dispose()
-                knowledgeViewModel = null
-            }
-            if (currentAgentType != AgentType.REMOTE) {
-                remoteAgentViewModel?.dispose()
-                remoteAgentViewModel = null
-            }
-            if (currentAgentType != AgentType.WEB_EDIT) {
-                webEditViewModel?.dispose()
-                webEditViewModel = null
-            }
+            codeReviewViewModel?.dispose()
+            knowledgeViewModel?.dispose()
+            remoteAgentViewModel?.dispose()
+            acpAgentViewModel?.dispose()
+            webEditViewModel?.dispose()
+            codeReviewViewModel = null
+            knowledgeViewModel = null
+            remoteAgentViewModel = null
+            acpAgentViewModel = null
+            webEditViewModel = null
         }
     }
 
@@ -306,13 +311,22 @@ fun IdeaAgentApp(
                 )
             }
             AgentType.REMOTE -> {
-                remoteAgentViewModel?.let { remoteVm ->
-                    // Use manual state collection for remote agent states
+                val remoteVm = remoteAgentViewModel
+                val acpVm = acpAgentViewModel
+                if (remoteVm != null && acpVm != null) {
+                    var remoteMode by remember { mutableStateOf(RemoteAgentMode.SERVER) }
                     var remoteIsExecuting by remember { mutableStateOf(false) }
+                    var acpIsExecuting by remember { mutableStateOf(false) }
 
                     IdeaLaunchedEffect(remoteVm, project = project) {
                         remoteVm.isExecuting.collect { remoteIsExecuting = it }
                     }
+                    IdeaLaunchedEffect(acpVm, project = project) {
+                        acpVm.isExecuting.collect { acpIsExecuting = it }
+                    }
+
+                    val isRemoteProcessing = remoteMode == RemoteAgentMode.SERVER && remoteIsExecuting
+                    val isAcpProcessing = remoteMode == RemoteAgentMode.ACP && acpIsExecuting
 
                     IdeaVerticalResizableSplitPane(
                         modifier = Modifier.fillMaxWidth().weight(1f),
@@ -320,27 +334,66 @@ fun IdeaAgentApp(
                         minRatio = 0.3f,
                         maxRatio = 0.9f,
                         top = {
-                            IdeaRemoteAgentContent(
-                                viewModel = remoteVm,
-                                listState = listState,
-                                onProjectIdChange = { remoteProjectId = it },
-                                onGitUrlChange = { remoteGitUrl = it }
-                            )
+                            Column(modifier = Modifier.fillMaxSize()) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.Start
+                                ) {
+                                    IdeaRemoteModeSelector(
+                                        mode = remoteMode,
+                                        onModeChange = { remoteMode = it }
+                                    )
+                                }
+                                Divider(Orientation.Horizontal, modifier = Modifier.fillMaxWidth().height(1.dp))
+
+                                when (remoteMode) {
+                                    RemoteAgentMode.SERVER -> {
+                                        IdeaRemoteAgentContent(
+                                            viewModel = remoteVm,
+                                            listState = listState,
+                                            onProjectIdChange = { remoteProjectId = it },
+                                            onGitUrlChange = { remoteGitUrl = it },
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    }
+                                    RemoteAgentMode.ACP -> {
+                                        IdeaAcpAgentContent(
+                                            viewModel = acpVm,
+                                            listState = listState,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    }
+                                }
+                            }
                         },
                         bottom = {
                             IdeaDevInInputArea(
                                 project = project,
                                 parentDisposable = viewModel,
-                                isProcessing = remoteIsExecuting,
+                                isProcessing = isRemoteProcessing || isAcpProcessing,
                                 onSend = { task ->
-                                    val effectiveProjectId = getEffectiveProjectId(remoteProjectId, remoteGitUrl)
-                                    if (effectiveProjectId.isNotBlank()) {
-                                        remoteVm.executeTask(effectiveProjectId, task, remoteGitUrl)
-                                    } else {
-                                        remoteVm.renderer.renderError("Please provide a project or Git URL")
+                                    when (remoteMode) {
+                                        RemoteAgentMode.SERVER -> {
+                                            val effectiveProjectId = getEffectiveProjectId(remoteProjectId, remoteGitUrl)
+                                            if (effectiveProjectId.isNotBlank()) {
+                                                remoteVm.executeTask(effectiveProjectId, task, remoteGitUrl)
+                                            } else {
+                                                remoteVm.renderer.renderError("Please provide a project or Git URL")
+                                            }
+                                        }
+                                        RemoteAgentMode.ACP -> {
+                                            acpVm.sendMessage(task)
+                                        }
                                     }
                                 },
-                                onAbort = { remoteVm.cancelTask() },
+                                onAbort = {
+                                    when (remoteMode) {
+                                        RemoteAgentMode.SERVER -> remoteVm.cancelTask()
+                                        RemoteAgentMode.ACP -> acpVm.cancelTask()
+                                    }
+                                },
                                 workspacePath = project.basePath,
                                 totalTokens = null,
                                 onAtClick = {},
@@ -355,7 +408,9 @@ fun IdeaAgentApp(
                             )
                         }
                     )
-                } ?: IdeaEmptyStateMessage("Loading Remote Agent...")
+                } else {
+                    IdeaEmptyStateMessage("Loading Remote Agent...")
+                }
             }
             AgentType.CODE_REVIEW -> {
                 Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
