@@ -42,6 +42,8 @@ class ClaudeCodeClient(
     private var sessionId: String? = null
 
     private val toolUseNames = mutableMapOf<String, String>()
+    // Track which tool IDs have been rendered to avoid duplicates
+    private val renderedToolIds = mutableSetOf<String>()
 
     val isConnected: Boolean get() = process?.isAlive == true
 
@@ -58,7 +60,12 @@ class ClaudeCodeClient(
         cmd.add("--include-partial-messages")
 
         model?.let { cmd.addAll(listOf("--model", it)) }
-        permissionMode?.let { cmd.addAll(listOf("--permission-mode", it)) }
+        
+        // Default to acceptEdits if not specified - this auto-approves Edit/Write operations
+        // while still prompting for dangerous operations like Bash. For full automation, 
+        // users can configure permission-mode=bypassPermissions in config.yaml.
+        val effectivePermissionMode = permissionMode ?: "acceptEdits"
+        cmd.addAll(listOf("--permission-mode", effectivePermissionMode))
         
         // Disable AskUserQuestion tool - not supported in stream-json mode without
         // interactive CLI capabilities. Claude Code's AskUserQuestion expects terminal
@@ -175,15 +182,14 @@ class ClaudeCodeClient(
                                         val toolName = block.name ?: "unknown"
                                         val index = event.index ?: -1
                                         toolUseNames[toolId] = toolName
-                                        toolCount++
                                         
                                         // Initialize StringBuilder for this tool's input JSON
                                         if (index >= 0) {
                                             pendingToolInputs[index] = StringBuilder()
                                         }
                                         
-                                        // Render tool call with empty params (will be updated as JSON streams in)
-                                        renderer.renderToolCall(toolName, "")
+                                        // DO NOT render yet - wait for assistant message with full params
+                                        // This avoids showing "Bash" with no parameters
                                     }
                                 }
                             }
@@ -243,21 +249,18 @@ class ClaudeCodeClient(
                                     val toolId = c.id ?: ""
                                     val toolName = c.name ?: "unknown"
                                     
-                                    // Parse tool input to a readable map
-                                    val inputMap = try {
-                                        c.input?.let { parseJsonToMap(it.toString()) } ?: emptyMap()
-                                    } catch (_: Exception) {
-                                        emptyMap()
-                                    }
+                                    // Only render if not already rendered
+                                    if (!renderedToolIds.contains(toolId)) {
+                                        // Parse tool input to a readable map
+                                        val inputMap = try {
+                                            c.input?.let { parseJsonToMap(it.toString()) } ?: emptyMap()
+                                        } catch (_: Exception) {
+                                            emptyMap()
+                                        }
 
-                                    // Only render if not already rendered via stream_event
-                                    if (!toolUseNames.containsKey(toolId)) {
-                                        toolUseNames[toolId] = toolName
                                         toolCount++
                                         renderer.renderToolCallWithParams(toolName, inputMap)
-                                    } else {
-                                        // Tool was rendered during stream, now update with full params
-                                        renderer.renderToolCallWithParams(toolName, inputMap)
+                                        renderedToolIds.add(toolId)
                                     }
                                 }
                                 "tool_result" -> {
@@ -334,7 +337,9 @@ class ClaudeCodeClient(
         reader = null
         process = null
         logWriter = null
+        sessionId = null
         toolUseNames.clear()
+        renderedToolIds.clear()
         logger.info { "[ClaudeCode] Stopped" }
     }
 
