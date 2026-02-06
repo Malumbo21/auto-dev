@@ -289,7 +289,6 @@ private fun AgentTypeTab(
                     AgentType.CHAT_DB -> AutoDevComposeIcons.Database
                     AgentType.WEB_EDIT -> AutoDevComposeIcons.Language
                     AgentType.ARTIFACT -> AutoDevComposeIcons.Code // Artifact agent icon
-                    AgentType.CUSTOM_AGENT -> AutoDevComposeIcons.Terminal // External ACP agent
                 },
                 contentDescription = null,
                 tint = contentColor,

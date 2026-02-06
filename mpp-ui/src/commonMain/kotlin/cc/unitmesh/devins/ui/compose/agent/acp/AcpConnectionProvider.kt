@@ -1,24 +1,7 @@
 package cc.unitmesh.devins.ui.compose.agent.acp
 
+import cc.unitmesh.agent.render.CodingAgentRenderer
 import cc.unitmesh.config.AcpAgentConfig
-
-/**
- * Callbacks for receiving ACP session updates from an external agent.
- */
-data class AcpSessionCallbacks(
-    val onTextChunk: (String) -> Unit = {},
-    val onThoughtChunk: (String) -> Unit = {},
-    val onToolCall: (title: String, status: String, input: String?, output: String?) -> Unit =
-        { _, _, _, _ -> },
-    val onPlanUpdate: (entries: List<PlanEntry>) -> Unit = {},
-    val onError: (String) -> Unit = {},
-    val onComplete: (stopReason: String) -> Unit = {}
-)
-
-data class PlanEntry(
-    val content: String,
-    val status: String
-)
 
 /**
  * Cross-platform ACP connection provider.
@@ -35,6 +18,9 @@ expect fun isAcpSupported(): Boolean
 
 /**
  * Abstract ACP connection that manages the lifecycle of an external ACP agent process.
+ *
+ * Events are streamed directly to a [CodingAgentRenderer], allowing seamless integration
+ * with the existing timeline UI (ComposeRenderer).
  */
 interface AcpConnection {
     val isConnected: Boolean
@@ -42,12 +28,12 @@ interface AcpConnection {
     /**
      * Connect to the ACP agent: spawn the process, initialize protocol, create session.
      */
-    suspend fun connect(config: AcpAgentConfig, cwd: String, callbacks: AcpSessionCallbacks)
+    suspend fun connect(config: AcpAgentConfig, cwd: String)
 
     /**
-     * Send a prompt to the agent and wait for completion.
+     * Send a prompt to the agent. Events are streamed to the provided [renderer].
      */
-    suspend fun prompt(text: String): String
+    suspend fun prompt(text: String, renderer: CodingAgentRenderer): String
 
     /**
      * Cancel the current prompt.

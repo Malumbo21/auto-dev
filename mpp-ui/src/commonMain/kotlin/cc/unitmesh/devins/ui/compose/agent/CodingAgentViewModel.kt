@@ -17,9 +17,13 @@ import cc.unitmesh.agent.diff.FileChangeTracker
 import cc.unitmesh.agent.tool.shell.ShellSessionManager
 import cc.unitmesh.agent.tool.schema.ToolCategory
 import cc.unitmesh.agent.tool.ToolType
+import cc.unitmesh.config.AcpAgentConfig
 import cc.unitmesh.devins.filesystem.DefaultProjectFileSystem
 import cc.unitmesh.devins.llm.ChatHistoryManager
 import cc.unitmesh.devins.llm.MessageRole
+import cc.unitmesh.devins.ui.compose.agent.acp.AcpConnection
+import cc.unitmesh.devins.ui.compose.agent.acp.createAcpConnection
+import cc.unitmesh.devins.ui.compose.agent.acp.isAcpSupported
 import cc.unitmesh.devins.ui.i18n.LanguageManager
 import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.indexer.DomainDictGenerator
@@ -43,8 +47,27 @@ class CodingAgentViewModel(
      * GUI execution engine selection.
      * - AUTODEV: our built-in CodingAgent (requires LLM config)
      * - CLAUDE_CLI / CODEX_CLI: external CLIs (do not require LLM config inside Xiuper)
+     * - ACP agents: external ACP-compliant agents (e.g., Kimi CLI, Claude --acp)
      */
     var currentEngine by mutableStateOf(GuiAgentEngine.AUTODEV)
+        private set
+
+    /**
+     * Currently selected ACP agent config (non-null when an ACP engine is active).
+     */
+    var currentAcpAgentConfig by mutableStateOf<AcpAgentConfig?>(null)
+        private set
+
+    /**
+     * Active ACP connection (lazy-created when an ACP engine is selected).
+     */
+    private var acpConnection: AcpConnection? = null
+
+    /**
+     * Configured ACP agents loaded from config.
+     * Key is the agent identifier, value is the config.
+     */
+    var acpAgents by mutableStateOf<Map<String, AcpAgentConfig>>(emptyMap())
         private set
 
     private var _codingAgent: CodingAgent? = null
@@ -75,6 +98,11 @@ class CodingAgentViewModel(
             scope.launch {
                 startMcpPreloading()
             }
+        }
+
+        // Load ACP agent configurations
+        scope.launch {
+            loadAcpAgents()
         }
     }
 
@@ -164,7 +192,86 @@ class CodingAgentViewModel(
     fun switchEngine(engine: GuiAgentEngine) {
         if (currentEngine != engine) {
             currentEngine = engine
+            // Clear ACP agent when switching to a built-in engine
+            if (currentAcpAgentConfig != null) {
+                scope.launch { disconnectAcp() }
+                currentAcpAgentConfig = null
+            }
         }
+    }
+
+    /**
+     * Switch to a named ACP agent engine.
+     * @param agentKey the key in the acpAgents map
+     */
+    fun switchToAcpAgent(agentKey: String) {
+        val config = acpAgents[agentKey] ?: return
+        currentAcpAgentConfig = config
+        // Mark engine as ACP (we reuse AUTODEV but the actual execution will check currentAcpAgentConfig)
+        currentEngine = GuiAgentEngine.ACP
+    }
+
+    /**
+     * The display name of the currently selected engine (for the dropdown).
+     */
+    val currentEngineDisplay: String
+        get() = currentAcpAgentConfig?.name ?: currentEngine.displayName
+
+    /**
+     * Get the full list of available engine display names.
+     * Includes built-in engines + configured ACP agents.
+     */
+    fun getAvailableEngineOptions(): List<String> {
+        val builtIn = GuiAgentEngine.entries
+            .filter { it != GuiAgentEngine.ACP }
+            .map { it.displayName }
+        val acpNames = acpAgents.values
+            .filter { it.isConfigured() }
+            .map { it.name }
+        return builtIn + acpNames
+    }
+
+    /**
+     * Handle engine selection from the dropdown (by display name).
+     */
+    fun selectEngine(displayName: String) {
+        // Check built-in engines first
+        val builtIn = GuiAgentEngine.fromDisplayName(displayName)
+        if (builtIn != null && builtIn != GuiAgentEngine.ACP) {
+            switchEngine(builtIn)
+            return
+        }
+        // Check ACP agents
+        val acpEntry = acpAgents.entries.find { it.value.name == displayName }
+        if (acpEntry != null) {
+            switchToAcpAgent(acpEntry.key)
+        }
+    }
+
+    /**
+     * Load ACP agents from config file.
+     */
+    suspend fun loadAcpAgents() {
+        try {
+            val configWrapper = ConfigManager.load()
+            acpAgents = configWrapper.getAcpAgents()
+        } catch (e: Exception) {
+            println("[ACP] Failed to load ACP agent configs: ${e.message}")
+        }
+    }
+
+    /**
+     * Reload ACP agents (called after config dialog saves).
+     */
+    fun reloadAcpAgents() {
+        scope.launch { loadAcpAgents() }
+    }
+
+    private suspend fun disconnectAcp() {
+        try {
+            acpConnection?.disconnect()
+        } catch (_: Exception) {}
+        acpConnection = null
     }
 
     fun isConfigured(): Boolean = llmService != null
@@ -176,7 +283,7 @@ class CodingAgentViewModel(
 
         // Engine-dependent config check:
         // - AUTODEV engine requires local LLM config
-        // - External engines do not require Xiuper LLM config
+        // - External engines (CLI, ACP) do not require Xiuper LLM config
         if (currentEngine == GuiAgentEngine.AUTODEV && !isConfigured()) {
             renderer.addUserMessage(task)
             renderer.renderError("WARNING: LLM model is not configured. Please configure your model to continue.")
@@ -222,6 +329,9 @@ class CodingAgentViewModel(
                             mode = ExternalCliMode.NON_INTERACTIVE
                         ).executeTask(agentTask)
                     }
+                    GuiAgentEngine.ACP -> {
+                        executeAcpTask(task)
+                    }
                 }
             } catch (e: CancellationException) {
                 renderer.forceStop() // Stop all loading states
@@ -234,6 +344,43 @@ class CodingAgentViewModel(
                 saveConversationHistory()
             }
         }
+    }
+
+    /**
+     * Execute a task via ACP agent.
+     * Connects if needed, then sends the prompt with events streamed to the ComposeRenderer.
+     */
+    private suspend fun executeAcpTask(task: String) {
+        val config = currentAcpAgentConfig
+            ?: throw IllegalStateException("No ACP agent configured")
+
+        if (!isAcpSupported()) {
+            renderer.renderError("ACP agents are not supported on this platform")
+            return
+        }
+
+        // Connect if not already connected
+        if (acpConnection?.isConnected != true) {
+            renderer.renderLLMResponseStart()
+            renderer.renderLLMResponseChunk("Connecting to ${config.name}...")
+            renderer.renderLLMResponseEnd()
+
+            try {
+                disconnectAcp() // Clean up any stale connection
+                val connection = createAcpConnection()
+                    ?: throw IllegalStateException("Failed to create ACP connection")
+                connection.connect(config, projectPath)
+                acpConnection = connection
+            } catch (e: Exception) {
+                renderer.renderError("Failed to connect to ACP agent: ${e.message}")
+                return
+            }
+        }
+
+        // Send the prompt - events stream directly to ComposeRenderer
+        renderer.renderLLMResponseStart()
+        acpConnection?.prompt(task, renderer)
+        renderer.renderLLMResponseEnd()
     }
 
     private suspend fun saveConversationHistory() {
@@ -337,6 +484,17 @@ class CodingAgentViewModel(
             currentExecutionJob?.cancel("Task cancelled by user")
             currentExecutionJob = null
             isExecuting = false
+        }
+
+        // Cancel ACP agent prompt if active
+        if (currentEngine == GuiAgentEngine.ACP && acpConnection?.isConnected == true) {
+            scope.launch {
+                try {
+                    acpConnection?.cancel()
+                } catch (e: Exception) {
+                    println("[ACP] Cancel failed: ${e.message}")
+                }
+            }
         }
 
         // Also cancel any active shell sessions so "Stop" behaves like a true interrupt.
@@ -513,7 +671,12 @@ class CodingAgentViewModel(
 enum class GuiAgentEngine(val displayName: String) {
     AUTODEV("AutoDev"),
     CLAUDE_CLI("Claude"),
-    CODEX_CLI("Codex");
+    CODEX_CLI("Codex"),
+    /**
+     * ACP engine - external ACP-compliant agent.
+     * Not shown directly in the dropdown; instead, individual ACP agents are listed by name.
+     */
+    ACP("ACP");
 
     companion object {
         fun fromDisplayName(name: String): GuiAgentEngine? {

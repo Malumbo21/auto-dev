@@ -18,11 +18,14 @@ import cc.unitmesh.devins.ui.compose.chat.TopBarMenu
 import cc.unitmesh.devins.ui.compose.runconfig.FloatingRunButton
 import cc.unitmesh.devins.ui.compose.runconfig.RunConfigViewModel
 import cc.unitmesh.devins.ui.compose.runconfig.RunOutputDock
+import cc.unitmesh.devins.ui.compose.config.AcpAgentConfigDialog
 import cc.unitmesh.devins.ui.compose.config.CloudStorageConfigDialog
+import kotlinx.coroutines.launch
 import cc.unitmesh.devins.ui.compose.editor.DevInEditorInput
 import cc.unitmesh.devins.ui.compose.editor.multimodal.ImageUploader
 import cc.unitmesh.devins.ui.compose.editor.multimodal.VisionAnalysisService
 import cc.unitmesh.devins.ui.state.UIStateManager
+import cc.unitmesh.config.AutoDevConfigWrapper
 import cc.unitmesh.devins.workspace.WorkspaceManager
 import cc.unitmesh.llm.LLMService
 import cc.unitmesh.llm.LLMProviderType
@@ -70,6 +73,9 @@ fun CodingAgentPage(
     // Cloud storage configuration state
     var cloudStorageConfig by remember { mutableStateOf<CloudStorageConfig?>(null) }
     var showCloudStorageDialog by remember { mutableStateOf(false) }
+
+    // ACP agent configuration dialog state
+    var showAcpConfigDialog by remember { mutableStateOf(false) }
     var imageUploader by remember { mutableStateOf<ImageUploader?>(null) }
     var visionService by remember { mutableStateOf<VisionAnalysisService?>(null) }
 
@@ -282,7 +288,10 @@ fun CodingAgentPage(
                         AgentType.LOCAL_CHAT,
                         AgentType.CODING -> {
                             runOutputDockContent()
-                            val engineOptions = remember { GuiAgentEngine.entries.map { it.displayName } }
+                            val engineOptions = remember(viewModel.acpAgents) {
+                                viewModel.getAvailableEngineOptions() +
+                                    if (cc.unitmesh.devins.ui.compose.agent.acp.isAcpSupported()) listOf(ACP_CONFIGURE_LABEL) else emptyList()
+                            }
                             DevInEditorInput(
                                 initialText = "",
                                 placeholder = "Describe your coding task...",
@@ -292,10 +301,14 @@ fun CodingAgentPage(
                                 isExecuting = viewModel.isExecuting,
                                 onStopClick = { viewModel.cancelTask() },
                                 onModelConfigChange = { /* Handle model config change if needed */ },
-                                engine = viewModel.currentEngine.displayName,
+                                engine = viewModel.currentEngineDisplay,
                                 engineOptions = engineOptions,
                                 onEngineChange = { display ->
-                                    GuiAgentEngine.fromDisplayName(display)?.let { viewModel.switchEngine(it) }
+                                    if (display == ACP_CONFIGURE_LABEL) {
+                                        showAcpConfigDialog = true
+                                    } else {
+                                        viewModel.selectEngine(display)
+                                    }
                                 },
                                 renderer = viewModel.renderer,
                                 modifier =
@@ -363,11 +376,6 @@ fun CodingAgentPage(
 
                         AgentType.ARTIFACT -> {
                             // ARTIFACT has its own full-page interface (ArtifactPage)
-                            // It should not reach here - handled by AgentInterfaceRouter
-                        }
-
-                        AgentType.CUSTOM_AGENT -> {
-                            // CUSTOM_AGENT has its own full-page interface (AcpAgentPage)
                             // It should not reach here - handled by AgentInterfaceRouter
                         }
                     }
@@ -501,6 +509,10 @@ fun CodingAgentPage(
                 }
 
             runOutputDockContent()
+            val engineOptionsNonSplit = remember(viewModel.acpAgents) {
+                viewModel.getAvailableEngineOptions() +
+                    if (cc.unitmesh.devins.ui.compose.agent.acp.isAcpSupported()) listOf(ACP_CONFIGURE_LABEL) else emptyList()
+            }
             DevInEditorInput(
                 initialText = "",
                 placeholder = "Describe your coding task...",
@@ -510,6 +522,15 @@ fun CodingAgentPage(
                 isExecuting = viewModel.isExecuting,
                 onStopClick = { viewModel.cancelTask() },
                 onModelConfigChange = { /* Handle model config change if needed */ },
+                engine = viewModel.currentEngineDisplay,
+                engineOptions = engineOptionsNonSplit,
+                onEngineChange = { display ->
+                    if (display == ACP_CONFIGURE_LABEL) {
+                        showAcpConfigDialog = true
+                    } else {
+                        viewModel.selectEngine(display)
+                    }
+                },
                 renderer = viewModel.renderer,
                 modifier =
                     Modifier
@@ -598,7 +619,34 @@ fun CodingAgentPage(
             }
         )
     }
+
+    // ACP Agent Configuration Dialog
+    if (showAcpConfigDialog) {
+        AcpAgentConfigDialog(
+            currentAgents = viewModel.acpAgents,
+            activeAgentKey = viewModel.currentAcpAgentConfig?.let { config ->
+                viewModel.acpAgents.entries.find { it.value.name == config.name }?.key
+            },
+            onDismiss = { showAcpConfigDialog = false },
+            onSave = { agents, activeKey ->
+                scope.launch {
+                    AutoDevConfigWrapper.saveAcpAgents(agents, activeKey)
+                    viewModel.reloadAcpAgents()
+                    // If an active agent was set, switch to it
+                    if (activeKey != null) {
+                        viewModel.switchToAcpAgent(activeKey)
+                    }
+                }
+                showAcpConfigDialog = false
+            }
+        )
+    }
 }
+
+/**
+ * Label for the "Configure ACP Agents..." entry in the engine dropdown.
+ */
+private const val ACP_CONFIGURE_LABEL = "Configure ACP..."
 
 @Composable
 private fun ToolLoadingStatusBar(

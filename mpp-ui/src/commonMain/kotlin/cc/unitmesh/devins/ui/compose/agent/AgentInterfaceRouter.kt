@@ -3,7 +3,6 @@ package cc.unitmesh.devins.ui.compose.agent
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import cc.unitmesh.agent.AgentType
-import cc.unitmesh.devins.ui.compose.agent.acp.AcpAgentPage
 import cc.unitmesh.devins.ui.compose.agent.artifact.ArtifactPage
 import cc.unitmesh.devins.ui.compose.agent.chatdb.ChatDBPage
 import cc.unitmesh.devins.ui.compose.agent.codereview.CodeReviewPage
@@ -21,7 +20,7 @@ import cc.unitmesh.agent.artifact.ArtifactBundle
  * - CODING: Full-featured coding agent with tools
  * - CODE_REVIEW: Dedicated code review interface
  * - REMOTE: Remote agent connected to mpp-server
- * - CUSTOM_AGENT: External ACP agent (e.g., Kimi CLI, Claude CLI)
+ * ACP agents are accessed via the engine dropdown in the Agentic page
  */
 @Composable
 fun AgentInterfaceRouter(
@@ -157,16 +156,6 @@ fun AgentInterfaceRouter(
                 },
                 onNotification = onNotification,
                 initialBundle = initialBundle // Pass bundle to ArtifactPage
-            )
-        }
-
-        AgentType.CUSTOM_AGENT -> {
-            AcpAgentPage(
-                modifier = modifier,
-                onBack = {
-                    onAgentTypeChange(AgentType.CODING)
-                },
-                onNotification = onNotification
             )
         }
 

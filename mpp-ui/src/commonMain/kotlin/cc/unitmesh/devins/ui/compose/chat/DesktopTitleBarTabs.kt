@@ -35,8 +35,7 @@ fun DesktopTitleBarTabs(
     LaunchedEffect(currentAgentType) {
         if (currentAgentType == AgentType.CODE_REVIEW ||
             currentAgentType == AgentType.KNOWLEDGE ||
-            currentAgentType == AgentType.WEB_EDIT ||
-            currentAgentType == AgentType.CUSTOM_AGENT
+            currentAgentType == AgentType.WEB_EDIT
         ) {
             UIStateManager.setSessionSidebarVisible(false)
         } else {
