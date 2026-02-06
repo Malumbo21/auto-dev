@@ -35,6 +35,8 @@ fun AcpAgentConfigDialog(
     var selectedKey by remember { mutableStateOf(activeAgentKey) }
     var isEditing by remember { mutableStateOf(false) }
     var editingKey by remember { mutableStateOf<String?>(null) }
+    var showPresetSelector by remember { mutableStateOf(false) }
+    val installedPresets = remember { AcpAgentPresets.detectInstalled() }
 
     // Edit form state
     var editName by remember { mutableStateOf("") }
@@ -126,7 +128,22 @@ fun AcpAgentConfigDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                if (isEditing) {
+                if (showPresetSelector) {
+                    // Preset selection
+                    PresetSelectorView(
+                        installedPresets = installedPresets,
+                        onSelectPreset = { preset ->
+                            // Add preset to agents
+                            val key = preset.id
+                            val newAgents = agents.toMutableMap()
+                            newAgents[key] = preset.toConfig()
+                            agents = newAgents
+                            selectedKey = key
+                            showPresetSelector = false
+                        },
+                        onCancel = { showPresetSelector = false }
+                    )
+                } else if (isEditing) {
                     // Editing form
                     EditAgentForm(
                         editName = editName,
@@ -162,7 +179,13 @@ fun AcpAgentConfigDialog(
                                 selectedKey = newAgents.keys.firstOrNull()
                             }
                         },
-                        onAddNew = { startEditing(null, null) }
+                        onAddNew = { startEditing(null, null) },
+                        onAddFromPreset = {
+                            if (installedPresets.isNotEmpty()) {
+                                showPresetSelector = true
+                            }
+                        },
+                        hasPresets = installedPresets.isNotEmpty()
                     )
 
                     Spacer(modifier = Modifier.height(24.dp))
@@ -300,7 +323,9 @@ private fun AgentListView(
     onSelect: (String) -> Unit,
     onEdit: (String) -> Unit,
     onDelete: (String) -> Unit,
-    onAddNew: () -> Unit
+    onAddNew: () -> Unit,
+    onAddFromPreset: () -> Unit,
+    hasPresets: Boolean
 ) {
     if (agents.isEmpty()) {
         Card(
@@ -384,11 +409,110 @@ private fun AgentListView(
 
     Spacer(modifier = Modifier.height(8.dp))
 
-    // Add new button
-    OutlinedButton(
-        onClick = onAddNew,
-        modifier = Modifier.fillMaxWidth()
+    // Add buttons
+    if (hasPresets) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Button(
+                onClick = onAddFromPreset,
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("+ Add from Preset")
+            }
+            OutlinedButton(
+                onClick = onAddNew,
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("+ Add Custom")
+            }
+        }
+    } else {
+        OutlinedButton(
+            onClick = onAddNew,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("+ Add Agent")
+        }
+    }
+}
+
+@Composable
+private fun PresetSelectorView(
+    installedPresets: List<AcpAgentPreset>,
+    onSelectPreset: (AcpAgentPreset) -> Unit,
+    onCancel: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
     ) {
-        Text("+ Add Agent")
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "Select Preset Agent",
+                style = MaterialTheme.typography.titleSmall
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = "The following ACP agents were detected on your system:",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            installedPresets.forEach { preset ->
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    ),
+                    onClick = { onSelectPreset(preset) }
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp)
+                    ) {
+                        Text(
+                            text = preset.name,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Text(
+                            text = preset.description,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "${preset.command} ${preset.args}".trim(),
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontFamily = FontFamily.Monospace
+                            ),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Cancel button
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                TextButton(onClick = onCancel) {
+                    Text("Cancel")
+                }
+            }
+        }
     }
 }

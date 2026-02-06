@@ -332,6 +332,20 @@ tasks.register<JavaExec>("runNanoDslScenarioHarness") {
         files(kotlin.jvm().compilations.getByName("main").output.classesDirs)
 }
 
+// Capture raw ACP protocol events to JSONL for analysis
+tasks.register<JavaExec>("runAcpCapture") {
+    group = "application"
+    description = "Capture raw ACP protocol events to JSONL for analysis"
+    mainClass.set("cc.unitmesh.agent.acp.AcpEventCapture")
+
+    val jvmCompilation = kotlin.jvm().compilations.getByName("main")
+    classpath(jvmCompilation.output, configurations["jvmRuntimeClasspath"])
+    if (project.hasProperty("acpPrompt")) {
+        systemProperty("acpPrompt", project.property("acpPrompt") as String)
+    }
+    standardInput = System.`in`
+}
+
 // Task to generate a test .unit file
 tasks.register<JavaExec>("generateTestUnit") {
     group = "verification"
