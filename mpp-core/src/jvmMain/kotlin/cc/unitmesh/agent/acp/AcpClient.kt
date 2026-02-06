@@ -3,6 +3,7 @@ package cc.unitmesh.agent.acp
 import cc.unitmesh.agent.plan.MarkdownPlanParser
 import cc.unitmesh.agent.render.CodingAgentRenderer
 import cc.unitmesh.config.ConfigManager
+import com.agentclientprotocol.annotations.UnstableApi
 import com.agentclientprotocol.client.Client
 import com.agentclientprotocol.client.ClientInfo
 import com.agentclientprotocol.client.ClientOperationsFactory
@@ -103,11 +104,18 @@ class AcpClient(
         this.protocol = proto
         this.client = acpClient
 
+        // Enable fs capabilities so the agent can read/write files on our side
+        val fsCapabilities = FileSystemCapability(
+            readTextFile = true,
+            writeTextFile = true,
+            _meta = JsonNull
+        )
+
         val clientInfo = ClientInfo(
             protocolVersion = 1,
             capabilities = ClientCapabilities(
-                fs = null,
-                terminal = false,
+                fs = fsCapabilities,
+                terminal = true,
                 _meta = JsonNull
             ),
             implementation = Implementation(
@@ -131,7 +139,10 @@ class AcpClient(
                     onPermissionRequest = { toolCall, options ->
                         onPermissionRequest?.invoke(toolCall, options)
                             ?: RequestPermissionResponse(RequestPermissionOutcome.Cancelled, JsonNull)
-                    }
+                    },
+                    cwd = cwd,
+                    enableFs = true,
+                    enableTerminal = true,
                 )
             }
         }
@@ -319,6 +330,7 @@ class AcpClient(
     /**
      * Serialize SessionUpdate to a map for logging.
      */
+    @OptIn(UnstableApi::class)
     private fun serializeSessionUpdate(update: SessionUpdate): Map<String, Any?> {
         return when (update) {
             is SessionUpdate.AgentMessageChunk -> {
@@ -370,6 +382,24 @@ class AcpClient(
                 mapOf(
                     "type" to "CurrentModeUpdate",
                     "modeId" to update.currentModeId.toString()
+                )
+            }
+            is SessionUpdate.ConfigOptionUpdate -> {
+                mapOf(
+                    "type" to "ConfigOptionUpdate",
+                    "optionCount" to update.configOptions.size
+                )
+            }
+            is SessionUpdate.AvailableCommandsUpdate -> {
+                mapOf(
+                    "type" to "AvailableCommandsUpdate",
+                    "commandCount" to update.availableCommands.size
+                )
+            }
+            is SessionUpdate.UserMessageChunk -> {
+                mapOf(
+                    "type" to "UserMessageChunk",
+                    "content" to serializeContentBlock(update.content)
                 )
             }
             else -> {
@@ -476,6 +506,7 @@ class AcpClient(
          *   1. The *first* event for a new toolCallId
          *   2. The *terminal* event (COMPLETED/FAILED) with the fully-built title
          */
+        @OptIn(UnstableApi::class)
         fun renderSessionUpdate(
             update: SessionUpdate,
             renderer: CodingAgentRenderer,
@@ -569,6 +600,28 @@ class AcpClient(
 
                 is SessionUpdate.CurrentModeUpdate -> {
                     renderer.renderInfo("Mode switched to: ${update.currentModeId}")
+                }
+
+                is SessionUpdate.ConfigOptionUpdate -> {
+                    val options = update.configOptions
+                    if (options.isNotEmpty()) {
+                        val summary = options.joinToString(", ") { opt ->
+                            opt.name
+                        }
+                        renderer.renderInfo("Config updated: $summary")
+                    }
+                }
+
+                is SessionUpdate.AvailableCommandsUpdate -> {
+                    val commands = update.availableCommands
+                    if (commands.isNotEmpty()) {
+                        logger.debug { "Available commands updated: ${commands.joinToString { it.name }}" }
+                    }
+                }
+
+                is SessionUpdate.UserMessageChunk -> {
+                    // Agent echoing back user message - typically ignored by clients
+                    logger.debug { "User message echo: ${extractText(update.content).take(100)}" }
                 }
 
                 else -> {

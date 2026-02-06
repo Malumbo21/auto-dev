@@ -1,5 +1,6 @@
 package cc.unitmesh.devins.idea.toolwindow.acp
 
+import cc.unitmesh.agent.acp.AcpClient
 import cc.unitmesh.agent.plan.MarkdownPlanParser
 import cc.unitmesh.devins.idea.renderer.JewelRenderer
 import cc.unitmesh.devti.settings.AutoDevSettingsState
@@ -29,8 +30,6 @@ import kotlinx.io.asSink
 import kotlinx.io.asSource
 import kotlinx.io.buffered
 import kotlinx.serialization.json.JsonNull
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
 import java.io.BufferedReader
 import java.io.File
 import java.io.InputStreamReader
@@ -76,6 +75,13 @@ class IdeaAcpAgentViewModel(
 
     private val receivedAnyAgentChunk = AtomicBoolean(false)
     private val inThoughtStream = AtomicBoolean(false)
+
+    /**
+     * Per-prompt tool call dedup state (shared with AcpClient.renderSessionUpdate).
+     * Prevents flooding the renderer with thousands of IN_PROGRESS tool call updates.
+     */
+    private val renderedToolCallIds = mutableSetOf<String>()
+    private val toolCallTitles = mutableMapOf<String, String>()
 
     fun loadConfigFromSettings(): AcpAgentConfig {
         val settings = AutoDevSettingsState.getInstance()
@@ -150,11 +156,17 @@ class IdeaAcpAgentViewModel(
                 this@IdeaAcpAgentViewModel.protocol = protocol
                 this@IdeaAcpAgentViewModel.client = client
 
+                val fsCapabilities = FileSystemCapability(
+                    readTextFile = true,
+                    writeTextFile = true,
+                    _meta = JsonNull
+                )
+
                 val clientInfo = ClientInfo(
                     protocolVersion = 1,
                     capabilities = ClientCapabilities(
-                        fs = null,
-                        terminal = false,
+                        fs = fsCapabilities,
+                        terminal = true,
                         _meta = JsonNull
                     ),
                     implementation = Implementation(
@@ -168,18 +180,22 @@ class IdeaAcpAgentViewModel(
 
                 client.initialize(clientInfo, JsonNull)
 
+                val effectiveCwd = cwd.ifBlank { project.basePath ?: System.getProperty("user.home") }
                 val operationsFactory = object : ClientOperationsFactory {
                     override suspend fun createClientOperations(
                         sessionId: SessionId,
                         sessionResponse: AcpCreatedSessionResponse,
                     ): ClientSessionOperations {
-                        return IdeaAcpClientSessionOps(
+                        return cc.unitmesh.agent.acp.AcpClientSessionOps(
                             onSessionUpdate = { update ->
                                 handleSessionUpdate(update)
                             },
                             onPermissionRequest = { toolCallUpdate, options ->
                                 handlePermissionRequest(toolCallUpdate, options)
-                            }
+                            },
+                            cwd = effectiveCwd,
+                            enableFs = true,
+                            enableTerminal = true,
                         )
                     }
                 }
@@ -231,6 +247,8 @@ class IdeaAcpAgentViewModel(
             try {
                 receivedAnyAgentChunk.set(false)
                 inThoughtStream.set(false)
+                renderedToolCallIds.clear()
+                toolCallTitles.clear()
 
                 val flow = session!!.prompt(
                     listOf(ContentBlock.Text(text, Annotations(), JsonNull)),
@@ -299,162 +317,52 @@ class IdeaAcpAgentViewModel(
         return RequestPermissionResponse(RequestPermissionOutcome.Cancelled, JsonNull)
     }
 
+    /**
+     * Handle ACP session update using the shared utility from [AcpClient.renderSessionUpdate].
+     *
+     * This provides proper tool call deduplication: ACP streams many IN_PROGRESS updates
+     * per tool call (title grows char-by-char), but we only render terminal events
+     * (COMPLETED/FAILED). This reduces thousands of events to a handful of timeline items.
+     *
+     * For PlanUpdate, we additionally parse to the IDEA-specific plan model via [renderer.setPlan].
+     */
     private fun handleSessionUpdate(update: SessionUpdate, source: String = "prompt") {
-        when (update) {
-            is SessionUpdate.AgentMessageChunk -> {
-                if (!receivedAnyAgentChunk.getAndSet(true)) {
-                    renderer.renderLLMResponseStart()
-                }
-                
-                // Handle resource content blocks (e.g., markdown files from Gemini)
-                val block = update.content
-                if (block is ContentBlock.Resource) {
-                    handleResourceContent(block)
-                } else {
-                    val text = extractText(block)
-                    renderer.renderLLMResponseChunk(text)
-                }
-            }
-
-            is SessionUpdate.AgentThoughtChunk -> {
-                val thought = extractText(update.content)
-                val isStart = !inThoughtStream.getAndSet(true)
-                renderer.renderThinkingChunk(thought, isStart = isStart, isEnd = false)
-            }
-
-            is SessionUpdate.PlanUpdate -> {
-                // Convert ACP plan entries into our markdown plan model.
-                val markdown = buildString {
-                    update.entries.forEachIndexed { index, entry ->
-                        val marker = when (entry.status) {
-                            PlanEntryStatus.COMPLETED -> "[x] "
-                            PlanEntryStatus.IN_PROGRESS -> "[*] "
-                            PlanEntryStatus.PENDING -> ""
-                            else -> ""
-                        }
-                        appendLine("${index + 1}. $marker${entry.content}")
+        // Special handling for PlanUpdate to use JewelRenderer's setPlan
+        if (update is SessionUpdate.PlanUpdate) {
+            val markdown = buildString {
+                update.entries.forEachIndexed { index, entry ->
+                    val marker = when (entry.status) {
+                        PlanEntryStatus.COMPLETED -> "[x] "
+                        PlanEntryStatus.IN_PROGRESS -> "[*] "
+                        PlanEntryStatus.PENDING -> ""
+                        else -> ""
                     }
-                }.trim()
+                    appendLine("${index + 1}. $marker${entry.content}")
+                }
+            }.trim()
 
-                if (markdown.isNotBlank()) {
-                    try {
-                        val plan = MarkdownPlanParser.parseToPlan(markdown)
-                        renderer.setPlan(plan)
-                    } catch (e: Exception) {
-                        acpLogger.warn("Failed to parse ACP plan update", e)
-                    }
+            if (markdown.isNotBlank()) {
+                try {
+                    val plan = MarkdownPlanParser.parseToPlan(markdown)
+                    renderer.setPlan(plan)
+                } catch (e: Exception) {
+                    acpLogger.warn("Failed to parse ACP plan update", e)
                 }
             }
-
-            is SessionUpdate.ToolCall -> {
-                // Render tool call as a tool bubble using a safe wrapper param.
-                val toolTitle = update.title?.takeIf { it.isNotBlank() } ?: "tool"
-                val inputText = update.rawInput?.toString() ?: ""
-                renderer.renderToolCallWithParams(
-                    toolName = toolTitle,
-                    params = mapOf(
-                        "kind" to (update.kind?.name ?: "UNKNOWN"),
-                        "status" to (update.status?.name ?: "UNKNOWN"),
-                        "input" to inputText
-                    )
-                )
-
-                // If agent already produced output in the same update, render it as a result.
-                val out = update.rawOutput?.toString()
-                val status = update.status
-                if (out != null && out.isNotBlank() && status != null && status != ToolCallStatus.PENDING && status != ToolCallStatus.IN_PROGRESS) {
-                    renderer.renderToolResult(
-                        toolName = toolTitle,
-                        success = status == ToolCallStatus.COMPLETED,
-                        output = out,
-                        fullOutput = out,
-                        metadata = emptyMap()
-                    )
-                }
-            }
-
-            is SessionUpdate.ToolCallUpdate -> {
-                // Treat updates similarly to tool calls (may include progressive output).
-                val toolTitle = update.title?.takeIf { it.isNotBlank() } ?: "tool"
-                val inputText = update.rawInput?.toString() ?: ""
-                val out = update.rawOutput?.toString()
-
-                renderer.renderToolCallWithParams(
-                    toolName = toolTitle,
-                    params = mapOf(
-                        "kind" to (update.kind?.name ?: "UNKNOWN"),
-                        "status" to (update.status?.name ?: "UNKNOWN"),
-                        "input" to inputText
-                    )
-                )
-
-                val status = update.status
-                if (out != null && out.isNotBlank() && status != null && status != ToolCallStatus.PENDING && status != ToolCallStatus.IN_PROGRESS) {
-                    renderer.renderToolResult(
-                        toolName = toolTitle,
-                        success = status == ToolCallStatus.COMPLETED,
-                        output = out,
-                        fullOutput = out,
-                        metadata = emptyMap()
-                    )
-                }
-            }
-
-            is SessionUpdate.CurrentModeUpdate -> {
-                // Surface mode changes as a system-like message.
-                renderer.renderLLMResponseStart()
-                renderer.renderLLMResponseChunk("Mode switched to: ${update.currentModeId}")
-                renderer.renderLLMResponseEnd()
-            }
-
-            else -> {
-                // Ignore other updates for MVP.
-                acpLogger.debug("Unhandled ACP session update ($source): $update")
-            }
+            return
         }
-    }
 
-    /**
-     * Extract text content from an ACP ContentBlock.
-     * Handles various content types.
-     */
-    private fun extractText(block: ContentBlock): String {
-        return when (block) {
-            is ContentBlock.Text -> block.text
-            is ContentBlock.Resource -> {
-                // Resource content - toString for now
-                // TODO: Parse resource structure when SDK documentation is available
-                val resourceStr = block.resource.toString()
-                if (resourceStr.length > 500) {
-                    "[Resource: ${resourceStr.take(500)}...]"
-                } else {
-                    resourceStr
-                }
-            }
-            is ContentBlock.ResourceLink -> {
-                "[Resource Link: ${block.name} (${block.uri})]"
-            }
-            is ContentBlock.Image -> {
-                "[Image: mimeType=${block.mimeType}, uri=${block.uri ?: "embedded"}]"
-            }
-            is ContentBlock.Audio -> {
-                "[Audio: mimeType=${block.mimeType}]"
-            }
-            else -> block.toString()
-        }
-    }
-    
-    /**
-     * Handle resource content blocks (e.g., markdown architecture diagrams from Gemini).
-     * Currently simplified to just toString() the resource until we understand its structure better.
-     */
-    private fun handleResourceContent(block: ContentBlock.Resource) {
-        // For now, just render the text representation
-        val text = extractText(block)
-        renderer.renderLLMResponseChunk(text)
-        
-        // Log that we received a resource for debugging
-        acpLogger.info("Received ContentBlock.Resource: ${block.resource}")
+        // Delegate to the shared utility for all other update types
+        AcpClient.renderSessionUpdate(
+            update = update,
+            renderer = renderer,
+            getReceivedChunk = { receivedAnyAgentChunk.get() },
+            setReceivedChunk = { receivedAnyAgentChunk.set(it) },
+            getInThought = { inThoughtStream.get() },
+            setInThought = { inThoughtStream.set(it) },
+            renderedToolCallIds = renderedToolCallIds,
+            toolCallTitles = toolCallTitles,
+        )
     }
 
     private suspend fun disconnectInternal() {
@@ -573,83 +481,5 @@ private fun splitArgs(text: String): List<String> {
     return out
 }
 
-/**
- * Minimal client operations used by ACP runtime.
- *
- * - notify(): forward session updates into the UI, in case the agent emits updates outside prompt flow
- * - requestPermissions(): MVP denies all permissions
- * - fs/terminal operations: not supported (capabilities disabled)
- */
-private class IdeaAcpClientSessionOps(
-    private val onSessionUpdate: (SessionUpdate) -> Unit,
-    private val onPermissionRequest: (SessionUpdate.ToolCallUpdate, List<PermissionOption>) -> RequestPermissionResponse,
-) : ClientSessionOperations {
-    override suspend fun notify(notification: SessionUpdate, _meta: kotlinx.serialization.json.JsonElement?) {
-        onSessionUpdate(notification)
-    }
-
-    override suspend fun requestPermissions(
-        toolCall: SessionUpdate.ToolCallUpdate,
-        permissions: List<PermissionOption>,
-        _meta: kotlinx.serialization.json.JsonElement?,
-    ): RequestPermissionResponse {
-        return onPermissionRequest(toolCall, permissions)
-    }
-
-    override suspend fun fsReadTextFile(
-        path: String,
-        line: UInt?,
-        limit: UInt?,
-        _meta: kotlinx.serialization.json.JsonElement?,
-    ): ReadTextFileResponse {
-        throw UnsupportedOperationException("ACP fs.read_text_file is disabled in this client")
-    }
-
-    override suspend fun fsWriteTextFile(
-        path: String,
-        content: String,
-        _meta: kotlinx.serialization.json.JsonElement?,
-    ): WriteTextFileResponse {
-        throw UnsupportedOperationException("ACP fs.write_text_file is disabled in this client")
-    }
-
-    override suspend fun terminalCreate(
-        command: String,
-        args: List<String>,
-        cwd: String?,
-        env: List<EnvVariable>,
-        outputByteLimit: ULong?,
-        _meta: kotlinx.serialization.json.JsonElement?,
-    ): CreateTerminalResponse {
-        throw UnsupportedOperationException("ACP terminal.create is disabled in this client")
-    }
-
-    override suspend fun terminalOutput(
-        terminalId: String,
-        _meta: kotlinx.serialization.json.JsonElement?,
-    ): TerminalOutputResponse {
-        throw UnsupportedOperationException("ACP terminal.output is disabled in this client")
-    }
-
-    override suspend fun terminalRelease(
-        terminalId: String,
-        _meta: kotlinx.serialization.json.JsonElement?,
-    ): ReleaseTerminalResponse {
-        throw UnsupportedOperationException("ACP terminal.release is disabled in this client")
-    }
-
-    override suspend fun terminalWaitForExit(
-        terminalId: String,
-        _meta: kotlinx.serialization.json.JsonElement?,
-    ): WaitForTerminalExitResponse {
-        throw UnsupportedOperationException("ACP terminal.wait_for_exit is disabled in this client")
-    }
-
-    override suspend fun terminalKill(
-        terminalId: String,
-        _meta: kotlinx.serialization.json.JsonElement?,
-    ): KillTerminalCommandResponse {
-        throw UnsupportedOperationException("ACP terminal.kill is disabled in this client")
-    }
-}
+// IdeaAcpClientSessionOps replaced by shared cc.unitmesh.agent.acp.AcpClientSessionOps
 
