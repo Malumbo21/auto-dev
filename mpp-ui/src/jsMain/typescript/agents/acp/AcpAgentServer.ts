@@ -332,10 +332,12 @@ class AcpSessionRenderer {
 export async function startAcpAgentServer(): Promise<void> {
   console.error('[ACP Agent] Starting AutoDev Xiuper ACP Agent Server...');
 
-  const input = Writable.toWeb(process.stdout) as WritableStream;
-  const output = Readable.toWeb(process.stdin) as ReadableStream;
+  // For ACP ndJsonStream: first param is output (where we write), second is input (where we read)
+  // We write JSON responses to stdout, read JSON requests from stdin
+  const output = Writable.toWeb(process.stdout) as WritableStream<Uint8Array>;
+  const input = Readable.toWeb(process.stdin) as ReadableStream<Uint8Array>;
 
-  const stream = acp.ndJsonStream(input, output);
+  const stream = acp.ndJsonStream(output, input);
 
   const connection = new acp.AgentSideConnection(
     (conn) => new AutoDevAcpAgent(conn),
