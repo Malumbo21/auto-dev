@@ -325,13 +325,13 @@ class AcpClient(
             is SessionUpdate.AgentMessageChunk -> {
                 mapOf(
                     "type" to "AgentMessageChunk",
-                    "content" to extractText(update.content)
+                    "content" to serializeContentBlock(update.content)
                 )
             }
             is SessionUpdate.AgentThoughtChunk -> {
                 mapOf(
                     "type" to "AgentThoughtChunk",
-                    "content" to extractText(update.content)
+                    "content" to serializeContentBlock(update.content)
                 )
             }
             is SessionUpdate.ToolCall -> {
@@ -378,6 +378,93 @@ class AcpClient(
             }
         }
     }
+    
+    /**
+     * Serialize ContentBlock to a map for logging.
+     * Handles all ACP ContentBlock types: Text, Image, Audio, Resource, ResourceLink.
+     */
+    private fun serializeContentBlock(block: ContentBlock): Map<String, Any?> {
+        return when (block) {
+            is ContentBlock.Text -> {
+                mapOf(
+                    "blockType" to "text",
+                    "text" to block.text,
+                    "annotations" to block.annotations?.let { serializeAnnotations(it) }
+                )
+            }
+            is ContentBlock.Image -> {
+                mapOf(
+                    "blockType" to "image",
+                    "mimeType" to block.mimeType,
+                    "dataLength" to (block.data?.length ?: 0),
+                    "uri" to block.uri,
+                    "annotations" to block.annotations?.let { serializeAnnotations(it) }
+                )
+            }
+            is ContentBlock.Audio -> {
+                mapOf(
+                    "blockType" to "audio",
+                    "mimeType" to block.mimeType,
+                    "dataLength" to (block.data?.length ?: 0),
+                    "annotations" to block.annotations?.let { serializeAnnotations(it) }
+                )
+            }
+            is ContentBlock.Resource -> {
+                val resource = block.resource
+                try {
+                    mapOf(
+                        "blockType" to "resource",
+                        "resource" to resource.toString()
+                    )
+                } catch (e: Exception) {
+                    mapOf(
+                        "blockType" to "resource",
+                        "error" to e.message
+                    )
+                }
+            }
+            is ContentBlock.ResourceLink -> {
+                mapOf(
+                    "blockType" to "resource_link",
+                    "uri" to block.uri,
+                    "name" to block.name,
+                    "mimeType" to block.mimeType,
+                    "title" to block.title,
+                    "description" to block.description,
+                    "size" to block.size,
+                    "annotations" to block.annotations?.let { serializeAnnotations(it) }
+                )
+            }
+            else -> {
+                mapOf(
+                    "blockType" to "unknown",
+                    "class" to block::class.simpleName,
+                    "toString" to block.toString()
+                )
+            }
+        }
+    }
+    
+    /**
+     * Serialize Annotations to a map.
+     */
+    private fun serializeAnnotations(annotations: Annotations): Map<String, Any?>? {
+        // Annotations are opaque, so we just indicate if they exist
+        return try {
+            val priority = annotations.priority
+            val audience = annotations.audience?.joinToString(",")
+            if (priority != null || audience != null) {
+                mapOf(
+                    "priority" to priority,
+                    "audience" to audience
+                )
+            } else {
+                null
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
 
     companion object {
         /**
@@ -412,8 +499,15 @@ class AcpClient(
                         renderer.renderLLMResponseStart()
                         setReceivedChunk(true)
                     }
-                    val text = extractText(update.content)
-                    renderer.renderLLMResponseChunk(text)
+                    
+                    // Handle resource content blocks (e.g., markdown files from Gemini)
+                    val block = update.content
+                    if (block is ContentBlock.Resource) {
+                        handleResourceContent(block, renderer)
+                    } else {
+                        val text = extractText(block)
+                        renderer.renderLLMResponseChunk(text)
+                    }
                 }
 
                 is SessionUpdate.AgentThoughtChunk -> {
@@ -570,11 +664,44 @@ class AcpClient(
         }
 
         /**
+         * Handle resource content blocks (e.g., markdown architecture diagrams from Gemini).
+         * Currently simplified to just toString() the resource until we understand its structure better.
+         */
+        private fun handleResourceContent(block: ContentBlock.Resource, renderer: CodingAgentRenderer) {
+            // For now, just render the text representation
+            val text = extractText(block)
+            renderer.renderLLMResponseChunk(text)
+            
+            // Log that we received a resource for debugging
+            logger.info { "Received ContentBlock.Resource: ${block.resource}" }
+        }
+
+        /**
          * Extract text content from an ACP ContentBlock.
+         * Handles various content types.
          */
         fun extractText(block: ContentBlock): String {
             return when (block) {
                 is ContentBlock.Text -> block.text
+                is ContentBlock.Resource -> {
+                    // Resource content - toString for now
+                    // TODO: Parse resource structure when SDK documentation is available
+                    val resourceStr = block.resource.toString()
+                    if (resourceStr.length > 500) {
+                        "[Resource: ${resourceStr.take(500)}...]"
+                    } else {
+                        resourceStr
+                    }
+                }
+                is ContentBlock.ResourceLink -> {
+                    "[Resource Link: ${block.name} (${block.uri})]"
+                }
+                is ContentBlock.Image -> {
+                    "[Image: mimeType=${block.mimeType}, uri=${block.uri ?: "embedded"}]"
+                }
+                is ContentBlock.Audio -> {
+                    "[Audio: mimeType=${block.mimeType}]"
+                }
                 else -> block.toString()
             }
         }

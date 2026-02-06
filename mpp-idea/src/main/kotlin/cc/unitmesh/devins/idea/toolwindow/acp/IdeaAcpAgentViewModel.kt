@@ -305,8 +305,15 @@ class IdeaAcpAgentViewModel(
                 if (!receivedAnyAgentChunk.getAndSet(true)) {
                     renderer.renderLLMResponseStart()
                 }
-                val text = extractText(update.content)
-                renderer.renderLLMResponseChunk(text)
+                
+                // Handle resource content blocks (e.g., markdown files from Gemini)
+                val block = update.content
+                if (block is ContentBlock.Resource) {
+                    handleResourceContent(block)
+                } else {
+                    val text = extractText(block)
+                    renderer.renderLLMResponseChunk(text)
+                }
             }
 
             is SessionUpdate.AgentThoughtChunk -> {
@@ -407,11 +414,47 @@ class IdeaAcpAgentViewModel(
         }
     }
 
+    /**
+     * Extract text content from an ACP ContentBlock.
+     * Handles various content types.
+     */
     private fun extractText(block: ContentBlock): String {
         return when (block) {
             is ContentBlock.Text -> block.text
+            is ContentBlock.Resource -> {
+                // Resource content - toString for now
+                // TODO: Parse resource structure when SDK documentation is available
+                val resourceStr = block.resource.toString()
+                if (resourceStr.length > 500) {
+                    "[Resource: ${resourceStr.take(500)}...]"
+                } else {
+                    resourceStr
+                }
+            }
+            is ContentBlock.ResourceLink -> {
+                "[Resource Link: ${block.name} (${block.uri})]"
+            }
+            is ContentBlock.Image -> {
+                "[Image: mimeType=${block.mimeType}, uri=${block.uri ?: "embedded"}]"
+            }
+            is ContentBlock.Audio -> {
+                "[Audio: mimeType=${block.mimeType}]"
+            }
             else -> block.toString()
         }
+    }
+    
+    /**
+     * Handle resource content blocks (e.g., markdown architecture diagrams from Gemini).
+     * Currently simplified to just toString() the resource until we understand its structure better.
+     */
+    private fun handleResourceContent(block: ContentBlock.Resource) {
+        // For now, just render the text representation
+        val text = extractText(block)
+        renderer.renderLLMResponseChunk(text)
+        
+        // Log that we received a resource for debugging
+        acpLogger.info("Received ContentBlock.Resource: ${block.resource}")
     }
 
     private suspend fun disconnectInternal() {

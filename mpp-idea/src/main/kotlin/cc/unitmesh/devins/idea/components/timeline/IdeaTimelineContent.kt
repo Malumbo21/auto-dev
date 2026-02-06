@@ -112,6 +112,12 @@ fun IdeaTimelineItemView(
             // Multimodal analysis (vision model) bubble
             IdeaMultimodalAnalysisBubble(item)
         }
+        is TimelineItem.ThinkingItem -> {
+            // Thinking content - display as info message for now
+            IdeaInfoBubble(
+                message = "💭 Thinking: ${item.content.take(100)}${if (item.content.length > 100) "..." else ""}"
+            )
+        }
     }
 }
 

@@ -997,6 +997,33 @@ private fun ChatMessageItem(item: TimelineItem) {
                 }
             }
         }
+        
+        is TimelineItem.ThinkingItem -> {
+            // Thinking content - display in a muted box
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(JewelTheme.globalColors.panelBackground.copy(alpha = 0.3f))
+                    .padding(8.dp)
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "💭",
+                        style = JewelTheme.defaultTextStyle.copy(fontSize = 14.sp)
+                    )
+                    Text(
+                        text = item.content.take(100) + if (item.content.length > 100) "..." else "",
+                        style = JewelTheme.defaultTextStyle.copy(
+                            fontSize = 11.sp,
+                            color = JewelTheme.globalColors.text.info.copy(alpha = 0.7f)
+                        )
+                    )
+                }
+            }
+        }
     }
 }
 
