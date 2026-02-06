@@ -442,6 +442,13 @@ fun IdeaAgentApp(
                     IdeaEmptyStateMessage("ChatDB Agent coming soon...")
                 }
             }
+            AgentType.CUSTOM_AGENT -> {
+                // Custom ACP agents are handled via the ACP tab in Remote mode
+                // In the IDEA plugin, users configure ACP agents through the Remote panel
+                Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                    IdeaEmptyStateMessage("Custom ACP Agent - Use Remote > ACP tab to configure")
+                }
+            }
         }
 
         // Tool loading status bar

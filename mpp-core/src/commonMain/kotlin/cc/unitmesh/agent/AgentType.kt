@@ -10,6 +10,7 @@ package cc.unitmesh.agent
  * - KNOWLEDGE: Document reader mode for AI-native document reading
  * - CHAT_DB: Database chat mode for text-to-SQL interactions
  * - REMOTE: Remote agent connected to mpp-server
+ * - CUSTOM_AGENT: External ACP (Agent Client Protocol) agent (e.g., Kimi CLI, Claude CLI)
  */
 enum class AgentType {
     /**
@@ -51,7 +52,14 @@ enum class AgentType {
      * Artifact mode - generate reversible, executable artifacts (HTML/JS, Python scripts)
      * Similar to Claude's Artifacts system
      */
-    ARTIFACT;
+    ARTIFACT,
+
+    /**
+     * Custom ACP agent mode - connects to external ACP-compliant agents via stdio.
+     * Examples: Kimi CLI, Claude CLI (--acp), Gemini CLI (--acp), or any ACP agent.
+     * When active, all interaction goes through the external agent; local LLM is not used.
+     */
+    CUSTOM_AGENT;
 
     fun getDisplayName(): String = when (this) {
         LOCAL_CHAT -> "Chat"
@@ -62,6 +70,7 @@ enum class AgentType {
         REMOTE -> "Remote"
         WEB_EDIT -> "WebEdit"
         ARTIFACT -> "Artifact"
+        CUSTOM_AGENT -> "Custom Agent"
     }
 
     companion object {
@@ -75,6 +84,7 @@ enum class AgentType {
                 "chatdb", "database" -> CHAT_DB
                 "webedit", "web" -> WEB_EDIT
                 "artifact", "unit" -> ARTIFACT
+                "customagent", "custom_agent", "acp" -> CUSTOM_AGENT
                 else -> LOCAL_CHAT
             }
         }

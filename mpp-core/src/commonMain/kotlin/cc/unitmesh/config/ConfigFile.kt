@@ -29,6 +29,18 @@ import kotlinx.serialization.Serializable
  *   url: "http://localhost:8080"
  *   enabled: false
  *   useServerConfig: false
+ * acpAgents:
+ *   kimi:
+ *     name: "Kimi CLI"
+ *     command: "kimi"
+ *     args: "--acp"
+ *     env: ""
+ *   claude:
+ *     name: "Claude CLI"
+ *     command: "claude"
+ *     args: "--acp"
+ *     env: ""
+ * activeAcpAgent: kimi
  * ```
  */
 @Serializable
@@ -41,7 +53,9 @@ public data class ConfigFile(
     val agentType: String? = "Local", // "Local" or "Remote" - which agent mode to use
     val lastWorkspace: WorkspaceInfo? = null, // Last opened workspace information
     val issueTracker: IssueTrackerConfig? = null, // Issue tracker configuration
-    val cloudStorage: CloudStorageConfig? = null // Cloud storage for multimodal image upload
+    val cloudStorage: CloudStorageConfig? = null, // Cloud storage for multimodal image upload
+    val acpAgents: Map<String, AcpAgentConfig>? = null, // ACP agent configurations
+    val activeAcpAgent: String? = null // Currently active ACP agent key
 )
 
 /**
@@ -115,6 +129,58 @@ data class CloudStorageConfig(
             secretKey.isNotBlank() &&
             bucket.isNotBlank() &&
             region.isNotBlank()
+    }
+}
+
+/**
+ * ACP (Agent Client Protocol) agent configuration.
+ *
+ * Defines an external ACP-compliant agent that can be spawned as a child process
+ * and communicated with via JSON-RPC over stdio.
+ *
+ * Example config.yaml:
+ * ```yaml
+ * acpAgents:
+ *   kimi:
+ *     name: "Kimi CLI"
+ *     command: "kimi"
+ *     args: "--acp"
+ *     env: "KIMI_API_KEY=xxx"
+ *   claude:
+ *     name: "Claude CLI"
+ *     command: "claude"
+ *     args: "--acp"
+ *     env: ""
+ * activeAcpAgent: kimi
+ * ```
+ */
+@Serializable
+data class AcpAgentConfig(
+    val name: String = "",
+    val command: String = "",
+    val args: String = "", // Space-separated arguments (e.g., "--acp --verbose")
+    val env: String = "" // Environment variables, one per line: "KEY=VALUE"
+) {
+    fun isConfigured(): Boolean {
+        return command.isNotBlank()
+    }
+
+    fun getArgsList(): List<String> {
+        return args.trim().split("\\s+".toRegex()).filter { it.isNotBlank() }
+    }
+
+    fun getEnvMap(): Map<String, String> {
+        val result = mutableMapOf<String, String>()
+        env.lines().forEach { line ->
+            val trimmed = line.trim()
+            if (trimmed.isEmpty() || trimmed.startsWith("#")) return@forEach
+            val idx = trimmed.indexOf('=')
+            if (idx <= 0) return@forEach
+            val key = trimmed.substring(0, idx).trim()
+            val value = trimmed.substring(idx + 1).trim()
+            result[key] = value
+        }
+        return result
     }
 }
 
@@ -210,6 +276,19 @@ class AutoDevConfigWrapper(val configFile: ConfigFile) {
         return configFile.cloudStorage?.isConfigured() == true
     }
 
+    fun getAcpAgents(): Map<String, AcpAgentConfig> {
+        return configFile.acpAgents ?: emptyMap()
+    }
+
+    fun getActiveAcpAgent(): AcpAgentConfig? {
+        val key = configFile.activeAcpAgent ?: return null
+        return configFile.acpAgents?.get(key)
+    }
+
+    fun getActiveAcpAgentKey(): String? {
+        return configFile.activeAcpAgent
+    }
+
     companion object {
         /**
          * Save agent type preference to config file
@@ -224,6 +303,45 @@ class AutoDevConfigWrapper(val configFile: ConfigFile) {
                 println("Agent type preference saved: $agentType")
             } catch (e: Exception) {
                 println("Failed to save agent type preference: ${e.message}")
+                throw e
+            }
+        }
+
+        /**
+         * Save ACP agent configurations to config file.
+         *
+         * @param acpAgents Map of agent key to AcpAgentConfig
+         * @param activeKey The key of the currently active ACP agent (null to keep unchanged)
+         */
+        suspend fun saveAcpAgents(
+            acpAgents: Map<String, AcpAgentConfig>,
+            activeKey: String? = null
+        ) {
+            try {
+                val currentConfig = ConfigManager.load()
+                val updatedConfig = currentConfig.configFile.copy(
+                    acpAgents = acpAgents,
+                    activeAcpAgent = activeKey ?: currentConfig.configFile.activeAcpAgent
+                )
+                ConfigManager.save(updatedConfig)
+                println("ACP agent configurations saved: ${acpAgents.keys}")
+            } catch (e: Exception) {
+                println("Failed to save ACP agent configurations: ${e.message}")
+                throw e
+            }
+        }
+
+        /**
+         * Save the active ACP agent key.
+         */
+        suspend fun saveActiveAcpAgent(key: String) {
+            try {
+                val currentConfig = ConfigManager.load()
+                val updatedConfig = currentConfig.configFile.copy(activeAcpAgent = key)
+                ConfigManager.save(updatedConfig)
+                println("Active ACP agent saved: $key")
+            } catch (e: Exception) {
+                println("Failed to save active ACP agent: ${e.message}")
                 throw e
             }
         }

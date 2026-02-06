@@ -365,6 +365,11 @@ fun CodingAgentPage(
                             // ARTIFACT has its own full-page interface (ArtifactPage)
                             // It should not reach here - handled by AgentInterfaceRouter
                         }
+
+                        AgentType.CUSTOM_AGENT -> {
+                            // CUSTOM_AGENT has its own full-page interface (AcpAgentPage)
+                            // It should not reach here - handled by AgentInterfaceRouter
+                        }
                     }
 
                     ToolLoadingStatusBar(
