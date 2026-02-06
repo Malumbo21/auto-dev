@@ -23,6 +23,7 @@ import cc.unitmesh.devins.llm.ChatHistoryManager
 import cc.unitmesh.devins.llm.MessageRole
 import cc.unitmesh.devins.ui.compose.agent.acp.AcpConnection
 import cc.unitmesh.devins.ui.compose.agent.acp.createAcpConnection
+import cc.unitmesh.devins.ui.compose.agent.acp.createConnectionForAgent
 import cc.unitmesh.devins.ui.compose.agent.acp.isAcpSupported
 import cc.unitmesh.devins.ui.i18n.LanguageManager
 import cc.unitmesh.config.ConfigManager
@@ -365,8 +366,8 @@ class CodingAgentViewModel(
 
             try {
                 disconnectAcp() // Clean up any stale connection
-                val connection = createAcpConnection()
-                    ?: throw IllegalStateException("Failed to create ACP connection")
+                val connection = createConnectionForAgent(config)
+                    ?: throw IllegalStateException("Failed to create connection for agent")
                 connection.connect(config, projectPath)
                 acpConnection = connection
                 

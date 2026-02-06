@@ -748,6 +748,12 @@ tasks.register<JavaExec>("runAcpCapture") {
     if (project.hasProperty("acpPrompt")) {
         systemProperty("acpPrompt", project.property("acpPrompt") as String)
     }
+    if (project.hasProperty("acpAgentKey")) {
+        systemProperty("acpAgentKey", project.property("acpAgentKey") as String)
+    }
+    if (project.hasProperty("acpCwd")) {
+        systemProperty("acpCwd", project.property("acpCwd") as String)
+    }
 
     standardInput = System.`in`
 }
@@ -1136,5 +1142,23 @@ tasks.register<JavaExec>("runArtifactCli") {
         systemProperty("artifactLanguage", project.property("artifactLanguage") as String)
     }
 
+    standardInput = System.`in`
+}
+
+// Task to debug ACP issues (wildcard, session, bash)
+tasks.register<JavaExec>("runAcpDebug") {
+    group = "autodev"
+    description = "Debug ACP agent issues (wildcard, session, bash)"
+
+    val jvmCompilation = kotlin.jvm().compilations.getByName("main")
+    classpath(jvmCompilation.output, configurations["jvmRuntimeClasspath"])
+    mainClass.set("cc.unitmesh.server.cli.AcpDebugCli")
+
+    // Pass command line arguments
+    // Usage: ./gradlew :mpp-ui:runAcpDebug --args="--agent=Gemini --test=wildcard"
+    if (project.hasProperty("args")) {
+        args = (project.property("args") as String).split(" ")
+    }
+    
     standardInput = System.`in`
 }

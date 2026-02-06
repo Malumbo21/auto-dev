@@ -1,6 +1,7 @@
 package cc.unitmesh.devins.ui.compose.agent.acp
 
 import cc.unitmesh.agent.acp.AcpClient
+import cc.unitmesh.agent.claude.ClaudeCodeClient
 import cc.unitmesh.agent.render.CodingAgentRenderer
 import cc.unitmesh.config.AcpAgentConfig
 import kotlinx.coroutines.CoroutineScope
@@ -11,7 +12,27 @@ import kotlinx.io.asSink
 import kotlinx.io.asSource
 import java.io.File
 
+/**
+ * Create the appropriate connection based on agent configuration.
+ * For Claude Code agents, uses [JvmClaudeCodeConnection] with direct stream-json protocol.
+ * For all other ACP agents (Gemini, Kimi, Copilot, etc.), uses [JvmAcpConnection].
+ */
 actual fun createAcpConnection(): AcpConnection? = JvmAcpConnection()
+
+/**
+ * Create the appropriate connection for the given agent config.
+ * - Claude Code: uses [JvmClaudeCodeConnection] with direct stream-json protocol.
+ * - All others: uses [JvmAcpConnection] with standard ACP JSON-RPC.
+ *
+ * @see <a href="https://github.com/phodal/auto-dev/issues/538">Issue #538</a>
+ */
+actual fun createConnectionForAgent(config: AcpAgentConfig): AcpConnection? {
+    return if (looksLikeClaude(config.command)) {
+        JvmClaudeCodeConnection()
+    } else {
+        JvmAcpConnection()
+    }
+}
 
 actual fun isAcpSupported(): Boolean = true
 
@@ -129,4 +150,98 @@ class JvmAcpConnection : AcpConnection {
         // Accept both "--work-dir" and "--workdir" just in case.
         return args.any { it == "--work-dir" || it == "--workdir" }
     }
+}
+
+/**
+ * JVM implementation for Claude Code using direct stream-json protocol.
+ *
+ * Unlike ACP agents, Claude Code uses its own JSON streaming protocol:
+ * - Launches `claude -p --output-format stream-json --input-format stream-json`
+ * - Reads JSON lines from stdout (system, stream_event, assistant, result messages)
+ * - Writes JSON lines to stdin (user messages)
+ *
+ * This is a Kotlin adaptation of the approach used in:
+ * - IDEA ml-llm: [ClaudeCodeProcessHandler] + [ClaudeCodeLongRunningSession]
+ * - zed-industries/claude-code-acp: TypeScript ACP adapter
+ *
+ * @see <a href="https://github.com/phodal/auto-dev/issues/538">Issue #538</a>
+ */
+class JvmClaudeCodeConnection : AcpConnection {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var client: ClaudeCodeClient? = null
+
+    override val isConnected: Boolean get() = client?.isConnected == true
+
+    override suspend fun connect(config: AcpAgentConfig, cwd: String) {
+        withContext(Dispatchers.IO) {
+            val effectiveCwd = cwd.ifBlank { System.getProperty("user.dir") ?: cwd }
+
+            // Parse extra args from config (skip -p, --output-format, --input-format which we set)
+            val extraArgs = config.getArgsList().toMutableList()
+
+            // Extract model and permission-mode from args if present
+            var model: String? = null
+            var permissionMode: String? = null
+            val filteredArgs = mutableListOf<String>()
+            val iter = extraArgs.iterator()
+            while (iter.hasNext()) {
+                val arg = iter.next()
+                when (arg) {
+                    "--model" -> { if (iter.hasNext()) model = iter.next() }
+                    "--permission-mode" -> { if (iter.hasNext()) permissionMode = iter.next() }
+                    // Skip flags we add ourselves
+                    "-p", "--print", "--output-format", "--input-format", "--verbose",
+                    "--include-partial-messages" -> {}
+                    "stream-json" -> {} // value of --output-format or --input-format
+                    else -> filteredArgs.add(arg)
+                }
+            }
+
+            val claudeClient = ClaudeCodeClient(
+                scope = scope,
+                binaryPath = config.command,
+                workingDirectory = effectiveCwd,
+                agentName = config.name.ifBlank { "Claude Code" },
+                enableLogging = true,
+                model = model,
+                permissionMode = permissionMode,
+                additionalArgs = filteredArgs,
+                envVars = config.getEnvMap(),
+            )
+
+            claudeClient.start()
+            client = claudeClient
+
+            println("[ClaudeCode] Connected to Claude Code at ${config.command}")
+        }
+    }
+
+    override suspend fun prompt(text: String, renderer: CodingAgentRenderer): String {
+        val c = client ?: throw IllegalStateException("ClaudeCodeClient not connected")
+        c.promptAndRender(text, renderer)
+        return "completed"
+    }
+
+    override suspend fun cancel() {
+        // Claude Code in -p mode doesn't have a cancel mechanism via stdin.
+        // The only way is to kill the process (which disconnect() does).
+        println("[ClaudeCode] Cancel requested - stopping process")
+        disconnect()
+    }
+
+    override suspend fun disconnect() {
+        try {
+            client?.stop()
+        } catch (_: Exception) {}
+        client = null
+        println("[ClaudeCode] Disconnected")
+    }
+}
+
+/**
+ * Check if a command path looks like the Claude Code CLI.
+ */
+private fun looksLikeClaude(command: String): Boolean {
+    val base = command.substringAfterLast('/').substringAfterLast('\\').lowercase()
+    return base == "claude" || base == "claude.exe" || base == "claude-code" || base == "claude-code.exe"
 }

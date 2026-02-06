@@ -12,6 +12,13 @@ import cc.unitmesh.config.AcpAgentConfig
 expect fun createAcpConnection(): AcpConnection?
 
 /**
+ * Create the appropriate connection for a given agent config.
+ * For Claude Code agents, uses the Claude stream-json protocol.
+ * For all other agents, uses standard ACP JSON-RPC.
+ */
+expect fun createConnectionForAgent(config: AcpAgentConfig): AcpConnection?
+
+/**
  * Whether the current platform supports ACP agent connections.
  */
 expect fun isAcpSupported(): Boolean

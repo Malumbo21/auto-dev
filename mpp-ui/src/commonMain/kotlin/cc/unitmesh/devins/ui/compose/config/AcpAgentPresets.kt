@@ -44,10 +44,10 @@ object AcpAgentPresets {
         ),
         AcpAgentPreset(
             id = "claude",
-            name = "Claude",
+            name = "Claude Code",
             command = "claude",
-            args = "--acp",
-            description = "Anthropic Claude CLI with ACP support"
+            args = "",
+            description = "Anthropic Claude Code (stream-json protocol)"
         ),
         AcpAgentPreset(
             id = "codex",
