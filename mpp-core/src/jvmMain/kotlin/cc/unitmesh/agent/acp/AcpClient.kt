@@ -179,7 +179,7 @@ class AcpClient(
                     onSessionUpdate = { update -> onSessionUpdate?.invoke(update) },
                     onPermissionRequest = { toolCall, options ->
                         onPermissionRequest?.invoke(toolCall, options)
-                            ?: RequestPermissionResponse(RequestPermissionOutcome.Cancelled, JsonNull)
+                            ?: defaultPermissionResponse(toolCall, options)
                     },
                     cwd = cwd,
                     enableFs = true,
@@ -565,6 +565,34 @@ class AcpClient(
     }
 
     companion object {
+        /**
+         * Default permission strategy when the embedding UI does not provide a handler.
+         *
+         * We prefer ALLOW_ONCE (or ALLOW_ALWAYS) to avoid agents getting stuck in a
+         * "tool call failed -> END_TURN with no output" state (common for shell-like actions).
+         *
+         * IDE integrations (Compose UI / IDEA) SHOULD override [onPermissionRequest] to prompt the user.
+         */
+        private fun defaultPermissionResponse(
+            toolCall: SessionUpdate.ToolCallUpdate,
+            options: List<PermissionOption>,
+        ): RequestPermissionResponse {
+            val allow = options.firstOrNull {
+                it.kind == PermissionOptionKind.ALLOW_ONCE || it.kind == PermissionOptionKind.ALLOW_ALWAYS
+            }
+            return if (allow != null) {
+                logger.info {
+                    "ACP permission auto-approved (${allow.kind}) for tool=${toolCall.title ?: "tool"} option=${allow.name}"
+                }
+                RequestPermissionResponse(RequestPermissionOutcome.Selected(allow.optionId), JsonNull)
+            } else {
+                logger.info {
+                    "ACP permission cancelled (no allow option) for tool=${toolCall.title ?: "tool"}"
+                }
+                RequestPermissionResponse(RequestPermissionOutcome.Cancelled, JsonNull)
+            }
+        }
+
         /**
          * Render an ACP SessionUpdate to a CodingAgentRenderer.
          * This is a shared utility that can be used by JVM UI integrations.

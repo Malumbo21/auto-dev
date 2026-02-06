@@ -58,7 +58,22 @@ class AcpClientSessionOps(
         permissions: List<PermissionOption>,
         _meta: JsonElement?,
     ): RequestPermissionResponse {
-        return onPermissionRequest(toolCall, permissions)
+        try {
+            val summary = permissions.joinToString { opt -> "${opt.kind}:${opt.name}" }
+            logger.info {
+                "ACP requestPermissions: tool=${toolCall.title ?: "tool"} id=${toolCall.toolCallId?.value ?: "?"} options=[$summary]"
+            }
+        } catch (_: Exception) {
+        }
+
+        val resp = onPermissionRequest(toolCall, permissions)
+
+        try {
+            logger.info { "ACP permission response: ${resp.outcome}" }
+        } catch (_: Exception) {
+        }
+
+        return resp
     }
 
     // ── File System Operations ──────────────────────────────────────
