@@ -3,8 +3,7 @@ package cc.unitmesh.agent.claude
 import cc.unitmesh.agent.render.CodingAgentRenderer
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.*
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.*
 import java.io.*
 import java.text.SimpleDateFormat
 import java.util.*
@@ -44,6 +43,8 @@ class ClaudeCodeClient(
     private val toolUseNames = mutableMapOf<String, String>()
     // Track which tool IDs have been rendered to avoid duplicates
     private val renderedToolIds = mutableSetOf<String>()
+    // Track tool_use input data by toolId for rendering
+    private val toolUseInputs = mutableMapOf<String, Map<String, Any>>()
 
     val isConnected: Boolean get() = process?.isAlive == true
 
@@ -240,35 +241,36 @@ class ClaudeCodeClient(
                     }
 
                     ClaudeMessageType.ASSISTANT -> {
-                        // Final assistant message with all content blocks.
-                        // Stream events already rendered the text/thinking incrementally.
-                        // Here we handle tool_use and tool_result from the assembled message.
+                        // Assistant message contains assembled content blocks.
+                        // For tool_use: render the tool call with full parameters.
+                        // For text/thinking: already rendered by stream_event, skip.
                         for (c in msg.content) {
                             when (c.type) {
                                 "tool_use" -> {
                                     val toolId = c.id ?: ""
                                     val toolName = c.name ?: "unknown"
+                                    toolUseNames[toolId] = toolName
                                     
+                                    // Parse tool input to a readable map
+                                    val inputMap = try {
+                                        c.input?.let { parseJsonToMap(it) } ?: emptyMap()
+                                    } catch (e: Exception) {
+                                        logger.warn { "[ClaudeCode] Failed to parse tool input for $toolName: ${e.message}" }
+                                        emptyMap()
+                                    }
+                                    
+                                    // Store for later lookup when tool_result arrives
+                                    toolUseInputs[toolId] = inputMap
+
                                     // Only render if not already rendered
                                     if (!renderedToolIds.contains(toolId)) {
-                                        // Parse tool input to a readable map
-                                        val inputMap = try {
-                                            c.input?.let { parseJsonToMap(it.toString()) } ?: emptyMap()
-                                        } catch (_: Exception) {
-                                            emptyMap()
-                                        }
-
                                         toolCount++
-                                        renderer.renderToolCallWithParams(toolName, inputMap)
+                                        // Map Claude Code tool names and params to our internal format
+                                        val mappedName = mapClaudeToolName(toolName)
+                                        val mappedParams = mapClaudeParams(toolName, inputMap)
+                                        renderer.renderToolCallWithParams(mappedName, mappedParams)
                                         renderedToolIds.add(toolId)
                                     }
-                                }
-                                "tool_result" -> {
-                                    val toolId = c.toolUseId ?: ""
-                                    val toolName = toolUseNames[toolId] ?: "unknown"
-                                    val isErr = c.isError == true
-                                    val output = extractToolResultText(c)
-                                    renderer.renderToolResult(toolName, !isErr, output, output)
                                 }
                                 // text/thinking already handled by stream_event
                             }
@@ -276,7 +278,28 @@ class ClaudeCodeClient(
                     }
 
                     ClaudeMessageType.USER -> {
-                        // Echoed user message - skip
+                        // User messages contain tool_result blocks (Claude executed the tool
+                        // and wraps the result in a user message for the next turn).
+                        // We must handle these to mark tool calls as COMPLETED.
+                        for (c in msg.content) {
+                            when (c.type) {
+                                "tool_result" -> {
+                                    val toolId = c.toolUseId ?: ""
+                                    val toolName = toolUseNames[toolId] ?: "unknown"
+                                    val mappedName = mapClaudeToolName(toolName)
+                                    val isErr = c.isError == true
+                                    val output = extractToolResultText(c)
+                                    // Truncate output for display (keep full for expanded view)
+                                    val summary = if (output.length > 200) {
+                                        output.take(200) + "..."
+                                    } else {
+                                        output
+                                    }
+                                    renderer.renderToolResult(mappedName, !isErr, summary, output)
+                                }
+                                // "text" in user messages is just echo/context - skip
+                            }
+                        }
                     }
 
                     ClaudeMessageType.RESULT -> {
@@ -339,29 +362,89 @@ class ClaudeCodeClient(
         logWriter = null
         sessionId = null
         toolUseNames.clear()
+        toolUseInputs.clear()
         renderedToolIds.clear()
         logger.info { "[ClaudeCode] Stopped" }
     }
 
     // ─── Internals ─────────────────────────────────────────────────
 
-    private fun parseJsonToMap(jsonStr: String): Map<String, Any> {
+    /**
+     * Map Claude Code tool names to our internal ToolType names.
+     * Claude Code uses different names (e.g., "Bash" vs our "shell", "Read" vs "read_file").
+     * This mapping enables proper formatting and icon display in ComposeRenderer.
+     */
+    private fun mapClaudeToolName(claudeToolName: String): String {
+        return when (claudeToolName) {
+            "Bash" -> "shell"
+            "Read" -> "read_file"
+            "Write" -> "write_file"
+            "Edit" -> "edit_file"
+            "Glob" -> "glob"
+            "Grep" -> "grep"
+            "Task" -> "Task"
+            "WebFetch" -> "WebFetch"
+            "WebSearch" -> "WebSearch"
+            "TodoWrite" -> "TodoWrite"
+            "LS" -> "LS"
+            else -> claudeToolName
+        }
+    }
+
+    /**
+     * Map Claude Code param keys to our internal param keys.
+     * E.g., Claude uses "file_path" but our formatToolCallDisplay expects "path".
+     */
+    private fun mapClaudeParams(claudeToolName: String, params: Map<String, Any>): Map<String, Any> {
+        return when (claudeToolName) {
+            "Read", "Write", "Edit" -> {
+                // Map "file_path" -> "path" for compatibility with RendererUtils.formatToolCallDisplay
+                val mapped = params.toMutableMap()
+                params["file_path"]?.let { mapped["path"] = it }
+                mapped
+            }
+            "Bash" -> {
+                // Map "command" + "description" 
+                val mapped = params.toMutableMap()
+                // "command" already matches our internal key
+                mapped
+            }
+            else -> params
+        }
+    }
+
+    /**
+     * Parse JsonElement to Map<String, Any> for rendering.
+     * Handles both JsonObject (already parsed) and String (needs parsing).
+     */
+    private fun parseJsonToMap(input: Any?): Map<String, Any> {
         return try {
-            val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
-            val element = json.parseToJsonElement(jsonStr)
-            if (element is kotlinx.serialization.json.JsonObject) {
-                element.entries.associate { (key, value) ->
-                    key to when (value) {
-                        is kotlinx.serialization.json.JsonPrimitive -> value.contentOrNull ?: value.toString()
-                        is kotlinx.serialization.json.JsonArray -> value.toString()
-                        is kotlinx.serialization.json.JsonObject -> value.toString()
-                        else -> value.toString()
+            when (input) {
+                is JsonElement -> {
+                    // Already a JsonElement from kotlinx.serialization
+                    if (input is JsonObject) {
+                        input.entries.associate { (key, value) ->
+                            key to when (value) {
+                                is JsonPrimitive -> value.contentOrNull ?: value.toString()
+                                is JsonArray -> value.toString()
+                                is JsonObject -> value.toString()
+                                else -> value.toString()
+                            }
+                        }
+                    } else {
+                        emptyMap()
                     }
                 }
-            } else {
-                emptyMap()
+                is String -> {
+                    // String that needs parsing
+                    val json = Json { ignoreUnknownKeys = true }
+                    val element = json.parseToJsonElement(input)
+                    parseJsonToMap(element) // Recursive call with parsed element
+                }
+                else -> emptyMap()
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            logger.warn { "[ClaudeCode] Failed to parse tool input: ${e.message}" }
             emptyMap()
         }
     }
