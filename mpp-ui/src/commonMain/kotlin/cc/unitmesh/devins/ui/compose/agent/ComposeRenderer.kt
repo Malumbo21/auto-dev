@@ -61,6 +61,9 @@ class ComposeRenderer : BaseRenderer() {
     // Thinking content state - displayed in a collapsible, scrolling area
     private var _currentThinkingOutput by mutableStateOf("")
     val currentThinkingOutput: String get() = _currentThinkingOutput
+    
+    // Full thinking content (not trimmed) for saving to timeline
+    private var _fullThinkingContent = StringBuilder()
 
     private var _isThinking by mutableStateOf(false)
     val isThinking: Boolean get() = _isThinking
@@ -176,16 +179,20 @@ class ComposeRenderer : BaseRenderer() {
     override fun renderThinkingChunk(chunk: String, isStart: Boolean, isEnd: Boolean) {
         if (isStart) {
             _currentThinkingOutput = ""
+            _fullThinkingContent = StringBuilder()
             _isThinking = true
         }
 
-        // Append thinking content - keep only last N lines for scrolling effect
+        // Append to full content (not trimmed)
+        _fullThinkingContent.append(chunk)
+        
+        // Append thinking content - keep only last N lines for scrolling effect (display only)
         val maxLines = 5
         val currentLines = _currentThinkingOutput.lines().toMutableList()
         val newLines = chunk.lines()
         currentLines.addAll(newLines)
 
-        // Keep only last N lines
+        // Keep only last N lines for display
         val trimmedLines = if (currentLines.size > maxLines) {
             currentLines.takeLast(maxLines)
         } else {
@@ -194,7 +201,20 @@ class ComposeRenderer : BaseRenderer() {
         _currentThinkingOutput = trimmedLines.joinToString("\n")
 
         if (isEnd) {
+            // Save FULL thinking content to timeline before closing
+            val fullContent = _fullThinkingContent.toString().trim()
+            if (fullContent.isNotEmpty()) {
+                _timeline.add(
+                    TimelineItem.ThinkingItem(
+                        content = fullContent,
+                        timestamp = System.currentTimeMillis()
+                    )
+                )
+            }
+            
             _isThinking = false
+            _currentThinkingOutput = ""
+            _fullThinkingContent = StringBuilder()
         }
     }
 
@@ -1359,6 +1379,11 @@ class ComposeRenderer : BaseRenderer() {
                 // Multimodal analysis items are not persisted (they're runtime-only)
                 null
             }
+            
+            is TimelineItem.ThinkingItem -> {
+                // Thinking items are not persisted (they're runtime-only for UI display)
+                null
+            }
         }
     }
 
@@ -1607,6 +1632,11 @@ class ComposeRenderer : BaseRenderer() {
                     } else {
                         null
                     }
+                }
+                
+                is TimelineItem.ThinkingItem -> {
+                    // Thinking items can be persisted but not as regular messages
+                    null
                 }
             }
         }

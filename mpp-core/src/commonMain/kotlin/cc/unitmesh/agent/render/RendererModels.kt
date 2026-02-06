@@ -212,6 +212,16 @@ sealed class TimelineItem(
         override val timestamp: Long = Platform.getCurrentTimestamp(),
         override val id: String = generateId()
     ) : TimelineItem(timestamp, id)
+    
+    /**
+     * Thinking/reasoning content item for displaying agent's internal thoughts.
+     * Used by ACP agents and other agents that expose their thinking process.
+     */
+    data class ThinkingItem(
+        val content: String,
+        override val timestamp: Long = Platform.getCurrentTimestamp(),
+        override val id: String = generateId()
+    ) : TimelineItem(timestamp, id)
 
     /**
      * ChatDB execution step item for displaying database query execution steps.

@@ -26,6 +26,7 @@ import cc.unitmesh.devins.llm.Message
 import cc.unitmesh.devins.llm.MessageRole
 import cc.unitmesh.devins.ui.compose.icons.AutoDevComposeIcons
 import cc.unitmesh.devins.ui.compose.sketch.SketchRenderer
+import cc.unitmesh.devins.ui.compose.sketch.ThinkingBlockRenderer
 import cc.unitmesh.devins.ui.compose.sketch.getUtf8FontFamily
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -270,6 +271,14 @@ fun RenderMessageItem(
             MultimodalAnalysisItemView(
                 item = timelineItem,
                 onExpand = onExpand
+            )
+        }
+        
+        is TimelineItem.ThinkingItem -> {
+            ThinkingBlockRenderer(
+                thinkingContent = timelineItem.content,
+                isComplete = true,
+                modifier = Modifier.fillMaxWidth()
             )
         }
     }
