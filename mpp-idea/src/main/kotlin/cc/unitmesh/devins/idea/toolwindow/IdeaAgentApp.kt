@@ -97,10 +97,19 @@ fun IdeaAgentApp(
 
     // Collect engine state
     IdeaLaunchedEffect(viewModel, project = project) {
-        viewModel.currentEngine.collect { currentEngine = it }
+        viewModel.currentEngine.collect { 
+            println("IdeaAgentApp: currentEngine changed to $it")
+            currentEngine = it 
+        }
     }
     IdeaLaunchedEffect(viewModel, project = project) {
-        viewModel.acpAgents.collect { acpAgents = it }
+        viewModel.acpAgents.collect { 
+            println("IdeaAgentApp: acpAgents changed, size=${it.size}")
+            it.forEach { (key, config) ->
+                println("  - ACP Agent: $key -> ${config.name}")
+            }
+            acpAgents = it 
+        }
     }
     IdeaLaunchedEffect(viewModel, project = project) {
         viewModel.currentAcpAgentKey.collect { currentAcpAgentKey = it }
@@ -340,6 +349,7 @@ fun IdeaAgentApp(
                                 viewModel.renderer.completeMultimodalAnalysis(result, error)
                             },
                             // ACP engine integration
+                            currentEngine = currentEngine,
                             acpAgents = acpAgents,
                             currentAcpAgentKey = if (currentEngine == IdeaEngine.ACP) currentAcpAgentKey else null,
                             onAcpAgentSelect = { agentKey ->
@@ -350,6 +360,17 @@ fun IdeaAgentApp(
                             },
                             onSwitchToAutodev = {
                                 viewModel.switchToAutodev()
+                            },
+                            onSwitchToAcp = {
+                                // When user clicks ACP in engine selector but hasn't selected agent yet
+                                if (acpAgents.isNotEmpty()) {
+                                    // Switch to first agent if available
+                                    val firstAgent = acpAgents.keys.first()
+                                    viewModel.switchToAcpAgent(firstAgent)
+                                } else {
+                                    // Open config dialog if no agents
+                                    viewModel.setShowAcpConfigDialog(true)
+                                }
                             }
                         )
                     }

@@ -125,11 +125,13 @@ fun IdeaDevInInputArea(
     isRefreshingCopilot: Boolean = false,
     currentPlan: AgentPlan? = null,
     // ACP engine integration
+    currentEngine: cc.unitmesh.devins.idea.toolwindow.IdeaEngine = cc.unitmesh.devins.idea.toolwindow.IdeaEngine.AUTODEV,
     acpAgents: Map<String, cc.unitmesh.config.AcpAgentConfig> = emptyMap(),
     currentAcpAgentKey: String? = null,
     onAcpAgentSelect: (String) -> Unit = {},
     onConfigureAcp: () -> Unit = {},
     onSwitchToAutodev: () -> Unit = {},
+    onSwitchToAcp: () -> Unit = {},
     // Multimodal analysis streaming callbacks for renderer
     onMultimodalAnalysisStart: ((Int, String) -> Unit)? = null,
     onMultimodalAnalysisChunk: ((String) -> Unit)? = null,
@@ -142,13 +144,24 @@ fun IdeaDevInInputArea(
     // root recreation. remember() here only caches the reference within the
     // current composition; actual lifecycle is managed by swingInputAreaCache.
     val swingInputArea = remember(parentDisposable) {
-        getOrCreateSwingInputArea(
+        val area = getOrCreateSwingInputArea(
             project = project,
             parentDisposable = parentDisposable,
             scope = scope,
             onSend = onSend,
             onAbort = onAbort
         )
+        
+        // Set initial ACP state immediately after creation
+        area.setCurrentEngine(currentEngine)
+        area.setAcpAgents(acpAgents)
+        area.setCurrentAcpAgent(currentAcpAgentKey)
+        area.setOnAcpAgentSelect(onAcpAgentSelect)
+        area.setOnConfigureAcp(onConfigureAcp)
+        area.setOnSwitchToAutodev(onSwitchToAutodev)
+        area.setOnSwitchToAcp(onSwitchToAcp)
+        
+        area
     }
 
     // Update SwingDevInInputArea properties when they change
@@ -195,6 +208,10 @@ fun IdeaDevInInputArea(
     }
 
     // ACP engine integration
+    LaunchedEffect(currentEngine) {
+        swingInputArea.setCurrentEngine(currentEngine)
+    }
+
     LaunchedEffect(acpAgents) {
         swingInputArea.setAcpAgents(acpAgents)
     }
@@ -213,6 +230,10 @@ fun IdeaDevInInputArea(
 
     LaunchedEffect(onSwitchToAutodev) {
         swingInputArea.setOnSwitchToAutodev(onSwitchToAutodev)
+    }
+
+    LaunchedEffect(onSwitchToAcp) {
+        swingInputArea.setOnSwitchToAcp(onSwitchToAcp)
     }
 
     LaunchedEffect(onMultimodalAnalysisStart) {
@@ -578,23 +599,38 @@ class SwingDevInInputArea(
     }
 
     fun setAcpAgents(agents: Map<String, cc.unitmesh.config.AcpAgentConfig>) {
+        logger.info("SwingDevInInputArea.setAcpAgents called with ${agents.size} agents")
         bottomToolbar.setAcpAgents(agents)
     }
 
     fun setCurrentAcpAgent(agentKey: String?) {
+        logger.info("SwingDevInInputArea.setCurrentAcpAgent called with key=$agentKey")
         bottomToolbar.setCurrentAcpAgent(agentKey)
     }
 
+    fun setCurrentEngine(engine: cc.unitmesh.devins.idea.toolwindow.IdeaEngine) {
+        logger.info("SwingDevInInputArea.setCurrentEngine called with $engine")
+        bottomToolbar.setCurrentEngine(engine)
+    }
+
     fun setOnAcpAgentSelect(callback: (String) -> Unit) {
+        logger.info("SwingDevInInputArea.setOnAcpAgentSelect called")
         bottomToolbar.setOnAcpAgentSelect(callback)
     }
 
     fun setOnConfigureAcp(callback: () -> Unit) {
+        logger.info("SwingDevInInputArea.setOnConfigureAcp called")
         bottomToolbar.setOnConfigureAcp(callback)
     }
 
     fun setOnSwitchToAutodev(callback: () -> Unit) {
+        logger.info("SwingDevInInputArea.setOnSwitchToAutodev called")
         bottomToolbar.setOnSwitchToAutodev(callback)
+    }
+
+    fun setOnSwitchToAcp(callback: () -> Unit) {
+        logger.info("SwingDevInInputArea.setOnSwitchToAcp called")
+        bottomToolbar.setOnSwitchToAcp(callback)
     }
 
     /**

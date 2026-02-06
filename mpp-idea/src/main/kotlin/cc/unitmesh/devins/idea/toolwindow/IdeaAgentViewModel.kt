@@ -260,11 +260,19 @@ class IdeaAgentViewModel(
         coroutineScope.launch(Dispatchers.IO) {
             try {
                 val wrapper = ConfigManager.load()
-                _acpAgents.value = wrapper.getAcpAgents()
+                val agents = wrapper.getAcpAgents()
+                vmLogger.info("Loaded ${agents.size} ACP agents from config")
+                agents.forEach { (key, config) ->
+                    vmLogger.info("  - ACP Agent: $key -> ${config.name} (${config.command})")
+                }
+                _acpAgents.value = agents
                 val activeKey = wrapper.getActiveAcpAgentKey()
                 _currentAcpAgentKey.value = activeKey
+                vmLogger.info("Active ACP agent key: $activeKey")
             } catch (e: Exception) {
                 vmLogger.warn("Failed to load ACP agents from config", e)
+                // Set empty map so UI still renders "Configure ACP..."
+                _acpAgents.value = emptyMap()
             }
         }
     }

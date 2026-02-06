@@ -1,5 +1,6 @@
 package cc.unitmesh.devins.idea.editor
 
+import cc.unitmesh.devins.idea.toolwindow.IdeaEngine
 import cc.unitmesh.devti.llm2.GithubCopilotDetector
 import cc.unitmesh.devins.idea.editor.multimodal.IdeaMultimodalState
 import cc.unitmesh.llm.NamedModelConfig
@@ -17,16 +18,25 @@ import javax.swing.*
 
 /**
  * Swing-based bottom toolbar for the input section.
- * Provides send/stop buttons, model selector, token info, and image attachment button.
+ * 
+ * Features:
+ * - Engine selector (AutoDev / ACP) - NEW!
+ * - Model/Agent selector (shows LLM configs for AutoDev, ACP agents for ACP)
+ * - Send/Stop buttons with multimodal support
+ * - Token display, image attachment, prompt optimization
  */
 class SwingBottomToolbar(
     private val project: Project?,
     private val onSendClick: () -> Unit,
     private val onStopClick: () -> Unit,
     private val onPromptOptimizationClick: () -> Unit,
-    private val onImageClick: (() -> Unit)? = null // Optional image attachment callback
+    private val onImageClick: (() -> Unit)? = null
 ) : JPanel(BorderLayout()) {
 
+    // Engine selector (AutoDev / ACP)
+    private val engineComboBox = ComboBox<String>()
+    
+    // Model/Agent selector (content changes based on engine)
     private val modelComboBox = ComboBox<String>()
     private val tokenLabel = JBLabel()
     private val sendButton = JButton("Send", AllIcons.Actions.Execute)
@@ -43,33 +53,35 @@ class SwingBottomToolbar(
         isVisible = onImageClick != null
     }
     
-    // Image count badge label
     private val imageCountLabel = JBLabel().apply {
         isVisible = false
         foreground = JBColor(Color(0, 120, 212), Color(100, 180, 255))
     }
 
     private var availableConfigs: List<NamedModelConfig> = emptyList()
+    private var acpAgents: Map<String, cc.unitmesh.config.AcpAgentConfig> = emptyMap()
+    private var currentEngine: IdeaEngine = IdeaEngine.AUTODEV
+    
+    // Callbacks
     private var onConfigSelect: (NamedModelConfig) -> Unit = {}
     private var onConfigureClick: () -> Unit = {}
     private var onAddNewConfig: () -> Unit = {}
     private var onRefreshCopilot: () -> Unit = {}
-    private var onAcpAgentSelect: (String) -> Unit = {} // ACP agent key
+    private var onAcpAgentSelect: (String) -> Unit = {}
     private var onConfigureAcp: () -> Unit = {}
     private var onSwitchToAutodev: () -> Unit = {}
+    private var onSwitchToAcp: () -> Unit = {}
+    
     private var isProcessing = false
     private var isEnhancing = false
     private var isRefreshingCopilot = false
     private var imageCount = 0
 
-    // Track ACP agent entries in the combo box
-    // Format: list of (comboIndex, agentKey) for ACP items
-    private var acpAgentEntries: List<Pair<Int, String>> = emptyList()
-    private val ACP_SEPARATOR = "--- ACP Agents ---"
+    // Track ACP agent keys (parallel to combo box items)
+    private var acpAgentKeys: List<String> = emptyList()
     private val ACP_CONFIGURE = "Configure ACP..."
-    private var isComboUpdating = false
+    private var isUpdating = false
     
-    // Refresh GitHub Copilot button (only shown when Copilot is configured)
     private val refreshCopilotButton = JButton(AllIcons.Actions.Refresh).apply {
         toolTipText = "Refresh GitHub Copilot Models"
         preferredSize = Dimension(28, 28)
@@ -83,50 +95,86 @@ class SwingBottomToolbar(
         border = JBUI.Borders.empty(4)
         isOpaque = false
 
-        // Left side: Model selector and token info
+        // Left side: Engine + Model selectors + token
         val leftPanel = JPanel(FlowLayout(FlowLayout.LEFT, 4, 0)).apply {
             isOpaque = false
 
+            // Engine selector (AutoDev / ACP)
+            engineComboBox.preferredSize = Dimension(90, 28)
+            engineComboBox.addItem("AutoDev")
+            engineComboBox.addItem("ACP")
+            engineComboBox.addActionListener {
+                if (isUpdating) return@addActionListener
+                val selected = engineComboBox.selectedItem as? String
+                println("Engine selector changed to: $selected")
+                when (selected) {
+                    "AutoDev" -> {
+                        currentEngine = IdeaEngine.AUTODEV
+                        onSwitchToAutodev()
+                        rebuildModelComboBox()
+                    }
+                    "ACP" -> {
+                        currentEngine = IdeaEngine.ACP
+                        onSwitchToAcp()
+                        rebuildModelComboBox()
+                    }
+                }
+            }
+            add(engineComboBox)
+
+            // Model/Agent selector
             modelComboBox.preferredSize = Dimension(180, 28)
             modelComboBox.addActionListener {
-                if (isComboUpdating) return@addActionListener
+                if (isUpdating) return@addActionListener
                 val selectedIndex = modelComboBox.selectedIndex
                 val selectedItem = modelComboBox.selectedItem as? String
 
-                when {
-                    // "Configure ACP..." item
-                    selectedItem == ACP_CONFIGURE -> {
-                        onConfigureAcp()
+                when (currentEngine) {
+                    IdeaEngine.AUTODEV -> {
+                        if (selectedIndex in availableConfigs.indices) {
+                            onConfigSelect(availableConfigs[selectedIndex])
+                        }
                     }
-                    // Separator (not selectable, reset)
-                    selectedItem == ACP_SEPARATOR -> {
-                        // Do nothing
-                    }
-                    // ACP agent entry
-                    acpAgentEntries.any { it.first == selectedIndex } -> {
-                        val agentKey = acpAgentEntries.first { it.first == selectedIndex }.second
-                        onAcpAgentSelect(agentKey)
-                    }
-                    // Regular LLM config
-                    selectedIndex in availableConfigs.indices -> {
-                        onSwitchToAutodev()
-                        onConfigSelect(availableConfigs[selectedIndex])
+                    IdeaEngine.ACP -> {
+                        when (selectedItem) {
+                            ACP_CONFIGURE -> onConfigureAcp()
+                            else -> {
+                                if (selectedIndex in acpAgentKeys.indices) {
+                                    val agentKey = acpAgentKeys[selectedIndex]
+                                    onAcpAgentSelect(agentKey)
+                                }
+                            }
+                        }
                     }
                 }
             }
             add(modelComboBox)
 
-            // Add New Config button
+            // Add button (Config+ for AutoDev, ACP+ for ACP)
             val addConfigButton = JButton(AllIcons.General.Add).apply {
-                toolTipText = "Add New Config"
                 preferredSize = Dimension(28, 28)
                 isBorderPainted = false
                 isContentAreaFilled = false
-                addActionListener { onAddNewConfig() }
+                addActionListener { 
+                    if (currentEngine == IdeaEngine.AUTODEV) {
+                        onAddNewConfig()
+                    } else {
+                        onConfigureAcp()
+                    }
+                }
             }
+            
+            // Update tooltip dynamically
+            engineComboBox.addItemListener {
+                addConfigButton.toolTipText = if (currentEngine == IdeaEngine.AUTODEV) {
+                    "Add New LLM Config"
+                } else {
+                    "Configure ACP Agents"
+                }
+            }
+            addConfigButton.toolTipText = "Add New LLM Config"
             add(addConfigButton)
             
-            // Refresh GitHub Copilot button
             add(refreshCopilotButton)
 
             tokenLabel.foreground = JBUI.CurrentTheme.Label.disabledForeground()
@@ -138,7 +186,6 @@ class SwingBottomToolbar(
         val rightPanel = JPanel(FlowLayout(FlowLayout.RIGHT, 4, 0)).apply {
             isOpaque = false
 
-            // Image attachment button (only if callback is provided)
             if (onImageClick != null) {
                 imageButton.addActionListener { onImageClick.invoke() }
                 add(imageButton)
@@ -201,79 +248,86 @@ class SwingBottomToolbar(
     }
 
     fun setAvailableConfigs(configs: List<NamedModelConfig>) {
+        println("SwingBottomToolbar.setAvailableConfigs: ${configs.size} configs")
         availableConfigs = configs
-        rebuildComboBox()
+        if (currentEngine == IdeaEngine.AUTODEV) {
+            rebuildModelComboBox()
+        }
     }
 
-    /**
-     * Set available ACP agents and rebuild the combo box.
-     */
     fun setAcpAgents(agents: Map<String, cc.unitmesh.config.AcpAgentConfig>) {
-        rebuildComboBoxWithAcp(agents)
+        println("SwingBottomToolbar.setAcpAgents: ${agents.size} agents")
+        acpAgents = agents
+        if (currentEngine == IdeaEngine.ACP) {
+            rebuildModelComboBox()
+        }
     }
 
-    private fun rebuildComboBox() {
-        rebuildComboBoxWithAcp(emptyMap())
+    fun setCurrentEngine(engine: IdeaEngine) {
+        isUpdating = true
+        try {
+            currentEngine = engine
+            engineComboBox.selectedIndex = when (engine) {
+                IdeaEngine.AUTODEV -> 0
+                IdeaEngine.ACP -> 1
+            }
+            rebuildModelComboBox()
+        } finally {
+            isUpdating = false
+        }
     }
 
-    private fun rebuildComboBoxWithAcp(agents: Map<String, cc.unitmesh.config.AcpAgentConfig>) {
-        isComboUpdating = true
+    private fun rebuildModelComboBox() {
+        isUpdating = true
         try {
             modelComboBox.removeAllItems()
-            acpAgentEntries = emptyList()
+            acpAgentKeys = emptyList()
 
-            // Add LLM configs
-            availableConfigs.forEach { modelComboBox.addItem(it.name) }
-
-            // Add ACP agents section
-            if (agents.isNotEmpty()) {
-                val separatorIndex = modelComboBox.itemCount
-                modelComboBox.addItem(ACP_SEPARATOR)
-
-                val entries = mutableListOf<Pair<Int, String>>()
-                agents.forEach { (key, config) ->
-                    val displayName = config.name.ifBlank { key }
-                    val idx = modelComboBox.itemCount
-                    modelComboBox.addItem("ACP: $displayName")
-                    entries.add(idx to key)
+            when (currentEngine) {
+                IdeaEngine.AUTODEV -> {
+                    availableConfigs.forEach { modelComboBox.addItem(it.name) }
+                    println("Rebuilt model combo: AutoDev mode, ${availableConfigs.size} items")
                 }
-                acpAgentEntries = entries
-
-                // Add "Configure ACP..." at the end
-                modelComboBox.addItem(ACP_CONFIGURE)
+                IdeaEngine.ACP -> {
+                    val keys = mutableListOf<String>()
+                    acpAgents.forEach { (key, config) ->
+                        val displayName = config.name.ifBlank { key }
+                        modelComboBox.addItem(displayName)
+                        keys.add(key)
+                    }
+                    acpAgentKeys = keys
+                    modelComboBox.addItem(ACP_CONFIGURE)
+                    println("Rebuilt model combo: ACP mode, ${acpAgents.size} agents + configure")
+                }
             }
         } finally {
-            isComboUpdating = false
+            isUpdating = false
         }
     }
 
     fun setCurrentConfigName(name: String?) {
-        if (name != null) {
-            isComboUpdating = true
-            try {
-                val index = availableConfigs.indexOfFirst { it.name == name }
-                if (index >= 0) {
-                    modelComboBox.selectedIndex = index
-                }
-            } finally {
-                isComboUpdating = false
+        if (name == null || currentEngine != IdeaEngine.AUTODEV) return
+        isUpdating = true
+        try {
+            val index = availableConfigs.indexOfFirst { it.name == name }
+            if (index >= 0) {
+                modelComboBox.selectedIndex = index
             }
+        } finally {
+            isUpdating = false
         }
     }
 
-    /**
-     * Select an ACP agent in the combo box by key.
-     */
     fun setCurrentAcpAgent(agentKey: String?) {
-        if (agentKey == null) return
-        isComboUpdating = true
+        if (agentKey == null || currentEngine != IdeaEngine.ACP) return
+        isUpdating = true
         try {
-            val entry = acpAgentEntries.firstOrNull { it.second == agentKey }
-            if (entry != null) {
-                modelComboBox.selectedIndex = entry.first
+            val index = acpAgentKeys.indexOf(agentKey)
+            if (index >= 0) {
+                modelComboBox.selectedIndex = index
             }
         } finally {
-            isComboUpdating = false
+            isUpdating = false
         }
     }
 
@@ -303,10 +357,6 @@ class SwingBottomToolbar(
         refreshCopilotButton.isVisible = GithubCopilotDetector.isGithubCopilotConfigured()
     }
     
-    /**
-     * Update the toolbar based on multimodal state.
-     * Shows image count badge when images are attached.
-     */
     fun updateMultimodalState(state: IdeaMultimodalState) {
         imageCount = state.imageCount
         
@@ -320,7 +370,6 @@ class SwingBottomToolbar(
                 else -> "Attach Image (${state.imageCount} attached)"
             }
             
-            // Change icon color based on state
             imageButton.foreground = when {
                 state.hasUploadError -> JBColor.RED
                 state.allImagesUploaded -> JBColor(Color(0, 120, 212), Color(100, 180, 255))
@@ -332,13 +381,9 @@ class SwingBottomToolbar(
             imageButton.foreground = null
         }
         
-        // Update send button state based on multimodal state
         sendButton.isEnabled = state.canSend && !isProcessing
     }
     
-    /**
-     * Enable or disable the image button.
-     */
     fun setImageEnabled(enabled: Boolean) {
         imageButton.isEnabled = enabled
     }
@@ -354,5 +399,8 @@ class SwingBottomToolbar(
     fun setOnSwitchToAutodev(callback: () -> Unit) {
         onSwitchToAutodev = callback
     }
-}
 
+    fun setOnSwitchToAcp(callback: () -> Unit) {
+        onSwitchToAcp = callback
+    }
+}
