@@ -377,9 +377,10 @@ class ClaudeCodeClient(
     private fun mapClaudeToolName(claudeToolName: String): String {
         return when (claudeToolName) {
             "Bash" -> "shell"
-            "Read" -> "read_file"
-            "Write" -> "write_file"
-            "Edit" -> "edit_file"
+            // Match ToolType names in mpp-core (hyphenated)
+            "Read" -> "read-file"
+            "Write" -> "write-file"
+            "Edit" -> "edit-file"
             "Glob" -> "glob"
             "Grep" -> "grep"
             "Task" -> "Task"
