@@ -129,6 +129,47 @@ class AcpClient(
 
         acpClient.initialize(clientInfo, JsonNull)
 
+        // Load MCP servers from config.yaml and pass to ACP session creation.
+        // Some agents (e.g., Kimi / Gemini) rely on MCP servers to provide tools like glob/search.
+        val mcpServers: List<McpServer> = try {
+            val wrapper = ConfigManager.load()
+            val enabled = wrapper.getEnabledMcpServers()
+            enabled.mapNotNull { (serverName, cfg) ->
+                // Map our McpServerConfig (cc.unitmesh.agent.mcp.McpServerConfig) into ACP model McpServer.
+                when {
+                    cfg.command != null -> {
+                        McpServer.Stdio(
+                            name = serverName,
+                            command = cfg.command,
+                            args = cfg.args,
+                            env = (cfg.env ?: emptyMap()).entries.map { (k, v) ->
+                                EnvVariable(name = k, value = v, _meta = JsonNull)
+                            }
+                        )
+                    }
+
+                    cfg.url != null -> {
+                        val headers = (cfg.headers ?: emptyMap()).entries.map { (k, v) ->
+                            HttpHeader(name = k, value = v, _meta = JsonNull)
+                        }
+
+                        // Heuristic: treat URLs containing "/sse" as SSE transport.
+                        val url = cfg.url
+                        if (url.contains("/sse", ignoreCase = true)) {
+                            McpServer.Sse(name = serverName, url = url, headers = headers)
+                        } else {
+                            McpServer.Http(name = serverName, url = url, headers = headers)
+                        }
+                    }
+
+                    else -> null
+                }
+            }
+        } catch (e: Exception) {
+            logger.warn(e) { "Failed to load MCP servers from config; creating ACP session without MCP servers" }
+            emptyList()
+        }
+
         val operationsFactory = object : ClientOperationsFactory {
             override suspend fun createClientOperations(
                 sessionId: SessionId,
@@ -150,7 +191,7 @@ class AcpClient(
         val acpSession = acpClient.newSession(
             SessionCreationParameters(
                 cwd = cwd,
-                mcpServers = emptyList(),
+                mcpServers = mcpServers,
                 _meta = JsonNull
             ),
             operationsFactory
@@ -182,6 +223,8 @@ class AcpClient(
     suspend fun promptAndRender(text: String, renderer: CodingAgentRenderer) {
         var receivedAnyChunk = false
         var inThought = false
+        var sawAnyToolCall = false
+        var sawAnyThought = false
 
         // Clear tool call dedup state for the new prompt
         renderedToolCallIds.clear()
@@ -200,6 +243,12 @@ class AcpClient(
             
             when (event) {
                 is Event.SessionUpdateEvent -> {
+                    when (event.update) {
+                        is SessionUpdate.ToolCall,
+                        is SessionUpdate.ToolCallUpdate -> sawAnyToolCall = true
+                        is SessionUpdate.AgentThoughtChunk -> sawAnyThought = true
+                        else -> {}
+                    }
                     renderSessionUpdate(
                         event.update,
                         renderer,
@@ -226,6 +275,23 @@ class AcpClient(
 
                     val success = event.response.stopReason != StopReason.REFUSAL &&
                         event.response.stopReason != StopReason.CANCELLED
+
+                    // If the agent ended the turn without producing any message chunks, surface it.
+                    // This avoids the confusing "finished" state with no visible output.
+                    if (!receivedAnyChunk) {
+                        val logPath = logFile?.absolutePath
+                        val hint = if (!logPath.isNullOrBlank()) {
+                            " (see ACP log: $logPath)"
+                        } else {
+                            ""
+                        }
+                        val details = buildString {
+                            append("ACP ended without any message output; stopReason=${event.response.stopReason}")
+                            if (sawAnyToolCall) append(", toolCalls=true")
+                            if (sawAnyThought) append(", thoughts=true")
+                        }
+                        renderer.renderError(details + hint)
+                    }
                     renderer.renderFinalResult(
                         success = success,
                         message = "ACP finished: ${event.response.stopReason}",
@@ -321,7 +387,10 @@ class AcpClient(
                 mapOf(
                     "event_type" to "PromptResponse",
                     "timestamp" to System.currentTimeMillis(),
-                    "stop_reason" to event.response.stopReason.name
+                    "stop_reason" to event.response.stopReason.name,
+                    // Some agents may include additional fields on the response.
+                    // Logging the full response helps diagnose cases where no SessionUpdate chunks arrive.
+                    "response" to event.response.toString()
                 )
             }
         }

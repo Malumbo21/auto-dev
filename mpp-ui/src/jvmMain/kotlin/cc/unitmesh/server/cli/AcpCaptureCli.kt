@@ -31,21 +31,35 @@ object AcpCaptureCli {
         println("=".repeat(80))
         println()
 
-        val prompt = System.getProperty("acpPrompt") ?: args.getOrNull(0) ?: run {
+        val prompt = System.getProperty("acpPrompt")
+            ?: args.firstOrNull { it.startsWith("--prompt=") }?.substringAfter("=")
+            ?: args.getOrNull(0)
+            ?: run {
             System.err.println("Usage: -PacpPrompt=\"your prompt here\"")
             return
         }
 
+        val agentKeyOverride = System.getProperty("acpAgentKey")
+            ?: args.firstOrNull { it.startsWith("--agent=") }?.substringAfter("=")
+        val cwdOverride = System.getProperty("acpCwd")
+            ?: args.firstOrNull { it.startsWith("--cwd=") }?.substringAfter("=")
+
         println("Prompt: $prompt")
+        if (!agentKeyOverride.isNullOrBlank()) {
+            println("Agent override: $agentKeyOverride")
+        }
+        if (!cwdOverride.isNullOrBlank()) {
+            println("CWD override: $cwdOverride")
+        }
         println()
 
-        runBlocking { captureAcpResponse(prompt) }
+        runBlocking { captureAcpResponse(prompt, agentKeyOverride, cwdOverride) }
     }
 
-    private suspend fun captureAcpResponse(prompt: String) {
+    private suspend fun captureAcpResponse(prompt: String, agentKeyOverride: String?, cwdOverride: String?) {
         val configWrapper = ConfigManager.load()
         val acpAgents = configWrapper.getAcpAgents()
-        val activeAgentKey = configWrapper.getActiveAcpAgentKey()
+        val activeAgentKey = agentKeyOverride?.takeIf { it.isNotBlank() } ?: configWrapper.getActiveAcpAgentKey()
 
         if (activeAgentKey == null) {
             System.err.println("No active ACP agent configured")
@@ -73,7 +87,8 @@ object AcpCaptureCli {
 
         try {
             println("Connecting...")
-            connection.connect(acpConfig, System.getProperty("user.dir"))
+            val effectiveCwd = cwdOverride?.takeIf { it.isNotBlank() } ?: System.getProperty("user.dir")
+            connection.connect(acpConfig, effectiveCwd)
 
             if (connection.isConnected) {
                 println("Connected. Sending prompt...\n")
