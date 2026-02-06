@@ -1,9 +1,11 @@
 package cc.unitmesh.devins.idea.toolwindow.acp
 
+import cc.unitmesh.agent.acp.AcpAgentProcessManager
 import cc.unitmesh.agent.acp.AcpClient
 import cc.unitmesh.agent.plan.MarkdownPlanParser
+import cc.unitmesh.config.AutoDevConfigWrapper
+import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.devins.idea.renderer.JewelRenderer
-import cc.unitmesh.devti.settings.AutoDevSettingsState
 import com.agentclientprotocol.client.Client
 import com.agentclientprotocol.client.ClientInfo
 import com.agentclientprotocol.client.ClientOperationsFactory
@@ -40,11 +42,15 @@ private val acpLogger = Logger.getInstance("AutoDevAcpAgent")
 /**
  * ACP (Agent Client Protocol) ViewModel for IntelliJ IDEA plugin.
  *
- * MVP scope:
+ * Features:
  * - Spawn ACP agent as a local process (JSON-RPC over stdio)
  * - initialize -> session/new -> session/prompt
  * - Render session/update streaming events into existing timeline UI
- * - Keep client capabilities minimal (fs/terminal disabled)
+ * - Agent preset selection (Codex, Kimi, Gemini, Claude, Copilot)
+ * - config.yaml integration for persistent agent configuration
+ * - Process reuse via AcpAgentProcessManager
+ * - Auto-approve permissions so agents can actually work
+ * - Multi-turn prompt support within a single session
  */
 class IdeaAcpAgentViewModel(
     val project: Project,
@@ -63,6 +69,25 @@ class IdeaAcpAgentViewModel(
 
     private val _stderrTail = MutableStateFlow<List<String>>(emptyList())
     val stderrTail: StateFlow<List<String>> = _stderrTail.asStateFlow()
+
+    /**
+     * Available ACP agents from config.yaml.
+     * Key is the agent key (e.g., "codex"), value is the config.
+     */
+    private val _availableAgents = MutableStateFlow<Map<String, cc.unitmesh.config.AcpAgentConfig>>(emptyMap())
+    val availableAgents: StateFlow<Map<String, cc.unitmesh.config.AcpAgentConfig>> = _availableAgents.asStateFlow()
+
+    /**
+     * Currently selected agent key (e.g., "codex", "kimi").
+     */
+    private val _selectedAgentKey = MutableStateFlow<String?>(null)
+    val selectedAgentKey: StateFlow<String?> = _selectedAgentKey.asStateFlow()
+
+    /**
+     * Detected presets on the system.
+     */
+    private val _installedPresets = MutableStateFlow<List<IdeaAcpAgentPreset>>(emptyList())
+    val installedPresets: StateFlow<List<IdeaAcpAgentPreset>> = _installedPresets.asStateFlow()
 
     private var process: Process? = null
     private var protocol: Protocol? = null
@@ -84,25 +109,147 @@ class IdeaAcpAgentViewModel(
     private val toolCallTitles = mutableMapOf<String, String>()
     private val startedToolCallIds = mutableSetOf<String>()
 
-    fun loadConfigFromSettings(): AcpAgentConfig {
-        val settings = AutoDevSettingsState.getInstance()
-        val cwd = project.basePath ?: System.getProperty("user.home")
-        return AcpAgentConfig(
-            command = settings.acpCommand.trim(),
-            args = settings.acpArgs.trim(),
-            envText = settings.acpEnv,
-            cwd = cwd
-        )
+    init {
+        // Load agents from config.yaml and detect presets
+        coroutineScope.launch(Dispatchers.IO) {
+            loadAgentsFromConfig()
+            detectPresets()
+        }
     }
 
-    fun saveConfigToSettings(config: AcpAgentConfig) {
-        val settings = AutoDevSettingsState.getInstance()
-        settings.acpCommand = config.command
-        settings.acpArgs = config.args
-        settings.acpEnv = config.envText
+    /**
+     * Load ACP agents from ~/.autodev/config.yaml.
+     */
+    private suspend fun loadAgentsFromConfig() {
+        try {
+            val wrapper = ConfigManager.load()
+            _availableAgents.value = wrapper.getAcpAgents()
+            _selectedAgentKey.value = wrapper.getActiveAcpAgentKey()
+        } catch (e: Exception) {
+            acpLogger.warn("Failed to load ACP agents from config", e)
+        }
     }
 
+    /**
+     * Detect installed ACP agent presets on the system.
+     */
+    private fun detectPresets() {
+        try {
+            _installedPresets.value = IdeaAcpAgentPreset.detectInstalled()
+        } catch (e: Exception) {
+            acpLogger.warn("Failed to detect ACP presets", e)
+        }
+    }
+
+    /**
+     * Select an agent from the available list and optionally connect.
+     */
+    fun selectAgent(key: String) {
+        _selectedAgentKey.value = key
+        // Save to config.yaml
+        coroutineScope.launch(Dispatchers.IO) {
+            try {
+                AutoDevConfigWrapper.saveActiveAcpAgent(key)
+            } catch (e: Exception) {
+                acpLogger.warn("Failed to save active ACP agent", e)
+            }
+        }
+    }
+
+    /**
+     * Add a preset as an agent configuration and select it.
+     */
+    fun addPresetAgent(preset: IdeaAcpAgentPreset) {
+        coroutineScope.launch(Dispatchers.IO) {
+            try {
+                val agents = _availableAgents.value.toMutableMap()
+                agents[preset.id] = preset.toConfig()
+                AutoDevConfigWrapper.saveAcpAgents(agents, activeKey = preset.id)
+                _availableAgents.value = agents
+                _selectedAgentKey.value = preset.id
+            } catch (e: Exception) {
+                acpLogger.warn("Failed to add preset agent", e)
+            }
+        }
+    }
+
+    /**
+     * Save a custom agent config and select it.
+     */
+    fun saveCustomAgent(key: String, config: cc.unitmesh.config.AcpAgentConfig) {
+        coroutineScope.launch(Dispatchers.IO) {
+            try {
+                val agents = _availableAgents.value.toMutableMap()
+                agents[key] = config
+                AutoDevConfigWrapper.saveAcpAgents(agents, activeKey = key)
+                _availableAgents.value = agents
+                _selectedAgentKey.value = key
+            } catch (e: Exception) {
+                acpLogger.warn("Failed to save custom agent", e)
+            }
+        }
+    }
+
+    /**
+     * Remove an agent from config.
+     */
+    fun removeAgent(key: String) {
+        coroutineScope.launch(Dispatchers.IO) {
+            try {
+                val agents = _availableAgents.value.toMutableMap()
+                agents.remove(key)
+                val newActive = if (_selectedAgentKey.value == key) agents.keys.firstOrNull() else _selectedAgentKey.value
+                AutoDevConfigWrapper.saveAcpAgents(agents, activeKey = newActive)
+                _availableAgents.value = agents
+                _selectedAgentKey.value = newActive
+            } catch (e: Exception) {
+                acpLogger.warn("Failed to remove agent", e)
+            }
+        }
+    }
+
+    /**
+     * Reload agents from config (e.g., after external changes).
+     */
+    fun reloadAgents() {
+        coroutineScope.launch(Dispatchers.IO) {
+            loadAgentsFromConfig()
+        }
+    }
+
+    /**
+     * Connect using the currently selected agent.
+     */
+    fun connectSelectedAgent() {
+        val key = _selectedAgentKey.value
+        val config = if (key != null) _availableAgents.value[key] else null
+
+        if (config == null) {
+            _connectionError.value = "No agent selected. Please select an ACP agent first."
+            return
+        }
+
+        connectWithConfig(key!!, config)
+    }
+
+    /**
+     * Connect using a legacy manual config (backward compatibility).
+     */
     fun connect(config: AcpAgentConfig) {
+        val acpConfig = cc.unitmesh.config.AcpAgentConfig(
+            name = config.command,
+            command = config.command,
+            args = config.args,
+            env = config.envText
+        )
+        connectWithConfig("manual", acpConfig, config.cwd)
+    }
+
+    private fun connectWithConfig(
+        agentKey: String,
+        config: cc.unitmesh.config.AcpAgentConfig,
+        overrideCwd: String? = null,
+    ) {
         connectJob?.cancel()
         connectJob = coroutineScope.launch(Dispatchers.IO) {
             try {
@@ -119,29 +266,22 @@ class IdeaAcpAgentViewModel(
                     return@launch
                 }
 
-                val args = splitArgs(config.args)
-                val env = parseEnvLines(config.envText)
-                val cwd = config.cwd.ifBlank { project.basePath ?: System.getProperty("user.home") }
+                val cwd = overrideCwd?.ifBlank { null }
+                    ?: project.basePath
+                    ?: System.getProperty("user.home")
 
-                val pb = ProcessBuilder(listOf(cmd) + args)
-                pb.directory(File(cwd))
-                // Important: do NOT redirect stdout/stderr, stdout is used by ACP stdio transport.
-                pb.redirectInput(ProcessBuilder.Redirect.PIPE)
-                pb.redirectOutput(ProcessBuilder.Redirect.PIPE)
-                pb.redirectError(ProcessBuilder.Redirect.PIPE)
-                pb.environment().putAll(env)
-
-                acpLogger.info("Starting ACP agent process: ${pb.command().joinToString(" ")} (cwd=$cwd)")
-                val started = pb.start()
-                process = started
+                // Use AcpAgentProcessManager for process lifecycle
+                val processManager = AcpAgentProcessManager.getInstance()
+                val managed = processManager.getOrCreateProcess(agentKey, config, cwd)
+                process = managed.process
 
                 // Tail stderr for debugging and user visibility.
                 stderrJob = coroutineScope.launch(Dispatchers.IO) {
-                    readStderrTail(started)
+                    readStderrTail(managed.process)
                 }
 
-                val input = started.inputStream.asSource().buffered()
-                val output = started.outputStream.asSink().buffered()
+                val input = managed.inputStream.asSource().buffered()
+                val output = managed.outputStream.asSink().buffered()
 
                 val transport = StdioTransport(
                     coroutineScope,
@@ -173,7 +313,7 @@ class IdeaAcpAgentViewModel(
                     implementation = Implementation(
                         name = "autodev-xiuper",
                         version = "dev",
-                        title = "AutoDev Xiuper (ACP Client)",
+                        title = "AutoDev Xiuper IDEA (ACP Client)",
                         _meta = JsonNull
                     ),
                     _meta = JsonNull
@@ -181,7 +321,42 @@ class IdeaAcpAgentViewModel(
 
                 client.initialize(clientInfo, JsonNull)
 
-                val effectiveCwd = cwd.ifBlank { project.basePath ?: System.getProperty("user.home") }
+                // Load MCP servers from config.yaml
+                val mcpServers: List<McpServer> = try {
+                    val wrapper = ConfigManager.load()
+                    val enabled = wrapper.getEnabledMcpServers()
+                    enabled.mapNotNull { (serverName, cfg) ->
+                        val cfgCommand = cfg.command
+                        val cfgUrl = cfg.url
+                        when {
+                            cfgCommand != null -> {
+                                McpServer.Stdio(
+                                    name = serverName,
+                                    command = cfgCommand,
+                                    args = cfg.args,
+                                    env = (cfg.env ?: emptyMap()).entries.map { (k, v) ->
+                                        EnvVariable(name = k, value = v, _meta = JsonNull)
+                                    }
+                                )
+                            }
+                            cfgUrl != null -> {
+                                val headers = (cfg.headers ?: emptyMap()).entries.map { (k, v) ->
+                                    HttpHeader(name = k, value = v, _meta = JsonNull)
+                                }
+                                if (cfgUrl.contains("/sse", ignoreCase = true)) {
+                                    McpServer.Sse(name = serverName, url = cfgUrl, headers = headers)
+                                } else {
+                                    McpServer.Http(name = serverName, url = cfgUrl, headers = headers)
+                                }
+                            }
+                            else -> null
+                        }
+                    }
+                } catch (e: Exception) {
+                    acpLogger.warn("Failed to load MCP servers from config", e)
+                    emptyList()
+                }
+
                 val operationsFactory = object : ClientOperationsFactory {
                     override suspend fun createClientOperations(
                         sessionId: SessionId,
@@ -194,7 +369,7 @@ class IdeaAcpAgentViewModel(
                             onPermissionRequest = { toolCallUpdate, options ->
                                 handlePermissionRequest(toolCallUpdate, options)
                             },
-                            cwd = effectiveCwd,
+                            cwd = cwd,
                             enableFs = true,
                             enableTerminal = true,
                         )
@@ -204,7 +379,7 @@ class IdeaAcpAgentViewModel(
                 val session = client.newSession(
                     SessionCreationParameters(
                         cwd = cwd,
-                        mcpServers = emptyList(),
+                        mcpServers = mcpServers,
                         _meta = JsonNull
                     ),
                     operationsFactory
@@ -213,6 +388,7 @@ class IdeaAcpAgentViewModel(
 
                 _isConnected.value = true
                 _connectionError.value = null
+                acpLogger.info("ACP agent '$agentKey' connected successfully (session=${session.sessionId})")
             } catch (e: CancellationException) {
                 // Ignore
             } catch (e: Exception) {
@@ -311,12 +487,34 @@ class IdeaAcpAgentViewModel(
         }
     }
 
+    /**
+     * Handle permission requests from the agent.
+     *
+     * Auto-approves ALLOW_ONCE or ALLOW_ALWAYS options so agents can actually perform
+     * tool operations (shell, file read/write). Without this, agents get stuck in a
+     * "tool call failed -> END_TURN with no output" state.
+     *
+     * IDE integrations (Compose UI) SHOULD eventually override this to prompt the user
+     * for confirmation on dangerous operations.
+     */
     private fun handlePermissionRequest(
         toolCall: SessionUpdate.ToolCallUpdate,
         options: List<PermissionOption>,
     ): RequestPermissionResponse {
-        // MVP: do not grant permissions. This forces tools to stay disabled unless user enables later.
-        return RequestPermissionResponse(RequestPermissionOutcome.Cancelled, JsonNull)
+        val allow = options.firstOrNull {
+            it.kind == PermissionOptionKind.ALLOW_ONCE || it.kind == PermissionOptionKind.ALLOW_ALWAYS
+        }
+        return if (allow != null) {
+            acpLogger.info(
+                "ACP permission auto-approved (${allow.kind}) for tool=${toolCall.title ?: "tool"} option=${allow.name}"
+            )
+            RequestPermissionResponse(RequestPermissionOutcome.Selected(allow.optionId), JsonNull)
+        } else {
+            acpLogger.info(
+                "ACP permission cancelled (no allow option) for tool=${toolCall.title ?: "tool"}"
+            )
+            RequestPermissionResponse(RequestPermissionOutcome.Cancelled, JsonNull)
+        }
     }
 
     /**
@@ -385,20 +583,10 @@ class IdeaAcpAgentViewModel(
         stderrJob?.cancel()
         stderrJob = null
 
-        val p = process
+        // Note: we do NOT destroy the process here because AcpAgentProcessManager
+        // manages the process lifecycle and allows reuse. The process will be
+        // cleaned up when the ViewModel is disposed or when the process is explicitly terminated.
         process = null
-        if (p != null) {
-            try {
-                p.destroy()
-            } catch (_: Exception) {
-            }
-            withContext(Dispatchers.IO) {
-                try {
-                    p.waitFor()
-                } catch (_: Exception) {
-                }
-            }
-        }
     }
 
     private fun readStderrTail(p: Process, maxLines: Int = 200) {
@@ -415,9 +603,14 @@ class IdeaAcpAgentViewModel(
 
     override fun dispose() {
         disconnect()
+        // Terminate all managed processes on dispose
+        AcpAgentProcessManager.getInstance().shutdownAll()
     }
 }
 
+/**
+ * Legacy config class for backward compatibility with the manual config panel.
+ */
 data class AcpAgentConfig(
     val command: String,
     val args: String,
@@ -484,5 +677,92 @@ private fun splitArgs(text: String): List<String> {
     return out
 }
 
-// IdeaAcpClientSessionOps replaced by shared cc.unitmesh.agent.acp.AcpClientSessionOps
+/**
+ * ACP agent preset for auto-detection in the IDEA plugin.
+ *
+ * This is a self-contained version of AcpAgentPreset from mpp-ui,
+ * since mpp-idea does not depend on mpp-ui.
+ */
+data class IdeaAcpAgentPreset(
+    val id: String,
+    val name: String,
+    val command: String,
+    val args: String,
+    val env: String = "",
+    val description: String,
+) {
+    fun toConfig(): cc.unitmesh.config.AcpAgentConfig {
+        return cc.unitmesh.config.AcpAgentConfig(
+            name = name,
+            command = command,
+            args = args,
+            env = env
+        )
+    }
 
+    companion object {
+        /**
+         * Known presets for common ACP agent CLIs.
+         */
+        private val ALL_PRESETS = listOf(
+            IdeaAcpAgentPreset(
+                id = "codex",
+                name = "Codex CLI",
+                command = "codex",
+                args = "--acp",
+                description = "OpenAI Codex agent via ACP"
+            ),
+            IdeaAcpAgentPreset(
+                id = "kimi",
+                name = "Kimi CLI",
+                command = "kimi",
+                args = "acp",
+                description = "Moonshot Kimi agent via ACP"
+            ),
+            IdeaAcpAgentPreset(
+                id = "gemini",
+                name = "Gemini CLI",
+                command = "gemini",
+                args = "--acp",
+                description = "Google Gemini agent via ACP"
+            ),
+            IdeaAcpAgentPreset(
+                id = "claude",
+                name = "Claude Code",
+                command = "claude",
+                args = "--acp",
+                description = "Anthropic Claude Code agent via ACP"
+            ),
+            IdeaAcpAgentPreset(
+                id = "copilot",
+                name = "GitHub Copilot",
+                command = "github-copilot",
+                args = "--acp",
+                description = "GitHub Copilot agent via ACP"
+            ),
+        )
+
+        /**
+         * Detect installed presets by checking if the command is in PATH.
+         */
+        fun detectInstalled(): List<IdeaAcpAgentPreset> {
+            return ALL_PRESETS.filter { preset ->
+                isCommandAvailable(preset.command)
+            }
+        }
+
+        private fun isCommandAvailable(command: String): Boolean {
+            return try {
+                val isWindows = System.getProperty("os.name")?.lowercase()?.contains("win") == true
+                val checkCmd = if (isWindows) listOf("where", command) else listOf("which", command)
+                val process = ProcessBuilder(checkCmd)
+                    .redirectErrorStream(true)
+                    .start()
+                val result = process.waitFor()
+                result == 0
+            } catch (e: Exception) {
+                false
+            }
+        }
+    }
+}
