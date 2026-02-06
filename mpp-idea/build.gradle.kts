@@ -399,7 +399,7 @@ project(":") {
         // ===== ACP (Agent Client Protocol) =====
         // Local ACP agent integration uses JSON-RPC over stdio.
         // Exclude kotlinx deps to avoid conflicts with IntelliJ's bundled versions.
-        implementation("com.agentclientprotocol:acp:0.10.5") {
+        implementation("com.agentclientprotocol:acp:0.15.3") {
             exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core")
             exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core-jvm")
             exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json")

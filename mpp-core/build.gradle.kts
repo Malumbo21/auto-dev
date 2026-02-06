@@ -173,6 +173,10 @@ kotlin {
             }
 
             dependencies {
+                // ACP (Agent Client Protocol) - JVM-only (no Kotlin/Native variants)
+                implementation(libs.acp.sdk)
+                implementation(libs.acp.model)
+
                 // Ktor CIO engine for JVM
                 implementation(libs.ktor.client.cio)
                 // Ktor content negotiation - required by ai.koog:prompt-executor-llms-all

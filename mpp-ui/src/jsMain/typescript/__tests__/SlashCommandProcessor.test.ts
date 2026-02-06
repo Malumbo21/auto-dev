@@ -50,7 +50,7 @@ describe('SlashCommandProcessor', () => {
         expect(result.type).toBe('handled');
         if (result.type === 'handled') {
           expect(result.output).toBeDefined();
-          expect(result.output).toContain('AutoDev');
+          expect(result.output).toContain('Xiuper CLI Help');
         }
         expect(consoleSpy).toHaveBeenCalled();
       });

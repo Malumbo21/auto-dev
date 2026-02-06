@@ -311,11 +311,13 @@ export class AutoDevConfigWrapper {
   }
 
   getTemperature(): number {
-    return this.getActiveConfig()?.temperature ?? 0.0;
+    // Keep defaults consistent with CLI/AgentMode defaults
+    return this.getActiveConfig()?.temperature ?? 0.7;
   }
 
   getMaxTokens(): number {
-    return this.getActiveConfig()?.maxTokens ?? 128000;
+    // Keep defaults consistent with CLI/AgentMode defaults
+    return this.getActiveConfig()?.maxTokens ?? 8192;
   }
 
   /**

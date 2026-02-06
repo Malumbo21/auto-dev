@@ -77,7 +77,7 @@ describe('Init Command Integration Tests', () => {
       const result = await router.route('/help', mockContext);
       
       expect(result.type).toBe('handled');
-      expect(result.output).toContain('AutoDev CLI Help');
+      expect(result.output).toContain('Xiuper CLI Help');
     });
 
     it('should handle /clear command', async () => {

@@ -513,6 +513,15 @@ async function main() {
       await runCodeReview(projectPath, options);
     });
 
+  // ACP Agent mode - expose as ACP agent for other editors
+  program
+    .command('acp-agent')
+    .description('Start as an ACP (Agent Client Protocol) agent server on stdio. Other editors can connect to this agent.')
+    .action(async () => {
+      const { startAcpAgentServer } = await import('./agents/acp/AcpAgentServer.js');
+      await startAcpAgentServer();
+    });
+
   // Document query mode
   program
     .command('document')

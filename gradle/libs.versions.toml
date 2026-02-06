@@ -105,6 +105,7 @@ filekit = "0.12.0"
 plantuml = "1.2025.10"
 mynlp = "4.0.0"
 a2aSdk = "0.3.0.Beta1"
+acpKotlinSdk = "0.15.3"
 
 [libraries]
 # Kotlinx
@@ -250,6 +251,8 @@ plantuml = { module = "net.sourceforge.plantuml:plantuml-epl", version.ref = "pl
 mynlp = { module = "com.mayabot.mynlp:mynlp", version.ref = "mynlp" }
 mynlp-all = { module = "com.mayabot.mynlp:mynlp-all", version.ref = "mynlp" }
 a2a-sdk = { module = "io.github.a2asdk:a2a-java-sdk-client", version.ref = "a2aSdk" }
+acp-sdk = { module = "com.agentclientprotocol:acp", version.ref = "acpKotlinSdk" }
+acp-model = { module = "com.agentclientprotocol:acp-model", version.ref = "acpKotlinSdk" }
 
 [plugins]
 # Kotlin

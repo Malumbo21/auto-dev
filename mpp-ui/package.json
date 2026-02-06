@@ -53,6 +53,7 @@
   "dependencies": {
     "@xiuper/mpp-core": "file:../mpp-core/build/dist/js/productionLibrary",
     "@js-joda/core": "^5.6.5",
+    "@agentclientprotocol/sdk": "^0.14.1",
     "@modelcontextprotocol/sdk": "^1.0.4",
     "@unit-mesh/treesitter-artifacts": "^1.7.7",
     "chalk": "^5.3.0",
