@@ -12,7 +12,7 @@ import kotlinx.datetime.Clock
  *
  * Key design decisions for ACP streaming:
  * - Tool call deduplication is done upstream by [AcpClient.renderSessionUpdate]:
- *   only COMPLETED/FAILED tool calls arrive here, so no need to filter IN_PROGRESS.
+ *   tool calls are throttled upstream so we don't flood the timeline with thousands of updates.
  * - [renderToolCallWithParams] is the primary entry point (AcpClient calls this, not renderToolCall).
  * - Streaming text chunks are buffered in [_streamingBuffer] and flushed periodically
  *   to reduce Compose recomposition frequency.

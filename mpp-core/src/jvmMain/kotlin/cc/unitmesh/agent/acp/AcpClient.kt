@@ -59,6 +59,7 @@ class AcpClient(
      */
     private val renderedToolCallIds = mutableSetOf<String>()
     private val toolCallTitles = mutableMapOf<String, String>()
+    private val startedToolCallIds = mutableSetOf<String>()
 
     /**
      * Callback for session updates received outside the prompt flow (background notifications).
@@ -229,6 +230,7 @@ class AcpClient(
         // Clear tool call dedup state for the new prompt
         renderedToolCallIds.clear()
         toolCallTitles.clear()
+        startedToolCallIds.clear()
         
         // Log prompt metadata
         logEvent(mapOf(
@@ -257,7 +259,8 @@ class AcpClient(
                         { inThought },
                         { inThought = it },
                         renderedToolCallIds,
-                        toolCallTitles
+                        toolCallTitles,
+                        startedToolCallIds
                     )
                 }
 
@@ -613,6 +616,7 @@ class AcpClient(
             setInThought: (Boolean) -> Unit,
             renderedToolCallIds: MutableSet<String> = mutableSetOf(),
             toolCallTitles: MutableMap<String, String> = mutableMapOf(),
+            startedToolCallIds: MutableSet<String> = mutableSetOf(),
         ) {
             when (update) {
                 is SessionUpdate.AgentMessageChunk -> {
@@ -677,7 +681,8 @@ class AcpClient(
                         rawOutput = update.rawOutput?.toString(),
                         renderer = renderer,
                         renderedToolCallIds = renderedToolCallIds,
-                        toolCallTitles = toolCallTitles
+                        toolCallTitles = toolCallTitles,
+                        startedToolCallIds = startedToolCallIds
                     )
                 }
 
@@ -691,7 +696,8 @@ class AcpClient(
                         rawOutput = update.rawOutput?.toString(),
                         renderer = renderer,
                         renderedToolCallIds = renderedToolCallIds,
-                        toolCallTitles = toolCallTitles
+                        toolCallTitles = toolCallTitles,
+                        startedToolCallIds = startedToolCallIds
                     )
                 }
 
@@ -740,9 +746,12 @@ class AcpClient(
          *   ToolCallUpdate(COMPLETED/FAILED, title=None)        // terminal, title absent
          *
          * Rendering strategy:
-         * - IN_PROGRESS events: only accumulate the best title, never render
-         * - COMPLETED/FAILED: render ONCE with the accumulated title + result
-         * - Result: 7218 raw events -> 6 rendered tool call items
+         * - IN_PROGRESS: render ONCE (first time) so UI shows a running tool bubble
+         * - IN_PROGRESS updates: accumulate best title, do not render (avoid spam)
+         * - COMPLETED/FAILED: render ONLY the tool result (it upgrades the last running bubble)
+         *
+         * This preserves responsiveness for long-running operations (WriteFile, Shell, etc.)
+         * without flooding the timeline.
          */
         private fun handleToolCallEvent(
             toolCallId: String?,
@@ -753,10 +762,12 @@ class AcpClient(
             rawOutput: String?,
             renderer: CodingAgentRenderer,
             renderedToolCallIds: MutableSet<String>,
-            toolCallTitles: MutableMap<String, String>
+            toolCallTitles: MutableMap<String, String>,
+            startedToolCallIds: MutableSet<String>,
         ) {
             val inputText = rawInput ?: ""
             val isTerminal = status == ToolCallStatus.COMPLETED || status == ToolCallStatus.FAILED
+            val isRunning = status == ToolCallStatus.IN_PROGRESS || status == ToolCallStatus.PENDING
             val id = toolCallId ?: ""
 
             // Always update the best-known title for this id (title streams char-by-char)
@@ -765,25 +776,30 @@ class AcpClient(
                 toolCallTitles[id] = currentTitle
             }
 
-            if (!isTerminal) {
-                // IN_PROGRESS / PENDING: just accumulate title, don't render anything
+            // IN_PROGRESS / PENDING: render once so users see "still running"
+            if (isRunning) {
+                if (id.isNotBlank() && !startedToolCallIds.contains(id)) {
+                    val toolTitle = toolCallTitles[id] ?: currentTitle ?: "tool"
+                    renderer.renderToolCallWithParams(
+                        toolName = toolTitle,
+                        params = mapOf(
+                            "kind" to (kind ?: "UNKNOWN"),
+                            "status" to (status?.name ?: "IN_PROGRESS"),
+                            "input" to inputText
+                        )
+                    )
+                    startedToolCallIds.add(id)
+                }
                 return
             }
+
+            if (!isTerminal) return
 
             // Terminal state (COMPLETED / FAILED): render once with best title
             // Note: terminal events have title=None, so we must use stored title
             val toolTitle = (if (id.isNotBlank()) toolCallTitles[id] else null)
                 ?: currentTitle
                 ?: "tool"
-
-            renderer.renderToolCallWithParams(
-                toolName = toolTitle,
-                params = mapOf(
-                    "kind" to (kind ?: "UNKNOWN"),
-                    "status" to (status.name),
-                    "input" to inputText
-                )
-            )
 
             val out = rawOutput
             if (out != null && out.isNotBlank()) {
@@ -809,6 +825,7 @@ class AcpClient(
             if (id.isNotBlank()) {
                 renderedToolCallIds.add(id)
                 toolCallTitles.remove(id)
+                startedToolCallIds.remove(id)
             }
         }
 

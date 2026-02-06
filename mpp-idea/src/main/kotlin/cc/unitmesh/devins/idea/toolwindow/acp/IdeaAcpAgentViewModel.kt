@@ -82,6 +82,7 @@ class IdeaAcpAgentViewModel(
      */
     private val renderedToolCallIds = mutableSetOf<String>()
     private val toolCallTitles = mutableMapOf<String, String>()
+    private val startedToolCallIds = mutableSetOf<String>()
 
     fun loadConfigFromSettings(): AcpAgentConfig {
         val settings = AutoDevSettingsState.getInstance()
@@ -249,6 +250,7 @@ class IdeaAcpAgentViewModel(
                 inThoughtStream.set(false)
                 renderedToolCallIds.clear()
                 toolCallTitles.clear()
+                startedToolCallIds.clear()
 
                 val flow = session!!.prompt(
                     listOf(ContentBlock.Text(text, Annotations(), JsonNull)),
@@ -362,6 +364,7 @@ class IdeaAcpAgentViewModel(
             setInThought = { inThoughtStream.set(it) },
             renderedToolCallIds = renderedToolCallIds,
             toolCallTitles = toolCallTitles,
+            startedToolCallIds = startedToolCallIds,
         )
     }
 
