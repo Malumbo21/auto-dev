@@ -445,6 +445,13 @@ class IdeaAcpAgentViewModel(
                             finishStreamingIfNeeded()
                             val success = event.response.stopReason != StopReason.REFUSAL &&
                                 event.response.stopReason != StopReason.CANCELLED
+                            
+                            // If no chunks were received, show helpful error
+                            if (!receivedAnyAgentChunk.get()) {
+                                val hint = "Check logs for details. Agent may have encountered an error."
+                                renderer.renderError("ACP ended without any message output; stopReason=${event.response.stopReason}. $hint")
+                            }
+                            
                             renderer.renderFinalResult(
                                 success = success,
                                 message = "ACP finished: ${event.response.stopReason}",
@@ -464,6 +471,7 @@ class IdeaAcpAgentViewModel(
             } catch (e: Exception) {
                 finishStreamingIfNeeded()
                 renderer.renderError(e.message ?: "ACP execution error")
+                acpLogger.error("ACP execution error", e)
             } finally {
                 _isExecuting.value = false
                 currentPromptJob = null
@@ -495,30 +503,42 @@ class IdeaAcpAgentViewModel(
     /**
      * Handle permission requests from the agent.
      *
-     * Auto-approves ALLOW_ONCE or ALLOW_ALWAYS options so agents can actually perform
-     * tool operations (shell, file read/write). Without this, agents get stuck in a
-     * "tool call failed -> END_TURN with no output" state.
+     * Shows a permission dialog to the user with the available options.
+     * The user can approve (ALLOW_ONCE/ALLOW_ALWAYS) or reject (REJECT_ONCE/REJECT_ALWAYS)
+     * the tool call.
      *
-     * IDE integrations (Compose UI) SHOULD eventually override this to prompt the user
-     * for confirmation on dangerous operations.
+     * If the user cancels the dialog or if there's an error, returns a Cancelled outcome.
      */
     private fun handlePermissionRequest(
         toolCall: SessionUpdate.ToolCallUpdate,
         options: List<PermissionOption>,
     ): RequestPermissionResponse {
-        val allow = options.firstOrNull {
-            it.kind == PermissionOptionKind.ALLOW_ONCE || it.kind == PermissionOptionKind.ALLOW_ALWAYS
-        }
-        return if (allow != null) {
-            acpLogger.info(
-                "ACP permission auto-approved (${allow.kind}) for tool=${toolCall.title ?: "tool"} option=${allow.name}"
-            )
-            RequestPermissionResponse(RequestPermissionOutcome.Selected(allow.optionId), JsonNull)
-        } else {
-            acpLogger.info(
-                "ACP permission cancelled (no allow option) for tool=${toolCall.title ?: "tool"}"
-            )
-            RequestPermissionResponse(RequestPermissionOutcome.Cancelled, JsonNull)
+        try {
+            // Show permission dialog on EDT (UI thread) and wait for result
+            var selectedOption: PermissionOption? = null
+            com.intellij.openapi.application.ApplicationManager.getApplication().invokeAndWait {
+                selectedOption = IdeaAcpPermissionDialog.show(project, toolCall, options)
+            }
+
+            // If user selected an option, return it
+            if (selectedOption != null) {
+                acpLogger.info(
+                    "ACP permission user selected: optionId=${selectedOption!!.optionId.value} kind=${selectedOption!!.kind} name=${selectedOption!!.name}"
+                )
+                return RequestPermissionResponse(
+                    RequestPermissionOutcome.Selected(selectedOption!!.optionId),
+                    JsonNull
+                )
+            }
+
+            // User cancelled the dialog
+            acpLogger.info("ACP permission cancelled by user (dialog closed)")
+            return RequestPermissionResponse(RequestPermissionOutcome.Cancelled, JsonNull)
+
+        } catch (e: Exception) {
+            acpLogger.error { "Error showing permission dialog: ${e.message}" }
+            e.printStackTrace()
+            return RequestPermissionResponse(RequestPermissionOutcome.Cancelled, JsonNull)
         }
     }
 
@@ -532,6 +552,19 @@ class IdeaAcpAgentViewModel(
      * For PlanUpdate, we additionally parse to the IDEA-specific plan model via [renderer.setPlan].
      */
     private fun handleSessionUpdate(update: SessionUpdate, source: String = "prompt") {
+        // Use the shared renderSessionUpdate from AcpClient for consistent rendering
+        AcpClient.renderSessionUpdate(
+            update = update,
+            renderer = renderer,
+            getReceivedChunk = { receivedAnyAgentChunk.get() },
+            setReceivedChunk = { receivedAnyAgentChunk.set(it) },
+            getInThought = { inThoughtStream.get() },
+            setInThought = { inThoughtStream.set(it) },
+            renderedToolCallIds = renderedToolCallIds,
+            toolCallTitles = toolCallTitles,
+            startedToolCallIds = startedToolCallIds
+        )
+        
         // Special handling for PlanUpdate to use JewelRenderer's setPlan
         if (update is SessionUpdate.PlanUpdate) {
             val markdown = buildString {
@@ -554,21 +587,7 @@ class IdeaAcpAgentViewModel(
                     acpLogger.warn("Failed to parse ACP plan update", e)
                 }
             }
-            return
         }
-
-        // Delegate to the shared utility for all other update types
-        AcpClient.renderSessionUpdate(
-            update = update,
-            renderer = renderer,
-            getReceivedChunk = { receivedAnyAgentChunk.get() },
-            setReceivedChunk = { receivedAnyAgentChunk.set(it) },
-            getInThought = { inThoughtStream.get() },
-            setInThought = { inThoughtStream.set(it) },
-            renderedToolCallIds = renderedToolCallIds,
-            toolCallTitles = toolCallTitles,
-            startedToolCallIds = startedToolCallIds,
-        )
     }
 
     private suspend fun disconnectInternal() {
