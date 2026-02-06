@@ -333,5 +333,12 @@ actual object ConfigManager {
         val kcefDir = File(configDir, "kcef-bundle")
         return kcefDir.absolutePath
     }
+    
+    actual fun getAcpLogsDir(): String {
+        val acpLogsDir = File(configDir, "acp-logs")
+        // Ensure directory exists
+        acpLogsDir.mkdirs()
+        return acpLogsDir.absolutePath
+    }
 }
 

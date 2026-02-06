@@ -76,7 +76,9 @@ class JvmAcpConnection : AcpConnection {
                 output = output,
                 clientName = "autodev-xiuper-compose",
                 clientVersion = "3.0.0",
-                cwd = effectiveCwd
+                cwd = effectiveCwd,
+                agentName = config.name.ifBlank { "acp-agent" },
+                enableLogging = true
             )
 
             client.connect()

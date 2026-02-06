@@ -361,9 +361,7 @@ class CodingAgentViewModel(
 
         // Connect if not already connected
         if (acpConnection?.isConnected != true) {
-            renderer.renderLLMResponseStart()
-            renderer.renderLLMResponseChunk("Connecting to ${config.name}...")
-            renderer.renderLLMResponseEnd()
+            renderer.renderInfo("🔌 Connecting to ${config.name}...")
 
             try {
                 disconnectAcp() // Clean up any stale connection
@@ -371,16 +369,17 @@ class CodingAgentViewModel(
                     ?: throw IllegalStateException("Failed to create ACP connection")
                 connection.connect(config, projectPath)
                 acpConnection = connection
+                
+                renderer.renderInfo("✅ Connected to ${config.name}")
             } catch (e: Exception) {
-                renderer.renderError("Failed to connect to ACP agent: ${e.message}")
+                renderer.renderError("❌ Failed to connect to ACP agent: ${e.message}")
                 return
             }
         }
 
         // Send the prompt - events stream directly to ComposeRenderer
-        renderer.renderLLMResponseStart()
+        // Note: Don't call renderLLMResponseStart/End here - AcpClient handles that
         acpConnection?.prompt(task, renderer)
-        renderer.renderLLMResponseEnd()
     }
 
     private suspend fun saveConversationHistory() {

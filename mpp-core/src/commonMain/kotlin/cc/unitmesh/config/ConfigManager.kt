@@ -141,5 +141,12 @@ expect object ConfigManager {
      * @return Path to KCEF installation directory (e.g., ~/.autodev/kcef-bundle)
      */
     fun getKcefInstallDir(): String
+    
+    /**
+     * Get ACP logs directory for storing raw ACP event logs
+     * 
+     * @return Path to ACP logs directory (e.g., ~/.autodev/acp-logs)
+     */
+    fun getAcpLogsDir(): String
 }
 

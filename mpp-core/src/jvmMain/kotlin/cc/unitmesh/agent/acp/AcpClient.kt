@@ -2,6 +2,7 @@ package cc.unitmesh.agent.acp
 
 import cc.unitmesh.agent.plan.MarkdownPlanParser
 import cc.unitmesh.agent.render.CodingAgentRenderer
+import cc.unitmesh.config.ConfigManager
 import com.agentclientprotocol.client.Client
 import com.agentclientprotocol.client.ClientInfo
 import com.agentclientprotocol.client.ClientOperationsFactory
@@ -22,6 +23,9 @@ import kotlinx.io.RawSource
 import kotlinx.io.buffered
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.*
 
 private val logger = KotlinLogging.logger("AcpClient")
 
@@ -37,10 +41,14 @@ class AcpClient(
     private val clientName: String = "autodev-xiuper",
     private val clientVersion: String = "dev",
     private val cwd: String = "",
+    private val agentName: String = "acp-agent",
+    private val enableLogging: Boolean = true,
 ) {
     private var protocol: Protocol? = null
     private var client: Client? = null
     private var session: ClientSession? = null
+    private var logFile: File? = null
+    private var logWriter: java.io.BufferedWriter? = null
 
     val isConnected: Boolean get() = session != null
 
@@ -68,6 +76,20 @@ class AcpClient(
      * Connect to the ACP agent: set up transport, initialize protocol, create session.
      */
     suspend fun connect() {
+        // Initialize log file if logging is enabled
+        if (enableLogging) {
+            try {
+                val logsDir = ConfigManager.getAcpLogsDir()
+                val timestamp = SimpleDateFormat("yyyyMMdd-HHmmss").format(Date())
+                val sanitizedAgentName = agentName.replace(Regex("[^a-zA-Z0-9-]"), "_")
+                logFile = File(logsDir, "${sanitizedAgentName}_${timestamp}.jsonl")
+                logWriter = logFile!!.bufferedWriter()
+                logger.info { "📝 ACP logging enabled: ${logFile!!.absolutePath}" }
+            } catch (e: Exception) {
+                logger.warn(e) { "Failed to initialize ACP log file" }
+            }
+        }
+        
         val transport = StdioTransport(
             parentScope = coroutineScope,
             ioDispatcher = Dispatchers.Default,
@@ -154,8 +176,18 @@ class AcpClient(
         // Clear tool call dedup state for the new prompt
         renderedToolCallIds.clear()
         toolCallTitles.clear()
+        
+        // Log prompt metadata
+        logEvent(mapOf(
+            "type" to "prompt_start",
+            "timestamp" to System.currentTimeMillis(),
+            "prompt" to text
+        ))
 
         prompt(text).collect { event ->
+            // Log raw ACP event
+            logEvent(serializeEvent(event))
+            
             when (event) {
                 is Event.SessionUpdateEvent -> {
                     renderSessionUpdate(
@@ -171,9 +203,15 @@ class AcpClient(
                 }
 
                 is Event.PromptResponseEvent -> {
+                    // Close thinking section if still open
                     if (inThought) {
                         renderer.renderThinkingChunk("", isStart = false, isEnd = true)
                         inThought = false
+                    }
+                    
+                    // Close LLM response section if any chunks were received
+                    if (receivedAnyChunk) {
+                        renderer.renderLLMResponseEnd()
                     }
 
                     val success = event.response.stopReason != StopReason.REFUSAL &&
@@ -186,6 +224,12 @@ class AcpClient(
                 }
             }
         }
+        
+        // Log prompt end
+        logEvent(mapOf(
+            "type" to "prompt_end",
+            "timestamp" to System.currentTimeMillis()
+        ))
     }
 
     /**
@@ -204,6 +248,14 @@ class AcpClient(
      */
     suspend fun disconnect() {
         try {
+            // Close log file
+            logWriter?.flush()
+            logWriter?.close()
+            logWriter = null
+            if (logFile != null) {
+                logger.info { "📝 ACP log saved: ${logFile!!.absolutePath}" }
+            }
+            
             protocol?.close()
         } catch (_: Exception) {
         }
@@ -211,6 +263,120 @@ class AcpClient(
         client = null
         session = null
         logger.info { "ACP client disconnected" }
+    }
+    
+    /**
+     * Log an event to the JSONL file.
+     */
+    private fun logEvent(eventData: Map<String, Any?>) {
+        if (!enableLogging || logWriter == null) return
+        
+        try {
+            val json = buildString {
+                append("{")
+                eventData.entries.forEachIndexed { index, (key, value) ->
+                    if (index > 0) append(",")
+                    append("\"$key\":")
+                    when (value) {
+                        null -> append("null")
+                        is String -> append("\"${value.replace("\"", "\\\"")}\"")
+                        is Number -> append(value)
+                        is Boolean -> append(value)
+                        else -> append("\"${value.toString().replace("\"", "\\\"")}\"")
+                    }
+                }
+                append("}")
+            }
+            logWriter?.appendLine(json)
+            logWriter?.flush()
+        } catch (e: Exception) {
+            logger.warn(e) { "Failed to log ACP event" }
+        }
+    }
+    
+    /**
+     * Serialize an ACP Event to a map for logging.
+     */
+    private fun serializeEvent(event: Event): Map<String, Any?> {
+        return when (event) {
+            is Event.SessionUpdateEvent -> {
+                mapOf(
+                    "event_type" to "SessionUpdate",
+                    "timestamp" to System.currentTimeMillis(),
+                    "update_type" to event.update::class.simpleName,
+                    "update" to serializeSessionUpdate(event.update)
+                )
+            }
+            is Event.PromptResponseEvent -> {
+                mapOf(
+                    "event_type" to "PromptResponse",
+                    "timestamp" to System.currentTimeMillis(),
+                    "stop_reason" to event.response.stopReason.name
+                )
+            }
+        }
+    }
+    
+    /**
+     * Serialize SessionUpdate to a map for logging.
+     */
+    private fun serializeSessionUpdate(update: SessionUpdate): Map<String, Any?> {
+        return when (update) {
+            is SessionUpdate.AgentMessageChunk -> {
+                mapOf(
+                    "type" to "AgentMessageChunk",
+                    "content" to extractText(update.content)
+                )
+            }
+            is SessionUpdate.AgentThoughtChunk -> {
+                mapOf(
+                    "type" to "AgentThoughtChunk",
+                    "content" to extractText(update.content)
+                )
+            }
+            is SessionUpdate.ToolCall -> {
+                mapOf(
+                    "type" to "ToolCall",
+                    "toolCallId" to update.toolCallId?.value,
+                    "title" to update.title,
+                    "kind" to update.kind?.name,
+                    "status" to update.status?.name,
+                    "rawInput" to update.rawInput?.toString(),
+                    "rawOutput" to update.rawOutput?.toString()
+                )
+            }
+            is SessionUpdate.ToolCallUpdate -> {
+                mapOf(
+                    "type" to "ToolCallUpdate",
+                    "toolCallId" to update.toolCallId?.value,
+                    "title" to update.title,
+                    "kind" to update.kind?.name,
+                    "status" to update.status?.name,
+                    "rawInput" to update.rawInput?.toString(),
+                    "rawOutput" to update.rawOutput?.toString()
+                )
+            }
+            is SessionUpdate.PlanUpdate -> {
+                mapOf(
+                    "type" to "PlanUpdate",
+                    "entries" to update.entries.map { 
+                        mapOf(
+                            "content" to it.content,
+                            "status" to it.status.name
+                        )
+                    }
+                )
+            }
+            is SessionUpdate.CurrentModeUpdate -> {
+                mapOf(
+                    "type" to "CurrentModeUpdate",
+                    "modeId" to update.currentModeId.toString()
+                )
+            }
+            else -> {
+                mapOf("type" to update::class.simpleName)
+            }
+        }
     }
 
     companion object {
@@ -236,6 +402,12 @@ class AcpClient(
         ) {
             when (update) {
                 is SessionUpdate.AgentMessageChunk -> {
+                    // Close thinking section if transitioning from thought to message
+                    if (getInThought()) {
+                        renderer.renderThinkingChunk("", isStart = false, isEnd = true)
+                        setInThought(false)
+                    }
+                    
                     if (!getReceivedChunk()) {
                         renderer.renderLLMResponseStart()
                         setReceivedChunk(true)
