@@ -55,6 +55,13 @@ object AcpAgentPresets {
             command = "codex",
             args = "--acp",
             description = "OpenAI Codex CLI with ACP support"
+        ),
+        AcpAgentPreset(
+            id = "copilot",
+            name = "Copilot",
+            command = "copilot",
+            args = "--acp",
+            description = "GitHub Copilot CLI with ACP support"
         )
     )
 
