@@ -7,3 +7,4 @@ export { ModeManager } from './ModeManager.js';
 export type { ModeChangeEvent } from './ModeManager.js';
 export { AgentMode, AgentModeFactory } from './AgentMode.js';
 export { ChatMode, ChatModeFactory } from './ChatMode.js';
+export { CodexMode, CodexModeFactory } from './CodexMode.js';

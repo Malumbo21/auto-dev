@@ -28,6 +28,7 @@ export class ModeCommandProcessor implements InputProcessor {
     const trimmed = input.trim().toLowerCase();
     return trimmed === '/chat' || 
            trimmed === '/agent' || 
+           trimmed === '/codex' ||
            trimmed.startsWith('/mode ') ||
            trimmed === '/mode';
   }
@@ -71,6 +72,22 @@ export class ModeCommandProcessor implements InputProcessor {
         }
       }
       
+      if (trimmed === '/codex') {
+        // Switch to Codex/ACP mode
+        const success = await this.modeManager.switchToMode('codex', this.modeContext);
+        if (success) {
+          return {
+            type: 'handled',
+            output: '>_ Switched to **Codex Mode (ACP)**\n\nInteractive Codex session with streaming thoughts, tool calls, and plans.'
+          };
+        } else {
+          return {
+            type: 'error',
+            message: 'Failed to switch to codex mode. Is codex CLI installed?'
+          };
+        }
+      }
+      
       if (trimmed === '/mode') {
         // 显示当前模式和可用模式
         const currentMode = this.modeManager.getCurrentMode();
@@ -94,7 +111,7 @@ export class ModeCommandProcessor implements InputProcessor {
           }
         }
         
-        output += '\n**Usage**: Type `/chat` or `/agent` to switch modes.';
+        output += '\n**Usage**: Type `/chat`, `/agent`, or `/codex` to switch modes.';
         
         return {
           type: 'handled',

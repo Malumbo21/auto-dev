@@ -45,6 +45,19 @@ class ExternalCliCodingAgent(
         val startTime = Clock.System.now().toEpochMilliseconds()
         val steps = mutableListOf<AgentStep>()
 
+        // ACP mode is handled by AcpAgentSession/AcpClient, not by shell execution.
+        // If someone creates an ExternalCliCodingAgent with ACP mode, guide them to use
+        // AcpAgentSession directly instead.
+        if (mode == ExternalCliMode.ACP) {
+            return AgentResult(
+                success = false,
+                message = "ACP mode should be used via AcpAgentSession, not ExternalCliCodingAgent. " +
+                    "Use AcpAgentSession.create(\"${kind.id}\", projectPath) for ACP protocol integration.",
+                steps = steps,
+                edits = emptyList()
+            )
+        }
+
         if (!shellExecutor.isAvailable()) {
             return AgentResult(
                 success = false,
@@ -168,6 +181,7 @@ class ExternalCliCodingAgent(
                     if (args.isNotBlank()) append(args).append(' ')
                     append(promptArg)
                 }
+                ExternalCliMode.ACP -> error("ACP mode is not supported via shell; use AcpAgentSession instead")
             }
             ExternalCliKind.CODEX -> when (mode) {
                 ExternalCliMode.NON_INTERACTIVE -> buildString {
@@ -188,6 +202,7 @@ class ExternalCliCodingAgent(
                     if (args.isNotBlank()) append(args).append(' ')
                     append(promptArg)
                 }
+                ExternalCliMode.ACP -> error("ACP mode is not supported via shell; use AcpAgentSession instead")
             }
         }
     }
@@ -206,7 +221,14 @@ enum class ExternalCliKind(val id: String, val binary: String) {
 
 enum class ExternalCliMode(val id: String) {
     NON_INTERACTIVE("non-interactive"),
-    INTERACTIVE("interactive");
+    INTERACTIVE("interactive"),
+
+    /**
+     * ACP mode: connect to the agent via ACP protocol (JSON-RPC over stdio).
+     * Provides rich streaming (thoughts, tool calls, plans) instead of raw shell output.
+     * Supported by: Codex (--acp), Kimi (acp), Gemini (--experimental-acp).
+     */
+    ACP("acp");
 
     companion object {
         fun fromId(id: String): ExternalCliMode? {

@@ -11,7 +11,7 @@ import { Box, Text, useApp, useInput } from 'ink';
 import { ChatInterface } from './ChatInterface.js';
 import { WelcomeScreen } from './WelcomeScreen.js';
 import { ConfigManager } from '../config/ConfigManager.js';
-import { ModeManager, AgentModeFactory, ChatModeFactory } from '../modes/index.js';
+import { ModeManager, AgentModeFactory, ChatModeFactory, CodexModeFactory } from '../modes/index.js';
 import type { ModeContext } from '../modes/index.js';
 import { ModeCommandProcessor } from '../processors/ModeCommandProcessor.js';
 import { semanticInk } from '../design-system/theme-helpers.js';
@@ -50,6 +50,7 @@ export const App: React.FC = () => {
           // Register mode factories
           modeManager.registerMode(new AgentModeFactory());
           modeManager.registerMode(new ChatModeFactory());
+          modeManager.registerMode(new CodexModeFactory());
 
           // Set up mode change listener
           modeManager.onModeChange((event) => {
@@ -193,6 +194,7 @@ export const App: React.FC = () => {
       // Register mode factories
       modeManager.registerMode(new AgentModeFactory());
       modeManager.registerMode(new ChatModeFactory());
+      modeManager.registerMode(new CodexModeFactory());
 
       // Set up mode change listener
       modeManager.onModeChange((event) => {

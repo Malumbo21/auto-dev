@@ -53,6 +53,13 @@ class AcpClient(
     val isConnected: Boolean get() = session != null
 
     /**
+     * Number of prompts successfully completed in this session.
+     * Useful for multi-turn tracking and diagnostics.
+     */
+    var promptCount: Int = 0
+        private set
+
+    /**
      * Per-instance tool call dedup tracking.
      * ACP streams many IN_PROGRESS updates per tool call (title grows char-by-char).
      * We only render the first and terminal events to the renderer.
@@ -220,6 +227,9 @@ class AcpClient(
     /**
      * Send a prompt and render updates directly to a CodingAgentRenderer.
      * This is a convenience method that bridges ACP events to the renderer system.
+     *
+     * Handles transport errors gracefully, rendering an error to the renderer
+     * instead of throwing, so the UI always shows meaningful feedback.
      */
     suspend fun promptAndRender(text: String, renderer: CodingAgentRenderer) {
         var receivedAnyChunk = false
@@ -236,78 +246,99 @@ class AcpClient(
         logEvent(mapOf(
             "type" to "prompt_start",
             "timestamp" to System.currentTimeMillis(),
-            "prompt" to text
+            "prompt" to text,
+            "promptIndex" to promptCount
         ))
 
-        prompt(text).collect { event ->
-            // Log raw ACP event
-            logEvent(serializeEvent(event))
-            
-            when (event) {
-                is Event.SessionUpdateEvent -> {
-                    when (event.update) {
-                        is SessionUpdate.ToolCall,
-                        is SessionUpdate.ToolCallUpdate -> sawAnyToolCall = true
-                        is SessionUpdate.AgentThoughtChunk -> sawAnyThought = true
-                        else -> {}
-                    }
-                    renderSessionUpdate(
-                        event.update,
-                        renderer,
-                        { receivedAnyChunk },
-                        { receivedAnyChunk = it },
-                        { inThought },
-                        { inThought = it },
-                        renderedToolCallIds,
-                        toolCallTitles,
-                        startedToolCallIds
-                    )
-                }
-
-                is Event.PromptResponseEvent -> {
-                    // Close thinking section if still open
-                    if (inThought) {
-                        renderer.renderThinkingChunk("", isStart = false, isEnd = true)
-                        inThought = false
-                    }
-                    
-                    // Close LLM response section if any chunks were received
-                    if (receivedAnyChunk) {
-                        renderer.renderLLMResponseEnd()
-                    }
-
-                    val success = event.response.stopReason != StopReason.REFUSAL &&
-                        event.response.stopReason != StopReason.CANCELLED
-
-                    // If the agent ended the turn without producing any message chunks, surface it.
-                    // This avoids the confusing "finished" state with no visible output.
-                    if (!receivedAnyChunk) {
-                        val logPath = logFile?.absolutePath
-                        val hint = if (!logPath.isNullOrBlank()) {
-                            " (see ACP log: $logPath)"
-                        } else {
-                            ""
+        try {
+            prompt(text).collect { event ->
+                // Log raw ACP event
+                logEvent(serializeEvent(event))
+                
+                when (event) {
+                    is Event.SessionUpdateEvent -> {
+                        when (event.update) {
+                            is SessionUpdate.ToolCall,
+                            is SessionUpdate.ToolCallUpdate -> sawAnyToolCall = true
+                            is SessionUpdate.AgentThoughtChunk -> sawAnyThought = true
+                            else -> {}
                         }
-                        val details = buildString {
-                            append("ACP ended without any message output; stopReason=${event.response.stopReason}")
-                            if (sawAnyToolCall) append(", toolCalls=true")
-                            if (sawAnyThought) append(", thoughts=true")
-                        }
-                        renderer.renderError(details + hint)
+                        renderSessionUpdate(
+                            event.update,
+                            renderer,
+                            { receivedAnyChunk },
+                            { receivedAnyChunk = it },
+                            { inThought },
+                            { inThought = it },
+                            renderedToolCallIds,
+                            toolCallTitles,
+                            startedToolCallIds
+                        )
                     }
-                    renderer.renderFinalResult(
-                        success = success,
-                        message = "ACP finished: ${event.response.stopReason}",
-                        iterations = 0
-                    )
+
+                    is Event.PromptResponseEvent -> {
+                        // Close thinking section if still open
+                        if (inThought) {
+                            renderer.renderThinkingChunk("", isStart = false, isEnd = true)
+                            inThought = false
+                        }
+                        
+                        // Close LLM response section if any chunks were received
+                        if (receivedAnyChunk) {
+                            renderer.renderLLMResponseEnd()
+                        }
+
+                        val success = event.response.stopReason != StopReason.REFUSAL &&
+                            event.response.stopReason != StopReason.CANCELLED
+
+                        // If the agent ended the turn without producing any message chunks, surface it.
+                        // This avoids the confusing "finished" state with no visible output.
+                        if (!receivedAnyChunk) {
+                            val logPath = logFile?.absolutePath
+                            val hint = if (!logPath.isNullOrBlank()) {
+                                " (see ACP log: $logPath)"
+                            } else {
+                                ""
+                            }
+                            val details = buildString {
+                                append("ACP ended without any message output; stopReason=${event.response.stopReason}")
+                                if (sawAnyToolCall) append(", toolCalls=true")
+                                if (sawAnyThought) append(", thoughts=true")
+                            }
+                            renderer.renderError(details + hint)
+                        }
+                        renderer.renderFinalResult(
+                            success = success,
+                            message = "ACP finished: ${event.response.stopReason}",
+                            iterations = 0
+                        )
+                    }
                 }
             }
+
+            promptCount++
+        } catch (e: Exception) {
+            logger.error(e) { "ACP prompt failed for agent '$agentName'" }
+
+            // Ensure open sections are closed so the UI is consistent
+            if (inThought) {
+                renderer.renderThinkingChunk("", isStart = false, isEnd = true)
+            }
+            if (receivedAnyChunk) {
+                renderer.renderLLMResponseEnd()
+            }
+
+            val logPath = logFile?.absolutePath
+            val hint = if (!logPath.isNullOrBlank()) " (log: $logPath)" else ""
+            renderer.renderError("ACP transport error: ${e.message}$hint")
+            renderer.renderFinalResult(success = false, message = "ACP failed: ${e.message}", iterations = 0)
         }
         
         // Log prompt end
         logEvent(mapOf(
             "type" to "prompt_end",
-            "timestamp" to System.currentTimeMillis()
+            "timestamp" to System.currentTimeMillis(),
+            "promptIndex" to promptCount
         ))
     }
 
