@@ -724,6 +724,50 @@ tasks.register<JavaExec>("runCodingCli") {
     standardInput = System.`in`
 }
 
+// Task to run Renderer Batch Test
+tasks.register<JavaExec>("runBatchTest") {
+    group = "application"
+    description = "Test ComposeRenderer batching functionality"
+
+    val jvmCompilation = kotlin.jvm().compilations.getByName("main")
+    classpath(jvmCompilation.output, configurations["jvmRuntimeClasspath"])
+    mainClass.set("cc.unitmesh.server.cli.RendererBatchTest")
+
+    standardInput = System.`in`
+}
+
+// Task to capture ACP responses
+tasks.register<JavaExec>("runAcpCapture") {
+    group = "application"
+    description = "Capture ACP agent responses for test cases"
+
+    val jvmCompilation = kotlin.jvm().compilations.getByName("main")
+    classpath(jvmCompilation.output, configurations["jvmRuntimeClasspath"])
+    mainClass.set("cc.unitmesh.server.cli.AcpCaptureCli")
+
+    if (project.hasProperty("acpPrompt")) {
+        systemProperty("acpPrompt", project.property("acpPrompt") as String)
+    }
+
+    standardInput = System.`in`
+}
+
+// Task to replay captured ACP events
+tasks.register<JavaExec>("runAcpReplay") {
+    group = "application"
+    description = "Replay captured ACP events to test renderers"
+
+    val jvmCompilation = kotlin.jvm().compilations.getByName("main")
+    classpath(jvmCompilation.output, configurations["jvmRuntimeClasspath"])
+    mainClass.set("cc.unitmesh.server.cli.AcpReplayCli")
+
+    if (project.hasProperty("acpCapture")) {
+        systemProperty("acpCapture", project.property("acpCapture") as String)
+    }
+
+    standardInput = System.`in`
+}
+
 // Task to run E2E Test CLI
 tasks.register<JavaExec>("runE2ECli") {
     group = "application"

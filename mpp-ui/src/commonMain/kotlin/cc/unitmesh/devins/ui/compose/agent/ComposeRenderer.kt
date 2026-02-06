@@ -42,6 +42,19 @@ class ComposeRenderer : BaseRenderer() {
     private val _timeline = mutableStateListOf<TimelineItem>()
     val timeline: List<TimelineItem> = _timeline
 
+    // Tool call batching: collapse repeated tool calls (e.g., ReadFile) into summary items
+    private val BATCH_TOOL_TYPES = setOf(ToolType.ReadFile)
+    private val BATCH_THRESHOLD = 5 // Collapse after N calls of the same tool
+    
+    private data class BatchTracker(
+        var toolName: String,
+        var count: Int,
+        var firstIndex: Int, // Index of first item in this batch
+        var lastUpdate: Long
+    )
+    
+    private var currentBatch: BatchTracker? = null
+
     private var _currentStreamingOutput by mutableStateOf("")
     val currentStreamingOutput: String get() = _currentStreamingOutput
 
@@ -113,6 +126,9 @@ class ComposeRenderer : BaseRenderer() {
         _currentThinkingOutput = ""
         _isThinking = false
         _isProcessing = true
+        
+        // Reset batch tracking for new response
+        currentBatch = null
 
         // Start timing if this is the first iteration
         if (_executionStartTime == 0L) {
@@ -276,6 +292,9 @@ class ComposeRenderer : BaseRenderer() {
         paramsStr: String,
         toolType: ToolType?
     ) {
+        val now = Clock.System.now().toEpochMilliseconds()
+        val shouldBatch = toolType in BATCH_TOOL_TYPES
+        
         // Extract file path for read/write operations
         val filePath =
             when (toolType) {
@@ -283,15 +302,82 @@ class ComposeRenderer : BaseRenderer() {
                 else -> null
             }
 
-        // Create a tool call item with only call information (result will be added later)
+        // Check if we should batch this tool
+        if (shouldBatch) {
+            val batch = currentBatch
+            
+            if (batch != null && batch.toolName == toolName) {
+                // Continue existing batch
+                batch.count++
+                batch.lastUpdate = now
+                
+                // Check if we've reached threshold - if so, collapse previous items
+                if (batch.count == BATCH_THRESHOLD) {
+                    // Remove individual items from firstIndex onwards
+                    val itemsToRemove = _timeline.subList(batch.firstIndex, _timeline.size).toList()
+                    _timeline.removeAll(itemsToRemove)
+                    
+                    // Add a single batch item
+                    _timeline.add(
+                        ToolCallItem(
+                            toolName = "batch:$toolName",
+                            description = "${batch.count} ${toolInfo.toolName} calls",
+                            params = "Reading ${batch.count} files...",
+                            fullParams = "",
+                            filePath = null,
+                            toolType = toolType,
+                            success = null, // Still executing
+                            summary = null,
+                            output = null,
+                            fullOutput = null,
+                            executionTimeMs = null
+                        )
+                    )
+                    
+                    // Don't add individual item
+                    return
+                } else if (batch.count > BATCH_THRESHOLD) {
+                    // Already batching - update the batch item
+                    val batchIndex = _timeline.indexOfLast {
+                        it is ToolCallItem && it.toolName == "batch:$toolName"
+                    }
+                    
+                    if (batchIndex >= 0) {
+                        val existing = _timeline[batchIndex] as ToolCallItem
+                        _timeline[batchIndex] = existing.copy(
+                            description = "${batch.count} ${toolInfo.toolName} calls",
+                            params = "Reading ${batch.count} files (last: ${params["path"] ?: "..."})"
+                        )
+                    }
+                    
+                    // Don't add individual item
+                    return
+                }
+                
+                // Still below threshold - add individual item and continue tracking
+            } else {
+                // Start new batch tracker
+                currentBatch = BatchTracker(
+                    toolName = toolName,
+                    count = 1,
+                    firstIndex = _timeline.size,
+                    lastUpdate = now
+                )
+            }
+        } else {
+            // Non-batchable tool - reset batch tracker
+            currentBatch = null
+        }
+
+        // Add individual tool call item
         _timeline.add(
             ToolCallItem(
                 toolName = toolInfo.toolName,
                 description = toolInfo.description,
                 params = toolInfo.details ?: "",
-                fullParams = paramsStr, // 保存完整的原始参数
-                filePath = filePath, // 保存文件路径
-                toolType = toolType, // 保存工具类型
+                fullParams = paramsStr,
+                filePath = filePath,
+                toolType = toolType,
                 success = null, // null indicates still executing
                 summary = null,
                 output = null,
@@ -442,6 +528,26 @@ class ComposeRenderer : BaseRenderer() {
         metadata: Map<String, String>
     ) {
         val summary = formatToolResultSummary(toolName, success, output)
+        
+        // Check if this result belongs to a batch
+        val batch = currentBatch
+        if (batch != null && batch.toolName == toolName && batch.count >= BATCH_THRESHOLD) {
+            // Update batch item
+            val batchIndex = _timeline.indexOfLast {
+                it is ToolCallItem && it.toolName == "batch:$toolName"
+            }
+            
+            if (batchIndex >= 0) {
+                val existing = _timeline[batchIndex] as ToolCallItem
+                _timeline[batchIndex] = existing.copy(
+                    success = true,
+                    summary = "Completed",
+                    params = "${batch.count} files processed",
+                    executionTimeMs = metadata["execution_time_ms"]?.toLongOrNull()
+                )
+            }
+            return
+        }
 
         // Check if this was a live terminal session
         val isLiveSession = metadata["isLiveSession"] == "true"

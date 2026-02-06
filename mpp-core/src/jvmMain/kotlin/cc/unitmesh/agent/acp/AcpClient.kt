@@ -45,6 +45,14 @@ class AcpClient(
     val isConnected: Boolean get() = session != null
 
     /**
+     * Per-instance tool call dedup tracking.
+     * ACP streams many IN_PROGRESS updates per tool call (title grows char-by-char).
+     * We only render the first and terminal events to the renderer.
+     */
+    private val renderedToolCallIds = mutableSetOf<String>()
+    private val toolCallTitles = mutableMapOf<String, String>()
+
+    /**
      * Callback for session updates received outside the prompt flow (background notifications).
      */
     var onSessionUpdate: ((SessionUpdate) -> Unit)? = null
@@ -143,6 +151,10 @@ class AcpClient(
         var receivedAnyChunk = false
         var inThought = false
 
+        // Clear tool call dedup state for the new prompt
+        renderedToolCallIds.clear()
+        toolCallTitles.clear()
+
         prompt(text).collect { event ->
             when (event) {
                 is Event.SessionUpdateEvent -> {
@@ -152,7 +164,9 @@ class AcpClient(
                         { receivedAnyChunk },
                         { receivedAnyChunk = it },
                         { inThought },
-                        { inThought = it }
+                        { inThought = it },
+                        renderedToolCallIds,
+                        toolCallTitles
                     )
                 }
 
@@ -203,6 +217,12 @@ class AcpClient(
         /**
          * Render an ACP SessionUpdate to a CodingAgentRenderer.
          * This is a shared utility that can be used by JVM UI integrations.
+         *
+         * [renderedToolCallIds] and [toolCallTitles] are per-prompt state for
+         * deduplicating streaming tool call updates. ACP sends many IN_PROGRESS
+         * updates per tool call (title streams char-by-char). We only render:
+         *   1. The *first* event for a new toolCallId
+         *   2. The *terminal* event (COMPLETED/FAILED) with the fully-built title
          */
         fun renderSessionUpdate(
             update: SessionUpdate,
@@ -211,6 +231,8 @@ class AcpClient(
             setReceivedChunk: (Boolean) -> Unit,
             getInThought: () -> Boolean,
             setInThought: (Boolean) -> Unit,
+            renderedToolCallIds: MutableSet<String> = mutableSetOf(),
+            toolCallTitles: MutableMap<String, String> = mutableMapOf(),
         ) {
             when (update) {
                 is SessionUpdate.AgentMessageChunk -> {
@@ -253,54 +275,31 @@ class AcpClient(
                 }
 
                 is SessionUpdate.ToolCall -> {
-                    val toolTitle = update.title.takeIf { it.isNotBlank() } ?: "tool"
-                    val inputText = update.rawInput?.toString() ?: ""
-                    renderer.renderToolCallWithParams(
-                        toolName = toolTitle,
-                        params = mapOf(
-                            "kind" to (update.kind?.name ?: "UNKNOWN"),
-                            "status" to (update.status?.name ?: "UNKNOWN"),
-                            "input" to inputText
-                        )
+                    handleToolCallEvent(
+                        toolCallId = update.toolCallId?.value,
+                        title = update.title,
+                        kind = update.kind?.name,
+                        status = update.status,
+                        rawInput = update.rawInput?.toString(),
+                        rawOutput = update.rawOutput?.toString(),
+                        renderer = renderer,
+                        renderedToolCallIds = renderedToolCallIds,
+                        toolCallTitles = toolCallTitles
                     )
-
-                    val out = update.rawOutput?.toString()
-                    val status = update.status
-                    if (out != null && out.isNotBlank() && status != null && status != ToolCallStatus.PENDING && status != ToolCallStatus.IN_PROGRESS) {
-                        renderer.renderToolResult(
-                            toolName = toolTitle,
-                            success = status == ToolCallStatus.COMPLETED,
-                            output = out,
-                            fullOutput = out,
-                            metadata = emptyMap()
-                        )
-                    }
                 }
 
                 is SessionUpdate.ToolCallUpdate -> {
-                    val toolTitle = update.title?.takeIf { it.isNotBlank() } ?: "tool"
-                    val inputText = update.rawInput?.toString() ?: ""
-                    val out = update.rawOutput?.toString()
-
-                    renderer.renderToolCallWithParams(
-                        toolName = toolTitle,
-                        params = mapOf(
-                            "kind" to (update.kind?.name ?: "UNKNOWN"),
-                            "status" to (update.status?.name ?: "UNKNOWN"),
-                            "input" to inputText
-                        )
+                    handleToolCallEvent(
+                        toolCallId = update.toolCallId?.value,
+                        title = update.title,
+                        kind = update.kind?.name,
+                        status = update.status,
+                        rawInput = update.rawInput?.toString(),
+                        rawOutput = update.rawOutput?.toString(),
+                        renderer = renderer,
+                        renderedToolCallIds = renderedToolCallIds,
+                        toolCallTitles = toolCallTitles
                     )
-
-                    val status = update.status
-                    if (out != null && out.isNotBlank() && status != null && status != ToolCallStatus.PENDING && status != ToolCallStatus.IN_PROGRESS) {
-                        renderer.renderToolResult(
-                            toolName = toolTitle,
-                            success = status == ToolCallStatus.COMPLETED,
-                            output = out,
-                            fullOutput = out,
-                            metadata = emptyMap()
-                        )
-                    }
                 }
 
                 is SessionUpdate.CurrentModeUpdate -> {
@@ -311,6 +310,84 @@ class AcpClient(
                     logger.debug { "Unhandled ACP session update: $update" }
                 }
             }
+        }
+
+        /**
+         * Unified handler for ToolCall and ToolCallUpdate events.
+         *
+         * Only renders to the UI when:
+         * - First time we see a new toolCallId (or id is null and status is terminal)
+         * - Status becomes COMPLETED or FAILED (terminal state with output)
+         *
+         * IN_PROGRESS updates for the same id are silently skipped to avoid
+         * flooding the timeline with hundreds of streaming title updates.
+         */
+        private fun handleToolCallEvent(
+            toolCallId: String?,
+            title: String?,
+            kind: String?,
+            status: ToolCallStatus?,
+            rawInput: String?,
+            rawOutput: String?,
+            renderer: CodingAgentRenderer,
+            renderedToolCallIds: MutableSet<String>,
+            toolCallTitles: MutableMap<String, String>
+        ) {
+            val inputText = rawInput ?: ""
+            val isTerminal = status == ToolCallStatus.COMPLETED || status == ToolCallStatus.FAILED
+            val id = toolCallId ?: ""
+
+            // Always update the best-known title for this id
+            val currentTitle = title?.takeIf { it.isNotBlank() }
+            if (id.isNotBlank() && currentTitle != null) {
+                toolCallTitles[id] = currentTitle
+            }
+
+            // Resolve the best title: current > stored > fallback
+            val toolTitle = currentTitle
+                ?: (if (id.isNotBlank()) toolCallTitles[id] else null)
+                ?: "tool"
+
+            if (isTerminal) {
+                // Terminal state: render the tool call with the best title + result
+                renderer.renderToolCallWithParams(
+                    toolName = toolTitle,
+                    params = mapOf(
+                        "kind" to (kind ?: "UNKNOWN"),
+                        "status" to (status?.name ?: "UNKNOWN"),
+                        "input" to inputText
+                    )
+                )
+
+                val out = rawOutput
+                if (out != null && out.isNotBlank()) {
+                    renderer.renderToolResult(
+                        toolName = toolTitle,
+                        success = status == ToolCallStatus.COMPLETED,
+                        output = out,
+                        fullOutput = out,
+                        metadata = emptyMap()
+                    )
+                }
+
+                // Clean up tracking for this id
+                if (id.isNotBlank()) {
+                    renderedToolCallIds.add(id)
+                    toolCallTitles.remove(id)
+                }
+            } else if (id.isNotBlank() && id !in renderedToolCallIds) {
+                // First IN_PROGRESS for a new id: render once to show activity
+                renderedToolCallIds.add(id)
+                renderer.renderToolCallWithParams(
+                    toolName = toolTitle,
+                    params = mapOf(
+                        "kind" to (kind ?: "UNKNOWN"),
+                        "status" to (status?.name ?: "IN_PROGRESS"),
+                        "input" to inputText
+                    )
+                )
+            }
+            // else: duplicate IN_PROGRESS for already-rendered id -> skip (title tracked above)
         }
 
         /**
