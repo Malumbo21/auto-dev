@@ -134,9 +134,29 @@ class AcpClientSessionOps(
 
         val terminalId = "term-${terminalIdCounter.incrementAndGet()}"
         val effectiveCwd = cwd ?: this@AcpClientSessionOps.cwd
-        val cmdList = mutableListOf(command).apply { addAll(args) }
+
+        // CRITICAL FIX: Execute through shell to support wildcards and shell features
+        // Direct ProcessBuilder doesn't expand wildcards - the shell needs to do it
+        val fullCommand = if (args.isEmpty()) {
+            command
+        } else {
+            "$command ${args.joinToString(" ")}"
+        }
+
+        // Detect OS and use appropriate shell
+        val osName = System.getProperty("os.name").lowercase()
+        val cmdList = when {
+            osName.contains("win") -> listOf("cmd", "/c", fullCommand)
+            else -> {
+                // Use bash if available, fallback to sh
+                val shell = File("/bin/bash").takeIf { it.exists() }?.absolutePath 
+                    ?: File("/bin/sh").absolutePath
+                listOf(shell, "-c", fullCommand)
+            }
+        }
 
         logger.info { "ACP terminal.create: $cmdList (cwd=$effectiveCwd, id=$terminalId)" }
+        logger.debug { "Original command: $command, args: $args" }
 
         val pb = ProcessBuilder(cmdList)
         pb.directory(File(effectiveCwd))

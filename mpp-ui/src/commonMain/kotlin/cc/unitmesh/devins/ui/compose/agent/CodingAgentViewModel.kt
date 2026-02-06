@@ -531,6 +531,21 @@ class CodingAgentViewModel(
 
         // Clear file changes from previous session
         FileChangeTracker.clearChanges()
+        
+        // CRITICAL FIX: Disconnect and reconnect ACP session for new chat
+        // ACP agents maintain conversation context on their side, so we must
+        // explicitly disconnect and reconnect to get a fresh session
+        if (currentEngine == GuiAgentEngine.ACP && currentAcpAgentConfig != null) {
+            scope.launch {
+                try {
+                    println("[ACP] Resetting session for new chat...")
+                    disconnectAcp()
+                    // The next prompt will trigger a fresh connection
+                } catch (e: Exception) {
+                    println("[ACP] Failed to reset session: ${e.message}")
+                }
+            }
+        }
     }
 
     /**
