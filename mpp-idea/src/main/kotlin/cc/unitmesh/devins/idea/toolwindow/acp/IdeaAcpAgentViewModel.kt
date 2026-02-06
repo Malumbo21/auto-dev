@@ -55,8 +55,13 @@ private val acpLogger = Logger.getInstance("AutoDevAcpAgent")
 class IdeaAcpAgentViewModel(
     val project: Project,
     private val coroutineScope: CoroutineScope,
+    /**
+     * Optional external renderer. When provided, ACP output renders to the shared timeline
+     * (e.g., CODING tab's renderer). When null, creates its own standalone renderer.
+     */
+    externalRenderer: JewelRenderer? = null,
 ) : Disposable {
-    val renderer = JewelRenderer()
+    val renderer: JewelRenderer = externalRenderer ?: JewelRenderer()
 
     private val _isExecuting = MutableStateFlow(false)
     val isExecuting: StateFlow<Boolean> = _isExecuting.asStateFlow()

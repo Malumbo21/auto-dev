@@ -54,10 +54,20 @@ class SwingBottomToolbar(
     private var onConfigureClick: () -> Unit = {}
     private var onAddNewConfig: () -> Unit = {}
     private var onRefreshCopilot: () -> Unit = {}
+    private var onAcpAgentSelect: (String) -> Unit = {} // ACP agent key
+    private var onConfigureAcp: () -> Unit = {}
+    private var onSwitchToAutodev: () -> Unit = {}
     private var isProcessing = false
     private var isEnhancing = false
     private var isRefreshingCopilot = false
     private var imageCount = 0
+
+    // Track ACP agent entries in the combo box
+    // Format: list of (comboIndex, agentKey) for ACP items
+    private var acpAgentEntries: List<Pair<Int, String>> = emptyList()
+    private val ACP_SEPARATOR = "--- ACP Agents ---"
+    private val ACP_CONFIGURE = "Configure ACP..."
+    private var isComboUpdating = false
     
     // Refresh GitHub Copilot button (only shown when Copilot is configured)
     private val refreshCopilotButton = JButton(AllIcons.Actions.Refresh).apply {
@@ -77,11 +87,31 @@ class SwingBottomToolbar(
         val leftPanel = JPanel(FlowLayout(FlowLayout.LEFT, 4, 0)).apply {
             isOpaque = false
 
-            modelComboBox.preferredSize = Dimension(150, 28)
+            modelComboBox.preferredSize = Dimension(180, 28)
             modelComboBox.addActionListener {
+                if (isComboUpdating) return@addActionListener
                 val selectedIndex = modelComboBox.selectedIndex
-                if (selectedIndex >= 0 && selectedIndex < availableConfigs.size) {
-                    onConfigSelect(availableConfigs[selectedIndex])
+                val selectedItem = modelComboBox.selectedItem as? String
+
+                when {
+                    // "Configure ACP..." item
+                    selectedItem == ACP_CONFIGURE -> {
+                        onConfigureAcp()
+                    }
+                    // Separator (not selectable, reset)
+                    selectedItem == ACP_SEPARATOR -> {
+                        // Do nothing
+                    }
+                    // ACP agent entry
+                    acpAgentEntries.any { it.first == selectedIndex } -> {
+                        val agentKey = acpAgentEntries.first { it.first == selectedIndex }.second
+                        onAcpAgentSelect(agentKey)
+                    }
+                    // Regular LLM config
+                    selectedIndex in availableConfigs.indices -> {
+                        onSwitchToAutodev()
+                        onConfigSelect(availableConfigs[selectedIndex])
+                    }
                 }
             }
             add(modelComboBox)
@@ -172,16 +202,78 @@ class SwingBottomToolbar(
 
     fun setAvailableConfigs(configs: List<NamedModelConfig>) {
         availableConfigs = configs
-        modelComboBox.removeAllItems()
-        configs.forEach { modelComboBox.addItem(it.name) }
+        rebuildComboBox()
+    }
+
+    /**
+     * Set available ACP agents and rebuild the combo box.
+     */
+    fun setAcpAgents(agents: Map<String, cc.unitmesh.config.AcpAgentConfig>) {
+        rebuildComboBoxWithAcp(agents)
+    }
+
+    private fun rebuildComboBox() {
+        rebuildComboBoxWithAcp(emptyMap())
+    }
+
+    private fun rebuildComboBoxWithAcp(agents: Map<String, cc.unitmesh.config.AcpAgentConfig>) {
+        isComboUpdating = true
+        try {
+            modelComboBox.removeAllItems()
+            acpAgentEntries = emptyList()
+
+            // Add LLM configs
+            availableConfigs.forEach { modelComboBox.addItem(it.name) }
+
+            // Add ACP agents section
+            if (agents.isNotEmpty()) {
+                val separatorIndex = modelComboBox.itemCount
+                modelComboBox.addItem(ACP_SEPARATOR)
+
+                val entries = mutableListOf<Pair<Int, String>>()
+                agents.forEach { (key, config) ->
+                    val displayName = config.name.ifBlank { key }
+                    val idx = modelComboBox.itemCount
+                    modelComboBox.addItem("ACP: $displayName")
+                    entries.add(idx to key)
+                }
+                acpAgentEntries = entries
+
+                // Add "Configure ACP..." at the end
+                modelComboBox.addItem(ACP_CONFIGURE)
+            }
+        } finally {
+            isComboUpdating = false
+        }
     }
 
     fun setCurrentConfigName(name: String?) {
         if (name != null) {
-            val index = availableConfigs.indexOfFirst { it.name == name }
-            if (index >= 0) {
-                modelComboBox.selectedIndex = index
+            isComboUpdating = true
+            try {
+                val index = availableConfigs.indexOfFirst { it.name == name }
+                if (index >= 0) {
+                    modelComboBox.selectedIndex = index
+                }
+            } finally {
+                isComboUpdating = false
             }
+        }
+    }
+
+    /**
+     * Select an ACP agent in the combo box by key.
+     */
+    fun setCurrentAcpAgent(agentKey: String?) {
+        if (agentKey == null) return
+        isComboUpdating = true
+        try {
+            val entry = acpAgentEntries.firstOrNull { it.second == agentKey }
+            if (entry != null) {
+                modelComboBox.selectedIndex = entry.first
+            }
+        } finally {
+            isComboUpdating = false
         }
     }
 
@@ -249,6 +341,18 @@ class SwingBottomToolbar(
      */
     fun setImageEnabled(enabled: Boolean) {
         imageButton.isEnabled = enabled
+    }
+
+    fun setOnAcpAgentSelect(callback: (String) -> Unit) {
+        onAcpAgentSelect = callback
+    }
+
+    fun setOnConfigureAcp(callback: () -> Unit) {
+        onConfigureAcp = callback
+    }
+
+    fun setOnSwitchToAutodev(callback: () -> Unit) {
+        onSwitchToAutodev = callback
     }
 }
 

@@ -15,8 +15,10 @@ import cc.unitmesh.devins.idea.toolwindow.codereview.IdeaCodeReviewContent
 import cc.unitmesh.devins.idea.toolwindow.codereview.IdeaCodeReviewViewModel
 import cc.unitmesh.devins.idea.components.header.IdeaAgentTabsHeader
 import cc.unitmesh.devins.idea.components.IdeaVerticalResizableSplitPane
+import cc.unitmesh.config.AcpAgentConfig
 import cc.unitmesh.devins.idea.toolwindow.acp.IdeaAcpAgentContent
 import cc.unitmesh.devins.idea.toolwindow.acp.IdeaAcpAgentViewModel
+import cc.unitmesh.devins.idea.toolwindow.acp.IdeaAcpConfigDialogWrapper
 import cc.unitmesh.devins.idea.toolwindow.knowledge.IdeaKnowledgeContent
 import cc.unitmesh.devins.idea.toolwindow.knowledge.IdeaKnowledgeViewModel
 import cc.unitmesh.devins.idea.toolwindow.remote.IdeaRemoteAgentContent
@@ -84,6 +86,37 @@ fun IdeaAgentApp(
     
     // Check if GitHub Copilot is available
     val isCopilotAvailable = remember { GithubCopilotDetector.isGithubCopilotConfigured() }
+
+    // Engine state (AutoDev vs ACP)
+    var currentEngine by remember { mutableStateOf(IdeaEngine.AUTODEV) }
+    var acpAgents by remember { mutableStateOf<Map<String, AcpAgentConfig>>(emptyMap()) }
+    var currentAcpAgentKey by remember { mutableStateOf<String?>(null) }
+    var showAcpConfigDialog by remember { mutableStateOf(false) }
+    var acpIsConnected by remember { mutableStateOf(false) }
+    var acpIsExecuting by remember { mutableStateOf(false) }
+
+    // Collect engine state
+    IdeaLaunchedEffect(viewModel, project = project) {
+        viewModel.currentEngine.collect { currentEngine = it }
+    }
+    IdeaLaunchedEffect(viewModel, project = project) {
+        viewModel.acpAgents.collect { acpAgents = it }
+    }
+    IdeaLaunchedEffect(viewModel, project = project) {
+        viewModel.currentAcpAgentKey.collect { currentAcpAgentKey = it }
+    }
+    IdeaLaunchedEffect(viewModel, project = project) {
+        viewModel.showAcpConfigDialog.collect { showAcpConfigDialog = it }
+    }
+    IdeaLaunchedEffect(viewModel.acpViewModel, project = project) {
+        viewModel.acpViewModel.isConnected.collect { acpIsConnected = it }
+    }
+    IdeaLaunchedEffect(viewModel.acpViewModel, project = project) {
+        viewModel.acpViewModel.isExecuting.collect { acpIsExecuting = it }
+    }
+
+    // Effective isProcessing: check both engines
+    val effectiveIsProcessing = if (currentEngine == IdeaEngine.ACP) acpIsExecuting else isExecuting
 
     // Collect StateFlows manually using IdeaLaunchedEffect to avoid ClassLoader conflicts
     IdeaLaunchedEffect(viewModel, project = project) {
@@ -234,7 +267,7 @@ fun IdeaAgentApp(
                         IdeaDevInInputArea(
                             project = project,
                             parentDisposable = viewModel,
-                            isProcessing = isExecuting,
+                            isProcessing = effectiveIsProcessing,
                             onSend = { viewModel.sendMessage(it) },
                             onAbort = { viewModel.cancelTask() },
                             workspacePath = project.basePath,
@@ -305,6 +338,18 @@ fun IdeaAgentApp(
                             },
                             onMultimodalAnalysisComplete = { result, error ->
                                 viewModel.renderer.completeMultimodalAnalysis(result, error)
+                            },
+                            // ACP engine integration
+                            acpAgents = acpAgents,
+                            currentAcpAgentKey = if (currentEngine == IdeaEngine.ACP) currentAcpAgentKey else null,
+                            onAcpAgentSelect = { agentKey ->
+                                viewModel.switchToAcpAgent(agentKey)
+                            },
+                            onConfigureAcp = {
+                                viewModel.setShowAcpConfigDialog(true)
+                            },
+                            onSwitchToAutodev = {
+                                viewModel.switchToAutodev()
                             }
                         )
                     }
@@ -490,6 +535,28 @@ fun IdeaAgentApp(
                     }
                 )
                 viewModel.setShowConfigDialog(false)
+            }
+        }
+        onDispose { }
+    }
+
+    // ACP Agent Configuration Dialog
+    DisposableEffect(showAcpConfigDialog) {
+        if (showAcpConfigDialog) {
+            com.intellij.openapi.application.ApplicationManager.getApplication().invokeLater {
+                IdeaAcpConfigDialogWrapper.show(
+                    project = project,
+                    agents = acpAgents,
+                    activeKey = currentAcpAgentKey,
+                    onSave = { newAgents, newActiveKey ->
+                        // Reload ACP agents and update selection
+                        viewModel.reloadAcpAgents()
+                        if (newActiveKey != null) {
+                            viewModel.switchToAcpAgent(newActiveKey)
+                        }
+                    }
+                )
+                viewModel.setShowAcpConfigDialog(false)
             }
         }
         onDispose { }

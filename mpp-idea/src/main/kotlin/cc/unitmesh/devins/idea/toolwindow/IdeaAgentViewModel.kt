@@ -9,6 +9,7 @@ import cc.unitmesh.agent.config.PreloadingStatus
 import cc.unitmesh.agent.config.ToolConfigFile
 import cc.unitmesh.agent.tool.ToolType
 import cc.unitmesh.agent.tool.schema.ToolCategory
+import cc.unitmesh.config.AcpAgentConfig
 import cc.unitmesh.config.AutoDevConfigWrapper
 import cc.unitmesh.config.ConfigManager
 import cc.unitmesh.devins.compiler.service.DevInsCompilerService
@@ -16,10 +17,13 @@ import cc.unitmesh.devins.idea.compiler.IdeaDevInsCompilerService
 import cc.unitmesh.devins.idea.renderer.JewelRenderer
 import cc.unitmesh.devins.idea.services.IdeaToolConfigService
 import cc.unitmesh.devins.idea.tool.IdeaToolProvider
+import cc.unitmesh.devins.idea.toolwindow.acp.IdeaAcpAgentPreset
+import cc.unitmesh.devins.idea.toolwindow.acp.IdeaAcpAgentViewModel
 import cc.unitmesh.llm.LLMService
 import cc.unitmesh.llm.ModelConfig
 import cc.unitmesh.llm.NamedModelConfig
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -42,6 +46,7 @@ class IdeaAgentViewModel(
     private val coroutineScope: CoroutineScope,
     private val maxIterations: Int = 100
 ) : Disposable {
+    private val vmLogger = Logger.getInstance("IdeaAgentViewModel")
 
     // Renderer for agent output (uses StateFlow instead of Compose mutableStateOf)
     val renderer = JewelRenderer()
@@ -97,9 +102,65 @@ class IdeaAgentViewModel(
     // Cached tool configuration
     private var cachedToolConfig: ToolConfigFile? = null
 
+    // ---- Engine Selection (AutoDev built-in LLM vs ACP agents) ----
+
+    /**
+     * Current engine type. When ACP, messages are routed to the ACP agent.
+     */
+    private val _currentEngine = MutableStateFlow(IdeaEngine.AUTODEV)
+    val currentEngine: StateFlow<IdeaEngine> = _currentEngine.asStateFlow()
+
+    /**
+     * Currently active ACP agent key (e.g., "codex", "kimi").
+     */
+    private val _currentAcpAgentKey = MutableStateFlow<String?>(null)
+    val currentAcpAgentKey: StateFlow<String?> = _currentAcpAgentKey.asStateFlow()
+
+    /**
+     * Available ACP agents from config.yaml.
+     */
+    private val _acpAgents = MutableStateFlow<Map<String, AcpAgentConfig>>(emptyMap())
+    val acpAgents: StateFlow<Map<String, AcpAgentConfig>> = _acpAgents.asStateFlow()
+
+    /**
+     * Show ACP config dialog.
+     */
+    private val _showAcpConfigDialog = MutableStateFlow(false)
+    val showAcpConfigDialog: StateFlow<Boolean> = _showAcpConfigDialog.asStateFlow()
+
+    /**
+     * ACP ViewModel that shares this ViewModel's renderer for unified timeline.
+     */
+    val acpViewModel: IdeaAcpAgentViewModel by lazy {
+        IdeaAcpAgentViewModel(
+            project = project,
+            coroutineScope = coroutineScope,
+            externalRenderer = renderer
+        )
+    }
+
+    /**
+     * Display name for the current engine (shown in model selector).
+     */
+    val currentEngineDisplay: String
+        get() {
+            return when (_currentEngine.value) {
+                IdeaEngine.ACP -> {
+                    val key = _currentAcpAgentKey.value
+                    val config = if (key != null) _acpAgents.value[key] else null
+                    config?.name?.ifBlank { key ?: "ACP" } ?: "ACP"
+                }
+                IdeaEngine.AUTODEV -> {
+                    _configWrapper.value?.getActiveName() ?: "AutoDev"
+                }
+            }
+        }
+
     init {
         // Load configuration on initialization
         loadConfiguration()
+        // Load ACP agents
+        loadAcpAgents()
     }
 
     /**
@@ -190,6 +251,72 @@ class IdeaAgentViewModel(
         } catch (e: Exception) {
             _mcpPreloadingMessage.value = "Failed to load MCP servers: ${e.message}"
         }
+    }
+
+    /**
+     * Load ACP agents from config.yaml.
+     */
+    private fun loadAcpAgents() {
+        coroutineScope.launch(Dispatchers.IO) {
+            try {
+                val wrapper = ConfigManager.load()
+                _acpAgents.value = wrapper.getAcpAgents()
+                val activeKey = wrapper.getActiveAcpAgentKey()
+                _currentAcpAgentKey.value = activeKey
+            } catch (e: Exception) {
+                vmLogger.warn("Failed to load ACP agents from config", e)
+            }
+        }
+    }
+
+    /**
+     * Reload ACP agents from config (e.g., after dialog changes).
+     */
+    fun reloadAcpAgents() {
+        loadAcpAgents()
+    }
+
+    /**
+     * Switch to an ACP agent engine.
+     */
+    fun switchToAcpAgent(agentKey: String) {
+        val config = _acpAgents.value[agentKey] ?: return
+        _currentEngine.value = IdeaEngine.ACP
+        _currentAcpAgentKey.value = agentKey
+
+        // Save preference
+        coroutineScope.launch(Dispatchers.IO) {
+            try {
+                AutoDevConfigWrapper.saveActiveAcpAgent(agentKey)
+            } catch (e: Exception) {
+                vmLogger.warn("Failed to save active ACP agent", e)
+            }
+        }
+
+        // Update ACP ViewModel selection and auto-connect
+        acpViewModel.selectAgent(agentKey)
+        if (!acpViewModel.isConnected.value) {
+            acpViewModel.connectSelectedAgent()
+        }
+    }
+
+    /**
+     * Switch back to AutoDev (built-in LLM) engine.
+     */
+    fun switchToAutodev() {
+        _currentEngine.value = IdeaEngine.AUTODEV
+    }
+
+    /**
+     * Check if current engine is ACP.
+     */
+    fun isAcpEngine(): Boolean = _currentEngine.value == IdeaEngine.ACP
+
+    /**
+     * Show/hide ACP config dialog.
+     */
+    fun setShowAcpConfigDialog(show: Boolean) {
+        _showAcpConfigDialog.value = show
     }
 
     /**
@@ -447,16 +574,62 @@ class IdeaAgentViewModel(
     }
 
     /**
-     * Send a message to the Agent (alias for executeTask for backward compatibility).
+     * Send a message to the Agent.
+     * Routes to ACP agent when engine is ACP, otherwise uses built-in CodingAgent.
      */
     fun sendMessage(content: String) {
-        executeTask(content) { setShowConfigDialog(true) }
+        if (_currentEngine.value == IdeaEngine.ACP) {
+            sendAcpMessage(content)
+        } else {
+            executeTask(content) { setShowConfigDialog(true) }
+        }
+    }
+
+    /**
+     * Send message via ACP agent.
+     * Auto-connects if not already connected.
+     */
+    private fun sendAcpMessage(content: String) {
+        val acpVm = acpViewModel
+        if (!acpVm.isConnected.value) {
+            // Auto-connect on first message
+            val key = _currentAcpAgentKey.value
+            if (key != null) {
+                acpVm.selectAgent(key)
+                acpVm.connectSelectedAgent()
+                // Wait for connection, then send
+                coroutineScope.launch {
+                    var attempts = 0
+                    while (!acpVm.isConnected.value && attempts < 100) {
+                        delay(100)
+                        attempts++
+                    }
+                    if (acpVm.isConnected.value) {
+                        acpVm.sendMessage(content)
+                    } else {
+                        renderer.addUserMessage(content)
+                        renderer.renderError("Failed to connect to ACP agent. Please check the configuration.")
+                    }
+                }
+            } else {
+                renderer.addUserMessage(content)
+                renderer.renderError("No ACP agent selected. Please select an agent from the model dropdown.")
+            }
+            return
+        }
+
+        acpVm.sendMessage(content)
     }
 
     /**
      * Cancel the current task.
      */
     fun cancelTask() {
+        if (_currentEngine.value == IdeaEngine.ACP) {
+            acpViewModel.cancelTask()
+            return
+        }
+
         if (_isExecuting.value && currentJob != null) {
             currentJob?.cancel("Task cancelled by user")
             currentJob = null
@@ -514,10 +687,13 @@ class IdeaAgentViewModel(
     }
 
     /**
-     * Clear chat history.
+     * Clear chat history. Also disconnects ACP agent to start fresh.
      */
     fun clearHistory() {
         renderer.clearTimeline()
+        if (_currentEngine.value == IdeaEngine.ACP) {
+            acpViewModel.disconnect()
+        }
     }
 
     /**
@@ -626,8 +802,19 @@ class IdeaAgentViewModel(
     override fun dispose() {
         currentJob?.cancel()
         planStateObserverJob?.cancel()
+        acpViewModel.dispose()
         coroutineScope.cancel()
     }
+}
+
+/**
+ * Engine type for the agent ViewModel.
+ * AUTODEV uses the built-in CodingAgent with local LLM.
+ * ACP routes messages to an external ACP agent (Codex, Kimi, Gemini, etc.).
+ */
+enum class IdeaEngine {
+    AUTODEV,
+    ACP,
 }
 
 /**

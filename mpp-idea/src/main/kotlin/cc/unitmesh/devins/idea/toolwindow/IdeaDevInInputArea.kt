@@ -124,6 +124,12 @@ fun IdeaDevInInputArea(
     onRefreshCopilot: (() -> Unit)? = null,
     isRefreshingCopilot: Boolean = false,
     currentPlan: AgentPlan? = null,
+    // ACP engine integration
+    acpAgents: Map<String, cc.unitmesh.config.AcpAgentConfig> = emptyMap(),
+    currentAcpAgentKey: String? = null,
+    onAcpAgentSelect: (String) -> Unit = {},
+    onConfigureAcp: () -> Unit = {},
+    onSwitchToAutodev: () -> Unit = {},
     // Multimodal analysis streaming callbacks for renderer
     onMultimodalAnalysisStart: ((Int, String) -> Unit)? = null,
     onMultimodalAnalysisChunk: ((String) -> Unit)? = null,
@@ -186,6 +192,27 @@ fun IdeaDevInInputArea(
 
     LaunchedEffect(currentPlan) {
         swingInputArea.setCurrentPlan(currentPlan)
+    }
+
+    // ACP engine integration
+    LaunchedEffect(acpAgents) {
+        swingInputArea.setAcpAgents(acpAgents)
+    }
+
+    LaunchedEffect(currentAcpAgentKey) {
+        swingInputArea.setCurrentAcpAgent(currentAcpAgentKey)
+    }
+
+    LaunchedEffect(onAcpAgentSelect) {
+        swingInputArea.setOnAcpAgentSelect(onAcpAgentSelect)
+    }
+
+    LaunchedEffect(onConfigureAcp) {
+        swingInputArea.setOnConfigureAcp(onConfigureAcp)
+    }
+
+    LaunchedEffect(onSwitchToAutodev) {
+        swingInputArea.setOnSwitchToAutodev(onSwitchToAutodev)
     }
 
     LaunchedEffect(onMultimodalAnalysisStart) {
@@ -548,6 +575,26 @@ class SwingDevInInputArea(
 
     fun setOnMultimodalAnalysisComplete(callback: (String?, String?) -> Unit) {
         onMultimodalAnalysisComplete = callback
+    }
+
+    fun setAcpAgents(agents: Map<String, cc.unitmesh.config.AcpAgentConfig>) {
+        bottomToolbar.setAcpAgents(agents)
+    }
+
+    fun setCurrentAcpAgent(agentKey: String?) {
+        bottomToolbar.setCurrentAcpAgent(agentKey)
+    }
+
+    fun setOnAcpAgentSelect(callback: (String) -> Unit) {
+        bottomToolbar.setOnAcpAgentSelect(callback)
+    }
+
+    fun setOnConfigureAcp(callback: () -> Unit) {
+        bottomToolbar.setOnConfigureAcp(callback)
+    }
+
+    fun setOnSwitchToAutodev(callback: () -> Unit) {
+        bottomToolbar.setOnSwitchToAutodev(callback)
     }
 
     /**
