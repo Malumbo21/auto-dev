@@ -315,12 +315,19 @@ class AcpClient(
         /**
          * Unified handler for ToolCall and ToolCallUpdate events.
          *
-         * Only renders to the UI when:
-         * - First time we see a new toolCallId (or id is null and status is terminal)
-         * - Status becomes COMPLETED or FAILED (terminal state with output)
+         * Based on raw ACP event analysis (see docs/test-scripts/acp-raw-events/):
          *
-         * IN_PROGRESS updates for the same id are silently skipped to avoid
-         * flooding the timeline with hundreds of streaming title updates.
+         * Each tool operation has one unique `toolCallId` and follows this lifecycle:
+         *   ToolCall(status=IN_PROGRESS, title="ReadFile")     // initial, title incomplete
+         *   ToolCallUpdate(IN_PROGRESS, title="ReadFile: build.gradle")  // title growing
+         *   ToolCallUpdate(IN_PROGRESS, title="ReadFile: build.gradle.kts")  // title stable
+         *   ...many identical heartbeat ToolCallUpdates...      // 60/sec for WriteFile
+         *   ToolCallUpdate(COMPLETED/FAILED, title=None)        // terminal, title absent
+         *
+         * Rendering strategy:
+         * - IN_PROGRESS events: only accumulate the best title, never render
+         * - COMPLETED/FAILED: render ONCE with the accumulated title + result
+         * - Result: 7218 raw events -> 6 rendered tool call items
          */
         private fun handleToolCallEvent(
             toolCallId: String?,
@@ -337,57 +344,57 @@ class AcpClient(
             val isTerminal = status == ToolCallStatus.COMPLETED || status == ToolCallStatus.FAILED
             val id = toolCallId ?: ""
 
-            // Always update the best-known title for this id
+            // Always update the best-known title for this id (title streams char-by-char)
             val currentTitle = title?.takeIf { it.isNotBlank() }
             if (id.isNotBlank() && currentTitle != null) {
                 toolCallTitles[id] = currentTitle
             }
 
-            // Resolve the best title: current > stored > fallback
-            val toolTitle = currentTitle
-                ?: (if (id.isNotBlank()) toolCallTitles[id] else null)
+            if (!isTerminal) {
+                // IN_PROGRESS / PENDING: just accumulate title, don't render anything
+                return
+            }
+
+            // Terminal state (COMPLETED / FAILED): render once with best title
+            // Note: terminal events have title=None, so we must use stored title
+            val toolTitle = (if (id.isNotBlank()) toolCallTitles[id] else null)
+                ?: currentTitle
                 ?: "tool"
 
-            if (isTerminal) {
-                // Terminal state: render the tool call with the best title + result
-                renderer.renderToolCallWithParams(
-                    toolName = toolTitle,
-                    params = mapOf(
-                        "kind" to (kind ?: "UNKNOWN"),
-                        "status" to (status?.name ?: "UNKNOWN"),
-                        "input" to inputText
-                    )
+            renderer.renderToolCallWithParams(
+                toolName = toolTitle,
+                params = mapOf(
+                    "kind" to (kind ?: "UNKNOWN"),
+                    "status" to (status.name),
+                    "input" to inputText
                 )
+            )
 
-                val out = rawOutput
-                if (out != null && out.isNotBlank()) {
-                    renderer.renderToolResult(
-                        toolName = toolTitle,
-                        success = status == ToolCallStatus.COMPLETED,
-                        output = out,
-                        fullOutput = out,
-                        metadata = emptyMap()
-                    )
-                }
-
-                // Clean up tracking for this id
-                if (id.isNotBlank()) {
-                    renderedToolCallIds.add(id)
-                    toolCallTitles.remove(id)
-                }
-            } else if (id.isNotBlank() && id !in renderedToolCallIds) {
-                // First IN_PROGRESS for a new id: render once to show activity
-                renderedToolCallIds.add(id)
-                renderer.renderToolCallWithParams(
+            val out = rawOutput
+            if (out != null && out.isNotBlank()) {
+                renderer.renderToolResult(
                     toolName = toolTitle,
-                    params = mapOf(
-                        "kind" to (kind ?: "UNKNOWN"),
-                        "status" to (status?.name ?: "IN_PROGRESS"),
-                        "input" to inputText
-                    )
+                    success = status == ToolCallStatus.COMPLETED,
+                    output = out,
+                    fullOutput = out,
+                    metadata = emptyMap()
+                )
+            } else {
+                // Even without output, mark as result so UI shows completion state
+                renderer.renderToolResult(
+                    toolName = toolTitle,
+                    success = status == ToolCallStatus.COMPLETED,
+                    output = if (status == ToolCallStatus.COMPLETED) "Done" else "Failed",
+                    fullOutput = null,
+                    metadata = emptyMap()
                 )
             }
-            // else: duplicate IN_PROGRESS for already-rendered id -> skip (title tracked above)
+
+            // Clean up tracking
+            if (id.isNotBlank()) {
+                renderedToolCallIds.add(id)
+                toolCallTitles.remove(id)
+            }
         }
 
         /**
