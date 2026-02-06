@@ -72,9 +72,11 @@ export class AcpClientConnection {
     }
 
     // Create ACP stream from agent's stdio
-    const input = Writable.toWeb(this.agentProcess.stdin) as WritableStream;
-    const output = Readable.toWeb(this.agentProcess.stdout) as ReadableStream;
-    const stream = acp.ndJsonStream(input, output);
+    // For ndJsonStream: first param is output (where we write), second is input (where we read)
+    // We write to agent's stdin, read from agent's stdout
+    const output = Writable.toWeb(this.agentProcess.stdin) as WritableStream<Uint8Array>;
+    const input = Readable.toWeb(this.agentProcess.stdout) as ReadableStream<Uint8Array>;
+    const stream = acp.ndJsonStream(output, input);
 
     // Create the client-side connection
     this.connection = new acp.ClientSideConnection(
