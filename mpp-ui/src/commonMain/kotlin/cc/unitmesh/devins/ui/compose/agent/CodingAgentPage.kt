@@ -69,6 +69,8 @@ fun CodingAgentPage(
     val scope = rememberCoroutineScope()
 
     val currentWorkspace by WorkspaceManager.workspaceFlow.collectAsState()
+    // Populated by AutoDevApp after loading last workspace / default workspace
+    val uiWorkspacePath by UIStateManager.workspacePath.collectAsState()
 
     // Cloud storage configuration state
     var cloudStorageConfig by remember { mutableStateOf<CloudStorageConfig?>(null) }
@@ -110,9 +112,15 @@ fun CodingAgentPage(
     }
 
     val viewModel =
-        remember(llmService, currentWorkspace?.rootPath, chatHistoryManager) {
+        remember(llmService, currentWorkspace?.rootPath, uiWorkspacePath, chatHistoryManager) {
             val workspace = currentWorkspace
-            val rootPath = workspace?.rootPath ?: Platform.getUserHomeDir()
+            // Prefer active workspace. If WorkspaceManager is not ready yet, use UIStateManager fallback.
+            // Avoid defaulting to user home when starting ACP agents: Kimi's Shell commands run relative to this path.
+            val rootPath =
+                workspace?.rootPath
+                    ?.takeIf { it.isNotBlank() }
+                    ?: uiWorkspacePath.takeIf { it.isNotBlank() }
+                    ?: Platform.getUserHomeDir()
 
             CodingAgentViewModel(
                 llmService = llmService,

@@ -35,21 +35,33 @@ class JvmAcpConnection : AcpConnection {
         cwd: String
     ) {
         withContext(Dispatchers.IO) {
-            // Build command
-            val commandList = mutableListOf(config.command)
-            commandList.addAll(config.getArgsList())
+            val effectiveCwd = cwd.ifBlank { System.getProperty("user.dir") ?: cwd }
+
+            // Build command (and inject workdir for kimi if not provided)
+            val args = config.getArgsList().toMutableList()
+            if (looksLikeKimi(config.command) && !hasWorkDirArg(args)) {
+                // Kimi CLI supports `--work-dir <path>` to pin its workspace.
+                // This is critical because Kimi's shell actions may run in separate subprocesses,
+                // so `cd`-based prompts are unreliable.
+                args.addAll(0, listOf("--work-dir", effectiveCwd))
+            }
+
+            val commandList = mutableListOf(config.command).apply { addAll(args) }
 
             println("[ACP] Spawning agent: ${commandList.joinToString(" ")}")
 
             // Spawn process
             val pb = ProcessBuilder(commandList)
-            pb.directory(File(cwd))
+            pb.directory(File(effectiveCwd))
             pb.redirectErrorStream(false)
 
             // Add environment variables
             config.getEnvMap().forEach { (key, value) ->
                 pb.environment()[key] = value
             }
+            // Provide workspace hints for agents that rely on env vars.
+            pb.environment()["PWD"] = effectiveCwd
+            pb.environment()["AUTODEV_WORKSPACE"] = effectiveCwd
 
             val proc = pb.start()
             process = proc
@@ -64,7 +76,7 @@ class JvmAcpConnection : AcpConnection {
                 output = output,
                 clientName = "autodev-xiuper-compose",
                 clientVersion = "3.0.0",
-                cwd = cwd
+                cwd = effectiveCwd
             )
 
             client.connect()
@@ -104,5 +116,15 @@ class JvmAcpConnection : AcpConnection {
         process = null
 
         println("[ACP] Disconnected")
+    }
+
+    private fun looksLikeKimi(command: String): Boolean {
+        val base = command.substringAfterLast('/').substringAfterLast('\\')
+        return base.equals("kimi", ignoreCase = true) || base.equals("kimi.exe", ignoreCase = true)
+    }
+
+    private fun hasWorkDirArg(args: List<String>): Boolean {
+        // Accept both "--work-dir" and "--workdir" just in case.
+        return args.any { it == "--work-dir" || it == "--workdir" }
     }
 }
