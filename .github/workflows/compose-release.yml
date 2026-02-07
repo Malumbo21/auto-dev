@@ -135,7 +135,7 @@ jobs:
     runs-on: macos-latest
     continue-on-error: true
     # Only run for compose-* releases or manual dispatch
-    if: startsWith(github.ref, 'refs/tags/compose-') || github.event_name == 'workflow_dispatch'
+    if: false # disabled temporarily
     permissions:
       contents: write
       pull-requests: write
@@ -425,7 +425,7 @@ jobs:
   # Create release with all artifacts
   create-release:
     name: Create Release
-    needs: [build-server, build-android, build-ios, build-desktop, build-idea-plugin, build-vscode-extension]
+    needs: [build-server, build-android, build-desktop, build-idea-plugin, build-vscode-extension]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -468,7 +468,6 @@ jobs:
             
             ### 📱 Mobile
             - **Android**: Debug APK, Release APK
-            - **iOS**: iOS App (.ipa for Simulator)
             
             ### 💻 Desktop
             - **Linux**: `.deb` package
