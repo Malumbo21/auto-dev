@@ -49,6 +49,7 @@ tasks.register<Jar>("fatJar") {
     archiveBaseName.set("mpp-server")
     archiveClassifier.set("all")
     archiveVersion.set(project.version.toString())
+    isZip64 = true
     
     manifest {
         attributes["Main-Class"] = "cc.unitmesh.server.ServerApplicationKt"
@@ -66,4 +67,9 @@ tasks.register<Jar>("fatJar") {
 // Make build depend on fatJar
 tasks.named("build") {
     dependsOn("fatJar")
+}
+
+// Ktor plugin also creates a ShadowJar; enable Zip64 to avoid 65535 entries limit
+tasks.named<Jar>("shadowJar") {
+    isZip64 = true
 }
