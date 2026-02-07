@@ -256,6 +256,10 @@ actual object ConfigManager {
         return ""
     }
 
+    actual fun getAcpLogsDir(): String {
+        return "$configDir/acp-logs"
+    }
+
     actual fun getToolConfigPath(): String = toolConfigFilePath
 
     actual fun generateUniqueConfigName(baseName: String, existingNames: List<String>): String {
