@@ -88,6 +88,11 @@ class AcpClientSessionOps(
             throw UnsupportedOperationException("ACP fs.read_text_file is disabled in this client (capabilities not advertised)")
         }
 
+        if (path.isBlank()) {
+            logger.warn { "ACP fs.read_text_file: path is empty or blank" }
+            throw IllegalArgumentException("File path cannot be empty or blank")
+        }
+
         val resolved = resolvePath(path)
         logger.info { "ACP fs.read_text_file: $resolved (line=$line, limit=$limit)" }
 
@@ -117,6 +122,11 @@ class AcpClientSessionOps(
     ): WriteTextFileResponse = withContext(Dispatchers.IO) {
         if (!enableFs) {
             throw UnsupportedOperationException("ACP fs.write_text_file is disabled in this client (capabilities not advertised)")
+        }
+
+        if (path.isBlank()) {
+            logger.warn { "ACP fs.write_text_file: path is empty or blank" }
+            throw IllegalArgumentException("File path cannot be empty or blank")
         }
 
         val resolved = resolvePath(path)
