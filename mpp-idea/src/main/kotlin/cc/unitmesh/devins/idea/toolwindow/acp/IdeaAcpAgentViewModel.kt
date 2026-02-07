@@ -149,14 +149,16 @@ class IdeaAcpAgentViewModel(
     /**
      * Select an agent from the available list and optionally connect.
      */
-    fun selectAgent(key: String) {
+    fun selectAgent(key: String, saveConfig: Boolean = true) {
         _selectedAgentKey.value = key
         // Save to config.yaml
-        coroutineScope.launch(Dispatchers.IO) {
-            try {
-                AutoDevConfigWrapper.saveActiveAcpAgent(key)
-            } catch (e: Exception) {
-                acpLogger.warn("Failed to save active ACP agent", e)
+        if (saveConfig) {
+            coroutineScope.launch(Dispatchers.IO) {
+                try {
+                    AutoDevConfigWrapper.saveActiveAcpAgent(key)
+                } catch (e: Exception) {
+                    acpLogger.warn("Failed to save active ACP agent", e)
+                }
             }
         }
     }
@@ -324,66 +326,16 @@ class IdeaAcpAgentViewModel(
                     _meta = JsonNull
                 )
 
+                acpLogger.info("Sending ACP initialize request for agent '$agentKey'")
                 client.initialize(clientInfo, JsonNull)
+                acpLogger.info("ACP initialize successful for agent '$agentKey'")
 
                 // Load MCP servers from config.yaml
-                val mcpServers: List<McpServer> = try {
-                    val wrapper = ConfigManager.load()
-                    val enabled = wrapper.getEnabledMcpServers()
-                    enabled.mapNotNull { (serverName, cfg) ->
-                        val cfgCommand = cfg.command
-                        val cfgUrl = cfg.url
-                        when {
-                            cfgCommand != null -> {
-                                McpServer.Stdio(
-                                    name = serverName,
-                                    command = cfgCommand,
-                                    args = cfg.args,
-                                    env = (cfg.env ?: emptyMap()).entries.map { (k, v) ->
-                                        EnvVariable(name = k, value = v, _meta = JsonNull)
-                                    }
-                                )
-                            }
-                            cfgUrl != null -> {
-                                val headers = (cfg.headers ?: emptyMap()).entries.map { (k, v) ->
-                                    HttpHeader(name = k, value = v, _meta = JsonNull)
-                                }
-                                if (cfgUrl.contains("/sse", ignoreCase = true)) {
-                                    McpServer.Sse(name = serverName, url = cfgUrl, headers = headers)
-                                } else {
-                                    McpServer.Http(name = serverName, url = cfgUrl, headers = headers)
-                                }
-                            }
-                            else -> null
-                        }
-                    }
-                } catch (e: Exception) {
-                    acpLogger.warn("Failed to load MCP servers from config", e)
-                    emptyList()
-                }
+                val mcpServers: List<McpServer> = loadMcpServers()
 
-                val operationsFactory = object : ClientOperationsFactory {
-                    override suspend fun createClientOperations(
-                        sessionId: SessionId,
-                        sessionResponse: AcpCreatedSessionResponse,
-                    ): ClientSessionOperations {
-                        return cc.unitmesh.agent.acp.AcpClientSessionOps(
-                            onSessionUpdate = { update ->
-                                handleSessionUpdate(update)
-                            },
-                            onPermissionRequest = { toolCallUpdate, options ->
-                                // Use runBlocking to bridge suspend function to sync callback
-                                // This is called from IO dispatcher, so it won't block EDT
-                                kotlinx.coroutines.runBlocking {
-                                    handlePermissionRequest(toolCallUpdate, options)
-                                }
-                            },
-                            cwd = cwd,
-                            enableFs = true,
-                            enableTerminal = true,
-                        )
-                    }
-                }
+                val operationsFactory = createOperationsFactory(cwd)
+
+                acpLogger.info("Creating ACP session with cwd=$cwd, mcpServers=${mcpServers.size}")
 
                 val session = client.newSession(
                     SessionCreationParameters(
@@ -399,12 +351,101 @@ class IdeaAcpAgentViewModel(
                 _connectionError.value = null
                 acpLogger.info("ACP agent '$agentKey' connected successfully (session=${session.sessionId})")
             } catch (e: CancellationException) {
-                // Ignore
+                // MUST rethrow CancellationException - never log it.
+                // IntelliJ Logger will crash the thread if we try to log control-flow exceptions.
+                throw e
             } catch (e: Exception) {
                 _isConnected.value = false
-                _connectionError.value = "Failed to start ACP agent: ${e.message}"
-                acpLogger.warn("ACP connect failed", e)
+                _connectionError.value = "ACP connect failed: ${e.message}"
+                acpLogger.warn("ACP connect failed for agent '$agentKey': ${e.message}")
+                acpLogger.info("ACP connect error details for '$agentKey'", e)
                 disconnectInternal()
+            }
+        }
+    }
+
+    /**
+     * Load MCP servers from config.yaml for ACP session creation.
+     */
+    private suspend fun loadMcpServers(): List<McpServer> {
+        return try {
+            val wrapper = ConfigManager.load()
+            val enabled = wrapper.getEnabledMcpServers()
+            enabled.mapNotNull { (serverName, cfg) ->
+                val cfgCommand = cfg.command
+                val cfgUrl = cfg.url
+                when {
+                    cfgCommand != null -> {
+                        McpServer.Stdio(
+                            name = serverName,
+                            command = cfgCommand,
+                            args = cfg.args,
+                            env = (cfg.env ?: emptyMap()).entries.map { (k, v) ->
+                                EnvVariable(name = k, value = v, _meta = JsonNull)
+                            }
+                        )
+                    }
+                    cfgUrl != null -> {
+                        val headers = (cfg.headers ?: emptyMap()).entries.map { (k, v) ->
+                            HttpHeader(name = k, value = v, _meta = JsonNull)
+                        }
+                        if (cfgUrl.contains("/sse", ignoreCase = true)) {
+                            McpServer.Sse(name = serverName, url = cfgUrl, headers = headers)
+                        } else {
+                            McpServer.Http(name = serverName, url = cfgUrl, headers = headers)
+                        }
+                    }
+                    else -> null
+                }
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            acpLogger.warn("Failed to load MCP servers from config: ${e.message}")
+            emptyList()
+        }
+    }
+
+    /**
+     * Create the ACP ClientOperationsFactory with permission auto-approval.
+     *
+     * Permission requests during session creation (e.g., workspace indexing from auggie)
+     * are auto-approved because they arrive on the protocol coroutine and cannot show a
+     * UI dialog without blocking. During prompt execution, handlePermissionRequest() is
+     * used instead to show the dialog.
+     */
+    private fun createOperationsFactory(cwd: String): ClientOperationsFactory {
+        return object : ClientOperationsFactory {
+            override suspend fun createClientOperations(
+                sessionId: SessionId,
+                sessionResponse: AcpCreatedSessionResponse,
+            ): ClientSessionOperations {
+                return cc.unitmesh.agent.acp.AcpClientSessionOps(
+                    onSessionUpdate = { update ->
+                        handleSessionUpdate(update)
+                    },
+                    onPermissionRequest = { toolCallUpdate, options ->
+                        // Auto-approve during session creation.
+                        // Prefer ALLOW_ALWAYS > ALLOW_ONCE > first option as fallback.
+                        val allow = options.firstOrNull { it.kind == PermissionOptionKind.ALLOW_ALWAYS }
+                            ?: options.firstOrNull { it.kind == PermissionOptionKind.ALLOW_ONCE }
+                            ?: options.firstOrNull()
+
+                        if (allow != null) {
+                            acpLogger.info("ACP permission auto-approved: ${allow.name} (${allow.kind}) for ${toolCallUpdate.title}")
+                            RequestPermissionResponse(
+                                RequestPermissionOutcome.Selected(allow.optionId),
+                                JsonNull
+                            )
+                        } else {
+                            acpLogger.info("ACP permission cancelled (no options) for ${toolCallUpdate.title}")
+                            RequestPermissionResponse(RequestPermissionOutcome.Cancelled, JsonNull)
+                        }
+                    },
+                    cwd = cwd,
+                    enableFs = true,
+                    enableTerminal = true,
+                )
             }
         }
     }

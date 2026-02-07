@@ -340,7 +340,6 @@ class AutoDevConfigWrapper(val configFile: ConfigFile) {
                     activeAcpAgent = activeKey ?: currentConfig.configFile.activeAcpAgent
                 )
                 ConfigManager.save(updatedConfig)
-                println("ACP agent configurations saved: ${acpAgents.keys}")
             } catch (e: Exception) {
                 println("Failed to save ACP agent configurations: ${e.message}")
                 throw e
@@ -355,7 +354,6 @@ class AutoDevConfigWrapper(val configFile: ConfigFile) {
                 val currentConfig = ConfigManager.load()
                 val updatedConfig = currentConfig.configFile.copy(activeAcpAgent = key)
                 ConfigManager.save(updatedConfig)
-                println("Active ACP agent saved: $key")
             } catch (e: Exception) {
                 println("Failed to save active ACP agent: ${e.message}")
                 throw e

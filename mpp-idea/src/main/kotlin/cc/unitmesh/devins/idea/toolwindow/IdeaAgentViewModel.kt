@@ -339,7 +339,7 @@ class IdeaAgentViewModel(
         _currentEngine.value = IdeaEngine.ACP
         _currentAcpAgentKey.value = agentKey
 
-        // Save preference
+        // Save preference (only save once here)
         coroutineScope.launch(Dispatchers.IO) {
             try {
                 AutoDevConfigWrapper.saveActiveAcpAgent(agentKey)
@@ -348,8 +348,8 @@ class IdeaAgentViewModel(
             }
         }
 
-        // Update ACP ViewModel selection and auto-connect
-        acpViewModel.selectAgent(agentKey)
+        // Update ACP ViewModel selection without saving again
+        acpViewModel.selectAgent(agentKey, saveConfig = false)
         if (!acpViewModel.isConnected.value) {
             acpViewModel.connectSelectedAgent()
         }
