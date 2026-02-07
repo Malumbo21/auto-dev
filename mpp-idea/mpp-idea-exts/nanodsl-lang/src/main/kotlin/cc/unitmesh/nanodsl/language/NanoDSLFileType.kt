@@ -4,7 +4,7 @@ import com.intellij.openapi.fileTypes.LanguageFileType
 import javax.swing.Icon
 
 object NanoDSLFileType : LanguageFileType(NanoDSLLanguage) {
-    override fun getName(): String = "NanoDSL"
+    override fun getName(): String = "NanoDSLFile"
 
     override fun getDescription(): String = "NanoDSL Language File"
 
