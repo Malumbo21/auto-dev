@@ -40,7 +40,12 @@ import kotlinx.serialization.Serializable
  *     command: "claude"
  *     args: "--acp"
  *     env: ""
- * activeAcpAgent: kimi
+ *   auggie:
+ *     name: "Auggie"
+ *     command: "auggie"
+ *     args: "--acp"
+ *     env: "AUGGIE_API_KEY=xxx"
+ * activeAcpAgent: auggie
  * ```
  */
 @Serializable
@@ -138,6 +143,12 @@ data class CloudStorageConfig(
  * Defines an external ACP-compliant agent that can be spawned as a child process
  * and communicated with via JSON-RPC over stdio.
  *
+ * Supported agents:
+ * - **Kimi CLI**: Chinese AI agent with strong coding capabilities
+ * - **Claude CLI**: Anthropic's Claude Code agent
+ * - **Auggie**: Augment Code's AI agent with ACP support
+ * - **Gemini CLI**: Google's Gemini agent (when available)
+ *
  * Example config.yaml:
  * ```yaml
  * acpAgents:
@@ -151,7 +162,12 @@ data class CloudStorageConfig(
  *     command: "claude"
  *     args: "--acp"
  *     env: ""
- * activeAcpAgent: kimi
+ *   auggie:
+ *     name: "Auggie"
+ *     command: "auggie"
+ *     args: "--acp"
+ *     env: "AUGGIE_API_KEY=xxx"
+ * activeAcpAgent: auggie
  * ```
  */
 @Serializable

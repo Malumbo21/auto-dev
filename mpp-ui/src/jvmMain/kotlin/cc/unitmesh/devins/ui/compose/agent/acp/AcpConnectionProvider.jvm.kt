@@ -15,14 +15,21 @@ import java.io.File
 /**
  * Create the appropriate connection based on agent configuration.
  * For Claude Code agents, uses [JvmClaudeCodeConnection] with direct stream-json protocol.
- * For all other ACP agents (Gemini, Kimi, Copilot, etc.), uses [JvmAcpConnection].
+ * For all other ACP agents (Auggie, Gemini, Kimi, Copilot, etc.), uses [JvmAcpConnection].
  */
 actual fun createAcpConnection(): AcpConnection? = JvmAcpConnection()
 
 /**
  * Create the appropriate connection for the given agent config.
  * - Claude Code: uses [JvmClaudeCodeConnection] with direct stream-json protocol.
- * - All others: uses [JvmAcpConnection] with standard ACP JSON-RPC.
+ * - Auggie: uses [JvmAcpConnection] with standard ACP JSON-RPC.
+ * - All others (Kimi, Gemini, etc.): uses [JvmAcpConnection] with standard ACP JSON-RPC.
+ *
+ * Supported agents:
+ * - **Auggie**: Augment Code's AI agent (https://docs.augmentcode.com/cli/acp/agent)
+ * - **Claude Code**: Anthropic's Claude Code agent
+ * - **Kimi**: Chinese AI agent with strong coding capabilities
+ * - **Gemini**: Google's Gemini agent
  *
  * @see <a href="https://github.com/phodal/auto-dev/issues/538">Issue #538</a>
  */
@@ -43,6 +50,12 @@ actual fun isAcpSupported(): Boolean = true
  * Uses [AcpClient] from mpp-core which handles the ACP protocol details.
  * Events are streamed directly to the provided [CodingAgentRenderer] via
  * [AcpClient.promptAndRender], allowing seamless integration with ComposeRenderer.
+ *
+ * Supports all standard ACP agents including:
+ * - Auggie (https://docs.augmentcode.com/cli/acp/agent)
+ * - Kimi CLI (with automatic --work-dir injection)
+ * - Gemini CLI
+ * - Any other ACP-compliant agent
  */
 class JvmAcpConnection : AcpConnection {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
