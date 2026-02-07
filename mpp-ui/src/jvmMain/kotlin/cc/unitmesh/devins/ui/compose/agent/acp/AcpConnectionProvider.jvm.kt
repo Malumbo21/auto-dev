@@ -13,9 +13,8 @@ import kotlinx.io.asSource
 import java.io.File
 
 /**
- * Create the appropriate connection based on agent configuration.
- * For Claude Code agents, uses [JvmClaudeCodeConnection] with direct stream-json protocol.
- * For all other ACP agents (Auggie, Gemini, Kimi, Copilot, etc.), uses [JvmAcpConnection].
+ * Create an ACP connection.
+ * Always returns [JvmAcpConnection] for standard ACP protocol communication.
  */
 actual fun createAcpConnection(): AcpConnection? = JvmAcpConnection()
 
@@ -31,7 +30,7 @@ actual fun createAcpConnection(): AcpConnection? = JvmAcpConnection()
  * - **Kimi**: Chinese AI agent with strong coding capabilities
  * - **Gemini**: Google's Gemini agent
  *
- * @see <a href="https://github.com/phodal/auto-dev/issues/538">Issue #538</a>
+ * @see <a href="https://github.com/phodal/auto-dev/issues/536">Issue #536</a>
  */
 actual fun createConnectionForAgent(config: AcpAgentConfig): AcpConnection? {
     return if (looksLikeClaude(config.command)) {
