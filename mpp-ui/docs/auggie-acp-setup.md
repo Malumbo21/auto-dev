@@ -74,11 +74,15 @@ export AUGGIE_API_KEY=sk-aug-xxxxxxxxxxxxx
 4. Enter your task in the input field
 5. Click **Send** to execute the task
 
-### In AutoDev CLI
+### In Compose GUI
 
-```bash
-autodev code -p /path/to/project -t "Your task here" --engine auggie
-```
+Auggie is only available in the Compose GUI, not the Node CLI. The CLI supports `autodev`, `claude`, and `codex` engines only.
+
+To use Auggie:
+1. Open AutoDev Compose GUI
+2. Click the **Engine** dropdown
+3. Select **Auggie**
+4. Enter your task and click **Send**
 
 ## Troubleshooting
 
@@ -132,7 +136,7 @@ acpAgents:
   claude:
     name: "Claude Code"
     command: "claude"
-    args: "--acp"
+    args: "-p --output-format stream-json --input-format stream-json"
     env: ""
 
 activeAcpAgent: auggie
