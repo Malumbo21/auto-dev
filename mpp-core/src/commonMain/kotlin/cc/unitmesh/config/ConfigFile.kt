@@ -36,9 +36,9 @@ import kotlinx.serialization.Serializable
  *     args: "--acp"
  *     env: ""
  *   claude:
- *     name: "Claude CLI"
+ *     name: "Claude Code"
  *     command: "claude"
- *     args: "--acp"
+ *     args: "-p --output-format stream-json --input-format stream-json"
  *     env: ""
  *   auggie:
  *     name: "Auggie"
@@ -158,9 +158,9 @@ data class CloudStorageConfig(
  *     args: "--acp"
  *     env: "KIMI_API_KEY=xxx"
  *   claude:
- *     name: "Claude CLI"
+ *     name: "Claude Code"
  *     command: "claude"
- *     args: "--acp"
+ *     args: "-p --output-format stream-json --input-format stream-json"
  *     env: ""
  *   auggie:
  *     name: "Auggie"

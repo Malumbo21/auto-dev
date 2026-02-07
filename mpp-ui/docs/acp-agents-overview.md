@@ -12,32 +12,47 @@ The Agent Client Protocol (ACP) is an open standard for connecting AI agents to 
 
 ## Supported Agents
 
-AutoDev supports the following ACP-compliant agents:
+AutoDev supports both standard ACP-compliant agents and special-cased integrations.
 
-### Auggie
+### ACP-Compliant Agents
+
+These agents use the standard Agent Client Protocol (ACP) with JSON-RPC 2.0 over stdio:
+
+#### Auggie
 - **Provider**: Augment Code
+- **Protocol**: Standard ACP
 - **Documentation**: [Auggie ACP Setup](./auggie-acp-setup.md)
 - **Features**: Code generation, analysis, refactoring
 - **Installation**: `brew install augment-code/tap/auggie`
 
-### Kimi CLI
+#### Kimi CLI
 - **Provider**: Moonshot AI
+- **Protocol**: Standard ACP
 - **Features**: Chinese AI agent with strong coding capabilities
 - **Installation**: Follow [Kimi documentation](https://kimi.moonshot.cn)
 
-### Claude Code
-- **Provider**: Anthropic
-- **Features**: Code generation, analysis, testing
-- **Installation**: Follow [Claude Code documentation](https://docs.anthropic.com/claude/docs/claude-code)
-
-### Gemini CLI
+#### Gemini CLI
 - **Provider**: Google
+- **Protocol**: Standard ACP
 - **Features**: Code generation, analysis
 - **Installation**: Follow [Gemini documentation](https://ai.google.dev)
 
+### Special-Cased Agents
+
+These agents require custom integration and do not follow the standard ACP protocol:
+
+#### Claude Code
+- **Provider**: Anthropic
+- **Protocol**: Custom stream-json protocol (non-standard)
+- **Features**: Code generation, analysis, testing
+- **Installation**: Follow [Claude Code documentation](https://docs.anthropic.com/claude/docs/claude-code)
+- **Note**: Claude Code uses a custom stream-json protocol instead of standard ACP JSON-RPC. It requires special handling in AutoDev and is not compatible with standard ACP tooling.
+
 ## Configuration
 
-All ACP agents are configured in `~/.autodev/config.yaml`:
+### ACP-Compliant Agents
+
+Standard ACP agents are configured in `~/.autodev/config.yaml`:
 
 ```yaml
 acpAgents:
@@ -46,7 +61,7 @@ acpAgents:
     command: "auggie"
     args: "--acp"
     env: "AUGGIE_API_KEY=xxx"
-  
+
   kimi:
     name: "Kimi CLI"
     command: "kimi"
@@ -55,6 +70,10 @@ acpAgents:
 
 activeAcpAgent: auggie
 ```
+
+### Special-Cased Agents
+
+Claude Code requires custom configuration due to its non-standard stream-json protocol. Configuration details are handled separately from standard ACP agents.
 
 ## Usage
 
@@ -66,11 +85,15 @@ activeAcpAgent: auggie
 4. Select your preferred ACP agent
 5. Enter your task and click **Send**
 
-### In CLI
+### In Compose GUI
 
-```bash
-autodev code -p /path/to/project -t "Your task" --engine auggie
-```
+ACP agents like Auggie are only available in the Compose GUI. The Node CLI supports `autodev`, `claude`, and `codex` engines only.
+
+To use Auggie:
+1. Open AutoDev Compose GUI
+2. Click the **Engine** dropdown
+3. Select **Auggie**
+4. Enter your task and click **Send**
 
 ## Architecture
 
