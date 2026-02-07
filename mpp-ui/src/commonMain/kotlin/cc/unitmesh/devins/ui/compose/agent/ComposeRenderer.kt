@@ -207,7 +207,7 @@ class ComposeRenderer : BaseRenderer() {
                 _timeline.add(
                     TimelineItem.ThinkingItem(
                         content = fullContent,
-                        timestamp = System.currentTimeMillis()
+                        timestamp = Clock.System.now().toEpochMilliseconds()
                     )
                 )
             }
