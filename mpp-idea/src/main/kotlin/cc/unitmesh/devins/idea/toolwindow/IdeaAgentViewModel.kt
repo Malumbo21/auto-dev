@@ -197,10 +197,8 @@ class IdeaAgentViewModel(
                     )
                     vmLogger.warn("LLM service created successfully")
 
-                    // ⚠️ TEMPORARILY DISABLED - MCP preloading may cause freeze
-                    // Start MCP preloading after LLM service is created
-                    // startMcpPreloading()
-                    vmLogger.warn("MCP preloading SKIPPED (temporarily disabled for debugging)")
+                    // Start MCP preloading after LLM service is created (fully async, non-blocking)
+                    startMcpPreloading()
                 }
                 vmLogger.warn("loadConfiguration() completed successfully")
             } catch (e: Exception) {
@@ -215,78 +213,85 @@ class IdeaAgentViewModel(
 
     /**
      * Start MCP servers preloading in background.
-     * Aligned with CodingAgentViewModel's startMcpPreloading().
      *
-     * ⚠️ WARNING: This method contains a blocking while loop that can freeze the EDT
-     * if MCP servers are unresponsive. Currently disabled for debugging.
+     * This method is fully asynchronous and non-blocking:
+     * 1. Launches a background coroutine on Dispatchers.IO
+     * 2. Initializes MCP servers via McpToolConfigManager.init()
+     * 3. Monitors preloading status by waiting for the preloading job to complete
+     * 4. Updates UI state via StateFlow (no EDT blocking)
+     *
+     * The key difference from the old implementation:
+     * - OLD: Used a while loop with delay() that could block for up to 60 seconds
+     * - NEW: Uses waitForPreloading() which suspends without blocking EDT
      */
-    private suspend fun startMcpPreloading() {
-        vmLogger.warn("startMcpPreloading() called")
-        try {
-            vmLogger.warn("Loading MCP servers configuration...")
-            _mcpPreloadingMessage.value = "Loading MCP servers configuration..."
+    private fun startMcpPreloading() {
+        vmLogger.warn("startMcpPreloading() called - launching background coroutine")
 
-            // Use IdeaToolConfigService to get and cache tool config
-            vmLogger.warn("Getting IdeaToolConfigService instance...")
-            val toolConfigService = IdeaToolConfigService.getInstance(project)
-            vmLogger.warn("Reloading tool config...")
-            toolConfigService.reloadConfig()
-            vmLogger.warn("Getting tool config...")
-            val toolConfig = toolConfigService.getToolConfig()
-            cachedToolConfig = toolConfig
-            vmLogger.warn("Tool config loaded - ${toolConfig.mcpServers.size} MCP servers configured")
+        // Launch on IO dispatcher to avoid blocking EDT
+        coroutineScope.launch(Dispatchers.IO) {
+            try {
+                vmLogger.warn("MCP preloading coroutine started on ${Thread.currentThread().name}")
+                _mcpPreloadingMessage.value = "Loading MCP servers configuration..."
 
-            if (toolConfig.mcpServers.isEmpty()) {
-                vmLogger.warn("No MCP servers configured - skipping preloading")
-                _mcpPreloadingMessage.value = "No MCP servers configured"
-                return
-            }
+                // Use IdeaToolConfigService to get and cache tool config
+                val toolConfigService = IdeaToolConfigService.getInstance(project)
+                toolConfigService.reloadConfig()
+                val toolConfig = toolConfigService.getToolConfig()
+                cachedToolConfig = toolConfig
+                vmLogger.warn("Tool config loaded - ${toolConfig.mcpServers.size} MCP servers configured")
 
-            vmLogger.warn("Initializing ${toolConfig.mcpServers.size} MCP servers...")
-            _mcpPreloadingMessage.value = "Initializing ${toolConfig.mcpServers.size} MCP servers..."
+                if (toolConfig.mcpServers.isEmpty()) {
+                    vmLogger.warn("No MCP servers configured - skipping preloading")
+                    _mcpPreloadingMessage.value = "No MCP servers configured"
+                    return@launch
+                }
 
-            // Initialize MCP servers (this will start background preloading)
-            vmLogger.warn("Calling McpToolConfigManager.init()...")
-            McpToolConfigManager.init(toolConfig)
-            vmLogger.warn("McpToolConfigManager.init() returned")
+                val enabledCount = toolConfig.mcpServers.filter { !it.value.disabled }.size
+                vmLogger.warn("Initializing $enabledCount enabled MCP servers...")
+                _mcpPreloadingMessage.value = "Initializing $enabledCount MCP servers..."
 
-            // Monitor preloading status with timeout to prevent infinite loop
-            val timeoutMs = 60_000L // 60 seconds max
-            val startTime = System.currentTimeMillis()
-            vmLogger.warn("Starting MCP preloading monitor loop (timeout: ${timeoutMs}ms)...")
-            var loopCount = 0
-            while (McpToolConfigManager.isPreloading() &&
-                (System.currentTimeMillis() - startTime) < timeoutMs
-            ) {
-                loopCount++
-                val elapsed = System.currentTimeMillis() - startTime
-                vmLogger.warn("MCP preloading loop iteration $loopCount (elapsed: ${elapsed}ms)")
+                // Initialize MCP servers (this starts background preloading in McpToolConfigManager)
+                McpToolConfigManager.init(toolConfig)
+                vmLogger.warn("McpToolConfigManager.init() returned - preloading started in background")
+
+                // Launch a separate coroutine to monitor preloading status
+                // This doesn't block - it just updates the UI state periodically
+                val monitorJob = launch {
+                    while (McpToolConfigManager.isPreloading()) {
+                        _mcpPreloadingStatus.value = McpToolConfigManager.getPreloadingStatus()
+                        val preloadedCount = _mcpPreloadingStatus.value.preloadedServers.size
+                        _mcpPreloadingMessage.value = "Loading MCP servers... ($preloadedCount/$enabledCount completed)"
+                        delay(500) // Update UI every 500ms
+                    }
+                }
+
+                // Wait for preloading to complete (non-blocking suspend)
+                // This uses Job.join() internally, which is a proper suspend function
+                vmLogger.warn("Waiting for MCP preloading to complete...")
+                McpToolConfigManager.waitForPreloading()
+                vmLogger.warn("MCP preloading job completed")
+
+                // Cancel the monitor job since preloading is done
+                monitorJob.cancel()
+
+                // Final status update
                 _mcpPreloadingStatus.value = McpToolConfigManager.getPreloadingStatus()
-                _mcpPreloadingMessage.value =
-                    "Loading MCP servers... (${_mcpPreloadingStatus.value.preloadedServers.size} completed)"
-                delay(500)
+                val preloadedCount = _mcpPreloadingStatus.value.preloadedServers.size
+
+                vmLogger.warn("MCP preloading complete - $preloadedCount/$enabledCount servers loaded")
+                _mcpPreloadingMessage.value = if (preloadedCount > 0) {
+                    "MCP servers loaded successfully ($preloadedCount/$enabledCount servers)"
+                } else {
+                    "MCP servers initialization completed (no tools loaded)"
+                }
+            } catch (e: CancellationException) {
+                vmLogger.warn("MCP preloading cancelled", e)
+                // Cancellation is expected when configuration is reloaded, don't log as error
+                throw e
+            } catch (e: Exception) {
+                vmLogger.error("MCP preloading failed with exception", e)
+                _mcpPreloadingMessage.value = "Failed to load MCP servers: ${e.message}"
             }
-            vmLogger.warn("MCP preloading loop exited after $loopCount iterations")
-
-            // Final status update
-            _mcpPreloadingStatus.value = McpToolConfigManager.getPreloadingStatus()
-
-            val preloadedCount = _mcpPreloadingStatus.value.preloadedServers.size
-            val totalCount = toolConfig.mcpServers.filter { !it.value.disabled }.size
-
-            vmLogger.warn("MCP preloading complete - $preloadedCount/$totalCount servers loaded")
-            _mcpPreloadingMessage.value = if (preloadedCount > 0) {
-                "MCP servers loaded successfully ($preloadedCount/$totalCount servers)"
-            } else {
-                "MCP servers initialization completed (no tools loaded)"
-            }
-        } catch (e: CancellationException) {
-            vmLogger.warn("MCP preloading cancelled", e)
-            // Cancellation is expected when configuration is reloaded, don't log as error
-            throw e
-        } catch (e: Exception) {
-            vmLogger.error("MCP preloading failed with exception", e)
-            _mcpPreloadingMessage.value = "Failed to load MCP servers: ${e.message}"
         }
     }
 
