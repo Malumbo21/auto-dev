@@ -157,10 +157,12 @@ class IdeaAgentViewModel(
         }
 
     init {
+        vmLogger.warn("=== IdeaAgentViewModel init START === Project: ${project.name}")
         // Load configuration on initialization
         loadConfiguration()
         // Load ACP agents
         loadAcpAgents()
+        vmLogger.warn("=== IdeaAgentViewModel init END === (async operations launched)")
     }
 
     /**
@@ -168,28 +170,41 @@ class IdeaAgentViewModel(
      * Uses Dispatchers.IO to avoid blocking EDT
      */
     private fun loadConfiguration() {
+        vmLogger.warn("loadConfiguration() called - launching coroutine on Dispatchers.IO")
         coroutineScope.launch(Dispatchers.IO) {
+            vmLogger.warn("loadConfiguration() coroutine started")
             try {
+                vmLogger.warn("ConfigManager.load() starting...")
                 val wrapper = ConfigManager.load()
+                vmLogger.warn("ConfigManager.load() complete - got wrapper")
                 _configWrapper.value = wrapper
                 val modelConfig = wrapper.getActiveModelConfig()
+                vmLogger.warn("Active model config: ${modelConfig?.modelName ?: "null"}")
                 _currentModelConfig.value = modelConfig
 
                 // Update agent type from config (async to avoid blocking EDT)
                 val agentType = wrapper.getAgentType()
+                vmLogger.warn("Agent type from config: $agentType")
                 _currentAgentType.value = agentType
 
                 // Create LLM service if config is valid
                 // Inject IDEA compiler service for full IDE feature support
                 if (modelConfig != null && modelConfig.isValid()) {
+                    vmLogger.warn("Creating LLM service...")
                     llmService = LLMService(
                         config = modelConfig,
                         compilerService = ideaCompilerService
                     )
+                    vmLogger.warn("LLM service created successfully")
+
+                    // ⚠️ TEMPORARILY DISABLED - MCP preloading may cause freeze
                     // Start MCP preloading after LLM service is created
-                    startMcpPreloading()
+                    // startMcpPreloading()
+                    vmLogger.warn("MCP preloading SKIPPED (temporarily disabled for debugging)")
                 }
+                vmLogger.warn("loadConfiguration() completed successfully")
             } catch (e: Exception) {
+                vmLogger.error("loadConfiguration() failed with exception", e)
                 // Config file doesn't exist or is invalid, use defaults
                 _configWrapper.value = null
                 _currentModelConfig.value = null
@@ -201,38 +216,57 @@ class IdeaAgentViewModel(
     /**
      * Start MCP servers preloading in background.
      * Aligned with CodingAgentViewModel's startMcpPreloading().
+     *
+     * ⚠️ WARNING: This method contains a blocking while loop that can freeze the EDT
+     * if MCP servers are unresponsive. Currently disabled for debugging.
      */
     private suspend fun startMcpPreloading() {
+        vmLogger.warn("startMcpPreloading() called")
         try {
+            vmLogger.warn("Loading MCP servers configuration...")
             _mcpPreloadingMessage.value = "Loading MCP servers configuration..."
 
             // Use IdeaToolConfigService to get and cache tool config
+            vmLogger.warn("Getting IdeaToolConfigService instance...")
             val toolConfigService = IdeaToolConfigService.getInstance(project)
+            vmLogger.warn("Reloading tool config...")
             toolConfigService.reloadConfig()
+            vmLogger.warn("Getting tool config...")
             val toolConfig = toolConfigService.getToolConfig()
             cachedToolConfig = toolConfig
+            vmLogger.warn("Tool config loaded - ${toolConfig.mcpServers.size} MCP servers configured")
 
             if (toolConfig.mcpServers.isEmpty()) {
+                vmLogger.warn("No MCP servers configured - skipping preloading")
                 _mcpPreloadingMessage.value = "No MCP servers configured"
                 return
             }
 
+            vmLogger.warn("Initializing ${toolConfig.mcpServers.size} MCP servers...")
             _mcpPreloadingMessage.value = "Initializing ${toolConfig.mcpServers.size} MCP servers..."
 
             // Initialize MCP servers (this will start background preloading)
+            vmLogger.warn("Calling McpToolConfigManager.init()...")
             McpToolConfigManager.init(toolConfig)
+            vmLogger.warn("McpToolConfigManager.init() returned")
 
             // Monitor preloading status with timeout to prevent infinite loop
             val timeoutMs = 60_000L // 60 seconds max
             val startTime = System.currentTimeMillis()
+            vmLogger.warn("Starting MCP preloading monitor loop (timeout: ${timeoutMs}ms)...")
+            var loopCount = 0
             while (McpToolConfigManager.isPreloading() &&
                 (System.currentTimeMillis() - startTime) < timeoutMs
             ) {
+                loopCount++
+                val elapsed = System.currentTimeMillis() - startTime
+                vmLogger.warn("MCP preloading loop iteration $loopCount (elapsed: ${elapsed}ms)")
                 _mcpPreloadingStatus.value = McpToolConfigManager.getPreloadingStatus()
                 _mcpPreloadingMessage.value =
                     "Loading MCP servers... (${_mcpPreloadingStatus.value.preloadedServers.size} completed)"
                 delay(500)
             }
+            vmLogger.warn("MCP preloading loop exited after $loopCount iterations")
 
             // Final status update
             _mcpPreloadingStatus.value = McpToolConfigManager.getPreloadingStatus()
@@ -240,15 +274,18 @@ class IdeaAgentViewModel(
             val preloadedCount = _mcpPreloadingStatus.value.preloadedServers.size
             val totalCount = toolConfig.mcpServers.filter { !it.value.disabled }.size
 
+            vmLogger.warn("MCP preloading complete - $preloadedCount/$totalCount servers loaded")
             _mcpPreloadingMessage.value = if (preloadedCount > 0) {
                 "MCP servers loaded successfully ($preloadedCount/$totalCount servers)"
             } else {
                 "MCP servers initialization completed (no tools loaded)"
             }
         } catch (e: CancellationException) {
+            vmLogger.warn("MCP preloading cancelled", e)
             // Cancellation is expected when configuration is reloaded, don't log as error
             throw e
         } catch (e: Exception) {
+            vmLogger.error("MCP preloading failed with exception", e)
             _mcpPreloadingMessage.value = "Failed to load MCP servers: ${e.message}"
         }
     }
@@ -257,20 +294,25 @@ class IdeaAgentViewModel(
      * Load ACP agents from config.yaml.
      */
     private fun loadAcpAgents() {
+        vmLogger.warn("loadAcpAgents() called - launching coroutine on Dispatchers.IO")
         coroutineScope.launch(Dispatchers.IO) {
+            vmLogger.warn("loadAcpAgents() coroutine started")
             try {
+                vmLogger.warn("ConfigManager.load() for ACP agents starting...")
                 val wrapper = ConfigManager.load()
+                vmLogger.warn("ConfigManager.load() for ACP agents complete")
                 val agents = wrapper.getAcpAgents()
-                vmLogger.info("Loaded ${agents.size} ACP agents from config")
+                vmLogger.warn("Loaded ${agents.size} ACP agents from config")
                 agents.forEach { (key, config) ->
-                    vmLogger.info("  - ACP Agent: $key -> ${config.name} (${config.command})")
+                    vmLogger.warn("  - ACP Agent: $key -> ${config.name} (${config.command})")
                 }
                 _acpAgents.value = agents
                 val activeKey = wrapper.getActiveAcpAgentKey()
                 _currentAcpAgentKey.value = activeKey
-                vmLogger.info("Active ACP agent key: $activeKey")
+                vmLogger.warn("Active ACP agent key: $activeKey")
+                vmLogger.warn("loadAcpAgents() completed successfully")
             } catch (e: Exception) {
-                vmLogger.warn("Failed to load ACP agents from config", e)
+                vmLogger.error("Failed to load ACP agents from config", e)
                 // Set empty map so UI still renders "Configure ACP..."
                 _acpAgents.value = emptyMap()
             }
