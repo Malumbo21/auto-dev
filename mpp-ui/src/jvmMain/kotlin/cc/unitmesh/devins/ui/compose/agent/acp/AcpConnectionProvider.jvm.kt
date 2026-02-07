@@ -176,7 +176,7 @@ class JvmAcpConnection : AcpConnection {
  * - IDEA ml-llm: [ClaudeCodeProcessHandler] + [ClaudeCodeLongRunningSession]
  * - zed-industries/claude-code-acp: TypeScript ACP adapter
  *
- * @see <a href="https://github.com/phodal/auto-dev/issues/538">Issue #538</a>
+ * @see <a href="https://github.com/phodal/auto-dev/issues/536">Issue #536</a>
  */
 class JvmClaudeCodeConnection : AcpConnection {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
