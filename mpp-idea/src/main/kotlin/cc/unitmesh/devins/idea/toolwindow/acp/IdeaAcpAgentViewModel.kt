@@ -372,7 +372,11 @@ class IdeaAcpAgentViewModel(
                                 handleSessionUpdate(update)
                             },
                             onPermissionRequest = { toolCallUpdate, options ->
-                                handlePermissionRequest(toolCallUpdate, options)
+                                // Use runBlocking to bridge suspend function to sync callback
+                                // This is called from IO dispatcher, so it won't block EDT
+                                kotlinx.coroutines.runBlocking {
+                                    handlePermissionRequest(toolCallUpdate, options)
+                                }
                             },
                             cwd = cwd,
                             enableFs = true,
@@ -440,8 +444,12 @@ class IdeaAcpAgentViewModel(
 
                 flow.collect { event ->
                     when (event) {
-                        is Event.SessionUpdateEvent -> handleSessionUpdate(event.update)
+                        is Event.SessionUpdateEvent -> {
+                            acpLogger.info("ACP SessionUpdate: ${event.update::class.simpleName}")
+                            handleSessionUpdate(event.update)
+                        }
                         is Event.PromptResponseEvent -> {
+                            acpLogger.info("ACP PromptResponse: stopReason=${event.response.stopReason}, receivedChunks=${receivedAnyAgentChunk.get()}")
                             finishStreamingIfNeeded()
                             val success = event.response.stopReason != StopReason.REFUSAL &&
                                 event.response.stopReason != StopReason.CANCELLED
@@ -449,6 +457,7 @@ class IdeaAcpAgentViewModel(
                             // If no chunks were received, show helpful error
                             if (!receivedAnyAgentChunk.get()) {
                                 val hint = "Check logs for details. Agent may have encountered an error."
+                                acpLogger.warn("ACP ended without output. This may indicate: 1) Agent refused/failed, 2) Permission denied, 3) Agent process crashed")
                                 renderer.renderError("ACP ended without any message output; stopReason=${event.response.stopReason}. $hint")
                             }
                             
@@ -508,37 +517,57 @@ class IdeaAcpAgentViewModel(
      * the tool call.
      *
      * If the user cancels the dialog or if there's an error, returns a Cancelled outcome.
+     * 
+     * IMPORTANT: This is called from IO thread but needs to show UI dialog on EDT.
+     * We use CompletableFuture to avoid blocking the IO thread with invokeAndWait.
      */
-    private fun handlePermissionRequest(
+    private suspend fun handlePermissionRequest(
         toolCall: SessionUpdate.ToolCallUpdate,
         options: List<PermissionOption>,
-    ): RequestPermissionResponse {
+    ): RequestPermissionResponse = withContext(Dispatchers.IO) {
         try {
-            // Show permission dialog on EDT (UI thread) and wait for result
-            var selectedOption: PermissionOption? = null
-            com.intellij.openapi.application.ApplicationManager.getApplication().invokeAndWait {
-                selectedOption = IdeaAcpPermissionDialog.show(project, toolCall, options)
+            // Use CompletableFuture to avoid blocking IO thread
+            val future = java.util.concurrent.CompletableFuture<PermissionOption?>()
+            
+            // Show dialog on EDT asynchronously
+            com.intellij.openapi.application.ApplicationManager.getApplication().invokeLater {
+                try {
+                    val selectedOption = IdeaAcpPermissionDialog.show(project, toolCall, options)
+                    future.complete(selectedOption)
+                } catch (e: Exception) {
+                    acpLogger.error { "Error showing permission dialog: ${e.message}" }
+                    e.printStackTrace()
+                    future.completeExceptionally(e)
+                }
+            }
+
+            // Wait for dialog result (non-blocking suspension)
+            val selectedOption = try {
+                future.get()
+            } catch (e: Exception) {
+                acpLogger.error { "Failed to get permission dialog result: ${e.message}" }
+                null
             }
 
             // If user selected an option, return it
             if (selectedOption != null) {
                 acpLogger.info(
-                    "ACP permission user selected: optionId=${selectedOption!!.optionId.value} kind=${selectedOption!!.kind} name=${selectedOption!!.name}"
+                    "ACP permission user selected: optionId=${selectedOption.optionId.value} kind=${selectedOption.kind} name=${selectedOption.name}"
                 )
-                return RequestPermissionResponse(
-                    RequestPermissionOutcome.Selected(selectedOption!!.optionId),
+                return@withContext RequestPermissionResponse(
+                    RequestPermissionOutcome.Selected(selectedOption.optionId),
                     JsonNull
                 )
             }
 
             // User cancelled the dialog
             acpLogger.info("ACP permission cancelled by user (dialog closed)")
-            return RequestPermissionResponse(RequestPermissionOutcome.Cancelled, JsonNull)
+            return@withContext RequestPermissionResponse(RequestPermissionOutcome.Cancelled, JsonNull)
 
         } catch (e: Exception) {
-            acpLogger.error { "Error showing permission dialog: ${e.message}" }
+            acpLogger.error { "Error in permission request handler: ${e.message}" }
             e.printStackTrace()
-            return RequestPermissionResponse(RequestPermissionOutcome.Cancelled, JsonNull)
+            return@withContext RequestPermissionResponse(RequestPermissionOutcome.Cancelled, JsonNull)
         }
     }
 
@@ -552,6 +581,25 @@ class IdeaAcpAgentViewModel(
      * For PlanUpdate, we additionally parse to the IDEA-specific plan model via [renderer.setPlan].
      */
     private fun handleSessionUpdate(update: SessionUpdate, source: String = "prompt") {
+        // Log all session updates for debugging
+        when (update) {
+            is SessionUpdate.AgentMessageChunk -> {
+                acpLogger.info("ACP AgentMessageChunk received, content type: ${update.content::class.simpleName}")
+            }
+            is SessionUpdate.AgentThoughtChunk -> {
+                acpLogger.info("ACP AgentThoughtChunk received")
+            }
+            is SessionUpdate.ToolCall -> {
+                acpLogger.info("ACP ToolCall: ${update.title}, status=${update.status}")
+            }
+            is SessionUpdate.ToolCallUpdate -> {
+                acpLogger.info("ACP ToolCallUpdate: ${update.title}, status=${update.status}")
+            }
+            else -> {
+                acpLogger.info("ACP SessionUpdate: ${update::class.simpleName}")
+            }
+        }
+        
         // Use the shared renderSessionUpdate from AcpClient for consistent rendering
         AcpClient.renderSessionUpdate(
             update = update,
