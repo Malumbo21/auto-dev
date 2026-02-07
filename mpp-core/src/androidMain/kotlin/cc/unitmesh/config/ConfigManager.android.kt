@@ -20,7 +20,7 @@ import java.io.File
  * - No special permissions required
  */
 actual object ConfigManager {
-    private var appContext: Context? = null
+    var appContext: Context? = null
 
     /**
      * Initialize ConfigManager with Android Context
@@ -193,6 +193,10 @@ actual object ConfigManager {
     actual fun getKcefInstallDir(): String {
         // KCEF is not available on Android
         return ""
+    }
+
+    actual fun getAcpLogsDir(): String {
+        return File(getConfigDir(), "acp-logs").absolutePath
     }
 
     actual suspend fun loadToolConfig(): ToolConfigFile =

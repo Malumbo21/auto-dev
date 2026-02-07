@@ -155,6 +155,11 @@ actual object ConfigManager {
         return ""
     }
 
+    actual fun getAcpLogsDir(): String {
+        // ACP logs are stored in localStorage in WASM environment
+        return "$configDir/acp-logs"
+    }
+
     actual suspend fun loadToolConfig(): ToolConfigFile {
         return try {
             val content = BrowserStorage.getItem(TOOL_CONFIG_KEY)

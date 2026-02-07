@@ -294,6 +294,14 @@ actual object ConfigManager {
         return ""
     }
 
+    actual fun getAcpLogsDir(): String {
+        return if (isNodeJs) {
+            pathModule.join(configDir, "acp-logs") as String
+        } else {
+            "/tmp/.autodev/acp-logs"
+        }
+    }
+
     private fun createEmpty(): AutoDevConfigWrapper {
         return AutoDevConfigWrapper(ConfigFile(active = "", configs = emptyList()))
     }
