@@ -99,6 +99,17 @@ configurations.all {
     // Exclude kotlinx-serialization-json-io to prevent conflicts with IntelliJ's bundled libraries
     exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json-io")
     exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json-io-jvm")
+
+    // IntelliJ bundles Kotlin runtime. For plugin packaging, exclude Kotlin runtime artifacts from
+    // runtimeClasspath to avoid loading kotlin.* classes from PluginClassLoader (causes classloader
+    // conflicts like "kotlin.ULong cannot be cast to kotlin.ULong").
+    if (name == "runtimeClasspath") {
+        exclude(group = "org.jetbrains.kotlin", module = "kotlin-stdlib")
+        exclude(group = "org.jetbrains.kotlin", module = "kotlin-stdlib-common")
+        exclude(group = "org.jetbrains.kotlin", module = "kotlin-stdlib-jdk7")
+        exclude(group = "org.jetbrains.kotlin", module = "kotlin-stdlib-jdk8")
+        exclude(group = "org.jetbrains.kotlin", module = "kotlin-reflect")
+    }
 }
 
 
@@ -409,9 +420,15 @@ project(":") {
             // We provide kotlinx-io explicitly below.
             exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-io-core")
             exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-io-core-jvm")
+            // IntelliJ bundles Kotlin; bundling kotlin-stdlib in plugin causes classloader conflicts
+            // (e.g., kotlin.ULong cannot be cast to kotlin.ULong across different classloaders).
+            excludeKotlinDeps()
         }
         // ACP stdio transport uses kotlinx-io (not bundled by IntelliJ).
-        implementation("org.jetbrains.kotlinx:kotlinx-io-core:0.8.0")
+        implementation("org.jetbrains.kotlinx:kotlinx-io-core:0.8.0") {
+            // Ensure Kotlin stdlib is not packaged into the plugin distribution.
+            excludeKotlinDeps()
+        }
 
         // mpp-core dependency for root project - use published artifact
         implementation("cc.unitmesh:mpp-core:${prop("mppVersion")}") {
@@ -539,6 +556,9 @@ project(":") {
             exclude("**/icon.icns")
             exclude("**/icon.ico")
             exclude("**/icon-512.png")
+            // Exclude Kotlin runtime to avoid duplicate Kotlin in IDE vs plugin classloaders
+            exclude("**/kotlin-stdlib*.jar")
+            exclude("**/kotlin-reflect*.jar")
         }
 
         // Task to verify no conflicting dependencies are included
@@ -549,6 +569,8 @@ project(":") {
             val forbiddenPatterns = listOf(
                 "org.jetbrains.compose",
                 "org.jetbrains.skiko",
+                "kotlin-stdlib",
+                "kotlin-reflect",
                 "kotlinx-coroutines-core",
                 "kotlinx-coroutines-swing",
                 "kotlinx-serialization-json",
