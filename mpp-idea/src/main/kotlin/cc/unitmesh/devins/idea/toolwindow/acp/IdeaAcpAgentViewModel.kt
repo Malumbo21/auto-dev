@@ -819,6 +819,13 @@ data class IdeaAcpAgentPreset(
          */
         private val ALL_PRESETS = listOf(
             IdeaAcpAgentPreset(
+                id = "opencode",
+                name = "OpenCode",
+                command = "opencode",
+                args = "acp",
+                description = "OpenCode AI coding agent via ACP"
+            ),
+            IdeaAcpAgentPreset(
                 id = "codex",
                 name = "Codex CLI",
                 command = "codex",
