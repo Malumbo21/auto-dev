@@ -335,6 +335,10 @@ class AcpSessionRenderer {
  * This is the entry point for `xiuper acp` command.
  */
 export async function startAcpAgentServer(): Promise<void> {
+  // CRITICAL: Redirect all console output to stderr BEFORE any Kotlin code runs
+  // This prevents Kotlin logging from polluting stdout (which is used for JSON-RPC)
+  redirectConsoleToStderr();
+
   console.error('[ACP Agent] Starting AutoDev Xiuper ACP Agent Server...');
 
   // For ACP ndJsonStream: first param is output (where we write), second is input (where we read)
@@ -354,4 +358,21 @@ export async function startAcpAgentServer(): Promise<void> {
   // Wait for the connection to close
   await connection.closed;
   console.error('[ACP Agent] Connection closed.');
+}
+
+/**
+ * Redirect all console methods to stderr.
+ * This is critical for ACP mode where stdout is reserved for JSON-RPC messages.
+ */
+function redirectConsoleToStderr(): void {
+  // Save original console.error
+  const originalError = console.error;
+
+  // Redirect all console methods to stderr
+  console.log = originalError;
+  console.info = originalError;
+  console.warn = originalError;
+  console.debug = originalError;
+
+  // console.error already goes to stderr
 }
