@@ -1,6 +1,6 @@
 {
   "name": "@xiuper/cli",
-  "version": "3.0.0-alpha5",
+  "version": "0.2.0",
   "description": "AutoDev Xiuper CLI - Terminal UI for AI-powered development assistant",
   "type": "module",
   "bin": {

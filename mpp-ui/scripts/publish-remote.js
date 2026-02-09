@@ -93,8 +93,14 @@ async function main() {
       // Check if user is logged in
       execSync('npm whoami', { cwd: mppCorePackageDir, stdio: 'pipe' });
 
-      // Publish
-      execSync('npm publish --access public', { cwd: mppCorePackageDir, stdio: 'inherit' });
+      // Determine if this is a prerelease version (contains -, like alpha, beta, rc)
+      const isPrerelease = mppCoreVersion.includes('-');
+      const publishCmd = isPrerelease
+        ? 'npm publish --access public --tag next'
+        : 'npm publish --access public';
+
+      console.log('   Publishing with command:', publishCmd);
+      execSync(publishCmd, { cwd: mppCorePackageDir, stdio: 'inherit' });
       console.log('✅ mpp-core published successfully\n');
 
       // Wait a bit for npm registry to update
@@ -154,10 +160,17 @@ async function main() {
   }
 
   try {
-    execSync('npm publish --access public', { cwd: rootDir, stdio: 'inherit' });
+    // Determine if this is a prerelease version
+    const isCliPrerelease = currentVersion.includes('-');
+    const cliPublishCmd = isCliPrerelease
+      ? 'npm publish --access public --tag next'
+      : 'npm publish --access public';
+
+    console.log('   Publishing with command:', cliPublishCmd);
+    execSync(cliPublishCmd, { cwd: rootDir, stdio: 'inherit' });
     console.log('✅ @xiuper/cli published successfully\n');
   } catch (error) {
-    console.error('❌ @autodev/cli publish failed');
+    console.error('❌ @xiuper/cli publish failed');
     console.log('🔄 Restoring package.json...');
     copyFileSync(packageJsonBackupPath, packageJsonPath);
     process.exit(1);
