@@ -59,9 +59,10 @@ class AutoDevAcpAgent implements acp.Agent {
 
   async newSession(params: acp.NewSessionRequest): Promise<acp.NewSessionResponse> {
     const sessionId = `autodev-${Date.now()}`;
-    const cwd = params.cwd || process.cwd();
+    const cwd = params.cwd;
 
     console.error(`[ACP Agent] New session: ${sessionId} (cwd=${cwd})`);
+    console.error(`[ACP Agent] MCP servers from client: ${params.mcpServers.length}`);
 
     // Load config
     const config = await ConfigManager.load();
@@ -83,16 +84,20 @@ class AutoDevAcpAgent implements acp.Agent {
       )
     );
 
-    // Load MCP servers if configured
-    const mcpServers = config.getMcpServers();
+    // Convert ACP MCP servers to our internal format
     const enabledMcpServers: Record<string, any> = {};
-    for (const [name, serverConfig] of Object.entries(mcpServers)) {
-      if ((serverConfig as any).enabled) {
+    for (const mcpServer of params.mcpServers) {
+      // Only support stdio transport for now
+      if ('command' in mcpServer) {
+        const name = (mcpServer as any).name || mcpServer.command;
         enabledMcpServers[name] = {
-          command: (serverConfig as any).command,
-          args: (serverConfig as any).args || [],
-          env: (serverConfig as any).env || {},
+          command: mcpServer.command,
+          args: mcpServer.args || [],
+          env: (mcpServer as any).env || {},
         };
+        console.error(`[ACP Agent] Registered MCP server: ${name} (${mcpServer.command})`);
+      } else {
+        console.error(`[ACP Agent] Skipping non-stdio MCP server (not supported yet)`);
       }
     }
 
