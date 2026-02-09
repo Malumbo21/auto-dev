@@ -108,37 +108,40 @@ async function main() {
     }
   }
 
-  // Step 4: Backup and update package.json
-  console.log('4️⃣  Updating package.json for remote dependency...');
+  // Step 4: Build TypeScript first (before modifying package.json)
+  console.log('4️⃣  Building TypeScript...');
+  try {
+    execSync('npm run build:ts', { cwd: rootDir, stdio: 'inherit' });
+    console.log('✅ TypeScript build complete\n');
+  } catch (error) {
+    console.error('❌ TypeScript build failed');
+    process.exit(1);
+  }
+
+  // Step 5: Backup and update package.json for remote dependency
+  console.log('5️⃣  Updating package.json for remote dependency...');
   copyFileSync(packageJsonPath, packageJsonBackupPath);
 
   packageJson.dependencies['@xiuper/mpp-core'] = '^' + mppCoreVersion;
   writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2) + '\n');
   console.log('✅ Updated to use @xiuper/mpp-core@^' + mppCoreVersion + '\n');
 
-  // Step 5: Install dependencies with remote version
-  console.log('5️⃣  Installing dependencies...');
-  try {
-    execSync('npm install', { cwd: rootDir, stdio: 'inherit' });
-    console.log('✅ Dependencies installed\n');
-  } catch (error) {
-    console.error('❌ npm install failed');
-    console.log('🔄 Restoring package.json...');
-    copyFileSync(packageJsonBackupPath, packageJsonPath);
-    process.exit(1);
-  }
+  // Step 6: Verify package.json has remote dependency before publishing
+  console.log('6️⃣  Verifying package.json before publish...');
+  const verifyPackageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
+  const verifyMppCoreDep = verifyPackageJson.dependencies['@xiuper/mpp-core'];
+  console.log('   Current mpp-core dependency:', verifyMppCoreDep);
 
-  // Step 6: Build TypeScript
-  console.log('6️⃣  Building TypeScript...');
-  try {
-    execSync('npm run build:ts', { cwd: rootDir, stdio: 'inherit' });
-    console.log('✅ TypeScript build complete\n');
-  } catch (error) {
-    console.error('❌ TypeScript build failed');
+  if (verifyMppCoreDep.startsWith('file:')) {
+    console.error('❌ ERROR: package.json still has local file: dependency!');
+    console.error('   This would cause the published package to fail.');
+    console.error('   Expected: ^' + mppCoreVersion);
+    console.error('   Found:', verifyMppCoreDep);
     console.log('🔄 Restoring package.json...');
     copyFileSync(packageJsonBackupPath, packageJsonPath);
     process.exit(1);
   }
+  console.log('✅ package.json verified (using remote dependency)\n');
 
   // Step 7: Publish @xiuper/cli
   console.log('7️⃣  Publishing @xiuper/cli...');
