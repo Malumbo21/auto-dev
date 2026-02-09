@@ -183,8 +183,99 @@ class AutoDevAcpAgent implements acp.Agent {
 }
 
 /**
+ * Tool kind classification based on ACP protocol.
+ * Maps tool names to their appropriate kind for better UI treatment.
+ */
+type ToolKind = 'read' | 'edit' | 'delete' | 'move' | 'search' | 'execute' | 'think' | 'fetch' | 'switch_mode' | 'other';
+
+/**
+ * Classify a tool by its name to determine the appropriate ACP ToolKind.
+ */
+function classifyToolKind(toolName: string): ToolKind {
+  const name = toolName.toLowerCase();
+
+  // Read operations - low risk
+  if (name.includes('read') || name.includes('list') || name.includes('get') ||
+      name.includes('view') || name.includes('cat') || name.includes('show') ||
+      name === 'tree' || name === 'pwd' || name === 'ls') {
+    return 'read';
+  }
+
+  // Edit operations - medium risk
+  if (name.includes('write') || name.includes('edit') || name.includes('update') ||
+      name.includes('create') || name.includes('patch') || name.includes('modify') ||
+      name.includes('append') || name.includes('insert') || name.includes('replace')) {
+    return 'edit';
+  }
+
+  // Delete operations - high risk
+  if (name.includes('delete') || name.includes('remove') || name.includes('rm') ||
+      name.includes('unlink') || name.includes('drop')) {
+    return 'delete';
+  }
+
+  // Move/rename operations
+  if (name.includes('move') || name.includes('rename') || name.includes('mv') ||
+      name.includes('copy') || name.includes('cp')) {
+    return 'move';
+  }
+
+  // Search operations
+  if (name.includes('search') || name.includes('find') || name.includes('grep') ||
+      name.includes('query') || name.includes('lookup') || name.includes('ripgrep')) {
+    return 'search';
+  }
+
+  // Execute operations - high risk
+  if (name.includes('shell') || name.includes('exec') || name.includes('run') ||
+      name.includes('command') || name.includes('bash') || name.includes('terminal') ||
+      name.includes('npm') || name.includes('gradle') || name.includes('make')) {
+    return 'execute';
+  }
+
+  // Think/reasoning operations
+  if (name.includes('think') || name.includes('reason') || name.includes('plan') ||
+      name.includes('analyze') || name.includes('reflect')) {
+    return 'think';
+  }
+
+  // Fetch/network operations
+  if (name.includes('fetch') || name.includes('http') || name.includes('curl') ||
+      name.includes('download') || name.includes('api') || name.includes('request')) {
+    return 'fetch';
+  }
+
+  return 'other';
+}
+
+/**
+ * Extract file paths from tool parameters for the locations field.
+ */
+function extractLocations(toolName: string, params: Record<string, any>): Array<{ path: string }> {
+  const locations: Array<{ path: string }> = [];
+
+  // Common parameter names that contain file paths
+  const pathParams = ['path', 'file', 'filepath', 'filename', 'target', 'source',
+                      'destination', 'dir', 'directory', 'cwd', 'workingDirectory'];
+
+  for (const [key, value] of Object.entries(params)) {
+    if (pathParams.some(p => key.toLowerCase().includes(p)) && typeof value === 'string') {
+      // Skip internal params
+      if (key.startsWith('_')) continue;
+      locations.push({ path: value });
+    }
+  }
+
+  return locations;
+}
+
+/**
  * Renderer that sends all output as ACP session updates.
  * This bridges our internal renderer to the ACP protocol.
+ *
+ * Implements proper ACP tool call lifecycle:
+ * 1. tool_call (status: pending) - when tool execution starts
+ * 2. tool_call_update (status: completed/failed) - when tool execution ends
  */
 class AcpSessionRenderer {
   readonly __doNotUseOrImplementIt: any = {};
@@ -193,13 +284,17 @@ class AcpSessionRenderer {
   private sessionId: string;
   private toolCallCounter = 0;
 
+  // Track current tool call for proper update lifecycle
+  private currentToolCallId: string | null = null;
+  private currentToolName: string | null = null;
+  private currentToolParams: Record<string, any> | null = null;
+
   constructor(connection: acp.AgentSideConnection, sessionId: string) {
     this.connection = connection;
     this.sessionId = sessionId;
   }
 
   renderIterationHeader(current: number, max: number): void {
-    // Send as thought
     this.sendThought(`Iteration ${current}/${max}`);
   }
 
@@ -224,16 +319,40 @@ class AcpSessionRenderer {
   }
 
   renderToolCall(toolName: string, paramsStr: string): void {
-    this.toolCallCounter++;
-    this.sendToolCall(toolName, 'in_progress', paramsStr);
+    // Parse params string back to object for better handling
+    const params: Record<string, any> = {};
+    // Simple parsing - this is a fallback, prefer renderToolCallWithParams
+    paramsStr.split(/\s+/).forEach(part => {
+      const match = part.match(/^(\w+)=(.*)$/);
+      if (match) {
+        params[match[1]] = match[2];
+      }
+    });
+    this.renderToolCallWithParams(toolName, params);
   }
 
   renderToolCallWithParams(toolName: string, params: Record<string, any>): void {
     this.toolCallCounter++;
-    const paramsStr = Object.entries(params)
-      .map(([k, v]) => `${k}=${v}`)
-      .join(', ');
-    this.sendToolCall(toolName, 'in_progress', paramsStr);
+    this.currentToolCallId = `tc-${this.toolCallCounter}`;
+    this.currentToolName = toolName;
+    this.currentToolParams = params;
+
+    const kind = classifyToolKind(toolName);
+    const locations = extractLocations(toolName, params);
+
+    // Send initial tool_call with status: pending
+    this.connection.sessionUpdate({
+      sessionId: this.sessionId,
+      update: {
+        sessionUpdate: 'tool_call',
+        toolCallId: this.currentToolCallId,
+        title: toolName,
+        status: 'pending',
+        kind,
+        ...(locations.length > 0 ? { locations } : {}),
+        rawInput: params,
+      } as any,
+    }).catch(err => console.error('[ACP Renderer] Failed to send tool call:', err));
   }
 
   renderToolResult(
@@ -243,12 +362,32 @@ class AcpSessionRenderer {
     fullOutput?: string | null,
     metadata?: Record<string, string>
   ): void {
-    this.sendToolCall(
-      toolName,
-      success ? 'completed' : 'errored',
-      undefined,
-      output || fullOutput || undefined
-    );
+    // Use tool_call_update to update the existing tool call
+    const toolCallId = this.currentToolCallId || `tc-${this.toolCallCounter}`;
+    const status = success ? 'completed' : 'failed';
+    const outputText = output || fullOutput || '';
+
+    this.connection.sessionUpdate({
+      sessionId: this.sessionId,
+      update: {
+        sessionUpdate: 'tool_call_update',
+        toolCallId,
+        status,
+        // Include output as content
+        content: outputText ? [
+          {
+            type: 'content',
+            content: { type: 'text', text: outputText },
+          }
+        ] : undefined,
+        rawOutput: outputText || undefined,
+      } as any,
+    }).catch(err => console.error('[ACP Renderer] Failed to send tool call update:', err));
+
+    // Reset current tool call tracking
+    this.currentToolCallId = null;
+    this.currentToolName = null;
+    this.currentToolParams = null;
   }
 
   renderTaskComplete(executionTimeMs?: number, toolsUsedCount?: number): void {
@@ -272,7 +411,87 @@ class AcpSessionRenderer {
   }
 
   renderUserConfirmationRequest(toolName: string, params: Record<string, any>): void {
-    // Auto-approve in ACP mode
+    // Send permission request via ACP
+    // Note: This is currently fire-and-forget since the renderer interface is synchronous.
+    // The actual permission flow would require architectural changes to make this async.
+    this.requestPermissionAsync(toolName, params).catch(err => {
+      console.error('[ACP Renderer] Permission request failed:', err);
+    });
+  }
+
+  /**
+   * Request permission from the client for a sensitive tool operation.
+   * This implements the ACP session/request_permission flow.
+   */
+  private async requestPermissionAsync(toolName: string, params: Record<string, any>): Promise<boolean> {
+    const kind = classifyToolKind(toolName);
+    const locations = extractLocations(toolName, params);
+
+    // Determine if this is a high-risk operation that needs permission
+    const isHighRisk = kind === 'execute' || kind === 'delete' || kind === 'edit';
+
+    if (!isHighRisk) {
+      // Low-risk operations don't need permission
+      return true;
+    }
+
+    // Create a tool call update for the permission request
+    const toolCallId = this.currentToolCallId || `tc-perm-${Date.now()}`;
+
+    try {
+      const response = await this.connection.requestPermission({
+        sessionId: this.sessionId,
+        toolCall: {
+          toolCallId,
+          title: toolName,
+          status: 'pending',
+          kind,
+          ...(locations.length > 0 ? { locations } : {}),
+          rawInput: params,
+        },
+        options: [
+          {
+            optionId: 'allow_once',
+            kind: 'allow_once',
+            name: 'Allow this operation',
+          },
+          {
+            optionId: 'allow_always',
+            kind: 'allow_always',
+            name: 'Always allow this tool',
+          },
+          {
+            optionId: 'reject_once',
+            kind: 'reject_once',
+            name: 'Reject this operation',
+          },
+          {
+            optionId: 'reject_always',
+            kind: 'reject_always',
+            name: 'Always reject this tool',
+          },
+        ],
+      });
+
+      // Check the outcome
+      if (response.outcome.outcome === 'cancelled') {
+        console.error('[ACP Renderer] Permission request was cancelled');
+        return false;
+      }
+
+      const selectedOption = response.outcome.optionId;
+      const isAllowed = selectedOption === 'allow_once' || selectedOption === 'allow_always';
+
+      if (!isAllowed) {
+        console.error(`[ACP Renderer] Permission denied for tool ${toolName}: ${selectedOption}`);
+      }
+
+      return isAllowed;
+    } catch (err) {
+      // If permission request fails (e.g., client doesn't support it), auto-approve
+      console.error('[ACP Renderer] Permission request error, auto-approving:', err);
+      return true;
+    }
   }
 
   renderPlanSummary(summary: any): void {
@@ -289,7 +508,7 @@ class AcpSessionRenderer {
   }
 
   addLiveTerminal(sessionId: string, command: string, workingDirectory?: string | null, ptyHandle?: any): void {
-    // No-op in ACP mode
+    // TODO: Implement terminal integration via ACP
   }
 
   // -- Private helpers --
@@ -312,21 +531,6 @@ class AcpSessionRenderer {
         content: { type: 'text', text },
       },
     }).catch(err => console.error('[ACP Renderer] Failed to send thought:', err));
-  }
-
-  private sendToolCall(title: string, status: string, input?: string, output?: string): void {
-    this.connection.sessionUpdate({
-      sessionId: this.sessionId,
-      update: {
-        sessionUpdate: 'tool_call',
-        toolCallId: `tc-${this.toolCallCounter}`,
-        title,
-        status,
-        kind: 'other',
-        ...(input ? { rawInput: input } : {}),
-        ...(output ? { rawOutput: output } : {}),
-      } as any,
-    }).catch(err => console.error('[ACP Renderer] Failed to send tool call:', err));
   }
 }
 
