@@ -440,7 +440,7 @@ async function main() {
   program
     .name('autodev')
     .description('AutoDev CLI - AI-powered development assistant')
-    .version('0.1.3');
+    .version('1.0.1');
 
   // Interactive mode (default)
   program
@@ -515,7 +515,7 @@ async function main() {
 
   // ACP Agent mode - expose as ACP agent for other editors
   program
-    .command('acp-agent')
+    .command('acp')
     .description('Start as an ACP (Agent Client Protocol) agent server on stdio. Other editors can connect to this agent.')
     .action(async () => {
       const { startAcpAgentServer } = await import('./agents/acp/AcpAgentServer.js');

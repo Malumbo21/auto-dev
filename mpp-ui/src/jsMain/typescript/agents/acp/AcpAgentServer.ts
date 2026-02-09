@@ -7,7 +7,7 @@
  * Communication happens over STDIO using JSON-RPC (newline-delimited JSON).
  *
  * Usage:
- *   xiuper acp-agent
+ *   xiuper acp
  *   # Now other editors can connect to this agent via its stdin/stdout
  */
 
@@ -327,7 +327,7 @@ class AcpSessionRenderer {
 
 /**
  * Start the ACP agent server on stdin/stdout.
- * This is the entry point for `xiuper acp-agent` command.
+ * This is the entry point for `xiuper acp` command.
  */
 export async function startAcpAgentServer(): Promise<void> {
   console.error('[ACP Agent] Starting AutoDev Xiuper ACP Agent Server...');
