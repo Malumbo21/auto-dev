@@ -522,6 +522,17 @@ async function main() {
       await startAcpAgentServer();
     });
 
+  // Node REPL MCP server mode
+  program
+    .command('node-repl')
+    .description('Start the AutoDev Node.js REPL MCP server on stdio.')
+    .action(async () => {
+      const { ensureVmModulesFlag, startNodeReplMcpServer } = await import('./node-repl/server.js');
+      if (ensureVmModulesFlag()) {
+        await startNodeReplMcpServer();
+      }
+    });
+
   // Document query mode
   program
     .command('document')
@@ -575,4 +586,3 @@ main().catch((error) => {
   console.error('Unhandled error:', error);
   process.exit(1);
 });
-
