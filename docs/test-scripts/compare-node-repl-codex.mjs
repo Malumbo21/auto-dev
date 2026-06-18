@@ -331,6 +331,9 @@ async function runProbe(server, shared) {
   result.promptsList = compactRpcResponse(await server.request('prompts/list'));
   result.loggingSetLevel = compactRpcResponse(await server.request('logging/setLevel', { level: 'debug' }));
   result.tools = compactTools(await server.request('tools/list'));
+  result.toolCallMissingParams = compactRpcResponse(await server.request('tools/call'));
+  result.toolCallMissingName = compactRpcResponse(await server.request('tools/call', { arguments: {} }));
+  result.toolCallNonStringName = compactRpcResponse(await server.request('tools/call', { name: 123, arguments: {} }));
   result.unknownTool = summarize(await callTool(server, 'unknown_tool', {}));
   result.jsMissingCode = summarize(await callTool(server, 'js', {}));
   result.jsWhitespaceCode = summarize(await callTool(server, 'js', { code: '  \n\t' }));

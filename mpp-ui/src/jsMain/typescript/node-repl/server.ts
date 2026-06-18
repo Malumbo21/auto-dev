@@ -182,7 +182,7 @@ async function handleToolCall(runtime: NodeReplRuntime, request: JsonRpcRequest)
   const args = request.params?.arguments ?? {};
 
   if (!toolName || typeof toolName !== 'string') {
-    sendError(request.id, { code: -32602, message: 'tools/call requires params.name' });
+    sendError(request.id, { code: -32601, message: 'tools/call' });
     return;
   }
 
