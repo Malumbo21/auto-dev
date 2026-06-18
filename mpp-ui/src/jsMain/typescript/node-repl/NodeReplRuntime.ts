@@ -1420,7 +1420,7 @@ export class NodeReplRuntime {
   }
 
   private shouldRunAsTopLevelModule(code: string): boolean {
-    return /\bimport\s*\.\s*meta\b/.test(code);
+    return /\bimport\s*\.\s*meta\b/.test(code) || /(?:^|[;\n])\s*export\s+/.test(code);
   }
 
   private readTopLevelStaticImportSpecifier(code: string): string | null {
@@ -1496,6 +1496,10 @@ export class NodeReplRuntime {
         const variableKind = this.readVariableDeclarationKeywordAt(code, index);
         if (variableKind) {
           const declarationEnd = this.findVariableDeclarationEnd(code, index + variableKind.length);
+          if (this.isExportedDeclarationKeywordPosition(code, index)) {
+            index = Math.max(index, declarationEnd - 1);
+            continue;
+          }
           const declarationBody = code.slice(index + variableKind.length, declarationEnd);
           for (const declarator of this.splitTopLevelDeclarators(declarationBody)) {
             for (const name of this.readVariableDeclaratorBindingNames(declarator)) {
@@ -1507,9 +1511,13 @@ export class NodeReplRuntime {
         }
 
         if (this.matchesKeywordAt(code, index, 'function')) {
-          add('function', this.readDeclaredNameAfterKeyword(code, index + 'function'.length), this.findBlockDeclarationEnd(code, index));
+          if (!this.isExportedDeclarationKeywordPosition(code, index)) {
+            add('function', this.readDeclaredNameAfterKeyword(code, index + 'function'.length), this.findBlockDeclarationEnd(code, index));
+          }
         } else if (this.matchesKeywordAt(code, index, 'class')) {
-          add('class', this.readDeclaredNameAfterKeyword(code, index + 'class'.length), this.findBlockDeclarationEnd(code, index));
+          if (!this.isExportedDeclarationKeywordPosition(code, index)) {
+            add('class', this.readDeclaredNameAfterKeyword(code, index + 'class'.length), this.findBlockDeclarationEnd(code, index));
+          }
         }
       }
 
@@ -1523,6 +1531,10 @@ export class NodeReplRuntime {
     }
 
     return declarations;
+  }
+
+  private isExportedDeclarationKeywordPosition(code: string, index: number): boolean {
+    return /\bexport\s+(?:default\s+)?$/.test(code.slice(0, index));
   }
 
   private readVariableDeclarationKeywordAt(code: string, index: number): ModuleBindingKind | null {

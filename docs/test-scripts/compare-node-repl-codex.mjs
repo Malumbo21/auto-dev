@@ -408,6 +408,12 @@ async function runProbe(server, shared) {
   result.topLevelStaticImport = summarize(await callTool(server, 'js', {
     code: 'import { platform } from "node:os"; nodeRepl.write(platform())',
   }));
+  result.topLevelExportDeclaration = summarize(await callTool(server, 'js', {
+    code: 'export const exportedValue = 111; nodeRepl.write(String(exportedValue))',
+  }));
+  result.afterTopLevelExportDeclaration = summarize(await callTool(server, 'js', {
+    code: 'nodeRepl.write(typeof exportedValue)',
+  }));
   result.bindingSeed = summarize(await callTool(server, 'js', {
     code: 'const carryConst = 11; let carryLet = 12; function carryFunction() { return 13; } class CarryClass { static value = 14; } nodeRepl.write("binding-seed-ok")',
   }));
@@ -595,6 +601,9 @@ nodeRepl.write(JSON.stringify({ value: nestedImportMetaProbe(), urlType: typeof 
   result.reset = summarize(await callTool(server, 'js_reset'));
   result.afterReset = summarize(await callTool(server, 'js', {
     code: 'nodeRepl.write(typeof answer)',
+  }));
+  result.afterResetAddedModuleDirPackageImport = summarize(await callTool(server, 'js', {
+    code: `await import(${JSON.stringify(shared.fixturePackageName)}).then((mod) => nodeRepl.write(mod.fixtureValue))`,
   }));
   return result;
 }
