@@ -53,12 +53,14 @@ Node REPL MCP server
 ```bash
 cd mpp-ui
 npm run build:ts
-AUTODEV_NODE_SOURCE="$(command -v node)" npm run prepare:node-runtime
-AUTODEV_NODE_MODULES_SOURCE="/Applications/Codex.app/Contents/Resources/cua_node/lib/node_modules" npm run prepare:node-modules
+npm run prepare:node-runtime
+npm run prepare:node-modules
 bin/autodev-node-repl
 ```
 
-`autodev-node-repl` 会优先使用 `vendor/node/<platform-arch>/` 中打包的 Node.js；没有打包 runtime 时会回退到 `NODE_REPL_NODE_PATH` 或系统 `node`。`vendor/node_modules` 会被自动加入 `await import(...)` 的包搜索路径；没有 `AUTODEV_NODE_MODULES_SOURCE` 时，`npm run prepare:node-modules` 会按 `node-repl.modules.json` 安装公共模块。MCP 配置示例见 `example/mcp/node-repl.mcp.json`。
+`prepare:node-runtime` 和 `prepare:node-modules` 会优先复用 `/Applications/Codex.app/Contents/Resources/cua_node`，把 Codex 同款 Node.js runtime 和 `lib/node_modules` 合并进 `vendor/`；没有 Codex.app 时，runtime 会下载 Codex 当前使用的 Node.js 版本，modules 会按 `node-repl.modules.json` 安装可公开获取的模块。需要关闭 Codex source 复用时设置 `AUTODEV_NODE_USE_CODEX_SOURCE=0` 或 `AUTODEV_NODE_MODULES_USE_CODEX_SOURCE=0`；需要指定其它来源时设置 `AUTODEV_NODE_SOURCE`、`AUTODEV_NODE_MODULES_SOURCE` 或 `AUTODEV_CODEX_CUA_NODE_DIR`。
+
+`autodev-node-repl` 会优先使用 `vendor/node/<platform-arch>/` 中打包的 Node.js；没有打包 runtime 时会回退到 `NODE_REPL_NODE_PATH` 或系统 `node`。`vendor/node_modules` 会被自动加入 `await import(...)` 的包搜索路径。MCP 配置示例见 `example/mcp/node-repl.mcp.json`。
 
 兼容 Codex 的主要使用场景：普通 `js` 代码只暴露 `nodeRepl.cwd/homeDir/tmpDir/requestMeta/env/setResponseMeta/write/emitImage`；Browser/Chrome 插件这类位于 `NODE_REPL_TRUSTED_CODE_PATHS` 或匹配 `NODE_REPL_TRUSTED_BROWSER_CLIENT_SHA256S` 的模块，才会看到 `nodeRepl.fetch(...)` 和 `nodeRepl.nativePipe.createConnection(...)` 等特权桥。`js` 不会隐式输出最后一个表达式，需要使用 `console.log(...)` 或 `nodeRepl.write(...)`。
 

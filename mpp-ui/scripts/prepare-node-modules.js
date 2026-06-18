@@ -19,9 +19,16 @@ const __dirname = dirname(__filename);
 const rootDir = resolve(__dirname, '..');
 const manifestPath = resolve(rootDir, 'node-repl.modules.json');
 const targetDir = resolve(rootDir, 'vendor', 'node_modules');
-const sourceDir = process.env.AUTODEV_NODE_MODULES_SOURCE;
+const defaultCodexCuaNodeDir = '/Applications/Codex.app/Contents/Resources/cua_node';
+const codexModulesSource = process.env.AUTODEV_NODE_MODULES_SOURCE
+  ? ''
+  : detectCodexNodeModulesSource();
+const sourceDir = process.env.AUTODEV_NODE_MODULES_SOURCE || codexModulesSource;
 
 if (sourceDir) {
+  if (sourceDir === codexModulesSource) {
+    console.log(`Using Codex CUA Node modules source: ${sourceDir}`);
+  }
   await copyNodeModules(resolve(sourceDir), targetDir);
   console.log(`Bundled node_modules copied from ${sourceDir}`);
   console.log(`Bundled node_modules ready: ${targetDir}`);
@@ -35,7 +42,12 @@ if (!existsSync(manifestPath)) {
 
 const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
 const dependencies = manifest.dependencies ?? {};
-const packageNames = Object.entries(dependencies).map(([name, version]) => `${name}@${version}`);
+const optionalDependencies = manifest.optionalDependencies ?? {};
+const codexPrivatePackages = manifest.codexPrivatePackages ?? {};
+const packageNames = [
+  ...Object.entries(dependencies),
+  ...Object.entries(optionalDependencies),
+].map(([name, version]) => `${name}@${version}`);
 
 if (packageNames.length === 0) {
   rmSync(targetDir, { recursive: true, force: true });
@@ -53,6 +65,7 @@ writeFileSync(resolve(workDir, 'package.json'), JSON.stringify({
   name: '@xiuper/node-repl-modules',
   version: '0.0.0',
   dependencies,
+  optionalDependencies,
 }, null, 2) + '\n');
 
 const env = {
@@ -63,6 +76,9 @@ const env = {
 };
 
 console.log(`Installing node_repl modules: ${packageNames.join(', ')}`);
+if (Object.keys(codexPrivatePackages).length > 0) {
+  console.log(`Codex private modules require a source copy and will not be installed from npm: ${Object.entries(codexPrivatePackages).map(([name, version]) => `${name}@${version}`).join(', ')}`);
+}
 execFileSync('npm', ['install', '--omit=dev', '--ignore-scripts'], {
   cwd: workDir,
   env,
@@ -86,4 +102,17 @@ async function copyNodeModules(source, target) {
     force: true,
     verbatimSymlinks: false,
   });
+}
+
+function detectCodexNodeModulesSource() {
+  if (process.env.AUTODEV_NODE_MODULES_USE_CODEX_SOURCE === '0') {
+    return '';
+  }
+
+  const source = resolve(
+    process.env.AUTODEV_CODEX_CUA_NODE_DIR || defaultCodexCuaNodeDir,
+    'lib',
+    'node_modules',
+  );
+  return existsSync(source) ? source : '';
 }

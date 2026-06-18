@@ -14,6 +14,22 @@ const codexConfig = resolve(process.env.HOME ?? '', '.codex/config.toml');
 const codexConfigEnv = readCodexNodeReplConfigEnv();
 const codexCommand = readCodexNodeReplCommand() ?? join(codexRoot, 'bin/node_repl');
 const autoDevCommand = resolve(repoRoot, 'mpp-ui/bin/autodev-node-repl');
+const bundledPackageProbes = [
+  '@napi-rs/canvas',
+  '@oai/sky',
+  'bmp-js',
+  'idb-keyval',
+  'jpeg-js',
+  'node-fetch',
+  'objc-js',
+  'pdfjs-dist',
+  'pixelmatch',
+  'playwright',
+  'pngjs',
+  'semver',
+  'sharp',
+  'tesseract.js',
+];
 
 function codexEnv() {
   return {
@@ -234,6 +250,12 @@ async function runProbe(server, shared) {
   result.addModuleDirAgain = summarize(await callTool(server, 'js_add_node_module_dir', {
     path: shared.tempNodeModules,
   }));
+  result.addedModuleDirPackageResolve = summarize(await callTool(server, 'js', {
+    code: `await import(${JSON.stringify(shared.tempModule)}).then((mod) => mod.resolvePackages([${JSON.stringify(shared.fixturePackageName)}]))`,
+  }));
+  result.addedModuleDirPackageImport = summarize(await callTool(server, 'js', {
+    code: `await import(${JSON.stringify(shared.fixturePackageName)}).then((mod) => nodeRepl.write(mod.fixtureValue))`,
+  }));
   result.localModuleGlobal = summarize(await callTool(server, 'js', {
     code: `await import(${JSON.stringify(shared.tempModule)}).then((mod) => mod.run())`,
   }));
@@ -242,6 +264,12 @@ async function runProbe(server, shared) {
   }));
   result.localModuleReloadSecond = summarize(await callTool(server, 'js', {
     code: `await import(${JSON.stringify(shared.reloadModule)}).then((mod) => nodeRepl.write(String(mod.count)))`,
+  }));
+  result.bundledPackageResolve = summarize(await callTool(server, 'js', {
+    code: `await import(${JSON.stringify(shared.tempModule)}).then((mod) => mod.resolvePackages(${JSON.stringify(bundledPackageProbes)}))`,
+  }));
+  result.localStaticImports = summarize(await callTool(server, 'js', {
+    code: `await import(${JSON.stringify(shared.staticEntryModule)}).then((mod) => mod.runStatic())`,
   }));
   result.trustedHiddenApiShape = summarize(await callTool(server, 'js', {
     code: `await import(${JSON.stringify(shared.tempModule)}).then((mod) => mod.hidden())`,
@@ -286,12 +314,42 @@ async function main() {
   const trustedScratchParent = firstTrustedCodePath() ?? tmpdir();
   const tempRoot = await mkdtemp(join(trustedScratchParent, 'node-repl-compare-'));
   const tempNodeModules = join(tempRoot, 'node_modules');
+  const fixturePackageName = 'node-repl-fixture';
+  const fixturePackageRoot = join(tempNodeModules, fixturePackageName);
   const tempModule = join(tempRoot, 'uses-node-repl.mjs');
   const reloadModule = join(tempRoot, 'reload-count.mjs');
+  const staticEntryModule = join(tempRoot, 'static-entry.mjs');
+  const staticChildModule = join(tempRoot, 'static-child.mjs');
   await mkdir(tempNodeModules);
+  await mkdir(fixturePackageRoot);
+  await writeFile(join(fixturePackageRoot, 'package.json'), JSON.stringify({
+    name: fixturePackageName,
+    type: 'module',
+    exports: './index.mjs',
+  }, null, 2) + '\n', 'utf8');
+  await writeFile(join(fixturePackageRoot, 'index.mjs'), 'export const fixtureValue = "fixture-ok";\n', 'utf8');
   await writeFile(reloadModule, 'globalThis.__nodeReplReloadCount = (globalThis.__nodeReplReloadCount ?? 0) + 1;\nexport const count = globalThis.__nodeReplReloadCount;\n', 'utf8');
+  await writeFile(staticChildModule, 'export const childValue = "child-ok";\n', 'utf8');
+  await writeFile(staticEntryModule, `import { childValue } from "./static-child.mjs";
+import * as semver from "semver";
+export function runStatic() {
+  globalThis.nodeRepl.write(JSON.stringify({ childValue, semverValidType: typeof semver.valid }));
+}
+`, 'utf8');
   await writeFile(tempModule, `export function run() { globalThis.nodeRepl.write("module-ok"); }
 export function hidden() { globalThis.nodeRepl.write(JSON.stringify({ config: typeof globalThis.nodeRepl.config, createElicitation: typeof globalThis.nodeRepl.createElicitation, fetch: typeof globalThis.nodeRepl.fetch, launchServices: typeof globalThis.nodeRepl.launchServices, nativePipe: typeof globalThis.nodeRepl.nativePipe, withSuspendedTimeout: typeof globalThis.nodeRepl.withSuspendedTimeout })); }
+export function resolvePackages(packages) {
+  const result = {};
+  for (const name of packages) {
+    try {
+      import.meta.resolve(name);
+      result[name] = "ok";
+    } catch (error) {
+      result[name] = { error: error?.name ?? "Error" };
+    }
+  }
+  globalThis.nodeRepl.write(JSON.stringify(result));
+}
 function summarize(value) {
   if (value == null || typeof value !== "object") return { type: typeof value, value };
   const keys = Object.keys(value).sort();
@@ -324,7 +382,7 @@ export async function configReadProbe() {
   const autoDev = startServer('autodev', autoDevCommand, autoDevEnv());
 
   try {
-    const shared = { tempNodeModules, tempModule, reloadModule };
+    const shared = { tempNodeModules, tempModule, reloadModule, staticEntryModule, fixturePackageName };
     const codexResult = await runProbe(codex, shared);
     const autoDevResult = await runProbe(autoDev, shared);
     const diffs = diffValues(codexResult, autoDevResult);

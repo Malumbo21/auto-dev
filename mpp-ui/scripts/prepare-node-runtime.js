@@ -9,7 +9,7 @@
  *   AUTODEV_NODE_SOURCE=/path/to/node node scripts/prepare-node-runtime.js
  */
 
-import { createWriteStream, existsSync, mkdirSync, rmSync, statSync, copyFileSync, chmodSync } from 'node:fs';
+import { createWriteStream, existsSync, mkdirSync, rmSync, statSync, copyFileSync, chmodSync, readFileSync } from 'node:fs';
 import { cp } from 'node:fs/promises';
 import { get } from 'node:https';
 import { dirname, resolve, join } from 'node:path';
@@ -20,10 +20,15 @@ import { tmpdir } from 'node:os';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const rootDir = resolve(__dirname, '..');
+const defaultCodexCuaNodeDir = '/Applications/Codex.app/Contents/Resources/cua_node';
+const defaultNodeVersion = '24.14.0';
 
 const platformArch = mapPlatformArch(process.platform, process.arch);
-const nodeVersion = (process.env.AUTODEV_NODE_VERSION || process.versions.node).replace(/^v/, '');
-const sourcePath = process.env.AUTODEV_NODE_SOURCE;
+const codexRuntimeSource = process.env.AUTODEV_NODE_SOURCE
+  ? ''
+  : detectCodexRuntimeSource(platformArch);
+const sourcePath = process.env.AUTODEV_NODE_SOURCE || codexRuntimeSource;
+const nodeVersion = (process.env.AUTODEV_NODE_VERSION || readCodexNodeVersion(codexRuntimeSource) || defaultNodeVersion).replace(/^v/, '');
 const targetDir = resolve(rootDir, 'vendor', 'node', platformArch);
 
 if (!platformArch) {
@@ -34,6 +39,9 @@ if (!platformArch) {
 mkdirSync(targetDir, { recursive: true });
 
 if (sourcePath) {
+  if (sourcePath === codexRuntimeSource) {
+    console.log(`Using Codex CUA Node runtime source: ${sourcePath}`);
+  }
   await copyNodeFromSource(resolve(sourcePath), targetDir);
 } else {
   await downloadNodeRuntime(nodeVersion, platformArch, targetDir);
@@ -94,6 +102,46 @@ async function copyNodeFromSource(source, target) {
 
   mkdirSync(target, { recursive: true });
   await cp(source, target, { recursive: true, force: true });
+}
+
+function detectCodexRuntimeSource(platformKey) {
+  if (process.env.AUTODEV_NODE_USE_CODEX_SOURCE === '0') {
+    return '';
+  }
+
+  const source = resolve(process.env.AUTODEV_CODEX_CUA_NODE_DIR || defaultCodexCuaNodeDir);
+  if (!existsSync(source)) {
+    return '';
+  }
+
+  const manifest = readJsonIfExists(join(source, 'manifest.json'));
+  if (manifest?.target && manifest.target !== platformKey) {
+    return '';
+  }
+
+  const nodeBin = process.platform === 'win32'
+    ? join(source, 'node.exe')
+    : join(source, 'bin', 'node');
+  return existsSync(nodeBin) ? source : '';
+}
+
+function readCodexNodeVersion(source) {
+  if (!source) {
+    return '';
+  }
+  const manifest = readJsonIfExists(join(source, 'manifest.json'));
+  return typeof manifest?.node_version === 'string' ? manifest.node_version : '';
+}
+
+function readJsonIfExists(filePath) {
+  if (!existsSync(filePath)) {
+    return null;
+  }
+  try {
+    return JSON.parse(readFileSync(filePath, 'utf8'));
+  } catch {
+    return null;
+  }
 }
 
 async function downloadNodeRuntime(version, platformKey, target) {

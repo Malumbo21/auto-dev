@@ -59,6 +59,7 @@ export class NodeReplRuntime {
   private additionalModuleDirs: string[] = [];
   private activeExecution: ActiveExecution | null = null;
   private activeImportVersion = 0;
+  private activeModuleCache: Map<string, any> | null = null;
   private fileHashCache = new Map<string, string | null>();
   private importVersion = 0;
   private requireForResolve = createRequire(path.join(process.cwd(), 'node_repl_runtime.js'));
@@ -120,6 +121,7 @@ export class NodeReplRuntime {
     };
     this.activeExecution = activeExecution;
     this.activeImportVersion = ++this.importVersion;
+    this.activeModuleCache = new Map();
 
     const previousNodeRepl = (globalThis as any).nodeRepl;
     const hadNodeRepl = Object.prototype.hasOwnProperty.call(globalThis, 'nodeRepl');
@@ -160,6 +162,7 @@ export class NodeReplRuntime {
       (globalThis as any).console = previousConsole;
       this.activeExecution = null;
       this.activeImportVersion = 0;
+      this.activeModuleCache = null;
     }
   }
 
@@ -706,6 +709,18 @@ export class NodeReplRuntime {
   }
 
   private async resolveAndImport(specifier: string): Promise<unknown> {
+    return this.resolveAndImportFrom(specifier, null);
+  }
+
+  private async resolveAndImportFrom(specifier: string, referrerPath: string | null): Promise<unknown> {
+    const resolved = this.resolveModuleSpecifier(specifier, referrerPath);
+    if (resolved.kind === 'local') {
+      return this.importLocalModule(resolved.url);
+    }
+    return import(resolved.importSpecifier);
+  }
+
+  private resolveModuleSpecifier(specifier: string, referrerPath: string | null): { kind: 'local'; url: URL } | { kind: 'native'; importSpecifier: string } {
     if (!specifier || typeof specifier !== 'string') {
       throw new Error('import specifier must be a non-empty string');
     }
@@ -715,26 +730,27 @@ export class NodeReplRuntime {
     }
 
     if (BUILTIN_MODULES.has(specifier)) {
-      return import(specifier);
+      return { kind: 'native', importSpecifier: specifier };
     }
 
     if (specifier.startsWith('file://')) {
-      return import(this.versionedLocalModuleUrl(new URL(specifier)).href);
+      return { kind: 'local', url: this.versionedLocalModuleUrl(new URL(specifier)) };
     }
 
     if (specifier.startsWith('data:') || specifier.startsWith('node:')) {
-      return import(specifier);
+      return { kind: 'native', importSpecifier: specifier };
     }
 
     if (specifier.startsWith('.') || specifier.startsWith('/') || specifier.startsWith('..')) {
-      const resolvedPath = path.resolve(this.cwd, specifier);
-      return import(this.versionedLocalModuleUrl(pathToFileURL(resolvedPath)).href);
+      const baseDir = referrerPath ? path.dirname(referrerPath) : this.cwd;
+      const resolvedPath = path.resolve(baseDir, specifier);
+      return { kind: 'local', url: this.versionedLocalModuleUrl(pathToFileURL(resolvedPath)) };
     }
 
     const resolvedPath = this.requireForResolve.resolve(specifier, {
       paths: this.moduleSearchRoots(),
     });
-    return import(pathToFileURL(resolvedPath).href);
+    return { kind: 'native', importSpecifier: pathToFileURL(resolvedPath).href };
   }
 
   private versionedLocalModuleUrl(moduleUrl: URL): URL {
@@ -742,6 +758,116 @@ export class NodeReplRuntime {
       moduleUrl.searchParams.set('node_repl_exec', String(this.activeImportVersion));
     }
     return moduleUrl;
+  }
+
+  private async importLocalModule(moduleUrl: URL): Promise<unknown> {
+    const module = await this.getLocalSourceModule(moduleUrl);
+    if (module.status === 'unlinked') {
+      await module.link((specifier: string, referencingModule: { identifier: string }) => this.getLinkedVmModule(
+        specifier,
+        this.filePathFromModuleIdentifier(referencingModule.identifier),
+      ));
+    }
+    if (module.status !== 'evaluated') {
+      await module.evaluate();
+    }
+    return module.namespace;
+  }
+
+  private async getLinkedVmModule(specifier: string, referrerPath: string | null): Promise<any> {
+    const resolved = this.resolveModuleSpecifier(specifier, referrerPath);
+    if (resolved.kind === 'local') {
+      return this.getLocalSourceModule(resolved.url);
+    }
+    return this.getNativeSyntheticModule(resolved.importSpecifier);
+  }
+
+  private async getLocalSourceModule(moduleUrl: URL): Promise<any> {
+    const sourceTextModule = (vm as any).SourceTextModule;
+    if (typeof sourceTextModule !== 'function') {
+      throw new Error('vm.SourceTextModule is unavailable; start node_repl with --experimental-vm-modules');
+    }
+
+    const cacheKey = `local:${moduleUrl.href}`;
+    const cache = this.getActiveModuleCache();
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const filePath = this.filePathFromUrl(moduleUrl);
+    const source = await fs.promises.readFile(filePath, 'utf8');
+    const module = new sourceTextModule(source, {
+      context: this.context,
+      identifier: moduleUrl.href,
+      initializeImportMeta: (meta: Record<string, unknown>) => {
+        meta.url = moduleUrl.href;
+        meta.resolve = (innerSpecifier: string) => this.resolveImportMeta(innerSpecifier, filePath);
+      },
+      importModuleDynamically: (innerSpecifier: string) => this.resolveAndImportFrom(innerSpecifier, filePath) as any,
+    });
+    cache.set(cacheKey, module);
+    return module;
+  }
+
+  private async getNativeSyntheticModule(importSpecifier: string): Promise<any> {
+    const syntheticModule = (vm as any).SyntheticModule;
+    if (typeof syntheticModule !== 'function') {
+      throw new Error('vm.SyntheticModule is unavailable; start node_repl with --experimental-vm-modules');
+    }
+
+    const cacheKey = `native:${importSpecifier}`;
+    const cache = this.getActiveModuleCache();
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const namespace = await import(importSpecifier);
+    const exportNames = Object.keys(namespace);
+    const module = new syntheticModule(exportNames, function initializeSyntheticModule(this: any) {
+      for (const exportName of exportNames) {
+        this.setExport(exportName, namespace[exportName]);
+      }
+    }, {
+      context: this.context,
+      identifier: `node-repl:${importSpecifier}`,
+    });
+    cache.set(cacheKey, module);
+    return module;
+  }
+
+  private resolveImportMeta(specifier: string, referrerPath: string): string {
+    const resolved = this.resolveModuleSpecifier(specifier, referrerPath);
+    if (resolved.kind === 'local') {
+      return resolved.url.href;
+    }
+    return resolved.importSpecifier;
+  }
+
+  private getActiveModuleCache(): Map<string, any> {
+    if (!this.activeModuleCache) {
+      this.activeModuleCache = new Map();
+    }
+    return this.activeModuleCache;
+  }
+
+  private filePathFromModuleIdentifier(identifier: string): string | null {
+    if (!identifier.startsWith('file://')) {
+      return null;
+    }
+    try {
+      return this.filePathFromUrl(new URL(identifier));
+    } catch {
+      return null;
+    }
+  }
+
+  private filePathFromUrl(moduleUrl: URL): string {
+    const fileUrl = new URL(moduleUrl.href);
+    fileUrl.search = '';
+    fileUrl.hash = '';
+    return fileURLToPath(fileUrl);
   }
 
   private moduleSearchRoots(): string[] {

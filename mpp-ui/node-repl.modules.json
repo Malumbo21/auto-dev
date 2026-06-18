@@ -1,17 +1,38 @@
 {
   "description": "Default optional modules bundled for the AutoDev node_repl MCP runtime. Versions mirror the Codex.app cua_node package where practical.",
   "dependencies": {
+    "@napi-rs/canvas": "0.1.91",
+    "bmp-js": "0.1.0",
+    "detect-libc": "2.1.2",
+    "idb-keyval": "6.2.4",
+    "is-url": "1.2.4",
+    "jpeg-js": "0.4.4",
+    "node-addon-api": "8.8.0",
+    "node-fetch": "2.7.0",
+    "node-gyp-build": "4.8.4",
+    "node-readable-to-web-readable-stream": "0.4.2",
+    "objc-js": "1.5.0",
+    "opencollective-postinstall": "2.0.3",
+    "pdfjs-dist": "5.4.624",
+    "pixelmatch": "7.1.0",
     "playwright": "1.57.0",
     "playwright-core": "1.57.0",
+    "pngjs": "7.0.0",
+    "regenerator-runtime": "0.13.11",
+    "semver": "7.8.1",
+    "sharp": "0.34.5",
     "tesseract.js": "7.0.0",
     "tesseract.js-core": "7.0.0",
-    "pdfjs-dist": "5.4.624",
-    "sharp": "0.34.5",
-    "pixelmatch": "7.1.0",
-    "pngjs": "7.0.0",
-    "jpeg-js": "0.4.4",
-    "bmp-js": "0.1.0",
-    "node-fetch": "2.7.0",
-    "semver": "7.7.3"
+    "tr46": "0.0.3",
+    "wasm-feature-detect": "1.8.0",
+    "webidl-conversions": "3.0.1",
+    "whatwg-url": "5.0.0",
+    "zlibjs": "0.3.1"
+  },
+  "optionalDependencies": {
+    "fsevents": "2.3.2"
+  },
+  "codexPrivatePackages": {
+    "@oai/sky": "0.4.13"
   }
 }
