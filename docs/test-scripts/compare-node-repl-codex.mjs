@@ -347,6 +347,12 @@ async function runProbe(server, shared) {
   result.afterImportMetaBindings = summarize(await callTool(server, 'js', {
     code: 'nodeRepl.write(JSON.stringify({ importMetaConst, importMetaLet, importMetaFunction: importMetaFunction() }))',
   }));
+  result.importMetaDeclaresMultipleBindings = summarize(await callTool(server, 'js', {
+    code: 'const multiConstA = 31, multiConstB = 32; let multiLetA = 33, multiLetB = 34; var multiVarA = 35, multiVarB = 36; nodeRepl.write(JSON.stringify({ urlType: typeof import.meta.url }))',
+  }));
+  result.afterImportMetaMultipleBindings = summarize(await callTool(server, 'js', {
+    code: 'nodeRepl.write(JSON.stringify({ multiConstA, multiConstB, multiLetA, multiLetB, multiVarA, multiVarB }))',
+  }));
   result.blockProcessImport = summarize(await callTool(server, 'js', {
     code: 'try { await import("node:process"); nodeRepl.write("allowed"); } catch (error) { nodeRepl.write("blocked:" + error.message) }',
   }));

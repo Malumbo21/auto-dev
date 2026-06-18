@@ -1395,8 +1395,11 @@ export class NodeReplRuntime {
       declarations.push({ kind, name });
     };
 
-    for (const match of code.matchAll(/(?:^|[;\n])\s*(const|let|var)\s+([A-Za-z_$][\w$]*)/g)) {
-      add(match[1] as ModuleBindingKind, match[2]);
+    for (const match of code.matchAll(/(?:^|[;\n])\s*(const|let|var)\s+([^;\n]+)/g)) {
+      const kind = match[1] as ModuleBindingKind;
+      for (const declarator of this.splitTopLevelDeclarators(match[2])) {
+        add(kind, declarator.trim().match(/^([A-Za-z_$][\w$]*)\b/)?.[1]);
+      }
     }
     for (const match of code.matchAll(/(?:^|[;\n])\s*function\s+([A-Za-z_$][\w$]*)/g)) {
       add('function', match[1]);
@@ -1405,6 +1408,59 @@ export class NodeReplRuntime {
       add('class', match[1]);
     }
     return declarations;
+  }
+
+  private splitTopLevelDeclarators(value: string): string[] {
+    const declarators: string[] = [];
+    let current = '';
+    let depth = 0;
+    let quote: string | null = null;
+    let escaped = false;
+
+    for (const char of value) {
+      if (quote) {
+        current += char;
+        if (escaped) {
+          escaped = false;
+          continue;
+        }
+        if (char === '\\') {
+          escaped = true;
+          continue;
+        }
+        if (char === quote) {
+          quote = null;
+        }
+        continue;
+      }
+
+      if (char === '"' || char === '\'' || char === '`') {
+        quote = char;
+        current += char;
+        continue;
+      }
+      if (char === '(' || char === '[' || char === '{') {
+        depth += 1;
+        current += char;
+        continue;
+      }
+      if (char === ')' || char === ']' || char === '}') {
+        depth = Math.max(0, depth - 1);
+        current += char;
+        continue;
+      }
+      if (char === ',' && depth === 0) {
+        declarators.push(current);
+        current = '';
+        continue;
+      }
+      current += char;
+    }
+
+    if (current.trim()) {
+      declarators.push(current);
+    }
+    return declarators;
   }
 
   private isImportMetaSyntaxError(error: unknown): boolean {
