@@ -1395,21 +1395,222 @@ export class NodeReplRuntime {
       declarations.push({ kind, name });
     };
 
-    for (const match of code.matchAll(/(?:^|[;\n])\s*(const|let|var)\s+([^;\n]+)/g)) {
-      const kind = match[1] as ModuleBindingKind;
-      for (const declarator of this.splitTopLevelDeclarators(match[2])) {
-        for (const name of this.readVariableDeclaratorBindingNames(declarator)) {
-          add(kind, name);
+    let depth = 0;
+    let quote: string | null = null;
+    let escaped = false;
+    let lineComment = false;
+    let blockComment = false;
+
+    for (let index = 0; index < code.length; index += 1) {
+      const char = code[index];
+      const nextChar = code[index + 1];
+
+      if (lineComment) {
+        if (char === '\n' || char === '\r') {
+          lineComment = false;
+        }
+        continue;
+      }
+      if (blockComment) {
+        if (char === '*' && nextChar === '/') {
+          blockComment = false;
+          index += 1;
+        }
+        continue;
+      }
+      if (quote) {
+        if (escaped) {
+          escaped = false;
+          continue;
+        }
+        if (char === '\\') {
+          escaped = true;
+          continue;
+        }
+        if (char === quote) {
+          quote = null;
+        }
+        continue;
+      }
+
+      if (char === '/' && nextChar === '/') {
+        lineComment = true;
+        index += 1;
+        continue;
+      }
+      if (char === '/' && nextChar === '*') {
+        blockComment = true;
+        index += 1;
+        continue;
+      }
+      if (char === '"' || char === '\'' || char === '`') {
+        quote = char;
+        continue;
+      }
+
+      if (depth === 0 && this.isStatementKeywordPosition(code, index)) {
+        const variableKind = this.readVariableDeclarationKeywordAt(code, index);
+        if (variableKind) {
+          const declarationEnd = this.findVariableDeclarationEnd(code, index + variableKind.length);
+          const declarationBody = code.slice(index + variableKind.length, declarationEnd);
+          for (const declarator of this.splitTopLevelDeclarators(declarationBody)) {
+            for (const name of this.readVariableDeclaratorBindingNames(declarator)) {
+              add(variableKind, name);
+            }
+          }
+          index = Math.max(index, declarationEnd - 1);
+          continue;
+        }
+
+        if (this.matchesKeywordAt(code, index, 'function')) {
+          add('function', this.readDeclaredNameAfterKeyword(code, index + 'function'.length));
+        } else if (this.matchesKeywordAt(code, index, 'class')) {
+          add('class', this.readDeclaredNameAfterKeyword(code, index + 'class'.length));
         }
       }
+
+      if (char === '(' || char === '[' || char === '{') {
+        depth += 1;
+        continue;
+      }
+      if (char === ')' || char === ']' || char === '}') {
+        depth = Math.max(0, depth - 1);
+      }
     }
-    for (const match of code.matchAll(/(?:^|[;\n])\s*function\s+([A-Za-z_$][\w$]*)/g)) {
-      add('function', match[1]);
-    }
-    for (const match of code.matchAll(/(?:^|[;\n])\s*class\s+([A-Za-z_$][\w$]*)/g)) {
-      add('class', match[1]);
-    }
+
     return declarations;
+  }
+
+  private readVariableDeclarationKeywordAt(code: string, index: number): ModuleBindingKind | null {
+    for (const keyword of ['const', 'let', 'var'] as const) {
+      if (this.matchesKeywordAt(code, index, keyword)) {
+        return keyword;
+      }
+    }
+    return null;
+  }
+
+  private matchesKeywordAt(code: string, index: number, keyword: string): boolean {
+    if (code.slice(index, index + keyword.length) !== keyword) {
+      return false;
+    }
+    const before = code[index - 1];
+    const after = code[index + keyword.length];
+    return !this.isIdentifierPart(before) && !this.isIdentifierPart(after);
+  }
+
+  private isIdentifierPart(char: string | undefined): boolean {
+    return typeof char === 'string' && /[A-Za-z0-9_$]/.test(char);
+  }
+
+  private isStatementKeywordPosition(code: string, index: number): boolean {
+    const previousIndex = this.previousNonWhitespaceIndex(code, index);
+    if (previousIndex < 0) {
+      return true;
+    }
+
+    const between = code.slice(previousIndex + 1, index);
+    const previousChar = code[previousIndex];
+    if (previousChar === ';' || previousChar === '{' || previousChar === '}') {
+      return true;
+    }
+    if (/\b(?:async|default|export)\s*$/.test(code.slice(0, index))) {
+      return true;
+    }
+    return /[\r\n]/.test(between) && !'=(:,[!+-*/%?&|'.includes(previousChar);
+  }
+
+  private previousNonWhitespaceIndex(code: string, index: number): number {
+    for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
+      if (!/\s/.test(code[cursor])) {
+        return cursor;
+      }
+    }
+    return -1;
+  }
+
+  private readDeclaredNameAfterKeyword(code: string, index: number): string | undefined {
+    const rest = code.slice(index).replace(/^\s*\*\s*/, '').trimStart();
+    return rest.match(/^([A-Za-z_$][\w$]*)/)?.[1];
+  }
+
+  private findVariableDeclarationEnd(code: string, index: number): number {
+    let depth = 0;
+    let quote: string | null = null;
+    let escaped = false;
+    let lineComment = false;
+    let blockComment = false;
+
+    for (let cursor = index; cursor < code.length; cursor += 1) {
+      const char = code[cursor];
+      const nextChar = code[cursor + 1];
+
+      if (lineComment) {
+        if (char === '\n' || char === '\r') {
+          lineComment = false;
+          if (depth === 0 && !this.variableDeclarationContinues(code.slice(index, cursor))) {
+            return cursor;
+          }
+        }
+        continue;
+      }
+      if (blockComment) {
+        if (char === '*' && nextChar === '/') {
+          blockComment = false;
+          cursor += 1;
+        }
+        continue;
+      }
+      if (quote) {
+        if (escaped) {
+          escaped = false;
+          continue;
+        }
+        if (char === '\\') {
+          escaped = true;
+          continue;
+        }
+        if (char === quote) {
+          quote = null;
+        }
+        continue;
+      }
+
+      if (char === '/' && nextChar === '/') {
+        lineComment = true;
+        cursor += 1;
+        continue;
+      }
+      if (char === '/' && nextChar === '*') {
+        blockComment = true;
+        cursor += 1;
+        continue;
+      }
+      if (char === '"' || char === '\'' || char === '`') {
+        quote = char;
+        continue;
+      }
+      if (char === '(' || char === '[' || char === '{') {
+        depth += 1;
+        continue;
+      }
+      if (char === ')' || char === ']' || char === '}') {
+        depth = Math.max(0, depth - 1);
+        continue;
+      }
+      if (depth === 0 && char === ';') {
+        return cursor;
+      }
+      if (depth === 0 && (char === '\n' || char === '\r') && !this.variableDeclarationContinues(code.slice(index, cursor))) {
+        return cursor;
+      }
+    }
+    return code.length;
+  }
+
+  private variableDeclarationContinues(declarationBody: string): boolean {
+    const trimmed = declarationBody.trimEnd();
+    return trimmed.length === 0 || /(?:[,=({[?:]|\+\+|--|&&|\|\||\?\?)$/.test(trimmed);
   }
 
   private readVariableDeclaratorBindingNames(declarator: string): string[] {

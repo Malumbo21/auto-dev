@@ -362,6 +362,16 @@ async function runProbe(server, shared) {
   result.afterImportMetaDestructuredBindings = summarize(await callTool(server, 'js', {
     code: 'nodeRepl.write(JSON.stringify({ destructuredA, destructuredB, arrayBindingA, arrayBindingB }))',
   }));
+  result.importMetaIgnoresNestedBindings = summarize(await callTool(server, 'js', {
+    code: `function nestedImportMetaProbe() {
+  const nestedLocal = 61;
+  return nestedLocal;
+}
+nodeRepl.write(JSON.stringify({ value: nestedImportMetaProbe(), urlType: typeof import.meta.url }))`,
+  }));
+  result.afterImportMetaNestedBindings = summarize(await callTool(server, 'js', {
+    code: 'nodeRepl.write(JSON.stringify({ fn: nestedImportMetaProbe(), nestedLocal: typeof nestedLocal }))',
+  }));
   result.blockProcessImport = summarize(await callTool(server, 'js', {
     code: 'try { await import("node:process"); nodeRepl.write("allowed"); } catch (error) { nodeRepl.write("blocked:" + error.message) }',
   }));
