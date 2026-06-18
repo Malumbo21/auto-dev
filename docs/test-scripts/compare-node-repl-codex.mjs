@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 
 import { spawn, spawnSync } from 'node:child_process';
+import { createServer as createHttpServer } from 'node:http';
 import { createInterface } from 'node:readline';
 import { existsSync, readFileSync } from 'node:fs';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:net';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -45,6 +46,7 @@ function codexEnv() {
     NODE_REPL_NODE_MODULE_DIRS: join(codexRoot, 'lib/node_modules'),
     NODE_REPL_NODE_PATH: join(codexRoot, 'bin/node'),
     ...codexConfigEnv,
+    NODE_REPL_TRUSTED_ENV_PROBE: 'trusted-env-ok',
     NODE_REPL_REQUEST_META: requestMetaEnv,
   };
 }
@@ -57,6 +59,7 @@ function autoDevEnv() {
     NODE_REPL_REQUEST_META: requestMetaEnv,
     NODE_REPL_TRUSTED_CODE_PATHS: codexConfigEnv.NODE_REPL_TRUSTED_CODE_PATHS ?? repoRoot,
     NODE_REPL_TRUSTED_BROWSER_CLIENT_SHA256S: codexConfigEnv.NODE_REPL_TRUSTED_BROWSER_CLIENT_SHA256S,
+    NODE_REPL_TRUSTED_ENV_PROBE: 'trusted-env-ok',
     NODE_REPL_INSTRUCTIONS_USE_CASE_BROWSER: codexConfigEnv.NODE_REPL_INSTRUCTIONS_USE_CASE_BROWSER,
     NODE_REPL_INSTRUCTIONS_USE_CASE_CHROME: codexConfigEnv.NODE_REPL_INSTRUCTIONS_USE_CASE_CHROME,
   };
@@ -132,7 +135,7 @@ function startServer(label, command, env) {
     return new Promise((resolvePromise, reject) => {
       const timeout = setTimeout(() => {
         pending.delete(id);
-        reject(new Error(`${label} timed out waiting for ${method}; stderr=${stderr}`));
+        reject(new Error(`${label} timed out waiting for ${describeRequest(method, params)}; stderr=${stderr}`));
       }, 8000);
       pending.set(id, {
         resolve: (value) => {
@@ -153,6 +156,18 @@ function startServer(label, command, env) {
   }
 
   return { label, request, notify, stop };
+}
+
+function describeRequest(method, params) {
+  if (method !== 'tools/call') {
+    return method;
+  }
+  const toolName = params?.name ?? 'unknown-tool';
+  const code = params?.arguments?.code;
+  if (typeof code !== 'string') {
+    return `${method} ${toolName}`;
+  }
+  return `${method} ${toolName}: ${code.replace(/\s+/g, ' ').slice(0, 160)}`;
 }
 
 function textOf(response) {
@@ -191,6 +206,75 @@ async function initialize(server) {
   });
   server.notify('notifications/initialized');
   return init;
+}
+
+async function runActiveExecRegistryProbe(label, command, env) {
+  const registryDir = await mkdtemp(join(tmpdir(), `node-repl-active-execs-${label}-`));
+  const server = startServer(`${label}-active-exec`, command, {
+    ...env,
+    NODE_REPL_ACTIVE_EXEC_REGISTRY_DIR: registryDir,
+    NODE_REPL_REQUEST_META: JSON.stringify({
+      session_id: 'registry-session-env',
+      turn_id: 'registry-turn-env',
+    }),
+  });
+
+  try {
+    await initialize(server);
+    const pendingResult = callTool(server, 'js', {
+      code: 'await new Promise((resolve) => setTimeout(resolve, 400)); nodeRepl.write("registry-done")',
+      timeout_ms: 3000,
+    }, {
+      session_id: 'registry-session',
+      turn_id: 'registry-turn',
+    });
+    await sleep(150);
+    const during = await readActiveExecRegistrySnapshot(registryDir);
+    const response = summarize(await pendingResult);
+    const after = await readActiveExecRegistrySnapshot(registryDir);
+    return { during, response, after };
+  } finally {
+    server.stop();
+    await rm(registryDir, { recursive: true, force: true });
+  }
+}
+
+async function readActiveExecRegistrySnapshot(registryDir) {
+  if (!existsSync(registryDir)) {
+    return { fileCount: 0, records: [] };
+  }
+  const files = (await readdir(registryDir)).sort();
+  const records = [];
+  for (const file of files) {
+    try {
+      records.push(normalizeActiveExecRecord(JSON.parse(await readFile(join(registryDir, file), 'utf8'))));
+    } catch (error) {
+      records.push({
+        parseError: error?.message ?? String(error),
+      });
+    }
+  }
+  return {
+    fileCount: files.length,
+    records,
+  };
+}
+
+function normalizeActiveExecRecord(record) {
+  return {
+    execIdType: typeof record.execId,
+    kernelPidType: typeof record.kernelPid,
+    keys: Object.keys(record).sort(),
+    nodeReplPidType: typeof record.nodeReplPid,
+    sessionId: record.sessionId ?? null,
+    startedAtMsType: typeof record.startedAtMs,
+    turnId: record.turnId ?? null,
+    version: record.version ?? null,
+  };
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function callTool(server, name, args = {}, meta) {
@@ -250,6 +334,12 @@ async function runProbe(server, shared) {
   }));
   result.envShape = summarize(await callTool(server, 'js', {
     code: 'nodeRepl.write(JSON.stringify({ hasEnv: !!nodeRepl.env, pathType: typeof nodeRepl.env?.PATH, keys: Object.keys(nodeRepl.env ?? {}).slice(0, 5) }))',
+  }));
+  result.untrustedEnvProbe = summarize(await callTool(server, 'js', {
+    code: 'nodeRepl.write(JSON.stringify({ probe: nodeRepl.env.NODE_REPL_TRUSTED_ENV_PROBE ?? null }))',
+  }));
+  result.globalTmpDir = summarize(await callTool(server, 'js', {
+    code: 'nodeRepl.write(JSON.stringify({ matchesNodeReplTmpDir: typeof tmpDir === "string" && tmpDir === nodeRepl.tmpDir, tmpDirType: typeof tmpDir }))',
   }));
   result.fetchDataUrl = summarize(await callTool(server, 'js', {
     code: 'const text = await nodeRepl.fetch("data:text/plain,fetch-ok").then((res) => res.text()); nodeRepl.write(text)',
@@ -311,11 +401,20 @@ async function runProbe(server, shared) {
   result.trustedConfigShape = summarize(await callTool(server, 'js', {
     code: `await import(${JSON.stringify(shared.tempModule)}).then((mod) => mod.configShape())`,
   }));
+  result.trustedEnvProbe = summarize(await callTool(server, 'js', {
+    code: `await import(${JSON.stringify(shared.tempModule)}).then((mod) => mod.trustedEnvProbe())`,
+  }));
   result.trustedConfigReadProbe = summarize(await callTool(server, 'js', {
     code: `await import(${JSON.stringify(shared.tempModule)}).then((mod) => mod.configReadProbe())`,
   }));
+  result.createElicitationErrorSemantics = summarize(await callTool(server, 'js', {
+    code: `await import(${JSON.stringify(shared.tempModule)}).then((mod) => mod.createElicitationErrorSemantics())`,
+  }));
   result.trustedFetchDataUrl = summarize(await callTool(server, 'js', {
     code: `await import(${JSON.stringify(shared.tempModule)}).then((mod) => mod.trustedFetchDataUrl())`,
+  }));
+  result.trustedFetchHttpRoundtrip = summarize(await callTool(server, 'js', {
+    code: `await import(${JSON.stringify(shared.tempModule)}).then((mod) => mod.trustedFetchHttpRoundtrip(${JSON.stringify(shared.fetchUrl)}))`,
   }));
   result.launchServicesErrorSemantics = summarize(await callTool(server, 'js', {
     code: `await import(${JSON.stringify(shared.tempModule)}).then((mod) => mod.launchServicesErrorSemantics())`,
@@ -428,6 +527,13 @@ export function configShape() {
   const config = globalThis.nodeRepl.config;
   globalThis.nodeRepl.write(JSON.stringify(Object.fromEntries(Object.keys(config ?? {}).sort().map((key) => [key, typeof config[key]]))));
 }
+export function trustedEnvProbe() {
+  const env = globalThis.nodeRepl.env ?? {};
+  globalThis.nodeRepl.write(JSON.stringify({
+    pathType: typeof env.PATH,
+    probe: env.NODE_REPL_TRUSTED_ENV_PROBE ?? null,
+  }));
+}
 export async function configReadProbe() {
   const config = globalThis.nodeRepl.config;
   const result = {};
@@ -448,6 +554,25 @@ export async function configReadProbe() {
 export async function trustedFetchDataUrl() {
   const text = await globalThis.nodeRepl.fetch("data:text/plain,trusted-fetch-ok").then((response) => response.text());
   globalThis.nodeRepl.write(text);
+}
+export async function trustedFetchHttpRoundtrip(url) {
+  const response = await globalThis.nodeRepl.fetch(url, {
+    method: "POST",
+    headers: {
+      "content-type": "text/plain",
+      "x-node-repl-probe": "yes",
+    },
+    body: "payload",
+  });
+  globalThis.nodeRepl.write(await response.text());
+}
+export async function createElicitationErrorSemantics() {
+  const createElicitation = globalThis.nodeRepl.createElicitation;
+  const results = [];
+  results.push(await capture("no-args", () => createElicitation()));
+  results.push(await capture("empty-object", () => createElicitation({})));
+  results.push(await capture("string", () => createElicitation("prompt")));
+  globalThis.nodeRepl.write(JSON.stringify(results));
 }
 export async function emitImageErrorSemantics() {
   const results = [];
@@ -511,17 +636,20 @@ export async function withSuspendedTimeoutProbe() {
 `, 'utf8');
 
   const nativePipeServer = await startNativePipeFixture(nativePipePath);
+  const httpFixture = await startHttpFetchFixture();
   const codex = startServer('codex', codexCommand, codexEnv());
   const autoDev = startServer('autodev', autoDevCommand, autoDevEnv());
 
   try {
-    const shared = { tempNodeModules, tempModule, reloadModule, staticEntryModule, fixturePackageName, nativePipePath };
+    const shared = { tempNodeModules, tempModule, reloadModule, staticEntryModule, fixturePackageName, nativePipePath, fetchUrl: httpFixture.url };
     const codexResult = {
       cliHelp: runCli(codexCommand, ['--help'], codexEnv()),
+      activeExecRegistry: await runActiveExecRegistryProbe('codex', codexCommand, codexEnv()),
       ...(await runProbe(codex, shared)),
     };
     const autoDevResult = {
       cliHelp: runCli(autoDevCommand, ['--help'], autoDevEnv()),
+      activeExecRegistry: await runActiveExecRegistryProbe('autodev', autoDevCommand, autoDevEnv()),
       ...(await runProbe(autoDev, shared)),
     };
     const diffs = diffValues(codexResult, autoDevResult);
@@ -538,6 +666,7 @@ export async function withSuspendedTimeoutProbe() {
   } finally {
     codex.stop();
     autoDev.stop();
+    await new Promise((resolveClose) => httpFixture.server.close(resolveClose));
     await new Promise((resolveClose) => nativePipeServer.close(resolveClose));
     await rm(tempRoot, { recursive: true, force: true });
   }
@@ -560,6 +689,41 @@ async function startNativePipeFixture(pipePath) {
     });
   });
   return server;
+}
+
+async function startHttpFetchFixture() {
+  const server = createHttpServer((request, response) => {
+    let body = '';
+    request.setEncoding('utf8');
+    request.on('data', (chunk) => {
+      body += chunk;
+    });
+    request.on('end', () => {
+      response.setHeader('content-type', 'application/json');
+      response.end(JSON.stringify({
+        body,
+        contentType: request.headers['content-type'] ?? null,
+        method: request.method,
+        probeHeader: request.headers['x-node-repl-probe'] ?? null,
+        url: request.url,
+      }));
+    });
+  });
+  await new Promise((resolveListen, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', () => {
+      server.removeListener('error', reject);
+      resolveListen();
+    });
+  });
+  const address = server.address();
+  if (!address || typeof address === 'string') {
+    throw new Error('HTTP fetch fixture did not bind to a TCP port');
+  }
+  return {
+    server,
+    url: `http://127.0.0.1:${address.port}/node-repl-fetch`,
+  };
 }
 
 function firstTrustedCodePath() {

@@ -64,10 +64,16 @@ export class NodeReplRuntime {
   private activeImportVersion = 0;
   private activeModuleCache: Map<string, any> | null = null;
   private fileHashCache = new Map<string, string | null>();
+  private fullEnvApi: Record<string, string>;
+  private readonly homeDir = os.homedir();
   private importVersion = 0;
   private requireForResolve = createRequire(path.join(process.cwd(), 'node_repl_runtime.js'));
+  private readonly tmpDir = os.tmpdir();
+  private untrustedEnvApi: Record<string, string>;
 
   constructor(private readonly cwd: string = process.cwd()) {
+    this.fullEnvApi = this.createFullEnvApi();
+    this.untrustedEnvApi = this.createUntrustedEnvApi();
     this.additionalModuleDirs = this.readInitialModuleDirs();
     this.context = this.createContext();
   }
@@ -196,6 +202,7 @@ export class NodeReplRuntime {
       setInterval,
       setTimeout,
       structuredClone: globalThis.structuredClone,
+      tmpDir: this.tmpDir,
     };
 
     this.consoleApi = this.createConsole();
@@ -235,9 +242,8 @@ export class NodeReplRuntime {
   private createNodeReplApi(): Record<string, unknown> {
     const api: Record<string, unknown> = {
       cwd: this.cwd,
-      homeDir: os.homedir(),
-      tmpDir: os.tmpdir(),
-      env: this.createEnvApi(),
+      homeDir: this.homeDir,
+      tmpDir: this.tmpDir,
       write: (text: unknown) => {
         if (typeof text !== 'string') {
           throw new Error('nodeRepl.write expected a string');
@@ -252,6 +258,11 @@ export class NodeReplRuntime {
         Object.assign(this.getActiveExecution().responseMeta, meta);
       },
     };
+
+    Object.defineProperty(api, 'env', {
+      enumerable: true,
+      get: () => this.isTrustedStack() ? this.fullEnvApi : this.untrustedEnvApi,
+    });
 
     Object.defineProperty(api, 'requestMeta', {
       enumerable: true,
@@ -287,7 +298,17 @@ export class NodeReplRuntime {
     });
   }
 
-  private createEnvApi(): Record<string, string> {
+  private createFullEnvApi(): Record<string, string> {
+    const env: Record<string, string> = {};
+    for (const [key, value] of Object.entries(process.env)) {
+      if (typeof value === 'string') {
+        env[key] = value;
+      }
+    }
+    return Object.freeze(env);
+  }
+
+  private createUntrustedEnvApi(): Record<string, string> {
     const allowlist = this.parseEnvAllowlist();
     if (allowlist.length === 0) {
       return Object.freeze({});
@@ -394,7 +415,7 @@ export class NodeReplRuntime {
       return [];
     }
     return rawValue
-      .split(/[,:;]/)
+      .split(',')
       .map((entry) => entry.trim())
       .filter(Boolean);
   }
