@@ -240,6 +240,12 @@ async function runProbe(server, shared) {
   result.trustedHiddenApiShape = summarize(await callTool(server, 'js', {
     code: `await import(${JSON.stringify(shared.tempModule)}).then((mod) => mod.hidden())`,
   }));
+  result.trustedConfigShape = summarize(await callTool(server, 'js', {
+    code: `await import(${JSON.stringify(shared.tempModule)}).then((mod) => mod.configShape())`,
+  }));
+  result.trustedConfigReadProbe = summarize(await callTool(server, 'js', {
+    code: `await import(${JSON.stringify(shared.tempModule)}).then((mod) => mod.configReadProbe())`,
+  }));
   result.reset = summarize(await callTool(server, 'js_reset'));
   result.afterReset = summarize(await callTool(server, 'js', {
     code: 'nodeRepl.write(typeof answer)',
@@ -276,7 +282,35 @@ async function main() {
   const tempNodeModules = join(tempRoot, 'node_modules');
   const tempModule = join(tempRoot, 'uses-node-repl.mjs');
   await mkdir(tempNodeModules);
-  await writeFile(tempModule, 'export function run() { globalThis.nodeRepl.write("module-ok"); }\nexport function hidden() { globalThis.nodeRepl.write(JSON.stringify({ config: typeof globalThis.nodeRepl.config, fetch: typeof globalThis.nodeRepl.fetch, nativePipe: typeof globalThis.nodeRepl.nativePipe })); }\n', 'utf8');
+  await writeFile(tempModule, `export function run() { globalThis.nodeRepl.write("module-ok"); }
+export function hidden() { globalThis.nodeRepl.write(JSON.stringify({ config: typeof globalThis.nodeRepl.config, fetch: typeof globalThis.nodeRepl.fetch, nativePipe: typeof globalThis.nodeRepl.nativePipe })); }
+function summarize(value) {
+  if (value == null || typeof value !== "object") return { type: typeof value, value };
+  const keys = Object.keys(value).sort();
+  return { type: Array.isArray(value) ? "array" : "object", keys, valueTypes: Object.fromEntries(keys.slice(0, 8).map((key) => [key, typeof value[key]])) };
+}
+export function configShape() {
+  const config = globalThis.nodeRepl.config;
+  globalThis.nodeRepl.write(JSON.stringify(Object.fromEntries(Object.keys(config ?? {}).sort().map((key) => [key, typeof config[key]]))));
+}
+export async function configReadProbe() {
+  const config = globalThis.nodeRepl.config;
+  const result = {};
+  for (const [name, call] of Object.entries({
+    readRequirements: () => config.readRequirements(),
+    read: () => config.read({ cwd: globalThis.nodeRepl.cwd, includeLayers: false }),
+    readTomlBrowser: () => config.readToml("browser/config.toml"),
+    readTomlMissing: () => config.readToml("node-repl-compare/missing.toml"),
+  })) {
+    try {
+      result[name] = summarize(await call());
+    } catch (error) {
+      result[name] = { error: error?.message ?? String(error) };
+    }
+  }
+  globalThis.nodeRepl.write(JSON.stringify(result));
+}
+`, 'utf8');
 
   const codex = startServer('codex', codexCommand, codexEnv());
   const autoDev = startServer('autodev', autoDevCommand, autoDevEnv());

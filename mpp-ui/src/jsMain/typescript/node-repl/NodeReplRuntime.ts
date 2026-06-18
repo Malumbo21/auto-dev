@@ -385,13 +385,206 @@ export class NodeReplRuntime {
 
   private createConfigApi(): Record<string, unknown> {
     return {
-      read: async () => ({}),
-      readRequirements: async () => ({}),
-      readToml: async () => ({}),
-      writeToml: async () => undefined,
-      writeValue: async () => undefined,
-      batchWrite: async () => undefined,
+      read: async () => ({
+        config: await this.readTomlConfig('config.toml'),
+        origins: {},
+      }),
+      readRequirements: async () => ({
+        requirements: await this.readTomlConfig('requirements.toml'),
+      }),
+      readToml: async (configPath: string) => this.readTomlConfig(configPath),
+      writeToml: async (configPath: string, value: unknown) => this.writeTomlConfig(configPath, value),
+      writeValue: async (configPath: string, keyPath: string | string[], value: unknown) => {
+        const config = await this.readTomlConfig(configPath);
+        this.setNestedValue(config, Array.isArray(keyPath) ? keyPath : String(keyPath).split('.'), value);
+        await this.writeTomlConfig(configPath, config);
+      },
+      batchWrite: async (configPath: string, writes: Array<{ path?: string[]; keyPath?: string[]; value: unknown }>) => {
+        const config = await this.readTomlConfig(configPath);
+        for (const write of writes ?? []) {
+          const keyPath = write.path ?? write.keyPath;
+          if (Array.isArray(keyPath)) {
+            this.setNestedValue(config, keyPath, write.value);
+          }
+        }
+        await this.writeTomlConfig(configPath, config);
+      },
     };
+  }
+
+  private async readTomlConfig(configPath: string): Promise<Record<string, unknown>> {
+    const resolvedPath = this.resolveCodexConfigPath(configPath);
+    if (!fs.existsSync(resolvedPath)) {
+      return {};
+    }
+    const content = await fs.promises.readFile(resolvedPath, 'utf8');
+    return this.parseToml(content);
+  }
+
+  private async writeTomlConfig(configPath: string, value: unknown): Promise<void> {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      throw new Error('nodeRepl.config.writeToml expects an object');
+    }
+    const resolvedPath = this.resolveCodexConfigPath(configPath);
+    await fs.promises.mkdir(path.dirname(resolvedPath), { recursive: true });
+    await fs.promises.writeFile(resolvedPath, this.serializeToml(value as Record<string, unknown>), 'utf8');
+  }
+
+  private resolveCodexConfigPath(configPath: string): string {
+    if (!configPath || typeof configPath !== 'string') {
+      throw new Error('nodeRepl.config path must be a non-empty string');
+    }
+    if (path.isAbsolute(configPath)) {
+      throw new Error('nodeRepl.config path must be relative to CODEX_HOME');
+    }
+    const codexHome = path.resolve(process.env.CODEX_HOME || path.join(os.homedir(), '.codex'));
+    const resolvedPath = path.resolve(codexHome, configPath);
+    if (!this.isPathInside(resolvedPath, codexHome)) {
+      throw new Error('nodeRepl.config path must stay inside CODEX_HOME');
+    }
+    return resolvedPath;
+  }
+
+  private parseToml(content: string): Record<string, unknown> {
+    const root: Record<string, unknown> = {};
+    let current: Record<string, unknown> = root;
+
+    for (const rawLine of content.split(/\r?\n/)) {
+      const line = this.stripTomlComment(rawLine).trim();
+      if (!line) {
+        continue;
+      }
+
+      const section = line.match(/^\[([^\]]+)\]$/);
+      if (section) {
+        current = this.ensureTomlSection(root, section[1].split('.').map((part) => part.trim()).filter(Boolean));
+        continue;
+      }
+
+      const assignment = line.match(/^([A-Za-z0-9_.-]+)\s*=\s*(.*)$/);
+      if (!assignment) {
+        continue;
+      }
+      current[assignment[1]] = this.parseTomlValue(assignment[2].trim());
+    }
+
+    return root;
+  }
+
+  private stripTomlComment(line: string): string {
+    let inString = false;
+    let escaped = false;
+    for (let index = 0; index < line.length; index += 1) {
+      const char = line[index];
+      if (char === '\\' && inString) {
+        escaped = !escaped;
+        continue;
+      }
+      if (char === '"' && !escaped) {
+        inString = !inString;
+      }
+      if (char === '#' && !inString) {
+        return line.slice(0, index);
+      }
+      escaped = false;
+    }
+    return line;
+  }
+
+  private ensureTomlSection(root: Record<string, unknown>, pathParts: string[]): Record<string, unknown> {
+    let current = root;
+    for (const part of pathParts) {
+      const value = current[part];
+      if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        current[part] = {};
+      }
+      current = current[part] as Record<string, unknown>;
+    }
+    return current;
+  }
+
+  private parseTomlValue(rawValue: string): unknown {
+    if (rawValue.startsWith('"') && rawValue.endsWith('"')) {
+      return JSON.parse(rawValue);
+    }
+    if (rawValue === 'true') {
+      return true;
+    }
+    if (rawValue === 'false') {
+      return false;
+    }
+    if (rawValue.startsWith('[') && rawValue.endsWith(']')) {
+      try {
+        return JSON.parse(rawValue);
+      } catch {
+        return rawValue;
+      }
+    }
+    const numberValue = Number(rawValue);
+    if (Number.isFinite(numberValue)) {
+      return numberValue;
+    }
+    return rawValue;
+  }
+
+  private serializeToml(value: Record<string, unknown>): string {
+    const lines: string[] = [];
+    this.serializeTomlSection(value, [], lines);
+    return `${lines.join('\n')}\n`;
+  }
+
+  private serializeTomlSection(value: Record<string, unknown>, sectionPath: string[], lines: string[]): void {
+    const scalarEntries = Object.entries(value).filter(([, entryValue]) => !this.isTomlSection(entryValue));
+    const sectionEntries = Object.entries(value).filter(([, entryValue]) => this.isTomlSection(entryValue));
+
+    if (sectionPath.length > 0) {
+      if (lines.length > 0) {
+        lines.push('');
+      }
+      lines.push(`[${sectionPath.join('.')}]`);
+    }
+    for (const [key, entryValue] of scalarEntries) {
+      lines.push(`${key} = ${this.serializeTomlValue(entryValue)}`);
+    }
+    for (const [key, entryValue] of sectionEntries) {
+      this.serializeTomlSection(entryValue as Record<string, unknown>, [...sectionPath, key], lines);
+    }
+  }
+
+  private serializeTomlValue(value: unknown): string {
+    if (typeof value === 'string') {
+      return JSON.stringify(value);
+    }
+    if (typeof value === 'number' || typeof value === 'boolean') {
+      return String(value);
+    }
+    if (Array.isArray(value)) {
+      return JSON.stringify(value);
+    }
+    if (value == null) {
+      return '""';
+    }
+    return JSON.stringify(String(value));
+  }
+
+  private isTomlSection(value: unknown): boolean {
+    return !!value && typeof value === 'object' && !Array.isArray(value);
+  }
+
+  private setNestedValue(root: Record<string, unknown>, keyPath: string[], value: unknown): void {
+    const parts = keyPath.map((part) => String(part).trim()).filter(Boolean);
+    if (parts.length === 0) {
+      throw new Error('nodeRepl.config write path must not be empty');
+    }
+    let current = root;
+    for (const part of parts.slice(0, -1)) {
+      const nextValue = current[part];
+      if (!nextValue || typeof nextValue !== 'object' || Array.isArray(nextValue)) {
+        current[part] = {};
+      }
+      current = current[part] as Record<string, unknown>;
+    }
+    current[parts[parts.length - 1]] = value;
   }
 
   private async createNativePipeConnection(pipePath: string): Promise<net.Socket> {
