@@ -105,15 +105,6 @@ export class NodeReplRuntime {
     }
 
     const resolvedPath = path.resolve(dirPath);
-    if (!fs.existsSync(resolvedPath)) {
-      throw new Error(`Node module directory does not exist: ${resolvedPath}`);
-    }
-
-    const stats = fs.statSync(resolvedPath);
-    if (!stats.isDirectory()) {
-      throw new Error(`Node module path is not a directory: ${resolvedPath}`);
-    }
-
     if (this.moduleSearchRoots().includes(resolvedPath)) {
       return false;
     }

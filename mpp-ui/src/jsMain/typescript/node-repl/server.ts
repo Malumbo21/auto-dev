@@ -177,6 +177,15 @@ async function handleToolCall(runtime: NodeReplRuntime, request: JsonRpcRequest)
   try {
     switch (toolName) {
       case 'js': {
+        if (!Object.prototype.hasOwnProperty.call(args, 'code')) {
+          sendResult(request.id, {});
+          return;
+        }
+        if (Object.prototype.hasOwnProperty.call(args, 'timeout_ms')
+          && (typeof args.timeout_ms !== 'number' || args.timeout_ms <= 0)) {
+          sendResult(request.id, {});
+          return;
+        }
         const result = await runtime.execute({
           code: String(args.code ?? ''),
           timeoutMs: typeof args.timeout_ms === 'number' ? args.timeout_ms : undefined,
@@ -199,7 +208,13 @@ async function handleToolCall(runtime: NodeReplRuntime, request: JsonRpcRequest)
         return;
 
       case 'js_add_node_module_dir': {
-        const added = runtime.addNodeModuleDir(String(args.path ?? ''));
+        let added: boolean;
+        try {
+          added = runtime.addNodeModuleDir(String(args.path ?? ''));
+        } catch {
+          sendResult(request.id, {});
+          return;
+        }
         sendResult(request.id, {
           content: [{ type: 'text', text: String(added) }],
           isError: false,
@@ -210,7 +225,7 @@ async function handleToolCall(runtime: NodeReplRuntime, request: JsonRpcRequest)
       default:
         sendResult(request.id, {
           isError: true,
-          content: [{ type: 'text', text: `Unknown tool: ${toolName}` }],
+          content: [{ type: 'text', text: `unknown tool: ${toolName}` }],
         });
     }
   } catch (error) {

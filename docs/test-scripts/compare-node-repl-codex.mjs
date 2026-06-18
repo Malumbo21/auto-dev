@@ -310,6 +310,13 @@ async function runProbe(server, shared) {
   const result = {};
   result.initialize = await initialize(server);
   result.tools = compactTools(await server.request('tools/list'));
+  result.unknownTool = summarize(await callTool(server, 'unknown_tool', {}));
+  result.jsMissingCode = summarize(await callTool(server, 'js', {}));
+  result.jsWhitespaceCode = summarize(await callTool(server, 'js', { code: '  \n\t' }));
+  result.jsZeroTimeout = summarize(await callTool(server, 'js', {
+    code: 'nodeRepl.write("zero-timeout-ok")',
+    timeout_ms: 0,
+  }));
   result.implicitExpression = summarize(await callTool(server, 'js', { code: '1 + 1' }));
   result.consoleLog = summarize(await callTool(server, 'js', { code: 'console.log("log-ok")' }));
   result.write = summarize(await callTool(server, 'js', { code: 'nodeRepl.write("write-ok")' }));
@@ -453,6 +460,16 @@ nodeRepl.write(JSON.stringify({ value: nestedImportMetaProbe(), urlType: typeof 
   }));
   result.addModuleDirAgain = summarize(await callTool(server, 'js_add_node_module_dir', {
     path: shared.tempNodeModules,
+  }));
+  result.addModuleDirMissingPath = summarize(await callTool(server, 'js_add_node_module_dir', {}));
+  result.addModuleDirRelativePath = summarize(await callTool(server, 'js_add_node_module_dir', {
+    path: 'node_modules',
+  }));
+  result.addModuleDirNonNodeModules = summarize(await callTool(server, 'js_add_node_module_dir', {
+    path: shared.tempRoot,
+  }));
+  result.addModuleDirMissingDirectory = summarize(await callTool(server, 'js_add_node_module_dir', {
+    path: shared.missingNodeModules,
   }));
   result.addedModuleDirPackageResolve = summarize(await callTool(server, 'js', {
     code: `await import(${JSON.stringify(shared.tempModule)}).then((mod) => mod.resolvePackages([${JSON.stringify(shared.fixturePackageName)}]))`,
@@ -742,7 +759,8 @@ export async function withSuspendedTimeoutProbe() {
   const autoDev = startServer('autodev', autoDevCommand, autoDevEnv());
 
   try {
-    const shared = { tempNodeModules, tempModule, reloadModule, staticEntryModule, jsonModule, fixturePackageName, nativePipePath, fetchUrl: httpFixture.url };
+    const missingNodeModules = join(tempRoot, 'missing', 'node_modules');
+    const shared = { tempRoot, tempNodeModules, missingNodeModules, tempModule, reloadModule, staticEntryModule, jsonModule, fixturePackageName, nativePipePath, fetchUrl: httpFixture.url };
     const codexResult = {
       cliHelp: runCli(codexCommand, ['--help'], codexEnv()),
       activeExecRegistry: await runActiveExecRegistryProbe('codex', codexCommand, codexEnv()),
