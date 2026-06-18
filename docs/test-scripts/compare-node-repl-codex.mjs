@@ -350,10 +350,27 @@ async function runProbe(server, shared) {
   result.consoleTwoLogs = summarize(await callTool(server, 'js', {
     code: 'console.log("a"); console.log("b")',
   }));
+  result.consoleMethodShape = summarize(await callTool(server, 'js', {
+    code: 'nodeRepl.write(JSON.stringify(Object.fromEntries(["assert", "clear", "count", "countReset", "dirxml", "group", "groupEnd", "table", "time", "timeEnd", "trace"].map((key) => [key, typeof console[key]]))))',
+  }));
+  result.consoleFormatsValues = summarize(await callTool(server, 'js', {
+    code: 'console.log(undefined, null, true, 123, { nested: { value: 1 } }, [1, "two"])',
+  }));
+  result.consoleTraceFormat = summarize(await callTool(server, 'js', {
+    code: 'console.trace("trace-probe")',
+  }));
+  result.consoleExtraMethodsBehavior = summarize(await callTool(server, 'js', {
+    code: 'console.assert(false, "assert-probe"); console.count("count-probe"); console.count("count-probe"); console.countReset("count-probe"); console.table([{ a: 1 }]); console.group("group-probe"); console.log("inside-group"); console.groupEnd(); console.clear(); console.dirxml({ x: 1 }); nodeRepl.write("after-console-extra")',
+  }));
   result.writeTrailingNewline = summarize(await callTool(server, 'js', {
     code: 'nodeRepl.write("x\\n")',
   }));
   result.writeNonString = summarize(await callTool(server, 'js', { code: 'nodeRepl.write(123)' }));
+  result.throwString = summarize(await callTool(server, 'js', { code: 'throw "string-throw"' }));
+  result.throwNumber = summarize(await callTool(server, 'js', { code: 'throw 123' }));
+  result.rejectPlainObject = summarize(await callTool(server, 'js', {
+    code: 'await Promise.reject({ message: "plain-message", code: 7 })',
+  }));
   result.savedWriteSeed = summarize(await callTool(server, 'js', {
     code: 'globalThis.savedNodeReplWrite = nodeRepl.write; nodeRepl.write("saved-write-seed")',
   }));

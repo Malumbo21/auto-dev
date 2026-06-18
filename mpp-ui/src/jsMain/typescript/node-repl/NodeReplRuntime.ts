@@ -33,6 +33,7 @@ export interface NodeReplExecutionResult {
 
 interface ActiveExecution {
   cellIndex: number;
+  lastOutputWasConsoleLine: boolean;
   output: string[];
   images: NodeReplImageContent[];
   responseMeta: Record<string, unknown>;
@@ -126,6 +127,7 @@ export class NodeReplRuntime {
     const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     const activeExecution: ActiveExecution = {
       cellIndex: this.nextCellIndex++,
+      lastOutputWasConsoleLine: false,
       output: [],
       images: [],
       responseMeta: {},
@@ -230,15 +232,23 @@ export class NodeReplRuntime {
     };
 
     return {
+      assert: () => undefined,
+      clear: () => undefined,
+      count: () => undefined,
+      countReset: () => undefined,
       log: (...args: unknown[]) => write(args, true),
       info: (...args: unknown[]) => write(args, true),
       warn: (...args: unknown[]) => write(args, true),
       error: (...args: unknown[]) => write(args, true),
       debug: (...args: unknown[]) => write(args, true),
       dir: (value?: unknown) => write([value], true),
+      dirxml: () => undefined,
+      group: () => undefined,
+      groupEnd: () => undefined,
+      table: () => undefined,
       time: () => undefined,
       timeEnd: () => undefined,
-      trace: (...args: unknown[]) => write(args, true),
+      trace: () => undefined,
     } as unknown as Console;
   }
 
@@ -1299,7 +1309,13 @@ export class NodeReplRuntime {
   }
 
   private writeOutput(text: string): void {
-    this.getActiveExecution().output.push(text);
+    const activeExecution = this.getActiveExecution();
+    const previous = activeExecution.output.at(-1);
+    if (activeExecution.lastOutputWasConsoleLine && previous !== undefined && !previous.endsWith('\n')) {
+      activeExecution.output.push('\n');
+    }
+    activeExecution.output.push(text);
+    activeExecution.lastOutputWasConsoleLine = false;
   }
 
   private writeConsoleLine(text: string): void {
@@ -1309,6 +1325,7 @@ export class NodeReplRuntime {
       activeExecution.output.push('\n');
     }
     activeExecution.output.push(text);
+    activeExecution.lastOutputWasConsoleLine = true;
   }
 
   private getActiveExecution(): ActiveExecution {
