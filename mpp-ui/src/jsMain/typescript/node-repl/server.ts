@@ -22,6 +22,14 @@ const SERVER_NAME = 'rmcp';
 const SERVER_VERSION = '1.5.0';
 const DEFAULT_PROTOCOL_VERSION = '2024-11-05';
 const NODE_REPL_REQUEST_META_ENV = 'NODE_REPL_REQUEST_META';
+const HELP_TEXT = `Run the node_repl MCP stdio server.
+
+Usage: node_repl [OPTIONS]
+
+Options:
+      --disable-sandbox  Start the Node kernel directly even when CODEX_CLI_PATH is set
+  -h, --help             Print help
+`;
 
 const TOOL_DESCRIPTIONS = {
   js: 'Run JavaScript in a persistent Node-backed kernel with top-level await. This is the JavaScript execution tool for the `node_repl` MCP server; use it whenever instructions say to use `node_repl`, the Node REPL MCP, or run Node REPL code. If `timeout_ms` is omitted, execution times out after 30000 ms (30 seconds); pass a larger `timeout_ms` for slow browser automation or other long-running operations. Use `nodeRepl.cwd`, `nodeRepl.homeDir`, and `nodeRepl.tmpDir` to inspect host paths. Use `nodeRepl.requestMeta` to inspect the current MCP request `_meta` object during a tool call. Use `nodeRepl.setResponseMeta(meta)` to attach top-level MCP result `_meta`; repeated calls shallow-merge object keys for the current tool call. Use `nodeRepl.write(text)` when you want exact text output in the tool result; it writes the string exactly as given and does not append a newline. Prefer it over `console.log(...)` for final output, JSON, or other text you plan to consume programmatically. `console.log(...)` is still useful for ad hoc debugging or object inspection because it formats values and appends line breaks automatically. Use `await nodeRepl.emitImage(imageLike)` to return images; each call adds one image to the outer tool result, so call it multiple times to emit multiple images. Supported image inputs are a data URL, inferred PNG/JPEG/WebP bytes, or `{ bytes, mimeType }`. Saved references to `nodeRepl.write(...)` and `nodeRepl.emitImage(...)` stay reusable across calls, but async callbacks that fire after a call finishes still fail because no exec is active. Top-level bindings persist across calls until `js_reset`. If a call throws, prior bindings remain available and bindings that finished initializing before the throw often remain reusable. For reusable names that may be assigned again later, prefer top-level `var name = ...`; `var` can be redeclared across calls. If you hit `SyntaxError: Identifier \'x\' has already been declared`, reuse the existing binding if possible, reassign it only if it was declared with `let` or `var`, or pick a new name instead of resetting immediately; a previous `const x` cannot be changed into `var x`. Use a short `{ ... }` block only for temporary scratch names, and do not wrap an entire call in block scope if you want those names reusable later. Use dynamic imports like `await import("playwright")`, `await import("pkg")`, or `await import("./file.js")`; top-level static `import` is not supported. Import packages by package name after installing them into a directory added with `js_add_node_module_dir`, `NODE_REPL_NODE_MODULE_DIRS`, or the working directory. Do not import package entrypoints by filesystem path such as `./node_modules/playwright/index.mjs`. Imported local files must be ESM `.js` or `.mjs` files and run in the context chosen at their dynamic-import boundary, so they can also use `nodeRepl.*`, the captured `console`, and `import.meta` helpers. Bare package imports always resolve from the REPL-wide search roots (`NODE_REPL_NODE_MODULE_DIRS`, then directories later added with `js_add_node_module_dir`, then cwd), not relative to the imported file\'s location. Imported local files may statically import other local `.js` / `.mjs` files, available packages, and allowed Node builtins. `import.meta.resolve()` returns importable strings such as `file://...`, bare package names, and `node:...` specifiers. Local file modules reload between execs. `node:` builtins are generally available via dynamic import, but `process` / `node:process` remains blocked for now because the current Rust-server-to-Node-child transport runs over stdio and raw process streams can corrupt it. Prefer `nodeRepl.write(text)` for text output and `nodeRepl.emitImage(...)` for images.',
@@ -356,9 +364,27 @@ function sendError(id: JsonRpcRequest['id'], error: JsonRpcError): void {
 }
 
 const entrypoint = process.argv[1] ? pathToFileURL(process.argv[1]).href : '';
-if (import.meta.url === entrypoint && ensureVmModulesFlag()) {
-  startNodeReplMcpServer().catch((error) => {
-    process.stderr.write(`[${SERVER_NAME}] fatal error: ${error instanceof Error ? error.stack ?? error.message : String(error)}\n`);
-    process.exit(1);
-  });
+if (import.meta.url === entrypoint) {
+  if (handleCliArgs(process.argv.slice(2)) && ensureVmModulesFlag()) {
+    startNodeReplMcpServer().catch((error) => {
+      process.stderr.write(`[${SERVER_NAME}] fatal error: ${error instanceof Error ? error.stack ?? error.message : String(error)}\n`);
+      process.exit(1);
+    });
+  }
+}
+
+function handleCliArgs(args: string[]): boolean {
+  for (const arg of args) {
+    if (arg === '-h' || arg === '--help') {
+      process.stdout.write(HELP_TEXT);
+      return false;
+    }
+    if (arg === '--disable-sandbox') {
+      continue;
+    }
+    process.stderr.write(`error: unexpected argument '${arg}' found\n\nUsage: node_repl [OPTIONS]\n\nFor more information, try '--help'.\n`);
+    process.exitCode = 1;
+    return false;
+  }
+  return true;
 }

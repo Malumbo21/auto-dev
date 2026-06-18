@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { existsSync, readFileSync } from 'node:fs';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
@@ -207,6 +207,19 @@ function compactTools(response) {
     description: tool.description,
     inputSchema: tool.inputSchema,
   }));
+}
+
+function runCli(command, args = [], env = process.env) {
+  const result = spawnSync(command, args, {
+    cwd: repoRoot,
+    env,
+    encoding: 'utf8',
+  });
+  return {
+    status: result.status,
+    stdout: result.stdout,
+    stderr: result.stderr,
+  };
 }
 
 async function runProbe(server, shared) {
@@ -456,8 +469,14 @@ export async function withSuspendedTimeoutProbe() {
 
   try {
     const shared = { tempNodeModules, tempModule, reloadModule, staticEntryModule, fixturePackageName, nativePipePath };
-    const codexResult = await runProbe(codex, shared);
-    const autoDevResult = await runProbe(autoDev, shared);
+    const codexResult = {
+      cliHelp: runCli(codexCommand, ['--help'], codexEnv()),
+      ...(await runProbe(codex, shared)),
+    };
+    const autoDevResult = {
+      cliHelp: runCli(autoDevCommand, ['--help'], autoDevEnv()),
+      ...(await runProbe(autoDev, shared)),
+    };
     const diffs = diffValues(codexResult, autoDevResult);
 
     console.log(JSON.stringify({
