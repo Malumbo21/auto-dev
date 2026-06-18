@@ -45,6 +45,7 @@ interface ActiveExecution {
 type ModuleBindingKind = 'class' | 'const' | 'function' | 'let' | 'var';
 
 interface ModuleBindingDeclaration {
+  captureIndex: number;
   kind: ModuleBindingKind;
   name: string;
 }
@@ -863,9 +864,14 @@ export class NodeReplRuntime {
       specifier,
       this.filePathFromModuleIdentifier(referencingModule.identifier),
     ));
-    await module.evaluate();
-    await this.commitTopLevelModuleBindings(bindingDeclarations);
-    return module.namespace;
+    try {
+      await module.evaluate();
+      await this.commitTopLevelModuleBindings(bindingDeclarations);
+      return module.namespace;
+    } catch (error) {
+      await this.commitTopLevelModuleBindings(bindingDeclarations);
+      throw error;
+    }
   }
 
   private currentCellPath(): string {
@@ -876,10 +882,30 @@ export class NodeReplRuntime {
     if (declarations.length === 0) {
       return code;
     }
+    const captureGroups = new Map<number, ModuleBindingDeclaration[]>();
+    for (const declaration of declarations) {
+      const group = captureGroups.get(declaration.captureIndex) ?? [];
+      group.push(declaration);
+      captureGroups.set(declaration.captureIndex, group);
+    }
+
+    let source = '';
+    let lastIndex = 0;
+    for (const [captureIndex, group] of [...captureGroups.entries()].sort(([left], [right]) => left - right)) {
+      source += code.slice(lastIndex, captureIndex);
+      source += this.moduleBindingCaptureStatement(group);
+      lastIndex = captureIndex;
+    }
+    source += code.slice(lastIndex);
+    source += this.moduleBindingCaptureStatement(declarations);
+    return source;
+  }
+
+  private moduleBindingCaptureStatement(declarations: ModuleBindingDeclaration[]): string {
     const entries = declarations
       .map((declaration) => `${JSON.stringify(declaration.name)}: ${declaration.name}`)
       .join(', ');
-    return `${code}\nglobalThis[${JSON.stringify(this.topLevelModuleBindingKey)}] = { ${entries} };\n`;
+    return `;\nglobalThis[${JSON.stringify(this.topLevelModuleBindingKey)}] = Object.assign(globalThis[${JSON.stringify(this.topLevelModuleBindingKey)}] ?? {}, { ${entries} });\n`;
   }
 
   private async commitTopLevelModuleBindings(declarations: ModuleBindingDeclaration[]): Promise<void> {
@@ -1404,12 +1430,12 @@ export class NodeReplRuntime {
   private readTopLevelBindingDeclarations(code: string): ModuleBindingDeclaration[] {
     const declarations: ModuleBindingDeclaration[] = [];
     const seen = new Set<string>();
-    const add = (kind: ModuleBindingKind, name: string | undefined) => {
+    const add = (kind: ModuleBindingKind, name: string | undefined, captureIndex: number) => {
       if (!name || seen.has(name)) {
         return;
       }
       seen.add(name);
-      declarations.push({ kind, name });
+      declarations.push({ captureIndex, kind, name });
     };
 
     let depth = 0;
@@ -1472,7 +1498,7 @@ export class NodeReplRuntime {
           const declarationBody = code.slice(index + variableKind.length, declarationEnd);
           for (const declarator of this.splitTopLevelDeclarators(declarationBody)) {
             for (const name of this.readVariableDeclaratorBindingNames(declarator)) {
-              add(variableKind, name);
+              add(variableKind, name, declarationEnd);
             }
           }
           index = Math.max(index, declarationEnd - 1);
@@ -1480,9 +1506,9 @@ export class NodeReplRuntime {
         }
 
         if (this.matchesKeywordAt(code, index, 'function')) {
-          add('function', this.readDeclaredNameAfterKeyword(code, index + 'function'.length));
+          add('function', this.readDeclaredNameAfterKeyword(code, index + 'function'.length), this.findBlockDeclarationEnd(code, index));
         } else if (this.matchesKeywordAt(code, index, 'class')) {
-          add('class', this.readDeclaredNameAfterKeyword(code, index + 'class'.length));
+          add('class', this.readDeclaredNameAfterKeyword(code, index + 'class'.length), this.findBlockDeclarationEnd(code, index));
         }
       }
 
@@ -1549,6 +1575,136 @@ export class NodeReplRuntime {
   private readDeclaredNameAfterKeyword(code: string, index: number): string | undefined {
     const rest = code.slice(index).replace(/^\s*\*\s*/, '').trimStart();
     return rest.match(/^([A-Za-z_$][\w$]*)/)?.[1];
+  }
+
+  private findBlockDeclarationEnd(code: string, index: number): number {
+    let blockStart = -1;
+    let quote: string | null = null;
+    let escaped = false;
+    let lineComment = false;
+    let blockComment = false;
+
+    for (let cursor = index; cursor < code.length; cursor += 1) {
+      const char = code[cursor];
+      const nextChar = code[cursor + 1];
+      if (lineComment) {
+        if (char === '\n' || char === '\r') {
+          lineComment = false;
+        }
+        continue;
+      }
+      if (blockComment) {
+        if (char === '*' && nextChar === '/') {
+          blockComment = false;
+          cursor += 1;
+        }
+        continue;
+      }
+      if (quote) {
+        if (escaped) {
+          escaped = false;
+          continue;
+        }
+        if (char === '\\') {
+          escaped = true;
+          continue;
+        }
+        if (char === quote) {
+          quote = null;
+        }
+        continue;
+      }
+
+      if (char === '/' && nextChar === '/') {
+        lineComment = true;
+        cursor += 1;
+        continue;
+      }
+      if (char === '/' && nextChar === '*') {
+        blockComment = true;
+        cursor += 1;
+        continue;
+      }
+      if (char === '"' || char === '\'' || char === '`') {
+        quote = char;
+        continue;
+      }
+      if (char === '{') {
+        blockStart = cursor;
+        break;
+      }
+    }
+
+    if (blockStart < 0) {
+      return index;
+    }
+    return this.findMatchingBraceEnd(code, blockStart);
+  }
+
+  private findMatchingBraceEnd(code: string, index: number): number {
+    let depth = 0;
+    let quote: string | null = null;
+    let escaped = false;
+    let lineComment = false;
+    let blockComment = false;
+
+    for (let cursor = index; cursor < code.length; cursor += 1) {
+      const char = code[cursor];
+      const nextChar = code[cursor + 1];
+      if (lineComment) {
+        if (char === '\n' || char === '\r') {
+          lineComment = false;
+        }
+        continue;
+      }
+      if (blockComment) {
+        if (char === '*' && nextChar === '/') {
+          blockComment = false;
+          cursor += 1;
+        }
+        continue;
+      }
+      if (quote) {
+        if (escaped) {
+          escaped = false;
+          continue;
+        }
+        if (char === '\\') {
+          escaped = true;
+          continue;
+        }
+        if (char === quote) {
+          quote = null;
+        }
+        continue;
+      }
+
+      if (char === '/' && nextChar === '/') {
+        lineComment = true;
+        cursor += 1;
+        continue;
+      }
+      if (char === '/' && nextChar === '*') {
+        blockComment = true;
+        cursor += 1;
+        continue;
+      }
+      if (char === '"' || char === '\'' || char === '`') {
+        quote = char;
+        continue;
+      }
+      if (char === '{') {
+        depth += 1;
+        continue;
+      }
+      if (char === '}') {
+        depth -= 1;
+        if (depth === 0) {
+          return cursor + 1;
+        }
+      }
+    }
+    return code.length;
   }
 
   private findVariableDeclarationEnd(code: string, index: number): number {
@@ -1821,8 +1977,8 @@ export class NodeReplRuntime {
 }
 
 export class NodeReplTimeoutError extends Error {
-  constructor(timeoutMs: number) {
-    super(`js execution timed out after ${timeoutMs}ms; runtime reset`);
+  constructor(_timeoutMs: number) {
+    super('js execution timed out; kernel reset, rerun your request');
     this.name = 'NodeReplTimeoutError';
   }
 }

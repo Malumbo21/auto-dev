@@ -391,6 +391,18 @@ nodeRepl.write(JSON.stringify({ value: nestedImportMetaProbe(), urlType: typeof 
   result.afterImportMetaNestedBindings = summarize(await callTool(server, 'js', {
     code: 'nodeRepl.write(JSON.stringify({ fn: nestedImportMetaProbe(), nestedLocal: typeof nestedLocal }))',
   }));
+  result.scriptThrowAfterBinding = summarize(await callTool(server, 'js', {
+    code: 'const throwSeed = 81; throw new Error("throw-seed")',
+  }));
+  result.afterScriptThrowBinding = summarize(await callTool(server, 'js', {
+    code: 'nodeRepl.write(String(throwSeed))',
+  }));
+  result.importMetaThrowAfterBinding = summarize(await callTool(server, 'js', {
+    code: 'const moduleThrowSeed = 82; nodeRepl.write(String(import.meta.main)); throw new Error("module-throw-seed")',
+  }));
+  result.afterImportMetaThrowBinding = summarize(await callTool(server, 'js', {
+    code: 'nodeRepl.write(typeof moduleThrowSeed)',
+  }));
   result.blockProcessImport = summarize(await callTool(server, 'js', {
     code: 'try { await import("node:process"); nodeRepl.write("allowed"); } catch (error) { nodeRepl.write("blocked:" + error.message) }',
   }));
@@ -414,6 +426,9 @@ nodeRepl.write(JSON.stringify({ value: nestedImportMetaProbe(), urlType: typeof 
   }));
   result.setResponseMeta = summarize(await callTool(server, 'js', {
     code: 'nodeRepl.setResponseMeta({ probe: "ok" }); nodeRepl.write("meta-ok")',
+  }));
+  result.setResponseMetaMerge = summarize(await callTool(server, 'js', {
+    code: 'nodeRepl.setResponseMeta({ alpha: 1, shared: "first" }); nodeRepl.setResponseMeta({ beta: 2, shared: "second" }); nodeRepl.write("meta-merge-ok")',
   }));
   result.setResponseMetaArray = summarize(await callTool(server, 'js', {
     code: 'nodeRepl.setResponseMeta([])',
@@ -502,6 +517,16 @@ nodeRepl.write(JSON.stringify({ value: nestedImportMetaProbe(), urlType: typeof 
   result.withSuspendedTimeout = summarize(await callTool(server, 'js', {
     code: `await import(${JSON.stringify(shared.tempModule)}).then((mod) => mod.withSuspendedTimeoutProbe())`,
     timeout_ms: 50,
+  }));
+  result.timeoutResetsKernelSeed = summarize(await callTool(server, 'js', {
+    code: 'const timeoutSeed = 91; nodeRepl.write("timeout-seed")',
+  }));
+  result.timeoutResetsKernel = summarize(await callTool(server, 'js', {
+    code: 'await new Promise((resolve) => setTimeout(resolve, 80)); nodeRepl.write("timeout-missed")',
+    timeout_ms: 20,
+  }));
+  result.afterTimeoutReset = summarize(await callTool(server, 'js', {
+    code: 'nodeRepl.write(typeof timeoutSeed)',
   }));
   result.reset = summarize(await callTool(server, 'js_reset'));
   result.afterReset = summarize(await callTool(server, 'js', {
