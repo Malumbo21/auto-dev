@@ -395,6 +395,12 @@ async function runProbe(server, shared) {
   result.emitImageDataUrl = summarize(await callTool(server, 'js', {
     code: 'await nodeRepl.emitImage("data:image/png;base64,iVBORw0KGgo=")',
   }));
+  result.emitImageObjectDataUrl = summarize(await callTool(server, 'js', {
+    code: 'await nodeRepl.emitImage({ image_url: "data:image/png;base64,iVBORw0KGgo=" })',
+  }));
+  result.emitImagePromiseBytes = summarize(await callTool(server, 'js', {
+    code: 'await nodeRepl.emitImage(Promise.resolve(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])))',
+  }));
   result.emitImageErrorSemantics = summarize(await callTool(server, 'js', {
     code: `await import(${JSON.stringify(shared.tempModule)}).then((mod) => mod.emitImageErrorSemantics())`,
   }));

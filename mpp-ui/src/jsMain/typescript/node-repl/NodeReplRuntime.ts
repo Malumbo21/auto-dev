@@ -1120,7 +1120,7 @@ export class NodeReplRuntime {
   }
 
   private async emitImage(imageLike: unknown): Promise<void> {
-    const image = this.normalizeImage(imageLike);
+    const image = this.normalizeImage(await imageLike);
     this.getActiveExecution().images.push(image);
   }
 
