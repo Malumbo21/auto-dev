@@ -950,23 +950,40 @@ export class NodeReplRuntime {
     }
 
     if (specifier.startsWith('file://')) {
-      return { kind: 'local', url: this.versionedLocalModuleUrl(new URL(specifier)) };
+      return { kind: 'local', url: this.versionedLocalModuleUrl(this.assertSupportedLocalModuleUrl(new URL(specifier), specifier)) };
     }
 
-    if (specifier.startsWith('data:') || specifier.startsWith('node:')) {
+    if (specifier.startsWith('data:')) {
+      throw new Error(this.unsupportedImportSpecifierMessage(specifier));
+    }
+
+    if (specifier.startsWith('node:')) {
       return { kind: 'native', importSpecifier: specifier };
     }
 
     if (specifier.startsWith('.') || specifier.startsWith('/') || specifier.startsWith('..')) {
       const baseDir = referrerPath ? path.dirname(referrerPath) : this.cwd;
       const resolvedPath = path.resolve(baseDir, specifier);
-      return { kind: 'local', url: this.versionedLocalModuleUrl(pathToFileURL(resolvedPath)) };
+      return { kind: 'local', url: this.versionedLocalModuleUrl(this.assertSupportedLocalModuleUrl(pathToFileURL(resolvedPath), specifier)) };
     }
 
     const resolvedPath = this.requireForResolve.resolve(specifier, {
       paths: this.moduleSearchRoots(),
     });
     return { kind: 'native', importSpecifier: pathToFileURL(resolvedPath).href };
+  }
+
+  private assertSupportedLocalModuleUrl(moduleUrl: URL, specifier: string): URL {
+    const filePath = this.filePathFromUrl(moduleUrl);
+    const extension = path.extname(filePath).toLowerCase();
+    if (extension !== '.js' && extension !== '.mjs') {
+      throw new Error(`Unsupported import specifier ${JSON.stringify(specifier)} in node_repl. Only .js and .mjs files are supported.`);
+    }
+    return moduleUrl;
+  }
+
+  private unsupportedImportSpecifierMessage(specifier: string): string {
+    return `Unsupported import specifier ${JSON.stringify(specifier)} in node_repl. Use a package name like "lodash" or "@scope/pkg", or a relative/absolute/file:// .js/.mjs path.`;
   }
 
   private versionedLocalModuleUrl(moduleUrl: URL): URL {
@@ -1279,7 +1296,7 @@ export class NodeReplRuntime {
 
   private getActiveExecution(): ActiveExecution {
     if (!this.activeExecution) {
-      throw new Error('nodeRepl API is only available during js execution');
+      throw new Error('node_repl exec context not found');
     }
     return this.activeExecution;
   }

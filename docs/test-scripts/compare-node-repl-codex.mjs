@@ -326,6 +326,25 @@ async function runProbe(server, shared) {
     code: 'nodeRepl.write("x\\n")',
   }));
   result.writeNonString = summarize(await callTool(server, 'js', { code: 'nodeRepl.write(123)' }));
+  result.savedWriteSeed = summarize(await callTool(server, 'js', {
+    code: 'globalThis.savedNodeReplWrite = nodeRepl.write; nodeRepl.write("saved-write-seed")',
+  }));
+  result.savedWriteRef = summarize(await callTool(server, 'js', {
+    code: 'globalThis.savedNodeReplWrite("saved-write-ref")',
+  }));
+  result.savedEmitImageSeed = summarize(await callTool(server, 'js', {
+    code: 'globalThis.savedNodeReplEmitImage = nodeRepl.emitImage; nodeRepl.write("saved-image-seed")',
+  }));
+  result.savedEmitImageRef = summarize(await callTool(server, 'js', {
+    code: 'await globalThis.savedNodeReplEmitImage(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))',
+  }));
+  result.lateAsyncWriteScheduled = summarize(await callTool(server, 'js', {
+    code: 'globalThis.lateAsyncWriteResult = "pending"; setTimeout(() => { try { nodeRepl.write("late-write"); globalThis.lateAsyncWriteResult = "success"; } catch (error) { globalThis.lateAsyncWriteResult = error?.message ?? String(error); } }, 30); nodeRepl.write("scheduled")',
+  }));
+  await sleep(80);
+  result.lateAsyncWriteResult = summarize(await callTool(server, 'js', {
+    code: 'nodeRepl.write(String(globalThis.lateAsyncWriteResult))',
+  }));
   result.topLevelAwait = summarize(await callTool(server, 'js', {
     code: 'await import("node:os").then((os) => nodeRepl.write(os.platform()))',
   }));
@@ -441,6 +460,12 @@ nodeRepl.write(JSON.stringify({ value: nestedImportMetaProbe(), urlType: typeof 
   result.localStaticImports = summarize(await callTool(server, 'js', {
     code: `await import(${JSON.stringify(shared.staticEntryModule)}).then((mod) => mod.runStatic())`,
   }));
+  result.localJsonImportAttributes = summarize(await callTool(server, 'js', {
+    code: `await import(${JSON.stringify(shared.jsonModule)}, { with: { type: "json" } }).then((mod) => nodeRepl.write(JSON.stringify(mod.default)))`,
+  }));
+  result.dataJsonImportAttributes = summarize(await callTool(server, 'js', {
+    code: 'await import("data:application/json,%7B%22dataJson%22%3A72%7D", { with: { type: "json" } }).then((mod) => nodeRepl.write(JSON.stringify(mod.default)))',
+  }));
   result.importMetaShape = summarize(await callTool(server, 'js', {
     code: `await import(${JSON.stringify(shared.tempModule)}).then((mod) => mod.importMetaShape())`,
   }));
@@ -518,6 +543,7 @@ async function main() {
   const reloadModule = join(tempRoot, 'reload-count.mjs');
   const staticEntryModule = join(tempRoot, 'static-entry.mjs');
   const staticChildModule = join(tempRoot, 'static-child.mjs');
+  const jsonModule = join(tempRoot, 'fixture.json');
   const nativePipePath = join(tempRoot, 'native-pipe.sock');
   await mkdir(tempNodeModules);
   await mkdir(fixturePackageRoot);
@@ -529,6 +555,7 @@ async function main() {
   await writeFile(join(fixturePackageRoot, 'index.mjs'), 'export const fixtureValue = "fixture-ok";\n', 'utf8');
   await writeFile(reloadModule, 'globalThis.__nodeReplReloadCount = (globalThis.__nodeReplReloadCount ?? 0) + 1;\nexport const count = globalThis.__nodeReplReloadCount;\n', 'utf8');
   await writeFile(staticChildModule, 'export const childValue = "child-ok";\n', 'utf8');
+  await writeFile(jsonModule, JSON.stringify({ jsonValue: 71 }) + '\n', 'utf8');
   await writeFile(staticEntryModule, `import { childValue } from "./static-child.mjs";
 import * as semver from "semver";
 export function runStatic() {
@@ -690,7 +717,7 @@ export async function withSuspendedTimeoutProbe() {
   const autoDev = startServer('autodev', autoDevCommand, autoDevEnv());
 
   try {
-    const shared = { tempNodeModules, tempModule, reloadModule, staticEntryModule, fixturePackageName, nativePipePath, fetchUrl: httpFixture.url };
+    const shared = { tempNodeModules, tempModule, reloadModule, staticEntryModule, jsonModule, fixturePackageName, nativePipePath, fetchUrl: httpFixture.url };
     const codexResult = {
       cliHelp: runCli(codexCommand, ['--help'], codexEnv()),
       activeExecRegistry: await runActiveExecRegistryProbe('codex', codexCommand, codexEnv()),
