@@ -396,6 +396,12 @@ async function runProbe(server, shared) {
   result.topLevelAwait = summarize(await callTool(server, 'js', {
     code: 'await import("node:os").then((os) => nodeRepl.write(os.platform()))',
   }));
+  result.topLevelAwaitDeclaresBindings = summarize(await callTool(server, 'js', {
+    code: 'const awaitConst = 101; let awaitLet = 102; var awaitVar = 103; function awaitFunction() { return 104; } await Promise.resolve(); nodeRepl.write("await-bindings-ok")',
+  }));
+  result.afterTopLevelAwaitBindings = summarize(await callTool(server, 'js', {
+    code: 'nodeRepl.write(JSON.stringify({ awaitConst, awaitLet, awaitVar, awaitFunction: awaitFunction() }))',
+  }));
   result.topLevelImportMeta = summarize(await callTool(server, 'js', {
     code: 'nodeRepl.write(JSON.stringify({ dirname: import.meta.dirname ?? null, filename: import.meta.filename ?? null, main: import.meta.main ?? null, resolveSemver: import.meta.resolve("semver"), url: import.meta.url }))',
   }));

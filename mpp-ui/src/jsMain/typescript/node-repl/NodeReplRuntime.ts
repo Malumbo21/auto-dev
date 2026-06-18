@@ -941,14 +941,7 @@ export class NodeReplRuntime {
   }
 
   private async runTopLevelAwait(code: string): Promise<unknown> {
-    try {
-      return await this.runScript(`(async () => (${code}\n))()`);
-    } catch (expressionError) {
-      if (!this.isSyntaxError(expressionError)) {
-        throw expressionError;
-      }
-      return this.runScript(`(async () => {\n${code}\n})()`);
-    }
+    return this.runTopLevelModule(code);
   }
 
   private async resolveAndImport(specifier: string): Promise<unknown> {
