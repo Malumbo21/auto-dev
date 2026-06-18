@@ -1,5 +1,7 @@
 import { builtinModules, createRequire } from 'node:module';
+import * as childProcess from 'node:child_process';
 import * as fs from 'node:fs';
+import * as net from 'node:net';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -36,8 +38,12 @@ interface ActiveExecution {
 }
 
 const DEFAULT_TIMEOUT_MS = 30_000;
+const DEFAULT_NATIVE_PIPE_CONNECT_TIMEOUT_MS = 1_000;
 const NODE_MODULE_DIRS_ENV = 'NODE_REPL_NODE_MODULE_DIRS';
+const NODE_REPL_ENV_ALLOWLIST_ENV = 'NODE_REPL_UNTRUSTED_ENV_ALLOWLIST';
+const NODE_REPL_NATIVE_PIPE_CONNECT_TIMEOUT_ENV = 'NODE_REPL_NATIVE_PIPE_CONNECT_TIMEOUT_MS';
 const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
+const BLOCKED_BUILTIN_MODULES = new Set(['process', 'node:process']);
 const BUILTIN_MODULES = new Set([
   ...builtinModules,
   ...builtinModules.map((moduleName) => `node:${moduleName}`),
@@ -58,12 +64,18 @@ export class NodeReplRuntime {
     this.context = this.createContext();
   }
 
-  addNodeModuleDir(dirPath: string): string {
+  addNodeModuleDir(dirPath: string): boolean {
     if (!dirPath || typeof dirPath !== 'string') {
       throw new Error('path must be a non-empty string');
     }
+    if (!path.isAbsolute(dirPath)) {
+      throw new Error('path must be an absolute node_modules directory');
+    }
+    if (path.basename(dirPath) !== 'node_modules') {
+      throw new Error('path must point to a node_modules directory');
+    }
 
-    const resolvedPath = path.resolve(this.cwd, dirPath);
+    const resolvedPath = path.resolve(dirPath);
     if (!fs.existsSync(resolvedPath)) {
       throw new Error(`Node module directory does not exist: ${resolvedPath}`);
     }
@@ -73,11 +85,12 @@ export class NodeReplRuntime {
       throw new Error(`Node module path is not a directory: ${resolvedPath}`);
     }
 
-    if (!this.additionalModuleDirs.includes(resolvedPath)) {
-      this.additionalModuleDirs.push(resolvedPath);
+    if (this.moduleSearchRoots().includes(resolvedPath)) {
+      return false;
     }
 
-    return resolvedPath;
+    this.additionalModuleDirs.push(resolvedPath);
+    return true;
   }
 
   getModuleDirs(): string[] {
@@ -100,10 +113,7 @@ export class NodeReplRuntime {
     this.activeExecution = activeExecution;
 
     try {
-      const value = await this.withTimeout(this.evaluate(code), timeoutMs);
-      if (value !== undefined && activeExecution.output.length === 0 && activeExecution.images.length === 0) {
-        activeExecution.output.push(this.formatValue(value));
-      }
+      await this.withTimeout(this.evaluate(code), timeoutMs);
 
       const content: Array<NodeReplTextContent | NodeReplImageContent> = [];
       if (activeExecution.output.length > 0) {
@@ -159,6 +169,7 @@ export class NodeReplRuntime {
 
     sandbox.console = this.createConsole();
     sandbox.nodeRepl = this.createNodeReplApi();
+    (globalThis as any).nodeRepl = sandbox.nodeRepl;
 
     return vm.createContext(sandbox, {
       name: 'autodev-node-repl',
@@ -191,8 +202,28 @@ export class NodeReplRuntime {
       homeDir: os.homedir(),
       tmpDir: os.tmpdir(),
       addNodeModuleDir: (dirPath: string) => this.addNodeModuleDir(dirPath),
+      config: this.createConfigApi(),
+      env: this.createEnvApi(),
+      fetch: (input: RequestInfo | URL, init?: RequestInit) => fetch(input, init),
       import: (specifier: string) => this.resolveAndImport(specifier),
-      write: (text: unknown) => this.writeOutput(String(text)),
+      nativePipe: {
+        createConnection: (pipePath: string) => this.createNativePipeConnection(pipePath),
+      },
+      withSuspendedTimeout: async (callback: unknown) => {
+        if (typeof callback !== 'function') {
+          throw new Error('nodeRepl.withSuspendedTimeout expects a function');
+        }
+        return await (callback as () => unknown | Promise<unknown>)();
+      },
+      launchServices: {
+        openApplication: (applicationPathOrBundleId: string) => this.openApplication(applicationPathOrBundleId),
+      },
+      write: (text: unknown) => {
+        if (typeof text !== 'string') {
+          throw new Error('nodeRepl.write expects a string');
+        }
+        this.writeOutput(text);
+      },
       emitImage: async (imageLike: unknown) => this.emitImage(imageLike),
       setResponseMeta: (meta: Record<string, unknown>) => {
         if (!meta || typeof meta !== 'object' || Array.isArray(meta)) {
@@ -208,6 +239,122 @@ export class NodeReplRuntime {
     });
 
     return api;
+  }
+
+  private createEnvApi(): Record<string, string> {
+    const allowlist = this.parseEnvAllowlist();
+    const keys = allowlist.length > 0 ? allowlist : Object.keys(process.env);
+    const env: Record<string, string> = {};
+    for (const key of keys) {
+      const value = process.env[key];
+      if (typeof value === 'string') {
+        env[key] = value;
+      }
+    }
+    return Object.freeze(env);
+  }
+
+  private parseEnvAllowlist(): string[] {
+    const rawValue = process.env[NODE_REPL_ENV_ALLOWLIST_ENV];
+    if (!rawValue) {
+      return [];
+    }
+    return rawValue
+      .split(/[,:;]/)
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+  }
+
+  private createConfigApi(): Record<string, unknown> {
+    return {
+      read: async () => ({}),
+      readRequirements: async () => ({}),
+      readToml: async () => ({}),
+      writeToml: async () => undefined,
+      writeValue: async () => undefined,
+      batchWrite: async () => undefined,
+    };
+  }
+
+  private async createNativePipeConnection(pipePath: string): Promise<net.Socket> {
+    if (!pipePath || typeof pipePath !== 'string') {
+      throw new Error('nodeRepl.nativePipe.createConnection expects a pipe path');
+    }
+
+    const timeoutMs = this.nativePipeConnectTimeoutMs();
+    return await new Promise<net.Socket>((resolve, reject) => {
+      const socket = net.createConnection(pipePath);
+      let settled = false;
+      let timeout: NodeJS.Timeout | undefined;
+
+      const cleanup = () => {
+        socket.removeListener('connect', onConnect);
+        socket.removeListener('error', onError);
+        if (timeout) {
+          clearTimeout(timeout);
+        }
+      };
+      const fail = (error: Error) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        cleanup();
+        socket.destroy();
+        reject(error);
+      };
+      const onConnect = () => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        cleanup();
+        resolve(socket);
+      };
+      const onError = (error: Error) => fail(error);
+
+      socket.once('connect', onConnect);
+      socket.once('error', onError);
+      if (timeoutMs > 0) {
+        timeout = setTimeout(() => {
+          fail(new Error(`native pipe connection timed out after ${timeoutMs}ms: ${pipePath}`));
+        }, timeoutMs);
+      }
+    });
+  }
+
+  private nativePipeConnectTimeoutMs(): number {
+    const rawValue = process.env[NODE_REPL_NATIVE_PIPE_CONNECT_TIMEOUT_ENV];
+    if (!rawValue) {
+      return DEFAULT_NATIVE_PIPE_CONNECT_TIMEOUT_MS;
+    }
+    const value = Number(rawValue);
+    return Number.isFinite(value) && value >= 0 ? value : DEFAULT_NATIVE_PIPE_CONNECT_TIMEOUT_MS;
+  }
+
+  private async openApplication(applicationPathOrBundleId: string): Promise<void> {
+    if (!applicationPathOrBundleId || typeof applicationPathOrBundleId !== 'string') {
+      throw new Error('nodeRepl.launchServices.openApplication expects an application path or bundle id');
+    }
+    if (process.platform !== 'darwin') {
+      throw new Error('nodeRepl.launchServices.openApplication is only available on macOS');
+    }
+
+    const args = applicationPathOrBundleId.endsWith('.app') || applicationPathOrBundleId.startsWith('/')
+      ? [applicationPathOrBundleId]
+      : ['-b', applicationPathOrBundleId];
+
+    await new Promise<void>((resolve, reject) => {
+      const child = childProcess.spawn('open', args, { stdio: 'ignore' });
+      child.on('error', reject);
+      child.on('exit', (code) => {
+        if (code === 0) {
+          resolve();
+          return;
+        }
+        reject(new Error(`open exited with code ${code ?? 1}`));
+      });
+    });
   }
 
   private async evaluate(code: string): Promise<unknown> {
@@ -243,6 +390,10 @@ export class NodeReplRuntime {
   private async resolveAndImport(specifier: string): Promise<unknown> {
     if (!specifier || typeof specifier !== 'string') {
       throw new Error('import specifier must be a non-empty string');
+    }
+
+    if (BLOCKED_BUILTIN_MODULES.has(specifier)) {
+      throw new Error(`Importing ${specifier} is not allowed in node_repl`);
     }
 
     if (BUILTIN_MODULES.has(specifier)) {
@@ -281,35 +432,133 @@ export class NodeReplRuntime {
 
   private normalizeImage(imageLike: unknown): NodeReplImageContent {
     if (typeof imageLike === 'string') {
-      const match = imageLike.match(/^data:(image\/[A-Za-z0-9.+-]+);base64,(.+)$/);
-      if (!match) {
-        throw new Error('nodeRepl.emitImage only accepts image/* data URLs or { bytes, mimeType }');
+      const dataUrl = this.parseImageDataUrl(imageLike);
+      if (!dataUrl) {
+        throw new Error('nodeRepl.emitImage expects image bytes, an image/* data URL, or { bytes, mimeType }');
       }
-      return { type: 'image', mimeType: match[1], data: match[2] };
+      return dataUrl;
+    }
+
+    const directBytes = this.toImageBuffer(imageLike);
+    if (directBytes) {
+      return {
+        type: 'image',
+        mimeType: this.inferImageMimeType(directBytes),
+        data: directBytes.toString('base64'),
+      };
     }
 
     if (imageLike && typeof imageLike === 'object' && !Array.isArray(imageLike)) {
-      const candidate = imageLike as { bytes?: unknown; mimeType?: unknown };
-      if (typeof candidate.mimeType !== 'string' || !candidate.mimeType.startsWith('image/')) {
-        throw new Error('nodeRepl.emitImage object input requires an image/* mimeType');
+      const candidate = imageLike as {
+        base64?: unknown;
+        bytes?: unknown;
+        data?: unknown;
+        image_url?: unknown;
+        mimeType?: unknown;
+        mime_type?: unknown;
+      };
+
+      const imageUrl = this.extractImageUrl(candidate.image_url);
+      if (imageUrl) {
+        const dataUrl = this.parseImageDataUrl(imageUrl);
+        if (!dataUrl) {
+          throw new Error('nodeRepl.emitImage image_url must be an image/* data URL');
+        }
+        return dataUrl;
       }
-      if (candidate.bytes instanceof Uint8Array) {
+
+      if (typeof candidate.base64 === 'string') {
+        const bytes = Buffer.from(candidate.base64, 'base64');
+        const mimeType = this.readImageMimeType(candidate) ?? this.inferImageMimeType(bytes);
         return {
           type: 'image',
-          mimeType: candidate.mimeType,
-          data: Buffer.from(candidate.bytes).toString('base64'),
+          mimeType,
+          data: candidate.base64,
         };
       }
-      if (typeof candidate.bytes === 'string') {
+
+      const bytes = this.toImageBuffer(candidate.bytes) ?? this.toImageBuffer(candidate.data);
+      if (bytes) {
+        const mimeType = this.readImageMimeType(candidate) ?? this.inferImageMimeType(bytes);
         return {
           type: 'image',
-          mimeType: candidate.mimeType,
-          data: Buffer.from(candidate.bytes).toString('base64'),
+          mimeType,
+          data: bytes.toString('base64'),
         };
       }
     }
 
-    throw new Error('nodeRepl.emitImage only accepts image/* data URLs or { bytes, mimeType }');
+    throw new Error('nodeRepl.emitImage expects image bytes, an image/* data URL, or { bytes, mimeType }');
+  }
+
+  private parseImageDataUrl(value: string): NodeReplImageContent | null {
+    const match = value.match(/^data:(image\/[A-Za-z0-9.+-]+)(?:;[^,]*)?;base64,(.+)$/);
+    if (!match) {
+      return null;
+    }
+    return { type: 'image', mimeType: match[1], data: match[2] };
+  }
+
+  private extractImageUrl(value: unknown): string | null {
+    if (typeof value === 'string' && value.length > 0) {
+      return value;
+    }
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      const candidate = value as { url?: unknown };
+      return typeof candidate.url === 'string' && candidate.url.length > 0 ? candidate.url : null;
+    }
+    return null;
+  }
+
+  private readImageMimeType(candidate: { mimeType?: unknown; mime_type?: unknown }): string | null {
+    const mimeType = typeof candidate.mimeType === 'string' ? candidate.mimeType : candidate.mime_type;
+    if (typeof mimeType !== 'string') {
+      return null;
+    }
+    if (!mimeType.startsWith('image/')) {
+      throw new Error('nodeRepl.emitImage object input requires an image/* mimeType');
+    }
+    return mimeType;
+  }
+
+  private toImageBuffer(value: unknown): Buffer | null {
+    if (Object.prototype.toString.call(value) === '[object ArrayBuffer]') {
+      return Buffer.from(value as ArrayBuffer);
+    }
+    if (ArrayBuffer.isView(value)) {
+      return Buffer.from(value.buffer, value.byteOffset, value.byteLength);
+    }
+    if (typeof value === 'string') {
+      const dataUrl = this.parseImageDataUrl(value);
+      if (dataUrl) {
+        return Buffer.from(dataUrl.data, 'base64');
+      }
+      return Buffer.from(value, 'base64');
+    }
+    return null;
+  }
+
+  private inferImageMimeType(bytes: Buffer): string {
+    if (bytes.length >= 8
+      && bytes[0] === 0x89
+      && bytes[1] === 0x50
+      && bytes[2] === 0x4e
+      && bytes[3] === 0x47
+      && bytes[4] === 0x0d
+      && bytes[5] === 0x0a
+      && bytes[6] === 0x1a
+      && bytes[7] === 0x0a) {
+      return 'image/png';
+    }
+    if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+      return 'image/jpeg';
+    }
+    if (bytes.length >= 12
+      && bytes.subarray(0, 4).toString('ascii') === 'RIFF'
+      && bytes.subarray(8, 12).toString('ascii') === 'WEBP') {
+      return 'image/webp';
+    }
+    throw new Error('nodeRepl.emitImage could not infer image MIME type; pass mimeType explicitly');
   }
 
   private writeOutput(text: string): void {

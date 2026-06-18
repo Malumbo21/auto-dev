@@ -3,7 +3,9 @@
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 const repoRoot = resolve(fileURLToPath(new URL('../..', import.meta.url)));
@@ -75,6 +77,10 @@ function textOf(response) {
   return response.result?.content?.filter((item) => item.type === 'text').map((item) => item.text).join('') ?? '';
 }
 
+function imageOf(response) {
+  return response.result?.content?.find((item) => item.type === 'image') ?? null;
+}
+
 try {
   const init = await request('initialize', {
     protocolVersion: '2024-11-05',
@@ -92,19 +98,25 @@ try {
 
   const simple = await request('tools/call', {
     name: 'js',
-    arguments: { code: 'const answer = 41; answer + 1' },
+    arguments: { code: 'const answer = 41; nodeRepl.write(String(answer + 1))' },
   });
   assert(textOf(simple) === '42', `unexpected simple eval result: ${textOf(simple)}`);
 
   const persisted = await request('tools/call', {
     name: 'js',
-    arguments: { code: 'answer + 2' },
+    arguments: { code: 'nodeRepl.write(String(answer + 2))' },
   });
   assert(textOf(persisted) === '43', `persistent binding failed: ${textOf(persisted)}`);
 
+  const implicit = await request('tools/call', {
+    name: 'js',
+    arguments: { code: 'answer + 3' },
+  });
+  assert(textOf(implicit) === '', `implicit expression output should be empty: ${textOf(implicit)}`);
+
   const topLevelAwait = await request('tools/call', {
     name: 'js',
-    arguments: { code: 'await import("node:os").then((os) => os.platform())' },
+    arguments: { code: 'await import("node:os").then((os) => nodeRepl.write(os.platform()))' },
   });
   assert(textOf(topLevelAwait).length > 0, 'top-level await dynamic import returned empty output');
 
@@ -114,9 +126,56 @@ try {
   });
   assert(textOf(write).startsWith('cwd='), `nodeRepl.write failed: ${textOf(write)}`);
 
+  const envAndFetch = await request('tools/call', {
+    name: 'js',
+    arguments: { code: 'const text = await nodeRepl.fetch("data:text/plain,fetch-ok").then((res) => res.text()); nodeRepl.write((typeof nodeRepl.env.PATH === "string") + ":" + text)' },
+  });
+  assert(textOf(envAndFetch) === 'true:fetch-ok', `nodeRepl.env/fetch failed: ${textOf(envAndFetch)}`);
+
+  const nativePipe = await request('tools/call', {
+    name: 'js',
+    arguments: { code: 'nodeRepl.write(typeof nodeRepl.nativePipe.createConnection)' },
+  });
+  assert(textOf(nativePipe) === 'function', `nodeRepl.nativePipe missing: ${textOf(nativePipe)}`);
+
+  const blockedProcess = await request('tools/call', {
+    name: 'js',
+    arguments: { code: 'try { await import("node:process"); nodeRepl.write("allowed"); } catch { nodeRepl.write("blocked"); }' },
+  });
+  assert(textOf(blockedProcess) === 'blocked', `node:process import should be blocked: ${textOf(blockedProcess)}`);
+
+  const image = await request('tools/call', {
+    name: 'js',
+    arguments: { code: 'await nodeRepl.emitImage(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))' },
+  });
+  assert(imageOf(image)?.mimeType === 'image/png', 'nodeRepl.emitImage did not return inferred PNG content');
+
+  const tempRoot = await mkdtemp(join(tmpdir(), 'autodev-node-repl-'));
+  const tempNodeModules = join(tempRoot, 'node_modules');
+  await mkdir(tempNodeModules);
+  const addModuleDir = await request('tools/call', {
+    name: 'js_add_node_module_dir',
+    arguments: { path: tempNodeModules },
+  });
+  assert(textOf(addModuleDir) === 'true', `js_add_node_module_dir first add failed: ${textOf(addModuleDir)}`);
+  const addModuleDirAgain = await request('tools/call', {
+    name: 'js_add_node_module_dir',
+    arguments: { path: tempNodeModules },
+  });
+  assert(textOf(addModuleDirAgain) === 'false', `js_add_node_module_dir second add should be false: ${textOf(addModuleDirAgain)}`);
+
+  const tempModule = join(tempRoot, 'uses-node-repl.mjs');
+  await writeFile(tempModule, 'export function run() { globalThis.nodeRepl.write("module-ok"); }\n', 'utf8');
+  const localModule = await request('tools/call', {
+    name: 'js',
+    arguments: { code: `await import(${JSON.stringify(tempModule)}).then((mod) => mod.run())` },
+  });
+  assert(textOf(localModule) === 'module-ok', `local module global nodeRepl failed: ${textOf(localModule)}`);
+  await rm(tempRoot, { recursive: true, force: true });
+
   const bundledModules = await request('tools/call', {
     name: 'js',
-    arguments: { code: 'await import("pngjs").then((mod) => typeof mod.PNG)' },
+    arguments: { code: 'await import("pngjs").then((mod) => nodeRepl.write(typeof mod.PNG))' },
   });
   assert(textOf(bundledModules) === 'function', `bundled node_modules import failed: ${textOf(bundledModules)}`);
 
@@ -127,7 +186,7 @@ try {
 
   const reset = await request('tools/call', {
     name: 'js',
-    arguments: { code: 'typeof answer' },
+    arguments: { code: 'nodeRepl.write(typeof answer)' },
   });
   assert(textOf(reset) === 'undefined', `js_reset did not clear context: ${textOf(reset)}`);
 

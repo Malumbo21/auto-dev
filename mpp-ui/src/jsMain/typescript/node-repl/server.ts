@@ -23,7 +23,7 @@ const SERVER_VERSION = '0.1.0';
 const DEFAULT_PROTOCOL_VERSION = '2024-11-05';
 
 const TOOL_DESCRIPTIONS = {
-  js: 'Run JavaScript in a persistent Node-backed runtime with common Node globals, nodeRepl.write(text), nodeRepl.setResponseMeta(meta), await nodeRepl.emitImage(...), and dynamic import support when Node runs with --experimental-vm-modules.',
+  js: 'Run JavaScript in a persistent Node-backed runtime with common Node globals, nodeRepl.write(text), nodeRepl.env, nodeRepl.fetch(...), nodeRepl.nativePipe.createConnection(...), nodeRepl.setResponseMeta(meta), await nodeRepl.emitImage(...), and dynamic import support when Node runs with --experimental-vm-modules.',
   js_reset: 'Reset the persistent JavaScript runtime context.',
   js_add_node_module_dir: 'Add a directory to the runtime module resolution search path for later dynamic imports.',
   node_runtime_info: 'Return Node.js runtime and module search path diagnostics.',
@@ -181,9 +181,9 @@ async function handleToolCall(runtime: NodeReplRuntime, request: JsonRpcRequest)
         return;
 
       case 'js_add_node_module_dir': {
-        const addedPath = runtime.addNodeModuleDir(String(args.path ?? ''));
+        const added = runtime.addNodeModuleDir(String(args.path ?? ''));
         sendResult(request.id, {
-          content: [{ type: 'text', text: addedPath }],
+          content: [{ type: 'text', text: String(added) }],
         });
         return;
       }
@@ -238,6 +238,10 @@ function listTools(): Array<Record<string, unknown>> {
             type: 'number',
             description: 'Optional execution timeout in milliseconds. Defaults to 30000.',
           },
+          title: {
+            type: 'string',
+            description: 'Optional short description for clients to display.',
+          },
         },
         required: ['code'],
       },
@@ -258,7 +262,7 @@ function listTools(): Array<Record<string, unknown>> {
         properties: {
           path: {
             type: 'string',
-            description: 'Directory to add to the Node module resolution search path.',
+            description: 'Absolute path to a node_modules directory.',
           },
         },
         required: ['path'],
