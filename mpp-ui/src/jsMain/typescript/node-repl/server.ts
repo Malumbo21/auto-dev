@@ -148,13 +148,25 @@ async function handleLine(runtime: NodeReplRuntime, line: string): Promise<void>
         sendResult(request.id, { tools: listTools() });
         return;
 
+      case 'resources/list':
+        sendResult(request.id, { resources: [] });
+        return;
+
+      case 'resources/templates/list':
+        sendResult(request.id, { resourceTemplates: [] });
+        return;
+
+      case 'prompts/list':
+        sendResult(request.id, { prompts: [] });
+        return;
+
       case 'tools/call':
         await handleToolCall(runtime, request);
         return;
 
       default:
         if (request.id !== undefined) {
-          sendError(request.id, { code: -32601, message: `Method not found: ${request.method}` });
+          sendError(request.id, { code: -32601, message: request.method });
         }
     }
   } catch (error) {

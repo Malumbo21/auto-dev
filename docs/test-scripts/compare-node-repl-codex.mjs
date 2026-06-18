@@ -198,6 +198,22 @@ function summarize(response) {
   };
 }
 
+function compactRpcResponse(response) {
+  if (response.error) {
+    return {
+      kind: 'error',
+      code: response.error.code,
+      message: response.error.message,
+      dataType: response.error.data == null ? null : typeof response.error.data,
+    };
+  }
+  return {
+    kind: 'result',
+    result: response.result ?? null,
+    resultKeys: response.result && typeof response.result === 'object' ? Object.keys(response.result).sort() : [],
+  };
+}
+
 async function initialize(server) {
   const init = await server.request('initialize', {
     protocolVersion: '2024-11-05',
@@ -309,6 +325,11 @@ function runCli(command, args = [], env = process.env) {
 async function runProbe(server, shared) {
   const result = {};
   result.initialize = await initialize(server);
+  result.ping = compactRpcResponse(await server.request('ping'));
+  result.resourcesList = compactRpcResponse(await server.request('resources/list'));
+  result.resourceTemplatesList = compactRpcResponse(await server.request('resources/templates/list'));
+  result.promptsList = compactRpcResponse(await server.request('prompts/list'));
+  result.loggingSetLevel = compactRpcResponse(await server.request('logging/setLevel', { level: 'debug' }));
   result.tools = compactTools(await server.request('tools/list'));
   result.unknownTool = summarize(await callTool(server, 'unknown_tool', {}));
   result.jsMissingCode = summarize(await callTool(server, 'js', {}));
