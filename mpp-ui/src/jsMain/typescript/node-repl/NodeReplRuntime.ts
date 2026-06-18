@@ -899,7 +899,10 @@ export class NodeReplRuntime {
       context: this.context,
       identifier: moduleUrl.href,
       initializeImportMeta: (meta: Record<string, unknown>) => {
-        meta.url = moduleUrl.href;
+        meta.url = pathToFileURL(filePath).href;
+        meta.filename = filePath;
+        meta.dirname = path.dirname(filePath);
+        meta.main = false;
         meta.resolve = (innerSpecifier: string) => this.resolveImportMeta(innerSpecifier, filePath);
       },
       importModuleDynamically: (innerSpecifier: string) => this.resolveAndImportFrom(innerSpecifier, filePath) as any,
@@ -936,11 +939,31 @@ export class NodeReplRuntime {
   }
 
   private resolveImportMeta(specifier: string, referrerPath: string): string {
+    if (this.isBarePackageImportSpecifier(specifier) && !BUILTIN_MODULES.has(specifier)) {
+      this.resolveModuleSpecifier(specifier, referrerPath);
+      return specifier;
+    }
     const resolved = this.resolveModuleSpecifier(specifier, referrerPath);
     if (resolved.kind === 'local') {
-      return resolved.url.href;
+      return pathToFileURL(this.filePathFromUrl(resolved.url)).href;
     }
     return resolved.importSpecifier;
+  }
+
+  private isBarePackageImportSpecifier(specifier: string): boolean {
+    if (!specifier || typeof specifier !== 'string' || specifier.trim() !== specifier) {
+      return false;
+    }
+    if (specifier.startsWith('.') || specifier.startsWith('/') || specifier.startsWith('\\')) {
+      return false;
+    }
+    if (specifier.startsWith('file:') || specifier.startsWith('data:') || specifier.startsWith('node:')) {
+      return false;
+    }
+    if (/^[A-Za-z][A-Za-z\d+.-]*:/.test(specifier)) {
+      return false;
+    }
+    return !specifier.includes('\\');
   }
 
   private getActiveModuleCache(): Map<string, any> {

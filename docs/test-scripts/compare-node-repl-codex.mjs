@@ -302,6 +302,9 @@ async function runProbe(server, shared) {
   result.localStaticImports = summarize(await callTool(server, 'js', {
     code: `await import(${JSON.stringify(shared.staticEntryModule)}).then((mod) => mod.runStatic())`,
   }));
+  result.importMetaShape = summarize(await callTool(server, 'js', {
+    code: `await import(${JSON.stringify(shared.tempModule)}).then((mod) => mod.importMetaShape())`,
+  }));
   result.trustedHiddenApiShape = summarize(await callTool(server, 'js', {
     code: `await import(${JSON.stringify(shared.tempModule)}).then((mod) => mod.hidden())`,
   }));
@@ -397,6 +400,16 @@ export function resolvePackages(packages) {
     }
   }
   globalThis.nodeRepl.write(JSON.stringify(result));
+}
+export function importMetaShape() {
+  globalThis.nodeRepl.write(JSON.stringify({
+    dirname: import.meta.dirname ?? null,
+    filename: import.meta.filename ?? null,
+    main: import.meta.main ?? null,
+    resolvePackage: import.meta.resolve("semver"),
+    resolveSelf: import.meta.resolve("./uses-node-repl.mjs"),
+    url: import.meta.url,
+  }));
 }
 function summarize(value) {
   if (value == null || typeof value !== "object") return { type: typeof value, value };
