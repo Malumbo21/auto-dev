@@ -256,6 +256,9 @@ export class NodeReplRuntime {
       }
       return await (callback as () => unknown | Promise<unknown>)();
     });
+    this.defineTrustedApiGetter(api, 'createElicitation', () => async () => {
+      throw new Error('nodeRepl.createElicitation is unavailable because the MCP client does not support form elicitation');
+    });
     this.defineTrustedApiGetter(api, 'launchServices', () => ({
       openApplication: (applicationPathOrBundleId: string) => this.openApplication(applicationPathOrBundleId),
     }));

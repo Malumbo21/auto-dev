@@ -283,7 +283,7 @@ async function main() {
   const tempModule = join(tempRoot, 'uses-node-repl.mjs');
   await mkdir(tempNodeModules);
   await writeFile(tempModule, `export function run() { globalThis.nodeRepl.write("module-ok"); }
-export function hidden() { globalThis.nodeRepl.write(JSON.stringify({ config: typeof globalThis.nodeRepl.config, fetch: typeof globalThis.nodeRepl.fetch, nativePipe: typeof globalThis.nodeRepl.nativePipe })); }
+export function hidden() { globalThis.nodeRepl.write(JSON.stringify({ config: typeof globalThis.nodeRepl.config, createElicitation: typeof globalThis.nodeRepl.createElicitation, fetch: typeof globalThis.nodeRepl.fetch, launchServices: typeof globalThis.nodeRepl.launchServices, nativePipe: typeof globalThis.nodeRepl.nativePipe, withSuspendedTimeout: typeof globalThis.nodeRepl.withSuspendedTimeout })); }
 function summarize(value) {
   if (value == null || typeof value !== "object") return { type: typeof value, value };
   const keys = Object.keys(value).sort();
