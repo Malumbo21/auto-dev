@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "autodev.nodeRepl": {
+      "command": "autodev-node-repl",
+      "args": [],
+      "env": {
+        "NODE_REPL_NODE_MODULE_DIRS": ""
+      },
+      "trust": false
+    }
+  }
+}

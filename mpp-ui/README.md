@@ -48,6 +48,18 @@ Server
  node dist/jsMain/typescript/index.js server \\n  --task "编写 BlogService 测试" \\n  --project-id https://github.com/unit-mesh/untitled \\n  -s http://localhost:8080
 ```
 
+Node REPL MCP server
+
+```bash
+cd mpp-ui
+npm run build:ts
+AUTODEV_NODE_SOURCE="$(command -v node)" npm run prepare:node-runtime
+AUTODEV_NODE_MODULES_SOURCE="/Applications/Codex.app/Contents/Resources/cua_node/lib/node_modules" npm run prepare:node-modules
+bin/autodev-node-repl
+```
+
+`autodev-node-repl` 会优先使用 `vendor/node/<platform-arch>/` 中打包的 Node.js；没有打包 runtime 时会回退到 `NODE_REPL_NODE_PATH` 或系统 `node`。`vendor/node_modules` 会被自动加入 `nodeRepl.import(...)` 和 `await import(...)` 的包搜索路径；没有 `AUTODEV_NODE_MODULES_SOURCE` 时，`npm run prepare:node-modules` 会按 `node-repl.modules.json` 安装公共模块。MCP 配置示例见 `example/mcp/node-repl.mcp.json`。
+
 ## 构建和运行
 
 ### 前提条件

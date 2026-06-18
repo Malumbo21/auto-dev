@@ -1,0 +1,36 @@
+#!/usr/bin/env sh
+set -eu
+
+SCRIPT="$0"
+while [ -L "$SCRIPT" ]; do
+  DIR="$(CDPATH= cd -- "$(dirname -- "$SCRIPT")" && pwd)"
+  LINK="$(readlink "$SCRIPT")"
+  case "$LINK" in
+    /*) SCRIPT="$LINK" ;;
+    *) SCRIPT="$DIR/$LINK" ;;
+  esac
+done
+
+ROOT="$(CDPATH= cd -- "$(dirname -- "$SCRIPT")/.." && pwd)"
+
+OS="$(uname -s)"
+ARCH="$(uname -m)"
+PLATFORM_ARCH=""
+
+case "$OS:$ARCH" in
+  Darwin:arm64) PLATFORM_ARCH="darwin-arm64" ;;
+  Darwin:x86_64) PLATFORM_ARCH="darwin-x64" ;;
+  Linux:aarch64) PLATFORM_ARCH="linux-arm64" ;;
+  Linux:arm64) PLATFORM_ARCH="linux-arm64" ;;
+  Linux:x86_64) PLATFORM_ARCH="linux-x64" ;;
+esac
+
+NODE_BIN="${NODE_REPL_NODE_PATH:-}"
+if [ -z "$NODE_BIN" ] && [ -n "$PLATFORM_ARCH" ] && [ -x "$ROOT/vendor/node/$PLATFORM_ARCH/bin/node" ]; then
+  NODE_BIN="$ROOT/vendor/node/$PLATFORM_ARCH/bin/node"
+fi
+if [ -z "$NODE_BIN" ]; then
+  NODE_BIN="node"
+fi
+
+exec "$NODE_BIN" --experimental-vm-modules "$ROOT/dist/jsMain/typescript/node-repl/server.js" "$@"

@@ -124,16 +124,36 @@ async function main() {
     process.exit(1);
   }
 
-  // Step 5: Backup and update package.json for remote dependency
-  console.log('5️⃣  Updating package.json for remote dependency...');
+  // Step 5: Prepare bundled Node runtime
+  console.log('5. Preparing bundled Node runtime...');
+  try {
+    execSync('npm run prepare:node-runtime', { cwd: rootDir, stdio: 'inherit' });
+    console.log('Bundled Node runtime ready\n');
+  } catch (error) {
+    console.error('Bundled Node runtime preparation failed');
+    process.exit(1);
+  }
+
+  // Step 6: Prepare bundled node_modules
+  console.log('6. Preparing bundled node_modules...');
+  try {
+    execSync('npm run prepare:node-modules', { cwd: rootDir, stdio: 'inherit' });
+    console.log('Bundled node_modules ready\n');
+  } catch (error) {
+    console.error('Bundled node_modules preparation failed');
+    process.exit(1);
+  }
+
+  // Step 7: Backup and update package.json for remote dependency
+  console.log('7. Updating package.json for remote dependency...');
   copyFileSync(packageJsonPath, packageJsonBackupPath);
 
   packageJson.dependencies['@xiuper/mpp-core'] = '^' + mppCoreVersion;
   writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2) + '\n');
   console.log('✅ Updated to use @xiuper/mpp-core@^' + mppCoreVersion + '\n');
 
-  // Step 6: Verify package.json has remote dependency before publishing
-  console.log('6️⃣  Verifying package.json before publish...');
+  // Step 8: Verify package.json has remote dependency before publishing
+  console.log('8. Verifying package.json before publish...');
   const verifyPackageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
   const verifyMppCoreDep = verifyPackageJson.dependencies['@xiuper/mpp-core'];
   console.log('   Current mpp-core dependency:', verifyMppCoreDep);
@@ -149,8 +169,8 @@ async function main() {
   }
   console.log('✅ package.json verified (using remote dependency)\n');
 
-  // Step 7: Publish @xiuper/cli
-  console.log('7️⃣  Publishing @xiuper/cli...');
+  // Step 9: Publish @xiuper/cli
+  console.log('9. Publishing @xiuper/cli...');
   const shouldPublishCli = await askConfirmation('Publish @xiuper/cli v' + currentVersion + ' to npm?');
   if (!shouldPublishCli) {
     console.log('❌ Publish cancelled');
@@ -176,13 +196,13 @@ async function main() {
     process.exit(1);
   }
 
-  // Step 8: Restore package.json for local development
-  console.log('8️⃣  Restoring package.json for local development...');
+  // Step 10: Restore package.json for local development
+  console.log('10. Restoring package.json for local development...');
   copyFileSync(packageJsonBackupPath, packageJsonPath);
   console.log('✅ package.json restored\n');
 
-  // Step 9: Reinstall with local file: dependency
-  console.log('9️⃣  Reinstalling local dependencies...');
+  // Step 11: Reinstall with local file: dependency
+  console.log('11. Reinstalling local dependencies...');
   try {
     execSync('npm install', { cwd: rootDir, stdio: 'inherit' });
     console.log('✅ Local dependencies restored\n');

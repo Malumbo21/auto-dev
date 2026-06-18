@@ -1,0 +1,17 @@
+{
+  "description": "Default optional modules bundled for the AutoDev node_repl MCP runtime. Versions mirror the Codex.app cua_node package where practical.",
+  "dependencies": {
+    "playwright": "1.57.0",
+    "playwright-core": "1.57.0",
+    "tesseract.js": "7.0.0",
+    "tesseract.js-core": "7.0.0",
+    "pdfjs-dist": "5.4.624",
+    "sharp": "0.34.5",
+    "pixelmatch": "7.1.0",
+    "pngjs": "7.0.0",
+    "jpeg-js": "0.4.4",
+    "bmp-js": "0.1.0",
+    "node-fetch": "2.7.0",
+    "semver": "7.7.3"
+  }
+}

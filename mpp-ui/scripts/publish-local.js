@@ -58,8 +58,18 @@ try {
     console.warn('⚠️  Some tests failed, continuing anyway...\n');
   }
 
-  // Step 5: Create local package
-  console.log('5️⃣  Creating local package...');
+  // Step 5: Prepare bundled Node runtime
+  console.log('5. Preparing bundled Node runtime...');
+  execSync('npm run prepare:node-runtime', { cwd: rootDir, stdio: 'inherit' });
+  console.log('Bundled Node runtime ready\n');
+
+  // Step 6: Prepare bundled node_modules
+  console.log('6. Preparing bundled node_modules...');
+  execSync('npm run prepare:node-modules', { cwd: rootDir, stdio: 'inherit' });
+  console.log('Bundled node_modules ready\n');
+
+  // Step 7: Create local package
+  console.log('7. Creating local package...');
   execSync('npm pack', { cwd: rootDir, stdio: 'inherit' });
   console.log('✅ Package created\n');
 

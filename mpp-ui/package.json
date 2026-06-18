@@ -5,13 +5,17 @@
   "type": "module",
   "bin": {
     "xiuper": "./dist/jsMain/typescript/index.js",
-    "autodev": "./dist/jsMain/typescript/index.js"
+    "autodev": "./dist/jsMain/typescript/index.js",
+    "autodev-node-repl": "./bin/autodev-node-repl"
   },
   "scripts": {
     "build:kotlin": "cd .. && ./gradlew :mpp-core:jsNodeProductionLibraryDistribution && cd mpp-core && node scripts/fix-package-json.js",
     "build:kotlin-deps": "cd ../mpp-core/build/dist/js/productionLibrary && npm install --ignore-scripts",
     "build:ts": "cd .. && ./gradlew :mpp-ui:compileKotlinJs && cd mpp-ui && tsc && chmod +x dist/jsMain/typescript/index.js",
     "build": "npm run build:kotlin && npm run build:kotlin-deps && npm run build:ts",
+    "prepare:node-runtime": "node scripts/prepare-node-runtime.js",
+    "prepare:node-modules": "node scripts/prepare-node-modules.js",
+    "node-repl": "bin/autodev-node-repl",
     "dev": "tsc --watch",
     "start": "node dist/jsMain/typescript/index.js",
     "code": "node dist/jsMain/typescript/index.js code",
@@ -29,9 +33,9 @@
     "validate:scenarios": "node scripts/validate-scenarios.js",
     "clean": "rm -rf dist build",
     "icon:convert": "bash scripts/convert-icon.sh && python3 scripts/convert-icon-windows.py",
-    "prepublish:local": "npm run build",
+    "prepublish:local": "npm run build && npm run prepare:node-runtime && npm run prepare:node-modules",
     "publish:local": "node scripts/publish-local.js",
-    "prepublish:remote": "npm run build",
+    "prepublish:remote": "npm run build && npm run prepare:node-runtime && npm run prepare:node-modules",
     "publish:remote": "node scripts/publish-remote.js",
     "postinstall": "node scripts/check-mpp-core.js || echo 'Warning: mpp-core not found, run npm run build:kotlin first'"
   },
@@ -79,7 +83,11 @@
     "vitest": "^2.1.8"
   },
   "files": [
+    "bin/",
     "dist/",
+    "node-repl.modules.json",
+    "vendor/node/",
+    "vendor/node_modules/",
     "README.md"
   ]
 }

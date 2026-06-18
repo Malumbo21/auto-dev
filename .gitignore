@@ -180,6 +180,15 @@ local.properties
 docs
 Samples
 
+!mpp-ui/bin/
+!mpp-ui/bin/autodev-node-repl
+!mpp-ui/bin/autodev-node-repl.cmd
+
+!docs/
+docs/*
+!docs/test-scripts/
+!docs/test-scripts/probe-node-repl-mcp.mjs
+
 # iOS / Xcode
 ## Build generated
 DerivedData/
