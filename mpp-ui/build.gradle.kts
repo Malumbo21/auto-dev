@@ -81,7 +81,6 @@ kotlin {
 
     // iOS targets
     listOf(
-        iosX64(),
         iosArm64(),
         iosSimulatorArm64()
     ).forEach { iosTarget ->
@@ -116,7 +115,7 @@ kotlin {
         compilerOptions {
             freeCompilerArgs.add("-opt-in=androidx.compose.material3.ExperimentalMaterial3Api")
             freeCompilerArgs.add("-opt-in=kotlin.time.ExperimentalTime")
-            // Allow deprecated CanvasBasedWindow API until migration to ComposeViewport is complete
+            // Keep JS diagnostics quiet for third-party generated declarations.
             suppressWarnings = true
         }
     }
@@ -132,7 +131,7 @@ kotlin {
         compilerOptions {
             freeCompilerArgs.add("-opt-in=androidx.compose.material3.ExperimentalMaterial3Api")
             freeCompilerArgs.add("-opt-in=kotlin.time.ExperimentalTime")
-            // Allow deprecated CanvasBasedWindow API until migration to ComposeViewport is complete
+            // Keep WASM diagnostics quiet for third-party generated declarations.
             suppressWarnings = true
         }
 //        d8 {
@@ -152,7 +151,7 @@ kotlin {
                 implementation(compose.runtime)
                 implementation(compose.foundation)
                 implementation(compose.material3)
-                implementation("org.jetbrains.compose.material:material-icons-core:1.7.3")
+                implementation(libs.compose.material.icons.core)
                 implementation(compose.ui)
                 implementation(compose.components.resources)
                 // Animation (needed for animateContentSize in LiveTerminalItem)
@@ -321,7 +320,6 @@ kotlin {
             }
         }
 
-        val iosX64Main by getting
         val iosArm64Main by getting
         val iosSimulatorArm64Main by getting
         iosMain {

@@ -50,7 +50,6 @@ kotlin {
     }
 
     listOf(
-        iosX64(),
         iosArm64(),
         iosSimulatorArm64()
     ).forEach { iosTarget ->
@@ -81,7 +80,7 @@ kotlin {
                 implementation(compose.foundation)
                 implementation(compose.material3)
                 implementation(compose.ui)
-                implementation("org.jetbrains.compose.material:material-icons-core:1.7.3")
+                implementation(libs.compose.material.icons.core)
 
                 // JSON serialization
                 implementation(libs.kotlinx.serialization.json)

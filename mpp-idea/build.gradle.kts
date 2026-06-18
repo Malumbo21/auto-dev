@@ -7,8 +7,12 @@ import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 import org.jetbrains.intellij.platform.gradle.extensions.IntelliJPlatformDependenciesExtension
 import org.jetbrains.intellij.platform.gradle.extensions.IntelliJPlatformTestingExtension
 import org.jetbrains.intellij.platform.gradle.tasks.RunIdeTask
+import org.jetbrains.intellij.platform.gradle.tasks.VerifyPluginTask.FailureLevel
 import org.jetbrains.intellij.platform.gradle.utils.extensionProvider
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import java.util.zip.ZipEntry
+import java.util.zip.ZipInputStream
+import java.util.zip.ZipOutputStream
 
 // The same as `--stacktrace` param
 gradle.startParameter.showStacktrace = ShowStacktrace.ALWAYS
@@ -19,7 +23,7 @@ plugins {
     kotlin("jvm") version "2.3.20"
     kotlin("plugin.compose") version "2.3.20"
     kotlin("plugin.serialization") version "2.3.20"
-    id("org.jetbrains.intellij.platform") version "2.11.0"
+    id("org.jetbrains.intellij.platform") version "2.16.0"
     id("org.jetbrains.changelog") version "2.5.0"
     id("org.jetbrains.grammarkit") version "2022.3.2.2"
 }
@@ -75,6 +79,13 @@ repositories {
 // Global exclusions for heavy dependencies not needed in IntelliJ plugin
 // These exclusions apply to ALL configurations including transitive dependencies from includeBuild projects
 configurations.all {
+    resolutionStrategy.eachDependency {
+        if (requested.group == "io.modelcontextprotocol" && requested.name.startsWith("kotlin-sdk")) {
+            useVersion("0.7.2")
+            because("The IDEA MCP integration is compiled against kotlin-sdk 0.7.2 API names")
+        }
+    }
+
     exclude(group = "aws.sdk.kotlin")           // AWS SDK (~30MB) - from ai.koog:prompt-executor-bedrock-client
     exclude(group = "aws.smithy.kotlin")        // AWS Smithy runtime
     exclude(group = "org.apache.tika")          // Apache Tika (~100MB) - document parsing
@@ -114,7 +125,7 @@ configurations.all {
 
 
 kotlin {
-    jvmToolchain(17)
+    jvmToolchain(21)
 
     compilerOptions {
         freeCompilerArgs.addAll(
@@ -155,13 +166,13 @@ configure(subprojects) {
     }
 
     configure<JavaPluginExtension> {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
     }
 
     tasks.withType<KotlinCompile> {
         compilerOptions {
-            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
         }
     }
 
@@ -208,7 +219,7 @@ project(":") {
     // Kotlin compiler options for Compose
     tasks.withType<KotlinCompile> {
         compilerOptions {
-            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
             freeCompilerArgs.addAll(
                 listOf(
                     "-opt-in=androidx.compose.foundation.ExperimentalFoundationApi"
@@ -257,7 +268,6 @@ project(":") {
 
             ideaVersion {
                 sinceBuild = prop("pluginSinceBuild")
-                untilBuild = prop("pluginUntilBuild")
             }
 
             vendor {
@@ -267,11 +277,12 @@ project(":") {
 
         pluginVerification {
             freeArgs = listOf("-mute", "TemplateWordInPluginId,ForbiddenPluginIdPrefix")
+            failureLevel = listOf(FailureLevel.COMPATIBILITY_PROBLEMS)
             ides {
-                ide(IntellijIdeaUltimate, "2025.2")
+                create(IntellijIdeaUltimate, prop("ideaVersion").removePrefix("IU-"))
                 select {
                     types = listOf(IntellijIdeaUltimate)
-                    sinceBuild = "252"
+                    sinceBuild = prop("pluginSinceBuild")
                     untilBuild = "253.*"
                 }
             }
@@ -400,13 +411,6 @@ project(":") {
             exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-io-core")
             exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-io-core-jvm")
         }
-        compileOnly("io.ktor:ktor-client-logging:3.2.2")
-
-        // Use compileOnly for coroutines - IntelliJ provides these at runtime
-        // This ensures we compile against the same API but use IntelliJ's ClassLoader at runtime
-        // Note: We use Dispatchers.EDT from IntelliJ Platform instead of Dispatchers.Swing
-        compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
-
         // ===== ACP (Agent Client Protocol) =====
         // Local ACP agent integration uses JSON-RPC over stdio.
         // Exclude kotlinx deps to avoid conflicts with IntelliJ's bundled versions.
@@ -427,6 +431,20 @@ project(":") {
         // ACP stdio transport uses kotlinx-io (not bundled by IntelliJ).
         implementation("org.jetbrains.kotlinx:kotlinx-io-core:0.8.0") {
             // Ensure Kotlin stdlib is not packaged into the plugin distribution.
+            excludeKotlinDeps()
+        }
+
+        implementation("io.modelcontextprotocol:kotlin-sdk:0.7.2") {
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core-jvm")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json-jvm")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json-io")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-json-io-jvm")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-core")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-serialization-core-jvm")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-io-core")
+            exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-io-core-jvm")
             excludeKotlinDeps()
         }
 
@@ -518,7 +536,7 @@ project(":") {
             val changelog = project.changelog
             // Get the latest available change notes from the changelog file
             changeNotes.set(properties("pluginVersion").map { pluginVersion ->
-                with(changelog) {
+                val renderedChangeNotes = with(changelog) {
                     renderItem(
                         (getOrNull(pluginVersion) ?: getUnreleased())
                             .withHeader(false)
@@ -526,6 +544,16 @@ project(":") {
 
                         Changelog.OutputType.HTML,
                     )
+                }
+
+                renderedChangeNotes.ifBlank {
+                    """
+                    <ul>
+                      <li>Restore DevIn command completion for Swing-based IDEA input fields.</li>
+                      <li>Upgrade IntelliJ Platform Gradle Plugin to 2.16.0 and target IntelliJ IDEA 2025.2.6.2.</li>
+                      <li>Upgrade Gradle wrapper to 9.0.0, IDEA plugin compilation target to JDK 21, and Compose Multiplatform to 1.11.1.</li>
+                    </ul>
+                    """.trimIndent()
                 }
             })
         }
@@ -545,7 +573,13 @@ project(":") {
 
         // Exclude large font files from mpp-ui that are not needed in IDEA plugin
         // These fonts are for Desktop/WASM apps, IDEA has its own fonts
+        val sandboxPluginDir = layout.projectDirectory
+            .dir(".intellijPlatform/sandbox/mpp-idea/${prop("ideaVersion")}/plugins/$basePluginArchiveName")
+            .asFile
+
         named<org.jetbrains.intellij.platform.gradle.tasks.PrepareSandboxTask>("prepareSandbox") {
+            notCompatibleWithConfigurationCache("Moves IntelliJ content module jars into the legacy lib layout")
+
             // Exclude font files from the plugin distribution
             // NotoSansSC-Regular.ttf (~18MB), NotoColorEmoji.ttf (~11MB x2), FiraCode fonts (~1MB)
             exclude("**/fonts/**")
@@ -559,6 +593,59 @@ project(":") {
             // Exclude Kotlin runtime to avoid duplicate Kotlin in IDE vs plugin classloaders
             exclude("**/kotlin-stdlib*.jar")
             exclude("**/kotlin-reflect*.jar")
+
+            doLast {
+                val libDir = sandboxPluginDir.resolve("lib")
+                val modulesDir = libDir.resolve("modules")
+
+                if (modulesDir.isDirectory) {
+                    val descriptorEntries = setOf(
+                        "META-INF/autodev-core.xml",
+                        "META-INF/docker.xml",
+                        "META-INF/json-contrib.xml",
+                        "cc.unitmesh.idea.xml",
+                        "cc.unitmesh.go.xml",
+                        "cc.unitmesh.git.xml",
+                        "cc.unitmesh.kotlin.xml",
+                        "cc.unitmesh.javascript.xml",
+                        "cc.unitmesh.pycharm.xml",
+                        "cc.unitmesh.rust.xml",
+                        "cc.unitmesh.terminal.xml",
+                        "cc.unitmesh.database.xml",
+                        "cc.unitmesh.devti.language.xml",
+                        "cc.unitmesh.nanodsl.language.xml",
+                    )
+                    modulesDir.listFiles { file -> file.isFile && file.extension == "jar" }
+                        ?.forEach { moduleJar ->
+                            val targetJar = libDir.resolve(moduleJar.name)
+                            moduleJar.copyTo(targetJar, overwrite = true)
+
+                            val tempJar = File(libDir, "${moduleJar.name}.tmp")
+                            ZipInputStream(targetJar.inputStream().buffered()).use { input ->
+                                ZipOutputStream(tempJar.outputStream().buffered()).use { output ->
+                                    var entry = input.nextEntry
+                                    while (entry != null) {
+                                        if (entry.name !in descriptorEntries) {
+                                            output.putNextEntry(ZipEntry(entry.name))
+                                            if (!entry.isDirectory) {
+                                                input.copyTo(output)
+                                            }
+                                            output.closeEntry()
+                                        }
+                                        input.closeEntry()
+                                        entry = input.nextEntry
+                                    }
+                                }
+                            }
+
+                            check(targetJar.delete()) { "Failed to replace ${targetJar.absolutePath}" }
+                            check(tempJar.renameTo(targetJar)) {
+                                "Failed to move ${tempJar.absolutePath} to ${targetJar.absolutePath}"
+                            }
+                        }
+                    modulesDir.deleteRecursively()
+                }
+            }
         }
 
         // Task to verify no conflicting dependencies are included
@@ -1048,7 +1135,7 @@ fun String.toTypeWithVersion(): TypeWithVersion {
 
 fun IntelliJPlatformDependenciesExtension.intellijIde(versionWithCode: String) {
     val (type, version) = versionWithCode.toTypeWithVersion()
-    create(type, version, useInstaller = false)
+    create(type, version)
 }
 
 fun IntelliJPlatformDependenciesExtension.intellijPlugins(vararg notations: String) {
@@ -1100,7 +1187,6 @@ fun <T : ModuleDependency> T.excludeKotlinDeps() {
     exclude(module = "kotlin-stdlib-common")
     exclude(module = "kotlin-stdlib-jdk8")
 }
-
 
 fun parseManifest(file: File): Node {
     val node = XmlParser().parse(file)

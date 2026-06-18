@@ -11,7 +11,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFontFamilyResolver
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.window.CanvasBasedWindow
 import androidx.compose.ui.window.ComposeViewport
 import cc.unitmesh.mpp_ui.generated.resources.NotoSansSC_Regular
 import cc.unitmesh.mpp_ui.generated.resources.Res
@@ -52,7 +51,6 @@ private fun notifyWasmReadyOnce() {
  * It's loaded asynchronously and the app shows a loading indicator until fonts are ready.
  */
 @OptIn(ExperimentalComposeUiApi::class, ExperimentalResourceApi::class, InternalComposeUiApi::class)
-@Suppress("DEPRECATION")
 fun main() {
     // Configure web resources path mapping (required for WASM)
     configureWebResources {
@@ -92,4 +90,3 @@ fun main() {
         }
     }
 }
-

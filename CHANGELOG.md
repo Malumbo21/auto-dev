@@ -5,6 +5,18 @@
 ### Changes
 - Module architecture refactoring: moved IDEA plugin modules into mpp-idea composite build
 
+## [0.4.1](https://github.com/unit-mesh/auto-dev/compare/v0.4.0...v0.4.1) (2026-06-18)
+
+### Bug Fixes
+
+- Restore DevIn command completion for Swing-based IDEA input fields.
+
+### Changes
+
+- Upgrade IntelliJ Platform Gradle Plugin to 2.16.0 and target IntelliJ IDEA 2025.2.6.2.
+- Upgrade Gradle wrapper to 9.0.0 and IDEA plugin compilation target to JDK 21.
+- Upgrade Compose Multiplatform to 1.11.1 and migrate WASM entrypoint away from the removed CanvasBasedWindow API.
+
 ## [2.4.6](https://github.com/unit-mesh/auto-dev/compare/v2.4.5...v[2.4.6]) (2025-10-28)
 
 ### Bug Fixes
