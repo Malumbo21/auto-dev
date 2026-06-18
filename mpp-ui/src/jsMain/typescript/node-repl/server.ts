@@ -21,6 +21,7 @@ interface JsonRpcError {
 const SERVER_NAME = 'rmcp';
 const SERVER_VERSION = '1.5.0';
 const DEFAULT_PROTOCOL_VERSION = '2024-11-05';
+const NODE_REPL_REQUEST_META_ENV = 'NODE_REPL_REQUEST_META';
 
 const TOOL_DESCRIPTIONS = {
   js: 'Run JavaScript in a persistent Node-backed kernel with top-level await. This is the JavaScript execution tool for the `node_repl` MCP server; use it whenever instructions say to use `node_repl`, the Node REPL MCP, or run Node REPL code. If `timeout_ms` is omitted, execution times out after 30000 ms (30 seconds); pass a larger `timeout_ms` for slow browser automation or other long-running operations. Use `nodeRepl.cwd`, `nodeRepl.homeDir`, and `nodeRepl.tmpDir` to inspect host paths. Use `nodeRepl.requestMeta` to inspect the current MCP request `_meta` object during a tool call. Use `nodeRepl.setResponseMeta(meta)` to attach top-level MCP result `_meta`; repeated calls shallow-merge object keys for the current tool call. Use `nodeRepl.write(text)` when you want exact text output in the tool result; it writes the string exactly as given and does not append a newline. Prefer it over `console.log(...)` for final output, JSON, or other text you plan to consume programmatically. `console.log(...)` is still useful for ad hoc debugging or object inspection because it formats values and appends line breaks automatically. Use `await nodeRepl.emitImage(imageLike)` to return images; each call adds one image to the outer tool result, so call it multiple times to emit multiple images. Supported image inputs are a data URL, inferred PNG/JPEG/WebP bytes, or `{ bytes, mimeType }`. Saved references to `nodeRepl.write(...)` and `nodeRepl.emitImage(...)` stay reusable across calls, but async callbacks that fire after a call finishes still fail because no exec is active. Top-level bindings persist across calls until `js_reset`. If a call throws, prior bindings remain available and bindings that finished initializing before the throw often remain reusable. For reusable names that may be assigned again later, prefer top-level `var name = ...`; `var` can be redeclared across calls. If you hit `SyntaxError: Identifier \'x\' has already been declared`, reuse the existing binding if possible, reassign it only if it was declared with `let` or `var`, or pick a new name instead of resetting immediately; a previous `const x` cannot be changed into `var x`. Use a short `{ ... }` block only for temporary scratch names, and do not wrap an entire call in block scope if you want those names reusable later. Use dynamic imports like `await import("playwright")`, `await import("pkg")`, or `await import("./file.js")`; top-level static `import` is not supported. Import packages by package name after installing them into a directory added with `js_add_node_module_dir`, `NODE_REPL_NODE_MODULE_DIRS`, or the working directory. Do not import package entrypoints by filesystem path such as `./node_modules/playwright/index.mjs`. Imported local files must be ESM `.js` or `.mjs` files and run in the context chosen at their dynamic-import boundary, so they can also use `nodeRepl.*`, the captured `console`, and `import.meta` helpers. Bare package imports always resolve from the REPL-wide search roots (`NODE_REPL_NODE_MODULE_DIRS`, then directories later added with `js_add_node_module_dir`, then cwd), not relative to the imported file\'s location. Imported local files may statically import other local `.js` / `.mjs` files, available packages, and allowed Node builtins. `import.meta.resolve()` returns importable strings such as `file://...`, bare package names, and `node:...` specifiers. Local file modules reload between execs. `node:` builtins are generally available via dynamic import, but `process` / `node:process` remains blocked for now because the current Rust-server-to-Node-child transport runs over stdio and raw process streams can corrupt it. Prefer `nodeRepl.write(text)` for text output and `nodeRepl.emitImage(...)` for images.',
@@ -171,7 +172,7 @@ async function handleToolCall(runtime: NodeReplRuntime, request: JsonRpcRequest)
         const result = await runtime.execute({
           code: String(args.code ?? ''),
           timeoutMs: typeof args.timeout_ms === 'number' ? args.timeout_ms : undefined,
-          requestMeta: request.params?._meta ?? {},
+          requestMeta: buildRequestMeta(request.params?._meta),
         });
         sendResult(request.id, {
           content: result.content,
@@ -220,6 +221,50 @@ function formatErrorMessage(error: unknown): string {
     return String((error as { message: unknown }).message);
   }
   return String(error);
+}
+
+function buildRequestMeta(callMeta: unknown): Record<string, unknown> {
+  return sortPlainObject({
+    ...readEnvRequestMeta(),
+    ...readPlainObject(callMeta),
+  });
+}
+
+function readEnvRequestMeta(): Record<string, unknown> {
+  const rawValue = process.env[NODE_REPL_REQUEST_META_ENV];
+  if (!rawValue) {
+    return {};
+  }
+  try {
+    return readPlainObject(JSON.parse(rawValue));
+  } catch {
+    return {};
+  }
+}
+
+function readPlainObject(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {};
+  }
+  return value as Record<string, unknown>;
+}
+
+function sortPlainObject(value: Record<string, unknown>): Record<string, unknown> {
+  const sorted: Record<string, unknown> = {};
+  for (const key of Object.keys(value).sort()) {
+    sorted[key] = sortJsonLikeValue(value[key]);
+  }
+  return sorted;
+}
+
+function sortJsonLikeValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((entry) => sortJsonLikeValue(entry));
+  }
+  if (value && typeof value === 'object') {
+    return sortPlainObject(value as Record<string, unknown>);
+  }
+  return value;
 }
 
 function listTools(): Array<Record<string, unknown>> {

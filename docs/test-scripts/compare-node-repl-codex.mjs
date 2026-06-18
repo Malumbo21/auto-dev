@@ -15,6 +15,12 @@ const codexConfig = resolve(process.env.HOME ?? '', '.codex/config.toml');
 const codexConfigEnv = readCodexNodeReplConfigEnv();
 const codexCommand = readCodexNodeReplCommand() ?? join(codexRoot, 'bin/node_repl');
 const autoDevCommand = resolve(repoRoot, 'mpp-ui/bin/autodev-node-repl');
+const requestMetaEnv = JSON.stringify({
+  env_key: 'env-value',
+  session_id: 'env-session',
+  turn_id: 'env-turn',
+  sandbox: { danger: true },
+});
 const bundledPackageProbes = [
   '@napi-rs/canvas',
   '@oai/sky',
@@ -39,6 +45,7 @@ function codexEnv() {
     NODE_REPL_NODE_MODULE_DIRS: join(codexRoot, 'lib/node_modules'),
     NODE_REPL_NODE_PATH: join(codexRoot, 'bin/node'),
     ...codexConfigEnv,
+    NODE_REPL_REQUEST_META: requestMetaEnv,
   };
 }
 
@@ -47,6 +54,7 @@ function autoDevEnv() {
     ...process.env,
     NODE_REPL_NATIVE_PIPE_CONNECT_TIMEOUT_MS: '1000',
     NODE_REPL_NODE_MODULE_DIRS: resolve(repoRoot, 'mpp-ui/vendor/node_modules'),
+    NODE_REPL_REQUEST_META: requestMetaEnv,
     NODE_REPL_TRUSTED_CODE_PATHS: codexConfigEnv.NODE_REPL_TRUSTED_CODE_PATHS ?? repoRoot,
     NODE_REPL_TRUSTED_BROWSER_CLIENT_SHA256S: codexConfigEnv.NODE_REPL_TRUSTED_BROWSER_CLIENT_SHA256S,
     NODE_REPL_INSTRUCTIONS_USE_CASE_BROWSER: codexConfigEnv.NODE_REPL_INSTRUCTIONS_USE_CASE_BROWSER,
@@ -236,6 +244,9 @@ async function runProbe(server, shared) {
   result.requestMeta = summarize(await callTool(server, 'js', {
     code: 'nodeRepl.write(JSON.stringify(nodeRepl.requestMeta))',
   }, { session_id: 's1', turn_id: 't1' }));
+  result.requestMetaFromEnv = summarize(await callTool(server, 'js', {
+    code: 'nodeRepl.write(JSON.stringify(nodeRepl.requestMeta))',
+  }));
   result.setResponseMeta = summarize(await callTool(server, 'js', {
     code: 'nodeRepl.setResponseMeta({ probe: "ok" }); nodeRepl.write("meta-ok")',
   }));
