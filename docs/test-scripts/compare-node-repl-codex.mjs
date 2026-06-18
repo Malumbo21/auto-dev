@@ -237,6 +237,12 @@ async function runProbe(server, shared) {
   result.localModuleGlobal = summarize(await callTool(server, 'js', {
     code: `await import(${JSON.stringify(shared.tempModule)}).then((mod) => mod.run())`,
   }));
+  result.localModuleReloadFirst = summarize(await callTool(server, 'js', {
+    code: `await import(${JSON.stringify(shared.reloadModule)}).then((mod) => nodeRepl.write(String(mod.count)))`,
+  }));
+  result.localModuleReloadSecond = summarize(await callTool(server, 'js', {
+    code: `await import(${JSON.stringify(shared.reloadModule)}).then((mod) => nodeRepl.write(String(mod.count)))`,
+  }));
   result.trustedHiddenApiShape = summarize(await callTool(server, 'js', {
     code: `await import(${JSON.stringify(shared.tempModule)}).then((mod) => mod.hidden())`,
   }));
@@ -281,7 +287,9 @@ async function main() {
   const tempRoot = await mkdtemp(join(trustedScratchParent, 'node-repl-compare-'));
   const tempNodeModules = join(tempRoot, 'node_modules');
   const tempModule = join(tempRoot, 'uses-node-repl.mjs');
+  const reloadModule = join(tempRoot, 'reload-count.mjs');
   await mkdir(tempNodeModules);
+  await writeFile(reloadModule, 'globalThis.__nodeReplReloadCount = (globalThis.__nodeReplReloadCount ?? 0) + 1;\nexport const count = globalThis.__nodeReplReloadCount;\n', 'utf8');
   await writeFile(tempModule, `export function run() { globalThis.nodeRepl.write("module-ok"); }
 export function hidden() { globalThis.nodeRepl.write(JSON.stringify({ config: typeof globalThis.nodeRepl.config, createElicitation: typeof globalThis.nodeRepl.createElicitation, fetch: typeof globalThis.nodeRepl.fetch, launchServices: typeof globalThis.nodeRepl.launchServices, nativePipe: typeof globalThis.nodeRepl.nativePipe, withSuspendedTimeout: typeof globalThis.nodeRepl.withSuspendedTimeout })); }
 function summarize(value) {
@@ -316,7 +324,7 @@ export async function configReadProbe() {
   const autoDev = startServer('autodev', autoDevCommand, autoDevEnv());
 
   try {
-    const shared = { tempNodeModules, tempModule };
+    const shared = { tempNodeModules, tempModule, reloadModule };
     const codexResult = await runProbe(codex, shared);
     const autoDevResult = await runProbe(autoDev, shared);
     const diffs = diffValues(codexResult, autoDevResult);

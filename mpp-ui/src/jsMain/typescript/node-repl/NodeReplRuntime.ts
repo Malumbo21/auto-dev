@@ -58,7 +58,9 @@ export class NodeReplRuntime {
   private nodeReplApi: Record<string, unknown>;
   private additionalModuleDirs: string[] = [];
   private activeExecution: ActiveExecution | null = null;
+  private activeImportVersion = 0;
   private fileHashCache = new Map<string, string | null>();
+  private importVersion = 0;
   private requireForResolve = createRequire(path.join(process.cwd(), 'node_repl_runtime.js'));
 
   constructor(private readonly cwd: string = process.cwd()) {
@@ -117,6 +119,7 @@ export class NodeReplRuntime {
       requestMeta: options.requestMeta ?? {},
     };
     this.activeExecution = activeExecution;
+    this.activeImportVersion = ++this.importVersion;
 
     const previousNodeRepl = (globalThis as any).nodeRepl;
     const hadNodeRepl = Object.prototype.hasOwnProperty.call(globalThis, 'nodeRepl');
@@ -156,6 +159,7 @@ export class NodeReplRuntime {
       }
       (globalThis as any).console = previousConsole;
       this.activeExecution = null;
+      this.activeImportVersion = 0;
     }
   }
 
@@ -714,19 +718,30 @@ export class NodeReplRuntime {
       return import(specifier);
     }
 
-    if (specifier.startsWith('file://') || specifier.startsWith('data:') || specifier.startsWith('node:')) {
+    if (specifier.startsWith('file://')) {
+      return import(this.versionedLocalModuleUrl(new URL(specifier)).href);
+    }
+
+    if (specifier.startsWith('data:') || specifier.startsWith('node:')) {
       return import(specifier);
     }
 
     if (specifier.startsWith('.') || specifier.startsWith('/') || specifier.startsWith('..')) {
       const resolvedPath = path.resolve(this.cwd, specifier);
-      return import(pathToFileURL(resolvedPath).href);
+      return import(this.versionedLocalModuleUrl(pathToFileURL(resolvedPath)).href);
     }
 
     const resolvedPath = this.requireForResolve.resolve(specifier, {
       paths: this.moduleSearchRoots(),
     });
     return import(pathToFileURL(resolvedPath).href);
+  }
+
+  private versionedLocalModuleUrl(moduleUrl: URL): URL {
+    if (this.activeImportVersion > 0) {
+      moduleUrl.searchParams.set('node_repl_exec', String(this.activeImportVersion));
+    }
+    return moduleUrl;
   }
 
   private moduleSearchRoots(): string[] {
