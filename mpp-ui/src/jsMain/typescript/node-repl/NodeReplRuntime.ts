@@ -1398,7 +1398,9 @@ export class NodeReplRuntime {
     for (const match of code.matchAll(/(?:^|[;\n])\s*(const|let|var)\s+([^;\n]+)/g)) {
       const kind = match[1] as ModuleBindingKind;
       for (const declarator of this.splitTopLevelDeclarators(match[2])) {
-        add(kind, declarator.trim().match(/^([A-Za-z_$][\w$]*)\b/)?.[1]);
+        for (const name of this.readVariableDeclaratorBindingNames(declarator)) {
+          add(kind, name);
+        }
       }
     }
     for (const match of code.matchAll(/(?:^|[;\n])\s*function\s+([A-Za-z_$][\w$]*)/g)) {
@@ -1408,6 +1410,133 @@ export class NodeReplRuntime {
       add('class', match[1]);
     }
     return declarations;
+  }
+
+  private readVariableDeclaratorBindingNames(declarator: string): string[] {
+    const pattern = this.readVariableDeclaratorPattern(declarator).trim();
+    return this.readBindingPatternNames(pattern);
+  }
+
+  private readVariableDeclaratorPattern(declarator: string): string {
+    let depth = 0;
+    let quote: string | null = null;
+    let escaped = false;
+
+    for (let index = 0; index < declarator.length; index += 1) {
+      const char = declarator[index];
+      if (quote) {
+        if (escaped) {
+          escaped = false;
+          continue;
+        }
+        if (char === '\\') {
+          escaped = true;
+          continue;
+        }
+        if (char === quote) {
+          quote = null;
+        }
+        continue;
+      }
+
+      if (char === '"' || char === '\'' || char === '`') {
+        quote = char;
+        continue;
+      }
+      if (char === '(' || char === '[' || char === '{') {
+        depth += 1;
+        continue;
+      }
+      if (char === ')' || char === ']' || char === '}') {
+        depth = Math.max(0, depth - 1);
+        continue;
+      }
+      if (char === '=' && depth === 0) {
+        return declarator.slice(0, index);
+      }
+    }
+    return declarator;
+  }
+
+  private readBindingPatternNames(pattern: string): string[] {
+    const trimmed = pattern.trim().replace(/^\.\.\./, '').trim();
+    const identifier = trimmed.match(/^([A-Za-z_$][\w$]*)$/)?.[1];
+    if (identifier) {
+      return [identifier];
+    }
+
+    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+      return this.readObjectBindingPatternNames(trimmed.slice(1, -1));
+    }
+    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+      return this.readArrayBindingPatternNames(trimmed.slice(1, -1));
+    }
+    return [];
+  }
+
+  private readObjectBindingPatternNames(patternBody: string): string[] {
+    const names: string[] = [];
+    for (const part of this.splitTopLevelDeclarators(patternBody)) {
+      const property = part.trim();
+      if (!property) {
+        continue;
+      }
+      const colonIndex = this.findTopLevelCharacter(property, ':');
+      const bindingPattern = colonIndex >= 0
+        ? property.slice(colonIndex + 1)
+        : this.readVariableDeclaratorPattern(property);
+      names.push(...this.readBindingPatternNames(bindingPattern));
+    }
+    return names;
+  }
+
+  private readArrayBindingPatternNames(patternBody: string): string[] {
+    const names: string[] = [];
+    for (const part of this.splitTopLevelDeclarators(patternBody)) {
+      names.push(...this.readBindingPatternNames(this.readVariableDeclaratorPattern(part)));
+    }
+    return names;
+  }
+
+  private findTopLevelCharacter(value: string, target: string): number {
+    let depth = 0;
+    let quote: string | null = null;
+    let escaped = false;
+
+    for (let index = 0; index < value.length; index += 1) {
+      const char = value[index];
+      if (quote) {
+        if (escaped) {
+          escaped = false;
+          continue;
+        }
+        if (char === '\\') {
+          escaped = true;
+          continue;
+        }
+        if (char === quote) {
+          quote = null;
+        }
+        continue;
+      }
+
+      if (char === '"' || char === '\'' || char === '`') {
+        quote = char;
+        continue;
+      }
+      if (char === '(' || char === '[' || char === '{') {
+        depth += 1;
+        continue;
+      }
+      if (char === ')' || char === ']' || char === '}') {
+        depth = Math.max(0, depth - 1);
+        continue;
+      }
+      if (char === target && depth === 0) {
+        return index;
+      }
+    }
+    return -1;
   }
 
   private splitTopLevelDeclarators(value: string): string[] {

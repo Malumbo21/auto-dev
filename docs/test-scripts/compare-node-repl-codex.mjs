@@ -353,6 +353,15 @@ async function runProbe(server, shared) {
   result.afterImportMetaMultipleBindings = summarize(await callTool(server, 'js', {
     code: 'nodeRepl.write(JSON.stringify({ multiConstA, multiConstB, multiLetA, multiLetB, multiVarA, multiVarB }))',
   }));
+  result.importMetaFunctionRedeclare = summarize(await callTool(server, 'js', {
+    code: 'function importMetaFunction() { return 99; } nodeRepl.write(String(importMetaFunction()))',
+  }));
+  result.importMetaDeclaresDestructuredBindings = summarize(await callTool(server, 'js', {
+    code: 'const { destructuredA, sourceB: destructuredB } = { destructuredA: 41, sourceB: 42 }; let [arrayBindingA, arrayBindingB] = [43, 44]; nodeRepl.write(JSON.stringify({ urlType: typeof import.meta.url }))',
+  }));
+  result.afterImportMetaDestructuredBindings = summarize(await callTool(server, 'js', {
+    code: 'nodeRepl.write(JSON.stringify({ destructuredA, destructuredB, arrayBindingA, arrayBindingB }))',
+  }));
   result.blockProcessImport = summarize(await callTool(server, 'js', {
     code: 'try { await import("node:process"); nodeRepl.write("allowed"); } catch (error) { nodeRepl.write("blocked:" + error.message) }',
   }));
