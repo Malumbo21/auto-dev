@@ -911,11 +911,22 @@ project(":mpp-idea-exts:devins-lang") {
         plugin("org.jetbrains.kotlin.plugin.serialization")
     }
 
+    configurations.named("testRuntimeClasspath") {
+        exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core")
+        exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core-jvm")
+        exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-debug")
+        exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-jdk9")
+        exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-reactive")
+        exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-slf4j")
+    }
+
     dependencies {
         intellijPlatform {
             intellijIde(prop("ideaVersion"))
             intellijPlugins(ideaPlugins + "org.intellij.plugins.markdown" + "com.jetbrains.sh" + "Git4Idea")
 
+            testFramework(TestFrameworkType.Bundled)
+            testFramework(TestFrameworkType.Platform)
             testFramework(TestFrameworkType.Plugin.Java)
         }
 

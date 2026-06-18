@@ -11,7 +11,6 @@ import com.intellij.openapi.command.CommandProcessor
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.editor.Editor
-import com.intellij.openapi.editor.EditorFactory
 import com.intellij.openapi.editor.EditorModificationUtil
 import com.intellij.openapi.editor.actions.EnterAction
 import com.intellij.openapi.editor.actions.IncrementalFindAction
@@ -35,6 +34,8 @@ import com.intellij.util.EventDispatcher
 import com.intellij.util.concurrency.annotations.RequiresReadLock
 import com.intellij.util.messages.MessageBusConnection
 import com.intellij.util.ui.JBUI
+import com.intellij.psi.PsiDocumentManager
+import com.intellij.psi.PsiFileFactory
 import java.awt.Color
 import java.awt.event.InputEvent
 import java.awt.event.KeyEvent
@@ -178,16 +179,12 @@ class AutoDevInput(
     }
 
     fun recreateDocument() {
-        val language = findLanguage("DevIn")
-        val id = UUID.randomUUID()
-        val file = LightVirtualFile("AutoDevInput-$id", language, "")
+        val document = createDevInInputDocument(project)
 
-        val document = ReadAction.compute<Document, Throwable> {
-            EditorFactory.getInstance().createDocument("")
+        if (document != null) {
+            initializeDocumentListeners(document)
+            setDocument(document)
         }
-
-        initializeDocumentListeners(document)
-        setDocument(document)
         inputSection.initEditor()
     }
 
@@ -202,6 +199,17 @@ class AutoDevInput(
             val document = this.editor?.document ?: return@runWriteCommandAction
             InsertUtil.insertStringAndSaveChange(project, text, document, document.textLength, false)
         })
+    }
+}
+
+fun createDevInInputDocument(project: Project): Document? {
+    val language = findLanguage("DevIn")
+    val id = UUID.randomUUID()
+
+    return ReadAction.compute<Document?, Throwable> {
+        val psiFile = PsiFileFactory.getInstance(project)
+            .createFileFromText("AutoDevInput-$id.devin", language, "")
+        PsiDocumentManager.getInstance(project).getDocument(psiFile)
     }
 }
 
