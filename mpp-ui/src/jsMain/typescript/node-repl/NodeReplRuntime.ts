@@ -801,6 +801,11 @@ export class NodeReplRuntime {
   }
 
   private async evaluate(code: string): Promise<unknown> {
+    const staticImportSpecifier = this.readTopLevelStaticImportSpecifier(code);
+    if (staticImportSpecifier) {
+      throw new Error(`Top-level static import "${staticImportSpecifier}" is not supported in node_repl. Use await import("${staticImportSpecifier}") instead.`);
+    }
+
     if (this.shouldRunAsTopLevelModule(code)) {
       return await this.runTopLevelModule(code);
     }
@@ -1321,6 +1326,11 @@ export class NodeReplRuntime {
 
   private shouldRunAsTopLevelModule(code: string): boolean {
     return /\bimport\s*\.\s*meta\b/.test(code);
+  }
+
+  private readTopLevelStaticImportSpecifier(code: string): string | null {
+    const match = code.match(/^\s*import\s+(?:(?:["']([^"']+)["'])|(?:[\w*{}\s,]+?\s+from\s+["']([^"']+)["']))/m);
+    return match?.[1] ?? match?.[2] ?? null;
   }
 
   private isImportMetaSyntaxError(error: unknown): boolean {
