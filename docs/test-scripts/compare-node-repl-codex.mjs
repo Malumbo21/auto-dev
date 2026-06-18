@@ -329,6 +329,9 @@ async function runProbe(server, shared) {
   result.topLevelAwait = summarize(await callTool(server, 'js', {
     code: 'await import("node:os").then((os) => nodeRepl.write(os.platform()))',
   }));
+  result.topLevelImportMeta = summarize(await callTool(server, 'js', {
+    code: 'nodeRepl.write(JSON.stringify({ dirname: import.meta.dirname ?? null, filename: import.meta.filename ?? null, main: import.meta.main ?? null, resolveSemver: import.meta.resolve("semver"), url: import.meta.url }))',
+  }));
   result.blockProcessImport = summarize(await callTool(server, 'js', {
     code: 'try { await import("node:process"); nodeRepl.write("allowed"); } catch (error) { nodeRepl.write("blocked:" + error.message) }',
   }));

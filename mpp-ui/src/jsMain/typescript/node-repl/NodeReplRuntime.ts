@@ -32,6 +32,7 @@ export interface NodeReplExecutionResult {
 }
 
 interface ActiveExecution {
+  cellIndex: number;
   output: string[];
   images: NodeReplImageContent[];
   responseMeta: Record<string, unknown>;
@@ -67,6 +68,7 @@ export class NodeReplRuntime {
   private fullEnvApi: Record<string, string>;
   private readonly homeDir = os.homedir();
   private importVersion = 0;
+  private nextCellIndex = 0;
   private requireForResolve = createRequire(path.join(process.cwd(), 'node_repl_runtime.js'));
   private readonly tmpDir = os.tmpdir();
   private untrustedEnvApi: Record<string, string>;
@@ -123,6 +125,7 @@ export class NodeReplRuntime {
 
     const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     const activeExecution: ActiveExecution = {
+      cellIndex: this.nextCellIndex++,
       output: [],
       images: [],
       responseMeta: {},
@@ -798,9 +801,16 @@ export class NodeReplRuntime {
   }
 
   private async evaluate(code: string): Promise<unknown> {
+    if (this.shouldRunAsTopLevelModule(code)) {
+      return await this.runTopLevelModule(code);
+    }
+
     try {
       return await this.runScript(code);
     } catch (error) {
+      if (this.isImportMetaSyntaxError(error)) {
+        return await this.runTopLevelModule(code);
+      }
       if (this.isTopLevelAwaitSyntaxError(error)) {
         return this.runTopLevelAwait(code);
       }
@@ -814,6 +824,37 @@ export class NodeReplRuntime {
       importModuleDynamically: ((specifier: string) => this.resolveAndImport(specifier)) as any,
     });
     return script.runInContext(this.context);
+  }
+
+  private async runTopLevelModule(code: string): Promise<unknown> {
+    const sourceTextModule = (vm as any).SourceTextModule;
+    if (typeof sourceTextModule !== 'function') {
+      throw new Error('vm.SourceTextModule is unavailable; start node_repl with --experimental-vm-modules');
+    }
+
+    const cellPath = this.currentCellPath();
+    const module = new sourceTextModule(code, {
+      context: this.context,
+      identifier: pathToFileURL(cellPath).href,
+      initializeImportMeta: (meta: Record<string, unknown>) => {
+        meta.url = pathToFileURL(cellPath).href;
+        meta.filename = cellPath;
+        meta.dirname = this.cwd;
+        meta.main = true;
+        meta.resolve = (innerSpecifier: string) => this.resolveImportMeta(innerSpecifier, cellPath);
+      },
+      importModuleDynamically: (innerSpecifier: string) => this.resolveAndImportFrom(innerSpecifier, cellPath) as any,
+    });
+    await module.link((specifier: string, referencingModule: { identifier: string }) => this.getLinkedVmModule(
+      specifier,
+      this.filePathFromModuleIdentifier(referencingModule.identifier),
+    ));
+    await module.evaluate();
+    return module.namespace;
+  }
+
+  private currentCellPath(): string {
+    return path.join(this.cwd, `.node_repl_cell_${this.getActiveExecution().cellIndex}.mjs`);
   }
 
   private async runTopLevelAwait(code: string): Promise<unknown> {
@@ -1276,6 +1317,15 @@ export class NodeReplRuntime {
   private isTopLevelAwaitSyntaxError(error: unknown): boolean {
     return this.isSyntaxError(error)
       && /await is only valid in async functions|await is only valid in async function/.test((error as Error).message);
+  }
+
+  private shouldRunAsTopLevelModule(code: string): boolean {
+    return /\bimport\s*\.\s*meta\b/.test(code);
+  }
+
+  private isImportMetaSyntaxError(error: unknown): boolean {
+    return this.isSyntaxError(error)
+      && /Cannot use 'import\.meta' outside a module/.test((error as Error).message);
   }
 
   private isSyntaxError(error: unknown): boolean {
