@@ -4,7 +4,7 @@
  * Post-install script to verify mpp-core is built
  */
 
-import { existsSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
@@ -13,9 +13,14 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const rootDir = resolve(__dirname, '..');
-const mppCorePath = resolve(rootDir, '../mpp-core/build/dist/js/productionLibrary/autodev-mpp-core.js');
 const packageJsonPath = resolve(rootDir, '../mpp-core/build/dist/js/productionLibrary/package.json');
 const nodeModulesPath = resolve(rootDir, '../mpp-core/build/dist/js/productionLibrary/node_modules');
+
+let mppCorePath = resolve(rootDir, '../mpp-core/build/dist/js/productionLibrary/autodev-mpp-core.js');
+if (existsSync(packageJsonPath)) {
+  const mppCorePackageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
+  mppCorePath = resolve(rootDir, '../mpp-core/build/dist/js/productionLibrary', mppCorePackageJson.main || 'xiuper-mpp-core.js');
+}
 
 if (!existsSync(mppCorePath) || !existsSync(packageJsonPath)) {
   console.error('❌ Error: mpp-core build not found!');
