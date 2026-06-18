@@ -1,5 +1,6 @@
 import { builtinModules, createRequire } from 'node:module';
 import * as childProcess from 'node:child_process';
+import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as net from 'node:net';
 import * as os from 'node:os';
@@ -42,6 +43,8 @@ const DEFAULT_NATIVE_PIPE_CONNECT_TIMEOUT_MS = 1_000;
 const NODE_MODULE_DIRS_ENV = 'NODE_REPL_NODE_MODULE_DIRS';
 const NODE_REPL_ENV_ALLOWLIST_ENV = 'NODE_REPL_UNTRUSTED_ENV_ALLOWLIST';
 const NODE_REPL_NATIVE_PIPE_CONNECT_TIMEOUT_ENV = 'NODE_REPL_NATIVE_PIPE_CONNECT_TIMEOUT_MS';
+const NODE_REPL_TRUSTED_BROWSER_CLIENT_SHA256S_ENV = 'NODE_REPL_TRUSTED_BROWSER_CLIENT_SHA256S';
+const NODE_REPL_TRUSTED_CODE_PATHS_ENV = 'NODE_REPL_TRUSTED_CODE_PATHS';
 const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
 const BLOCKED_BUILTIN_MODULES = new Set(['process', 'node:process']);
 const BUILTIN_MODULES = new Set([
@@ -51,8 +54,11 @@ const BUILTIN_MODULES = new Set([
 
 export class NodeReplRuntime {
   private context: vm.Context;
+  private consoleApi: Console;
+  private nodeReplApi: Record<string, unknown>;
   private additionalModuleDirs: string[] = [];
   private activeExecution: ActiveExecution | null = null;
+  private fileHashCache = new Map<string, string | null>();
   private requireForResolve = createRequire(path.join(process.cwd(), 'node_repl_runtime.js'));
 
   constructor(private readonly cwd: string = process.cwd()) {
@@ -112,6 +118,12 @@ export class NodeReplRuntime {
     };
     this.activeExecution = activeExecution;
 
+    const previousNodeRepl = (globalThis as any).nodeRepl;
+    const hadNodeRepl = Object.prototype.hasOwnProperty.call(globalThis, 'nodeRepl');
+    const previousConsole = globalThis.console;
+    (globalThis as any).nodeRepl = this.nodeReplApi;
+    (globalThis as any).console = this.consoleApi;
+
     try {
       await this.withTimeout(this.evaluate(code), timeoutMs);
 
@@ -137,6 +149,12 @@ export class NodeReplRuntime {
       }
       throw error;
     } finally {
+      if (hadNodeRepl) {
+        (globalThis as any).nodeRepl = previousNodeRepl;
+      } else {
+        delete (globalThis as any).nodeRepl;
+      }
+      (globalThis as any).console = previousConsole;
       this.activeExecution = null;
     }
   }
@@ -167,9 +185,10 @@ export class NodeReplRuntime {
       structuredClone: globalThis.structuredClone,
     };
 
-    sandbox.console = this.createConsole();
-    sandbox.nodeRepl = this.createNodeReplApi();
-    (globalThis as any).nodeRepl = sandbox.nodeRepl;
+    this.consoleApi = this.createConsole();
+    this.nodeReplApi = this.createNodeReplApi();
+    sandbox.console = this.consoleApi;
+    sandbox.nodeRepl = this.nodeReplApi;
 
     return vm.createContext(sandbox, {
       name: 'autodev-node-repl',
@@ -180,7 +199,11 @@ export class NodeReplRuntime {
   private createConsole(): Console {
     const write = (args: unknown[], newline: boolean) => {
       const text = args.map((item) => this.formatValue(item)).join(' ');
-      this.writeOutput(newline ? `${text}\n` : text);
+      if (newline) {
+        this.writeConsoleLine(text);
+        return;
+      }
+      this.writeOutput(text);
     };
 
     return {
@@ -201,26 +224,10 @@ export class NodeReplRuntime {
       cwd: this.cwd,
       homeDir: os.homedir(),
       tmpDir: os.tmpdir(),
-      addNodeModuleDir: (dirPath: string) => this.addNodeModuleDir(dirPath),
-      config: this.createConfigApi(),
       env: this.createEnvApi(),
-      fetch: (input: RequestInfo | URL, init?: RequestInit) => fetch(input, init),
-      import: (specifier: string) => this.resolveAndImport(specifier),
-      nativePipe: {
-        createConnection: (pipePath: string) => this.createNativePipeConnection(pipePath),
-      },
-      withSuspendedTimeout: async (callback: unknown) => {
-        if (typeof callback !== 'function') {
-          throw new Error('nodeRepl.withSuspendedTimeout expects a function');
-        }
-        return await (callback as () => unknown | Promise<unknown>)();
-      },
-      launchServices: {
-        openApplication: (applicationPathOrBundleId: string) => this.openApplication(applicationPathOrBundleId),
-      },
       write: (text: unknown) => {
         if (typeof text !== 'string') {
-          throw new Error('nodeRepl.write expects a string');
+          throw new Error('nodeRepl.write expected a string');
         }
         this.writeOutput(text);
       },
@@ -238,20 +245,131 @@ export class NodeReplRuntime {
       get: () => this.activeExecution?.requestMeta ?? {},
     });
 
+    this.defineTrustedApiGetter(api, 'config', () => this.createConfigApi());
+    this.defineTrustedApiGetter(api, 'fetch', () => (input: RequestInfo | URL, init?: RequestInit) => fetch(input, init));
+    this.defineTrustedApiGetter(api, 'nativePipe', () => ({
+      createConnection: (pipePath: string) => this.createNativePipeConnection(pipePath),
+    }));
+    this.defineTrustedApiGetter(api, 'withSuspendedTimeout', () => async (callback: unknown) => {
+      if (typeof callback !== 'function') {
+        throw new Error('nodeRepl.withSuspendedTimeout expects a function');
+      }
+      return await (callback as () => unknown | Promise<unknown>)();
+    });
+    this.defineTrustedApiGetter(api, 'launchServices', () => ({
+      openApplication: (applicationPathOrBundleId: string) => this.openApplication(applicationPathOrBundleId),
+    }));
+
     return api;
+  }
+
+  private defineTrustedApiGetter(api: Record<string, unknown>, key: string, createValue: () => unknown): void {
+    Object.defineProperty(api, key, {
+      enumerable: false,
+      configurable: false,
+      get: () => this.isTrustedStack() ? createValue() : undefined,
+    });
   }
 
   private createEnvApi(): Record<string, string> {
     const allowlist = this.parseEnvAllowlist();
-    const keys = allowlist.length > 0 ? allowlist : Object.keys(process.env);
+    if (allowlist.length === 0) {
+      return Object.freeze({});
+    }
     const env: Record<string, string> = {};
-    for (const key of keys) {
+    for (const key of allowlist) {
       const value = process.env[key];
       if (typeof value === 'string') {
         env[key] = value;
       }
     }
     return Object.freeze(env);
+  }
+
+  private isTrustedStack(): boolean {
+    const stack = new Error().stack ?? '';
+    const stackFiles = this.extractStackFiles(stack);
+    if (stackFiles.length === 0) {
+      return false;
+    }
+
+    const trustedRoots = this.readTrustedCodePaths();
+    const trustedHashes = this.readTrustedBrowserClientHashes();
+    for (const filePath of stackFiles) {
+      if (trustedRoots.some((root) => this.isPathInside(filePath, root))) {
+        return true;
+      }
+      if (trustedHashes.size > 0 && trustedHashes.has(this.sha256File(filePath) ?? '')) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private extractStackFiles(stack: string): string[] {
+    const files = new Set<string>();
+    for (const match of stack.matchAll(/file:\/\/[^)\s]+/g)) {
+      try {
+        files.add(fileURLToPath(match[0].replace(/:\d+:\d+$/, '')));
+      } catch {
+        // Ignore stack fragments that are not file URLs.
+      }
+    }
+    for (const match of stack.matchAll(/(?:^|\s|\()((?:\/[^):\s]+)+\.[cm]?js)(?::\d+:\d+)?/g)) {
+      files.add(path.resolve(match[1]));
+    }
+    return [...files];
+  }
+
+  private readTrustedCodePaths(): string[] {
+    const rawValue = process.env[NODE_REPL_TRUSTED_CODE_PATHS_ENV];
+    if (!rawValue) {
+      return [];
+    }
+    return rawValue
+      .split(new RegExp(`[${this.escapeRegExp(path.delimiter)},]`))
+      .map((entry) => entry.trim())
+      .filter(Boolean)
+      .map((entry) => path.resolve(entry));
+  }
+
+  private readTrustedBrowserClientHashes(): Set<string> {
+    const rawValue = process.env[NODE_REPL_TRUSTED_BROWSER_CLIENT_SHA256S_ENV];
+    if (!rawValue) {
+      return new Set();
+    }
+    return new Set(rawValue
+      .split(/[,:;]/)
+      .map((entry) => entry.trim().toLowerCase())
+      .filter(Boolean));
+  }
+
+  private isPathInside(filePath: string, rootPath: string): boolean {
+    const relative = path.relative(rootPath, filePath);
+    return relative === '' || (!!relative && !relative.startsWith('..') && !path.isAbsolute(relative));
+  }
+
+  private sha256File(filePath: string): string | null {
+    if (this.fileHashCache.has(filePath)) {
+      return this.fileHashCache.get(filePath) ?? null;
+    }
+    try {
+      const stats = fs.statSync(filePath);
+      if (!stats.isFile()) {
+        this.fileHashCache.set(filePath, null);
+        return null;
+      }
+      const hash = crypto.createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
+      this.fileHashCache.set(filePath, hash);
+      return hash;
+    } catch {
+      this.fileHashCache.set(filePath, null);
+      return null;
+    }
+  }
+
+  private escapeRegExp(value: string): string {
+    return value.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&');
   }
 
   private parseEnvAllowlist(): string[] {
@@ -393,7 +511,7 @@ export class NodeReplRuntime {
     }
 
     if (BLOCKED_BUILTIN_MODULES.has(specifier)) {
-      throw new Error(`Importing ${specifier} is not allowed in node_repl`);
+      throw new Error(`Importing module "${specifier}" is not allowed in node_repl`);
     }
 
     if (BUILTIN_MODULES.has(specifier)) {
@@ -563,6 +681,15 @@ export class NodeReplRuntime {
 
   private writeOutput(text: string): void {
     this.getActiveExecution().output.push(text);
+  }
+
+  private writeConsoleLine(text: string): void {
+    const activeExecution = this.getActiveExecution();
+    const previous = activeExecution.output.at(-1);
+    if (previous !== undefined && !previous.endsWith('\n')) {
+      activeExecution.output.push('\n');
+    }
+    activeExecution.output.push(text);
   }
 
   private getActiveExecution(): ActiveExecution {

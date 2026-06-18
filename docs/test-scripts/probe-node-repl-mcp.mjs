@@ -87,14 +87,12 @@ try {
     clientInfo: { name: 'probe-node-repl-mcp', version: '0.1.0' },
     capabilities: {},
   });
-  assert(init.result?.serverInfo?.name === 'autodev-node-repl', 'initialize did not return serverInfo');
+  assert(init.result?.serverInfo?.name === 'rmcp', 'initialize did not return Codex-compatible serverInfo');
   notify('notifications/initialized');
 
   const tools = await request('tools/list');
-  const toolNames = new Set(tools.result.tools.map((tool) => tool.name));
-  assert(toolNames.has('js'), 'js tool missing');
-  assert(toolNames.has('js_reset'), 'js_reset tool missing');
-  assert(toolNames.has('js_add_node_module_dir'), 'js_add_node_module_dir tool missing');
+  const toolNames = tools.result.tools.map((tool) => tool.name);
+  assert(JSON.stringify(toolNames) === JSON.stringify(['js', 'js_add_node_module_dir', 'js_reset']), `unexpected tool list: ${toolNames.join(', ')}`);
 
   const simple = await request('tools/call', {
     name: 'js',
@@ -126,17 +124,22 @@ try {
   });
   assert(textOf(write).startsWith('cwd='), `nodeRepl.write failed: ${textOf(write)}`);
 
-  const envAndFetch = await request('tools/call', {
+  const apiShape = await request('tools/call', {
     name: 'js',
-    arguments: { code: 'const text = await nodeRepl.fetch("data:text/plain,fetch-ok").then((res) => res.text()); nodeRepl.write((typeof nodeRepl.env.PATH === "string") + ":" + text)' },
+    arguments: { code: 'nodeRepl.write(JSON.stringify({ keys: Object.keys(nodeRepl).sort(), envKeys: Object.keys(nodeRepl.env), fetch: typeof nodeRepl.fetch, nativePipe: typeof nodeRepl.nativePipe }))' },
   });
-  assert(textOf(envAndFetch) === 'true:fetch-ok', `nodeRepl.env/fetch failed: ${textOf(envAndFetch)}`);
+  const apiShapeValue = JSON.parse(textOf(apiShape));
+  assert(JSON.stringify(apiShapeValue.keys) === JSON.stringify(['cwd', 'emitImage', 'env', 'homeDir', 'requestMeta', 'setResponseMeta', 'tmpDir', 'write']), `unexpected nodeRepl keys: ${textOf(apiShape)}`);
+  assert(apiShapeValue.envKeys.length === 0, `nodeRepl.env should be empty by default: ${textOf(apiShape)}`);
+  assert(apiShapeValue.fetch === 'undefined', `nodeRepl.fetch should be hidden in ordinary code: ${textOf(apiShape)}`);
+  assert(apiShapeValue.nativePipe === 'undefined', `nodeRepl.nativePipe should be hidden in ordinary code: ${textOf(apiShape)}`);
 
-  const nativePipe = await request('tools/call', {
+  const fetchUnavailable = await request('tools/call', {
     name: 'js',
-    arguments: { code: 'nodeRepl.write(typeof nodeRepl.nativePipe.createConnection)' },
+    arguments: { code: 'await nodeRepl.fetch("data:text/plain,fetch-ok")' },
   });
-  assert(textOf(nativePipe) === 'function', `nodeRepl.nativePipe missing: ${textOf(nativePipe)}`);
+  assert(fetchUnavailable.result?.isError === true, 'nodeRepl.fetch should fail outside trusted code');
+  assert(textOf(fetchUnavailable) === 'nodeRepl.fetch is not a function', `unexpected nodeRepl.fetch error: ${textOf(fetchUnavailable)}`);
 
   const blockedProcess = await request('tools/call', {
     name: 'js',

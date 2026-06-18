@@ -58,9 +58,9 @@ AUTODEV_NODE_MODULES_SOURCE="/Applications/Codex.app/Contents/Resources/cua_node
 bin/autodev-node-repl
 ```
 
-`autodev-node-repl` 会优先使用 `vendor/node/<platform-arch>/` 中打包的 Node.js；没有打包 runtime 时会回退到 `NODE_REPL_NODE_PATH` 或系统 `node`。`vendor/node_modules` 会被自动加入 `nodeRepl.import(...)` 和 `await import(...)` 的包搜索路径；没有 `AUTODEV_NODE_MODULES_SOURCE` 时，`npm run prepare:node-modules` 会按 `node-repl.modules.json` 安装公共模块。MCP 配置示例见 `example/mcp/node-repl.mcp.json`。
+`autodev-node-repl` 会优先使用 `vendor/node/<platform-arch>/` 中打包的 Node.js；没有打包 runtime 时会回退到 `NODE_REPL_NODE_PATH` 或系统 `node`。`vendor/node_modules` 会被自动加入 `await import(...)` 的包搜索路径；没有 `AUTODEV_NODE_MODULES_SOURCE` 时，`npm run prepare:node-modules` 会按 `node-repl.modules.json` 安装公共模块。MCP 配置示例见 `example/mcp/node-repl.mcp.json`。
 
-兼容 Codex 的主要使用场景：Browser/Chrome 插件通过 `nodeRepl.env`、`nodeRepl.fetch(...)`、`nodeRepl.nativePipe.createConnection(...)`、`nodeRepl.setResponseMeta(...)` 和 `nodeRepl.emitImage(...)` 初始化浏览器运行时；其他技能可用 `js` 执行小型 Node.js 工具脚本。`js` 不会隐式输出最后一个表达式，需要使用 `console.log(...)` 或 `nodeRepl.write(...)`。
+兼容 Codex 的主要使用场景：普通 `js` 代码只暴露 `nodeRepl.cwd/homeDir/tmpDir/requestMeta/env/setResponseMeta/write/emitImage`；Browser/Chrome 插件这类位于 `NODE_REPL_TRUSTED_CODE_PATHS` 或匹配 `NODE_REPL_TRUSTED_BROWSER_CLIENT_SHA256S` 的模块，才会看到 `nodeRepl.fetch(...)` 和 `nodeRepl.nativePipe.createConnection(...)` 等特权桥。`js` 不会隐式输出最后一个表达式，需要使用 `console.log(...)` 或 `nodeRepl.write(...)`。
 
 ## 构建和运行
 
