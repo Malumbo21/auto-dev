@@ -335,6 +335,18 @@ async function runProbe(server, shared) {
   result.topLevelStaticImport = summarize(await callTool(server, 'js', {
     code: 'import { platform } from "node:os"; nodeRepl.write(platform())',
   }));
+  result.bindingSeed = summarize(await callTool(server, 'js', {
+    code: 'const carryConst = 11; let carryLet = 12; function carryFunction() { return 13; } class CarryClass { static value = 14; } nodeRepl.write("binding-seed-ok")',
+  }));
+  result.importMetaReadsPriorBindings = summarize(await callTool(server, 'js', {
+    code: 'nodeRepl.write(JSON.stringify({ carryConst, carryLet, carryFunction: carryFunction(), carryClass: CarryClass.value, main: import.meta.main }))',
+  }));
+  result.importMetaDeclaresBindings = summarize(await callTool(server, 'js', {
+    code: 'const importMetaConst = 21; let importMetaLet = 22; function importMetaFunction() { return 23; } nodeRepl.write(JSON.stringify({ urlType: typeof import.meta.url }))',
+  }));
+  result.afterImportMetaBindings = summarize(await callTool(server, 'js', {
+    code: 'nodeRepl.write(JSON.stringify({ importMetaConst, importMetaLet, importMetaFunction: importMetaFunction() }))',
+  }));
   result.blockProcessImport = summarize(await callTool(server, 'js', {
     code: 'try { await import("node:process"); nodeRepl.write("allowed"); } catch (error) { nodeRepl.write("blocked:" + error.message) }',
   }));

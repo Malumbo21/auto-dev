@@ -42,6 +42,13 @@ interface ActiveExecution {
   timeoutSuspensionDepth: number;
 }
 
+type ModuleBindingKind = 'class' | 'const' | 'function' | 'let' | 'var';
+
+interface ModuleBindingDeclaration {
+  kind: ModuleBindingKind;
+  name: string;
+}
+
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_NATIVE_PIPE_CONNECT_TIMEOUT_MS = 1_000;
 const NODE_MODULE_DIRS_ENV = 'NODE_REPL_NODE_MODULE_DIRS';
@@ -70,6 +77,7 @@ export class NodeReplRuntime {
   private importVersion = 0;
   private nextCellIndex = 0;
   private requireForResolve = createRequire(path.join(process.cwd(), 'node_repl_runtime.js'));
+  private readonly topLevelModuleBindingKey = '__nodeReplTopLevelModuleBindings';
   private readonly tmpDir = os.tmpdir();
   private untrustedEnvApi: Record<string, string>;
 
@@ -837,8 +845,9 @@ export class NodeReplRuntime {
       throw new Error('vm.SourceTextModule is unavailable; start node_repl with --experimental-vm-modules');
     }
 
+    const bindingDeclarations = this.readTopLevelBindingDeclarations(code);
     const cellPath = this.currentCellPath();
-    const module = new sourceTextModule(code, {
+    const module = new sourceTextModule(this.appendTopLevelModuleBindingCapture(code, bindingDeclarations), {
       context: this.context,
       identifier: pathToFileURL(cellPath).href,
       initializeImportMeta: (meta: Record<string, unknown>) => {
@@ -855,11 +864,53 @@ export class NodeReplRuntime {
       this.filePathFromModuleIdentifier(referencingModule.identifier),
     ));
     await module.evaluate();
+    await this.commitTopLevelModuleBindings(bindingDeclarations);
     return module.namespace;
   }
 
   private currentCellPath(): string {
     return path.join(this.cwd, `.node_repl_cell_${this.getActiveExecution().cellIndex}.mjs`);
+  }
+
+  private appendTopLevelModuleBindingCapture(code: string, declarations: ModuleBindingDeclaration[]): string {
+    if (declarations.length === 0) {
+      return code;
+    }
+    const entries = declarations
+      .map((declaration) => `${JSON.stringify(declaration.name)}: ${declaration.name}`)
+      .join(', ');
+    return `${code}\nglobalThis[${JSON.stringify(this.topLevelModuleBindingKey)}] = { ${entries} };\n`;
+  }
+
+  private async commitTopLevelModuleBindings(declarations: ModuleBindingDeclaration[]): Promise<void> {
+    if (declarations.length === 0) {
+      return;
+    }
+    const values = (this.context as any)[this.topLevelModuleBindingKey];
+    if (!values || typeof values !== 'object') {
+      return;
+    }
+
+    const statements = declarations
+      .filter((declaration) => Object.prototype.hasOwnProperty.call(values, declaration.name))
+      .map((declaration) => this.moduleBindingCommitStatement(declaration))
+      .join('\n');
+    if (!statements) {
+      return;
+    }
+
+    await this.runScript(statements);
+  }
+
+  private moduleBindingCommitStatement(declaration: ModuleBindingDeclaration): string {
+    const access = `globalThis[${JSON.stringify(this.topLevelModuleBindingKey)}][${JSON.stringify(declaration.name)}]`;
+    if (declaration.kind === 'let') {
+      return `let ${declaration.name} = ${access};`;
+    }
+    if (declaration.kind === 'var') {
+      return `var ${declaration.name} = ${access};`;
+    }
+    return `const ${declaration.name} = ${access};`;
   }
 
   private async runTopLevelAwait(code: string): Promise<unknown> {
@@ -1331,6 +1382,29 @@ export class NodeReplRuntime {
   private readTopLevelStaticImportSpecifier(code: string): string | null {
     const match = code.match(/^\s*import\s+(?:(?:["']([^"']+)["'])|(?:[\w*{}\s,]+?\s+from\s+["']([^"']+)["']))/m);
     return match?.[1] ?? match?.[2] ?? null;
+  }
+
+  private readTopLevelBindingDeclarations(code: string): ModuleBindingDeclaration[] {
+    const declarations: ModuleBindingDeclaration[] = [];
+    const seen = new Set<string>();
+    const add = (kind: ModuleBindingKind, name: string | undefined) => {
+      if (!name || seen.has(name)) {
+        return;
+      }
+      seen.add(name);
+      declarations.push({ kind, name });
+    };
+
+    for (const match of code.matchAll(/(?:^|[;\n])\s*(const|let|var)\s+([A-Za-z_$][\w$]*)/g)) {
+      add(match[1] as ModuleBindingKind, match[2]);
+    }
+    for (const match of code.matchAll(/(?:^|[;\n])\s*function\s+([A-Za-z_$][\w$]*)/g)) {
+      add('function', match[1]);
+    }
+    for (const match of code.matchAll(/(?:^|[;\n])\s*class\s+([A-Za-z_$][\w$]*)/g)) {
+      add('class', match[1]);
+    }
+    return declarations;
   }
 
   private isImportMetaSyntaxError(error: unknown): boolean {
