@@ -36,6 +36,9 @@ interface ActiveExecution {
   images: NodeReplImageContent[];
   responseMeta: Record<string, unknown>;
   requestMeta: Record<string, unknown>;
+  timeoutSuspendedAt: number | null;
+  timeoutSuspendedMs: number;
+  timeoutSuspensionDepth: number;
 }
 
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -118,6 +121,9 @@ export class NodeReplRuntime {
       images: [],
       responseMeta: {},
       requestMeta: options.requestMeta ?? {},
+      timeoutSuspendedAt: null,
+      timeoutSuspendedMs: 0,
+      timeoutSuspensionDepth: 0,
     };
     this.activeExecution = activeExecution;
     this.activeImportVersion = ++this.importVersion;
@@ -253,7 +259,7 @@ export class NodeReplRuntime {
     });
 
     this.defineTrustedApiGetter(api, 'config', () => this.createConfigApi());
-    this.defineTrustedApiGetter(api, 'fetch', () => (input: RequestInfo | URL, init?: RequestInit) => fetch(input, init));
+    this.defineTrustedApiGetter(api, 'fetch', () => (input: RequestInfo | URL, init?: RequestInit) => this.trustedFetch(input, init));
     this.defineTrustedApiGetter(api, 'nativePipe', () => ({
       createConnection: (pipePath: string) => this.createNativePipeConnection(pipePath),
     }));
@@ -261,7 +267,7 @@ export class NodeReplRuntime {
       if (typeof callback !== 'function') {
         throw new Error('nodeRepl.withSuspendedTimeout expects a function');
       }
-      return await (callback as () => unknown | Promise<unknown>)();
+      return await this.runWithSuspendedTimeout(callback as () => unknown | Promise<unknown>);
     });
     this.defineTrustedApiGetter(api, 'createElicitation', () => async () => {
       throw new Error('nodeRepl.createElicitation is unavailable because the MCP client does not support form elicitation');
@@ -603,7 +609,7 @@ export class NodeReplRuntime {
     }
 
     const timeoutMs = this.nativePipeConnectTimeoutMs();
-    return await new Promise<net.Socket>((resolve, reject) => {
+    const socket = await new Promise<net.Socket>((resolve, reject) => {
       const socket = net.createConnection(pipePath);
       let settled = false;
       let timeout: NodeJS.Timeout | undefined;
@@ -642,6 +648,46 @@ export class NodeReplRuntime {
         }, timeoutMs);
       }
     });
+    return this.wrapNativePipeSocket(socket) as unknown as net.Socket;
+  }
+
+  private wrapNativePipeSocket(socket: net.Socket): Record<string, unknown> {
+    const listenerMap = new Map<Function, Function>();
+    const wrapper = {
+      end: () => {
+        socket.end();
+      },
+      off: (eventName: string, listener: (...args: unknown[]) => void) => {
+        const mapped = listenerMap.get(listener) as ((...args: unknown[]) => void) | undefined;
+        socket.off(eventName, mapped ?? listener);
+        listenerMap.delete(listener);
+        return wrapper;
+      },
+      on: (eventName: string, listener: (...args: unknown[]) => void) => {
+        if (typeof listener !== 'function') {
+          throw new Error('native pipe listener must be a function');
+        }
+        const mapped = (...args: unknown[]) => listener(...args);
+        listenerMap.set(listener, mapped);
+        socket.on(eventName, mapped);
+        return wrapper;
+      },
+      write: (data: Uint8Array | ArrayBuffer) => {
+        const payload = this.toNativePipeBytes(data);
+        return socket.write(payload);
+      },
+    };
+    return wrapper;
+  }
+
+  private toNativePipeBytes(data: unknown): Buffer {
+    if (Object.prototype.toString.call(data) === '[object ArrayBuffer]') {
+      return Buffer.from(data as ArrayBuffer);
+    }
+    if (ArrayBuffer.isView(data)) {
+      return Buffer.from(data.buffer, data.byteOffset, data.byteLength);
+    }
+    throw new Error('native pipe write expected bytes');
   }
 
   private nativePipeConnectTimeoutMs(): number {
@@ -676,6 +722,49 @@ export class NodeReplRuntime {
         reject(new Error(`open exited with code ${code ?? 1}`));
       });
     });
+  }
+
+  private async trustedFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+    try {
+      const url = this.readFetchUrl(input);
+      if (!/^https?:\/\//i.test(url)) {
+        throw new Error('unsupported fetch scheme');
+      }
+      return await fetch(input, init);
+    } catch {
+      throw new Error('nodeRepl.fetch request failed');
+    }
+  }
+
+  private readFetchUrl(input: RequestInfo | URL): string {
+    if (typeof input === 'string') {
+      return input;
+    }
+    if (input instanceof URL) {
+      return input.href;
+    }
+    const candidate = input as { url?: unknown };
+    if (typeof candidate.url === 'string') {
+      return candidate.url;
+    }
+    return String(input);
+  }
+
+  private async runWithSuspendedTimeout<T>(callback: () => T | Promise<T>): Promise<T> {
+    const activeExecution = this.getActiveExecution();
+    if (activeExecution.timeoutSuspensionDepth === 0) {
+      activeExecution.timeoutSuspendedAt = Date.now();
+    }
+    activeExecution.timeoutSuspensionDepth += 1;
+    try {
+      return await callback();
+    } finally {
+      activeExecution.timeoutSuspensionDepth -= 1;
+      if (activeExecution.timeoutSuspensionDepth === 0 && activeExecution.timeoutSuspendedAt != null) {
+        activeExecution.timeoutSuspendedMs += Date.now() - activeExecution.timeoutSuspendedAt;
+        activeExecution.timeoutSuspendedAt = null;
+      }
+    }
   }
 
   private async evaluate(code: string): Promise<unknown> {
@@ -1053,19 +1142,52 @@ export class NodeReplRuntime {
       return promise;
     }
 
+    const startedAt = Date.now();
+    let settled = false;
     let timeout: NodeJS.Timeout | undefined;
-    try {
-      return await Promise.race([
-        promise,
-        new Promise<T>((_, reject) => {
-          timeout = setTimeout(() => reject(new NodeReplTimeoutError(timeoutMs)), timeoutMs);
-        }),
-      ]);
-    } finally {
-      if (timeout) {
-        clearTimeout(timeout);
-      }
+
+    return await new Promise<T>((resolve, reject) => {
+      const finish = (callback: () => void) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        if (timeout) {
+          clearTimeout(timeout);
+        }
+        callback();
+      };
+
+      const scheduleCheck = () => {
+        if (settled) {
+          return;
+        }
+        const suspendedMs = this.currentTimeoutSuspendedMs();
+        const elapsedMs = Date.now() - startedAt - suspendedMs;
+        if (elapsedMs >= timeoutMs) {
+          finish(() => reject(new NodeReplTimeoutError(timeoutMs)));
+          return;
+        }
+        timeout = setTimeout(scheduleCheck, Math.max(1, Math.min(25, timeoutMs - elapsedMs)));
+      };
+
+      promise.then(
+        (value) => finish(() => resolve(value)),
+        (error) => finish(() => reject(error)),
+      );
+      scheduleCheck();
+    });
+  }
+
+  private currentTimeoutSuspendedMs(): number {
+    const activeExecution = this.activeExecution;
+    if (!activeExecution) {
+      return 0;
     }
+    if (activeExecution.timeoutSuspensionDepth > 0 && activeExecution.timeoutSuspendedAt != null) {
+      return activeExecution.timeoutSuspendedMs + Date.now() - activeExecution.timeoutSuspendedAt;
+    }
+    return activeExecution.timeoutSuspendedMs;
   }
 
   private readInitialModuleDirs(): string[] {

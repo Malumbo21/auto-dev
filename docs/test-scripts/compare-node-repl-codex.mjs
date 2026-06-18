@@ -4,6 +4,7 @@ import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { existsSync, readFileSync } from 'node:fs';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { createServer } from 'node:net';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -280,6 +281,19 @@ async function runProbe(server, shared) {
   result.trustedConfigReadProbe = summarize(await callTool(server, 'js', {
     code: `await import(${JSON.stringify(shared.tempModule)}).then((mod) => mod.configReadProbe())`,
   }));
+  result.trustedFetchDataUrl = summarize(await callTool(server, 'js', {
+    code: `await import(${JSON.stringify(shared.tempModule)}).then((mod) => mod.trustedFetchDataUrl())`,
+  }));
+  result.nativePipeShape = summarize(await callTool(server, 'js', {
+    code: `await import(${JSON.stringify(shared.tempModule)}).then((mod) => mod.nativePipeShape(${JSON.stringify(shared.nativePipePath)}))`,
+  }));
+  result.nativePipeRoundtrip = summarize(await callTool(server, 'js', {
+    code: `await import(${JSON.stringify(shared.tempModule)}).then((mod) => mod.nativePipeRoundtrip(${JSON.stringify(shared.nativePipePath)}))`,
+  }));
+  result.withSuspendedTimeout = summarize(await callTool(server, 'js', {
+    code: `await import(${JSON.stringify(shared.tempModule)}).then((mod) => mod.withSuspendedTimeoutProbe())`,
+    timeout_ms: 50,
+  }));
   result.reset = summarize(await callTool(server, 'js_reset'));
   result.afterReset = summarize(await callTool(server, 'js', {
     code: 'nodeRepl.write(typeof answer)',
@@ -320,6 +334,7 @@ async function main() {
   const reloadModule = join(tempRoot, 'reload-count.mjs');
   const staticEntryModule = join(tempRoot, 'static-entry.mjs');
   const staticChildModule = join(tempRoot, 'static-child.mjs');
+  const nativePipePath = join(tempRoot, 'native-pipe.sock');
   await mkdir(tempNodeModules);
   await mkdir(fixturePackageRoot);
   await writeFile(join(fixturePackageRoot, 'package.json'), JSON.stringify({
@@ -376,13 +391,60 @@ export async function configReadProbe() {
   }
   globalThis.nodeRepl.write(JSON.stringify(result));
 }
+export async function trustedFetchDataUrl() {
+  const text = await globalThis.nodeRepl.fetch("data:text/plain,trusted-fetch-ok").then((response) => response.text());
+  globalThis.nodeRepl.write(text);
+}
+export async function nativePipeRoundtrip(pipePath) {
+  const socket = await globalThis.nodeRepl.nativePipe.createConnection(pipePath);
+  const text = await new Promise((resolve, reject) => {
+    let output = "";
+    socket.on("data", (chunk) => {
+      output += typeof chunk === "string" ? chunk : new TextDecoder().decode(chunk);
+      if (output.includes("pong")) {
+        socket.end();
+        resolve(output);
+      }
+    });
+    socket.on("error", reject);
+    socket.write(new TextEncoder().encode("ping"));
+  });
+  globalThis.nodeRepl.write(text);
+}
+export async function nativePipeShape(pipePath) {
+  const connection = await globalThis.nodeRepl.nativePipe.createConnection(pipePath);
+  const prototype = Object.getPrototypeOf(connection);
+  const shape = {
+    type: Object.prototype.toString.call(connection),
+    keys: Object.keys(connection).sort(),
+    own: Object.getOwnPropertyNames(connection).sort(),
+    proto: prototype ? Object.getOwnPropertyNames(prototype).sort() : [],
+    types: Object.fromEntries(["read", "write", "send", "close", "end", "setEncoding", "readable", "writable", "reader", "writer"].map((key) => [key, typeof connection[key]])),
+    readableProto: connection.readable ? Object.getOwnPropertyNames(Object.getPrototypeOf(connection.readable)).sort() : null,
+    writableProto: connection.writable ? Object.getOwnPropertyNames(Object.getPrototypeOf(connection.writable)).sort() : null,
+  };
+  try {
+    if (typeof connection.close === "function") await connection.close();
+    else if (typeof connection.end === "function") connection.end();
+  } catch {}
+  globalThis.nodeRepl.write(JSON.stringify(shape));
+}
+export async function withSuspendedTimeoutProbe() {
+  await globalThis.nodeRepl.withSuspendedTimeout(() => new Promise((resolve) => {
+    setTimeout(() => {
+      globalThis.nodeRepl.write("suspended-ok");
+      resolve();
+    }, 120);
+  }));
+}
 `, 'utf8');
 
+  const nativePipeServer = await startNativePipeFixture(nativePipePath);
   const codex = startServer('codex', codexCommand, codexEnv());
   const autoDev = startServer('autodev', autoDevCommand, autoDevEnv());
 
   try {
-    const shared = { tempNodeModules, tempModule, reloadModule, staticEntryModule, fixturePackageName };
+    const shared = { tempNodeModules, tempModule, reloadModule, staticEntryModule, fixturePackageName, nativePipePath };
     const codexResult = await runProbe(codex, shared);
     const autoDevResult = await runProbe(autoDev, shared);
     const diffs = diffValues(codexResult, autoDevResult);
@@ -399,8 +461,28 @@ export async function configReadProbe() {
   } finally {
     codex.stop();
     autoDev.stop();
+    await new Promise((resolveClose) => nativePipeServer.close(resolveClose));
     await rm(tempRoot, { recursive: true, force: true });
   }
+}
+
+async function startNativePipeFixture(pipePath) {
+  await rm(pipePath, { force: true });
+  const server = createServer((socket) => {
+    socket.on('data', (chunk) => {
+      if (chunk.toString('utf8').includes('ping')) {
+        socket.write('pong');
+      }
+    });
+  });
+  await new Promise((resolveListen, reject) => {
+    server.once('error', reject);
+    server.listen(pipePath, () => {
+      server.removeListener('error', reject);
+      resolveListen();
+    });
+  });
+  return server;
 }
 
 function firstTrustedCodePath() {
