@@ -246,8 +246,8 @@ export class NodeReplRuntime {
       },
       emitImage: async (imageLike: unknown) => this.emitImage(imageLike),
       setResponseMeta: (meta: Record<string, unknown>) => {
-        if (!meta || typeof meta !== 'object' || Array.isArray(meta)) {
-          throw new Error('nodeRepl.setResponseMeta expects an object');
+        if (!this.isPlainObject(meta)) {
+          throw new Error('nodeRepl.setResponseMeta expected a plain object');
         }
         Object.assign(this.getActiveExecution().responseMeta, meta);
       },
@@ -273,7 +273,7 @@ export class NodeReplRuntime {
       throw new Error('nodeRepl.createElicitation is unavailable because the MCP client does not support form elicitation');
     });
     this.defineTrustedApiGetter(api, 'launchServices', () => ({
-      openApplication: (applicationPathOrBundleId: string) => this.openApplication(applicationPathOrBundleId),
+      openApplication: (target: unknown) => this.openApplication(target),
     }));
 
     return api;
@@ -699,17 +699,25 @@ export class NodeReplRuntime {
     return Number.isFinite(value) && value >= 0 ? value : DEFAULT_NATIVE_PIPE_CONNECT_TIMEOUT_MS;
   }
 
-  private async openApplication(applicationPathOrBundleId: string): Promise<void> {
-    if (!applicationPathOrBundleId || typeof applicationPathOrBundleId !== 'string') {
-      throw new Error('nodeRepl.launchServices.openApplication expects an application path or bundle id');
+  private async openApplication(target: unknown): Promise<Record<string, never>> {
+    if (!this.isPlainObject(target)) {
+      throw new Error('nodeRepl.launchServices.openApplication expected a target object');
+    }
+
+    const applicationPath = typeof target.applicationPath === 'string' && target.applicationPath.length > 0
+      ? target.applicationPath
+      : null;
+    const bundleIdentifier = typeof target.bundleIdentifier === 'string' && target.bundleIdentifier.length > 0
+      ? target.bundleIdentifier
+      : null;
+    if ((applicationPath ? 1 : 0) + (bundleIdentifier ? 1 : 0) !== 1) {
+      throw new Error('nodeRepl.launchServices.openApplication expected exactly one of applicationPath or bundleIdentifier');
     }
     if (process.platform !== 'darwin') {
       throw new Error('nodeRepl.launchServices.openApplication is only available on macOS');
     }
 
-    const args = applicationPathOrBundleId.endsWith('.app') || applicationPathOrBundleId.startsWith('/')
-      ? [applicationPathOrBundleId]
-      : ['-b', applicationPathOrBundleId];
+    const args = applicationPath ? [applicationPath] : ['-b', bundleIdentifier as string];
 
     await new Promise<void>((resolve, reject) => {
       const child = childProcess.spawn('open', args, { stdio: 'ignore' });
@@ -722,6 +730,7 @@ export class NodeReplRuntime {
         reject(new Error(`open exited with code ${code ?? 1}`));
       });
     });
+    return {};
   }
 
   private async trustedFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
@@ -976,11 +985,7 @@ export class NodeReplRuntime {
 
   private normalizeImage(imageLike: unknown): NodeReplImageContent {
     if (typeof imageLike === 'string') {
-      const dataUrl = this.parseImageDataUrl(imageLike);
-      if (!dataUrl) {
-        throw new Error('nodeRepl.emitImage expects image bytes, an image/* data URL, or { bytes, mimeType }');
-      }
-      return dataUrl;
+      return this.parseImageDataUrl(imageLike);
     }
 
     const directBytes = this.toImageBuffer(imageLike);
@@ -992,24 +997,14 @@ export class NodeReplRuntime {
       };
     }
 
-    if (imageLike && typeof imageLike === 'object' && !Array.isArray(imageLike)) {
+    if (this.isPlainObject(imageLike)) {
       const candidate = imageLike as {
         base64?: unknown;
         bytes?: unknown;
         data?: unknown;
-        image_url?: unknown;
         mimeType?: unknown;
         mime_type?: unknown;
       };
-
-      const imageUrl = this.extractImageUrl(candidate.image_url);
-      if (imageUrl) {
-        const dataUrl = this.parseImageDataUrl(imageUrl);
-        if (!dataUrl) {
-          throw new Error('nodeRepl.emitImage image_url must be an image/* data URL');
-        }
-        return dataUrl;
-      }
 
       if (typeof candidate.base64 === 'string') {
         const bytes = Buffer.from(candidate.base64, 'base64');
@@ -1032,26 +1027,30 @@ export class NodeReplRuntime {
       }
     }
 
-    throw new Error('nodeRepl.emitImage expects image bytes, an image/* data URL, or { bytes, mimeType }');
+    throw new Error('nodeRepl.emitImage received an unsupported value');
   }
 
-  private parseImageDataUrl(value: string): NodeReplImageContent | null {
-    const match = value.match(/^data:(image\/[A-Za-z0-9.+-]+)(?:;[^,]*)?;base64,(.+)$/);
+  private parseImageDataUrl(value: string): NodeReplImageContent {
+    if (!value.startsWith('data:')) {
+      throw new Error('nodeRepl.emitImage only accepts data URLs');
+    }
+    const match = value.match(/^data:([^,]*),(.*)$/s);
     if (!match) {
-      return null;
+      throw new Error('nodeRepl.emitImage received a malformed data URL');
     }
-    return { type: 'image', mimeType: match[1], data: match[2] };
-  }
-
-  private extractImageUrl(value: unknown): string | null {
-    if (typeof value === 'string' && value.length > 0) {
-      return value;
+    const mediaType = match[1];
+    const data = match[2];
+    const mimeType = mediaType.split(';')[0];
+    if (!mimeType.startsWith('image/')) {
+      throw new Error('nodeRepl.emitImage only accepts image/* data URLs');
     }
-    if (value && typeof value === 'object' && !Array.isArray(value)) {
-      const candidate = value as { url?: unknown };
-      return typeof candidate.url === 'string' && candidate.url.length > 0 ? candidate.url : null;
+    if (!mediaType.split(';').slice(1).some((part) => part.toLowerCase() === 'base64')) {
+      throw new Error('nodeRepl.emitImage received a malformed data URL');
     }
-    return null;
+    if (!this.isValidBase64(data)) {
+      throw new Error('nodeRepl.emitImage received an invalid base64 data URL');
+    }
+    return { type: 'image', mimeType, data };
   }
 
   private readImageMimeType(candidate: { mimeType?: unknown; mime_type?: unknown }): string | null {
@@ -1059,8 +1058,11 @@ export class NodeReplRuntime {
     if (typeof mimeType !== 'string') {
       return null;
     }
+    if (mimeType.length === 0) {
+      throw new Error('nodeRepl.emitImage expected a non-empty mimeType');
+    }
     if (!mimeType.startsWith('image/')) {
-      throw new Error('nodeRepl.emitImage object input requires an image/* mimeType');
+      throw new Error('nodeRepl.emitImage expected a non-empty mimeType');
     }
     return mimeType;
   }
@@ -1074,10 +1076,7 @@ export class NodeReplRuntime {
     }
     if (typeof value === 'string') {
       const dataUrl = this.parseImageDataUrl(value);
-      if (dataUrl) {
-        return Buffer.from(dataUrl.data, 'base64');
-      }
-      return Buffer.from(value, 'base64');
+      return Buffer.from(dataUrl.data, 'base64');
     }
     return null;
   }
@@ -1102,7 +1101,26 @@ export class NodeReplRuntime {
       && bytes.subarray(8, 12).toString('ascii') === 'WEBP') {
       return 'image/webp';
     }
-    throw new Error('nodeRepl.emitImage could not infer image MIME type; pass mimeType explicitly');
+    throw new Error('nodeRepl.emitImage could not infer image MIME type from bytes; expected PNG, JPEG, or WebP data');
+  }
+
+  private isValidBase64(value: string): boolean {
+    if (!/^[A-Za-z0-9+/]*={0,2}$/.test(value) || value.length % 4 === 1) {
+      return false;
+    }
+    try {
+      Buffer.from(value, 'base64');
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private isPlainObject(value: unknown): value is Record<string, unknown> {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return false;
+    }
+    return Object.prototype.toString.call(value) === '[object Object]';
   }
 
   private writeOutput(text: string): void {

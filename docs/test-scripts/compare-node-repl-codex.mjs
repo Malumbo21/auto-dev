@@ -263,11 +263,17 @@ async function runProbe(server, shared) {
   result.setResponseMeta = summarize(await callTool(server, 'js', {
     code: 'nodeRepl.setResponseMeta({ probe: "ok" }); nodeRepl.write("meta-ok")',
   }));
+  result.setResponseMetaArray = summarize(await callTool(server, 'js', {
+    code: 'nodeRepl.setResponseMeta([])',
+  }));
   result.emitImageBytes = summarize(await callTool(server, 'js', {
     code: 'await nodeRepl.emitImage(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))',
   }));
   result.emitImageDataUrl = summarize(await callTool(server, 'js', {
     code: 'await nodeRepl.emitImage("data:image/png;base64,iVBORw0KGgo=")',
+  }));
+  result.emitImageErrorSemantics = summarize(await callTool(server, 'js', {
+    code: `await import(${JSON.stringify(shared.tempModule)}).then((mod) => mod.emitImageErrorSemantics())`,
   }));
   result.addModuleDir = summarize(await callTool(server, 'js_add_node_module_dir', {
     path: shared.tempNodeModules,
@@ -307,6 +313,9 @@ async function runProbe(server, shared) {
   }));
   result.trustedFetchDataUrl = summarize(await callTool(server, 'js', {
     code: `await import(${JSON.stringify(shared.tempModule)}).then((mod) => mod.trustedFetchDataUrl())`,
+  }));
+  result.launchServicesErrorSemantics = summarize(await callTool(server, 'js', {
+    code: `await import(${JSON.stringify(shared.tempModule)}).then((mod) => mod.launchServicesErrorSemantics())`,
   }));
   result.nativePipeShape = summarize(await callTool(server, 'js', {
     code: `await import(${JSON.stringify(shared.tempModule)}).then((mod) => mod.nativePipeShape(${JSON.stringify(shared.nativePipePath)}))`,
@@ -394,6 +403,14 @@ function summarize(value) {
   const keys = Object.keys(value).sort();
   return { type: Array.isArray(value) ? "array" : "object", keys, valueTypes: Object.fromEntries(keys.slice(0, 8).map((key) => [key, typeof value[key]])) };
 }
+async function capture(label, call) {
+  try {
+    const value = await call();
+    return { label, ok: true, value: value === undefined ? null : value };
+  } catch (error) {
+    return { label, ok: false, message: error?.message ?? String(error) };
+  }
+}
 export function configShape() {
   const config = globalThis.nodeRepl.config;
   globalThis.nodeRepl.write(JSON.stringify(Object.fromEntries(Object.keys(config ?? {}).sort().map((key) => [key, typeof config[key]]))));
@@ -418,6 +435,23 @@ export async function configReadProbe() {
 export async function trustedFetchDataUrl() {
   const text = await globalThis.nodeRepl.fetch("data:text/plain,trusted-fetch-ok").then((response) => response.text());
   globalThis.nodeRepl.write(text);
+}
+export async function emitImageErrorSemantics() {
+  const results = [];
+  results.push(await capture("empty-bytes", () => globalThis.nodeRepl.emitImage(new Uint8Array([]))));
+  results.push(await capture("text-data-url", () => globalThis.nodeRepl.emitImage("data:text/plain;base64,aGk=")));
+  results.push(await capture("invalid-base64", () => globalThis.nodeRepl.emitImage("data:image/png;base64,%%%")));
+  results.push(await capture("http-image-url", () => globalThis.nodeRepl.emitImage({ image_url: "https://example.com/a.png" })));
+  results.push(await capture("empty-mime", () => globalThis.nodeRepl.emitImage({ bytes: new Uint8Array([1, 2, 3]), mimeType: "" })));
+  globalThis.nodeRepl.write(JSON.stringify(results));
+}
+export async function launchServicesErrorSemantics() {
+  const openApplication = globalThis.nodeRepl.launchServices.openApplication;
+  const results = [];
+  results.push(await capture("string-target", () => openApplication("com.apple.TextEdit")));
+  results.push(await capture("empty-object", () => openApplication({})));
+  results.push(await capture("two-keys", () => openApplication({ applicationPath: "/Applications/TextEdit.app", bundleIdentifier: "com.apple.TextEdit" })));
+  globalThis.nodeRepl.write(JSON.stringify(results));
 }
 export async function nativePipeRoundtrip(pipePath) {
   const socket = await globalThis.nodeRepl.nativePipe.createConnection(pipePath);
