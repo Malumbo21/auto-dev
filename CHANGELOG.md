@@ -5,6 +5,12 @@
 ### Changes
 - Module architecture refactoring: moved IDEA plugin modules into mpp-idea composite build
 
+## [0.4.2](https://github.com/unit-mesh/auto-dev/compare/v0.4.1...v0.4.2) (2026-06-19)
+
+### Changes
+
+- Republish the IntelliJ IDEA 2025.2-compatible package with the latest verifier-safe runtime packaging.
+
 ## [0.4.1](https://github.com/unit-mesh/auto-dev/compare/v0.4.0...v0.4.1) (2026-06-18)
 
 ### Bug Fixes
