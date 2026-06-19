@@ -2,7 +2,6 @@ package cc.unitmesh.devti.language.middleware.builtin
 
 import com.intellij.execution.ui.ConsoleView
 import com.intellij.ide.DataManager
-import com.intellij.ide.IdeBundle
 import com.intellij.ide.browsers.BrowserLauncher
 import com.intellij.ide.browsers.OpenInBrowserRequest
 import com.intellij.ide.browsers.WebBrowserService
@@ -19,6 +18,7 @@ import com.intellij.psi.PsiElement
 import cc.unitmesh.devti.devins.post.PostProcessor
 import cc.unitmesh.devti.devins.post.PostProcessorContext
 import cc.unitmesh.devti.devins.post.PostProcessorType
+import cc.unitmesh.devti.language.DevInBundle
 
 class OpenWebpageProcessor : PostProcessor {
     override val processorName: String get() = PostProcessorType.OpenWebpage.handleName
@@ -54,7 +54,7 @@ class OpenWebpageProcessor : PostProcessor {
                 BrowserLauncher.instance.browse(url.toExternalForm(), browser, request.project)
             }
         } catch (e: WebBrowserUrlProvider.BrowserException) {
-            Messages.showErrorDialog(e.message, IdeBundle.message("browser.error"))
+            Messages.showErrorDialog(e.message, DevInBundle.message("browser.error"))
         } catch (e: Exception) {
             logger<OpenWebpageProcessor>().warn(e)
         }
