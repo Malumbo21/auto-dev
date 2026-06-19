@@ -459,6 +459,7 @@ android {
                     "META-INF/NOTICE.txt",
                     "META-INF/notice.txt",
                     "META-INF/*.kotlin_module",
+                    "META-INF/versions/9/OSGI-INF/MANIFEST.MF",
                     "META-INF/io.netty.versions.properties"
                 )
         }
