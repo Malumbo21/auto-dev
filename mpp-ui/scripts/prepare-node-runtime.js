@@ -47,6 +47,8 @@ if (sourcePath) {
   await downloadNodeRuntime(nodeVersion, platformArch, targetDir);
 }
 
+prunePackageManagerFiles(targetDir);
+
 const nodeBin = process.platform === 'win32'
   ? join(targetDir, 'node.exe')
   : join(targetDir, 'bin', 'node');
@@ -102,6 +104,26 @@ async function copyNodeFromSource(source, target) {
 
   mkdirSync(target, { recursive: true });
   await cp(source, target, { recursive: true, force: true });
+}
+
+function prunePackageManagerFiles(target) {
+  [
+    'bin/corepack',
+    'bin/npm',
+    'bin/npx',
+    'corepack',
+    'npm',
+    'npx',
+    'corepack.cmd',
+    'npm.cmd',
+    'npx.cmd',
+    'nodevars.bat',
+    'lib/node_modules/corepack',
+    'lib/node_modules/npm',
+    'lib/node_modules/.bin',
+  ].forEach((relativePath) => {
+    rmSync(join(target, relativePath), { recursive: true, force: true });
+  });
 }
 
 function detectCodexRuntimeSource(platformKey) {
