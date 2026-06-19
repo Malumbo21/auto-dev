@@ -434,7 +434,7 @@ android {
 
     defaultConfig {
         applicationId = "cc.unitmesh.devins.ui"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 36
         versionCode = 1
         versionName = version.toString()
