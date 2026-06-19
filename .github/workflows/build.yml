@@ -56,7 +56,7 @@ jobs:
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
-          distribution: jetbrains
+          distribution: temurin
           java-version: 17
 
       # Setup Gradle
@@ -140,7 +140,7 @@ jobs:
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
-          distribution: jetbrains
+          distribution: temurin
           java-version: 17
 
       # Setup Gradle
@@ -189,7 +189,7 @@ jobs:
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
-          distribution: jetbrains
+          distribution: temurin
           java-version: 17
 
       # Setup Gradle
