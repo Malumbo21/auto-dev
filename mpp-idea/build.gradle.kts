@@ -549,9 +549,8 @@ project(":") {
                 renderedChangeNotes.ifBlank {
                     """
                     <ul>
-                      <li>Restore DevIn command completion for Swing-based IDEA input fields.</li>
-                      <li>Upgrade IntelliJ Platform Gradle Plugin to 2.16.0 and target IntelliJ IDEA 2025.2.6.2.</li>
-                      <li>Upgrade Gradle wrapper to 9.0.0, IDEA plugin compilation target to JDK 21, and Compose Multiplatform to 1.11.1.</li>
+                      <li>Remove IntelliJ 2026.2 verifier internal API usages from inlay rendering and MCP request parsing.</li>
+                      <li>Add IntelliJ IDEA 2026.2 EAP builds to local plugin verifier coverage.</li>
                     </ul>
                     """.trimIndent()
                 }
