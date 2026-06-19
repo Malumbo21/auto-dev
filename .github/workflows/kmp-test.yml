@@ -122,6 +122,13 @@ jobs:
           distribution: temurin
           java-version: 17
 
+      # Compose Multiplatform 1.11 iOS artifacts require the iOS 26 SDK.
+      - name: Select Xcode 26
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.0.1.app
+          xcodebuild -version
+          xcrun --sdk iphonesimulator --show-sdk-version
+
       # Set up Android SDK (pre-installed on ubuntu-latest)
       - name: Set up Android SDK
         run: |
