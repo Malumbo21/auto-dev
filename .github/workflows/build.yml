@@ -205,6 +205,23 @@ jobs:
           path: ${{ needs.build.outputs.pluginVerifierHomeDir }}/ides
           key: plugin-verifier-${{ hashFiles('build/listProductsReleases.txt') }}
 
+      - name: Fix Kotlin JS lock
+        run: ./gradlew kotlinUpgradePackageLock || echo "Kotlin JS lock upgrade failed, continuing..."
+
+      - name: Prepare Node REPL runtime
+        working-directory: mpp-ui
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          npm_config_audit: false
+          npm_config_fund: false
+        run: |
+          npm run build:kotlin
+          npm install --ignore-scripts
+          npm run build:kotlin-deps
+          npm run build:ts
+          npm run prepare:node-runtime
+          npm run prepare:node-modules
+
       # Run Verify Plugin task and IntelliJ Plugin Verifier tool
       - name: Run Plugin Verification tasks
         run: ./gradlew :mpp-idea:verifyPlugin -Dplugin.verifier.home.dir=${{ needs.build.outputs.pluginVerifierHomeDir }}
