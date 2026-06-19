@@ -5,6 +5,16 @@
 ### Changes
 - Module architecture refactoring: moved IDEA plugin modules into mpp-idea composite build
 
+## [0.4.3](https://github.com/unit-mesh/auto-dev/compare/v0.4.2...v0.4.3) (2026-06-20)
+
+### Bug Fixes
+
+- Remove IntelliJ 2026.2 verifier internal API usages from inlay rendering and MCP request parsing.
+
+### Changes
+
+- Add IntelliJ IDEA 2026.2 EAP builds to local plugin verifier coverage.
+
 ## [0.4.2](https://github.com/unit-mesh/auto-dev/compare/v0.4.1...v0.4.2) (2026-06-19)
 
 ### Changes

@@ -104,7 +104,7 @@ class MCPService : RestService() {
     @Suppress("UNCHECKED_CAST")
     private fun <T : Any> parseArgs(request: FullHttpRequest, klass: KClass<T>): T {
         if (request.method() == HttpMethod.POST) {
-            val body = request.content().toString(StandardCharsets.UTF_8)
+            val body = readRequestBody(request)
             if (body.isEmpty()) {
                 return NoArgs as T
             }
@@ -152,6 +152,12 @@ class MCPService : RestService() {
         }
 
         return NoArgs as T
+    }
+
+    private fun readRequestBody(request: FullHttpRequest): String {
+        val content = request.javaClass.getMethod("content").invoke(request)
+        val toString = content.javaClass.getMethod("toString", java.nio.charset.Charset::class.java)
+        return toString.invoke(content, StandardCharsets.UTF_8) as String
     }
 
     private fun <Args : Any> toolHandle(tool: McpTool<Args>, project: Project, args: Any): Response {

@@ -283,7 +283,7 @@ project(":") {
                 select {
                     types = listOf(IntellijIdeaUltimate)
                     sinceBuild = prop("pluginSinceBuild")
-                    untilBuild = "253.*"
+                    untilBuild = "262.*"
                 }
             }
         }

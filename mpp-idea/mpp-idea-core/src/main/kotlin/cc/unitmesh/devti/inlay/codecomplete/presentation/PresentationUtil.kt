@@ -1,10 +1,7 @@
 package cc.unitmesh.devti.inlay.codecomplete.presentation
 
-import com.intellij.codeInsight.codeVision.ui.renderers.painters.CodeVisionThemeInfoProvider
-import com.intellij.codeWithMe.ClientId
 import com.intellij.ide.ui.AntialiasingType
 import com.intellij.openapi.application.ApplicationInfo
-import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.editor.DefaultLanguageHighlighterColors
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.colors.EditorColorsScheme
@@ -67,18 +64,6 @@ object PresentationUtil {
             line
         }.collect(Collectors.toList()) as List<String>
     }
-
-    fun getThemeInfoProvider(): CodeVisionThemeInfoProvider {
-        val serviceClass = CodeVisionThemeInfoProvider::class.java
-        val service = ApplicationManager.getApplication().getService(serviceClass)
-            ?: throw RuntimeException(
-                "Cannot find service ${serviceClass.name} (classloader=${serviceClass.classLoader}, " +
-                        "client=${ClientId.currentOrNull})"
-            )
-
-        return service
-    }
-
 
     private val getEditorFontSize2DMethod: Method?
 

@@ -2,9 +2,7 @@ package cc.unitmesh.devti.bridge.utils
 
 import com.intellij.ide.structureView.StructureView
 import com.intellij.ide.structureView.StructureViewTreeElement
-import com.intellij.ide.structureView.impl.common.PsiTreeElementBase
 import com.intellij.lang.LanguageStructureViewBuilder
-import com.intellij.lang.html.structureView.HtmlTagTreeElement
 import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.application.invokeLater
 import com.intellij.openapi.application.runInEdt
@@ -79,21 +77,10 @@ object StructureCommandUtil {
      */
     private fun traverseStructure(element: StructureViewTreeElement, depth: Int, sb: StringBuilder): StringBuilder {
         val indent = formatBeforeCode(element, depth)
-        val str = when(element) {
-            is HtmlTagTreeElement -> {
-                if (element.locationString?.length == 0 || element.locationString == null) {
-                    element.presentableText
-                } else {
-                    element.presentableText + " " + element.locationString
-                }
-            }
-            is PsiTreeElementBase<*> -> {
-                element.presentableText
-            }
-            else -> {
-                element.presentation.presentableText
-            }
-        }
+        val presentation = element.presentation
+        val presentableText = presentation.presentableText
+        val locationString = presentation.locationString
+        val str = if (locationString.isNullOrBlank()) presentableText else "$presentableText $locationString"
 
         if (!str.isNullOrBlank()) {
             sb.append(indent).append(str).append("\n")
