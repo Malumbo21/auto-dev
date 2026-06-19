@@ -102,6 +102,7 @@ async function copyNodeModules(source, target) {
     force: true,
     verbatimSymlinks: false,
   });
+  rmSync(resolve(target, '.bin'), { recursive: true, force: true });
 }
 
 function detectCodexNodeModulesSource() {

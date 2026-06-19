@@ -11,7 +11,6 @@
     "node-fetch": "2.7.0",
     "node-gyp-build": "4.8.4",
     "node-readable-to-web-readable-stream": "0.4.2",
-    "objc-js": "1.5.0",
     "opencollective-postinstall": "2.0.3",
     "pdfjs-dist": "5.4.624",
     "pixelmatch": "7.1.0",
@@ -30,6 +29,7 @@
     "zlibjs": "0.3.1"
   },
   "optionalDependencies": {
+    "objc-js": "1.5.0",
     "fsevents": "2.3.2"
   },
   "codexPrivatePackages": {
