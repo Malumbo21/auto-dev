@@ -7,7 +7,7 @@ Pod::Spec.new do |spec|
   spec.license                  = 'MPL-2.0'
   spec.summary                  = 'AutoDev Compose Multiplatform UI for iOS'
 
-  spec.ios.deployment_target    = '14.0'
+  spec.ios.deployment_target    = '18.0'
   spec.libraries                = 'c++'
   # Keep build outputs so CocoaPods treats the spec as non-empty
   spec.preserve_paths           = 'build/bin/**/*'

@@ -46,6 +46,7 @@ i18n4k {
 
 group = "cc.unitmesh"
 version = project.findProperty("mppVersion") as String? ?: "0.1.5"
+val iosDeploymentTarget = "18.0"
 
 // Workaround for Kotlin/JS IR internal compiler error:
 // java.lang.IllegalArgumentException: List has more than one element (JsIntrinsics.getInternalFunction)
@@ -84,6 +85,11 @@ kotlin {
         iosArm64(),
         iosSimulatorArm64()
     ).forEach { iosTarget ->
+        iosTarget.binaries.all {
+            // Compose Multiplatform 1.11 uses UIKit symbols unavailable with Kotlin/Native's default iOS 14.0 target.
+            freeCompilerArgs = freeCompilerArgs + "-Xoverride-konan-properties=minVersion.ios=$iosDeploymentTarget"
+        }
+
         iosTarget.binaries.framework {
             baseName = "AutoDevUI"
             isStatic = true
