@@ -576,9 +576,18 @@ project(":") {
         val sandboxPluginDir = layout.projectDirectory
             .dir(".intellijPlatform/sandbox/mpp-idea/${prop("ideaVersion")}/plugins/$basePluginArchiveName")
             .asFile
+        val nodeReplSourceDir = layout.projectDirectory.dir("../mpp-ui").asFile
+        val nodeReplRuntimeDir = sandboxPluginDir.resolve("node-repl")
+        val requiredNodeReplSources = listOf(
+            nodeReplSourceDir.resolve("bin/autodev-node-repl"),
+            nodeReplSourceDir.resolve("dist/jsMain/typescript/node-repl/server.js"),
+            nodeReplSourceDir.resolve("node-repl.modules.json"),
+            nodeReplSourceDir.resolve("vendor/node"),
+            nodeReplSourceDir.resolve("vendor/node_modules"),
+        )
 
         named<org.jetbrains.intellij.platform.gradle.tasks.PrepareSandboxTask>("prepareSandbox") {
-            notCompatibleWithConfigurationCache("Moves IntelliJ content module jars into the legacy lib layout")
+            notCompatibleWithConfigurationCache("Moves IntelliJ content module jars into the legacy plugin layout")
 
             // Exclude font files from the plugin distribution
             // NotoSansSC-Regular.ttf (~18MB), NotoColorEmoji.ttf (~11MB x2), FiraCode fonts (~1MB)
@@ -648,6 +657,47 @@ project(":") {
             }
         }
 
+        register<Sync>("syncBundledNodeReplRuntime") {
+            group = "distribution"
+            description = "Bundles the Node REPL MCP runtime into the IDEA plugin sandbox"
+            dependsOn("prepareSandbox")
+
+            into(nodeReplRuntimeDir)
+            from(nodeReplSourceDir.resolve("bin")) {
+                into("bin")
+            }
+            from(nodeReplSourceDir.resolve("dist")) {
+                into("dist")
+            }
+            from(nodeReplSourceDir.resolve("vendor")) {
+                into("vendor")
+            }
+            from(nodeReplSourceDir.resolve("node-repl.modules.json"))
+
+            doFirst {
+                val missingNodeReplSources = requiredNodeReplSources.filterNot { it.exists() }
+                check(missingNodeReplSources.isEmpty()) {
+                    "Missing Node REPL runtime sources. Run `cd mpp-ui && npm run build:ts && npm run prepare:node-runtime && npm run prepare:node-modules` first.\n" +
+                        missingNodeReplSources.joinToString("\n") { " - ${it.absolutePath}" }
+                }
+            }
+
+            doLast {
+                val autodevNodeRepl = nodeReplRuntimeDir.resolve("bin/autodev-node-repl")
+                autodevNodeRepl.setExecutable(true, false)
+                val nodeReplAlias = nodeReplRuntimeDir.resolve("bin/node_repl")
+                nodeReplAlias.writeText(
+                    """
+                    |#!/usr/bin/env sh
+                    |DIR="${'$'}(CDPATH= cd -- "${'$'}(dirname -- "${'$'}0")" && pwd)"
+                    |exec "${'$'}DIR/autodev-node-repl" "${'$'}@"
+                    |
+                    """.trimMargin()
+                )
+                nodeReplAlias.setExecutable(true, false)
+            }
+        }
+
         // Task to verify no conflicting dependencies are included
         register("verifyNoDuplicateDependencies") {
             group = "verification"
@@ -704,6 +754,7 @@ project(":") {
         // Run verification before build
         named("buildPlugin") {
             dependsOn("verifyNoDuplicateDependencies")
+            dependsOn("syncBundledNodeReplRuntime")
         }
     }
 }
