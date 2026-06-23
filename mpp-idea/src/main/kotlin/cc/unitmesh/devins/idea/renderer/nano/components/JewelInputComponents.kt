@@ -8,6 +8,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import cc.unitmesh.devins.idea.compose.IdeaLaunchedEffect
 import cc.unitmesh.xuiper.action.NanoActionFactory
 import cc.unitmesh.xuiper.eval.evaluator.NanoExpressionEvaluator
 import cc.unitmesh.xuiper.ir.booleanProp
@@ -45,7 +46,7 @@ object JewelInputComponents {
             val textFieldState = rememberTextFieldState(initialValue)
 
             // Sync state changes back to nano state
-            LaunchedEffect(textFieldState.text) {
+            IdeaLaunchedEffect(textFieldState.text) {
                 val newValue = textFieldState.text.toString()
                 if (newValue != initialValue) {
                     statePath?.let { ctx.onAction(NanoActionFactory.set(it, newValue)) }
@@ -54,7 +55,7 @@ object JewelInputComponents {
             }
 
             // Sync external state changes to text field
-            LaunchedEffect(initialValue) {
+            IdeaLaunchedEffect(initialValue) {
                 if (textFieldState.text.toString() != initialValue) {
                     textFieldState.setTextAndPlaceCursorAtEnd(initialValue)
                 }
@@ -79,7 +80,7 @@ object JewelInputComponents {
 
             val textFieldState = rememberTextFieldState(initialValue)
 
-            LaunchedEffect(textFieldState.text) {
+            IdeaLaunchedEffect(textFieldState.text) {
                 val newValue = textFieldState.text.toString()
                 if (newValue != initialValue) {
                     statePath?.let { ctx.onAction(NanoActionFactory.set(it, newValue)) }
@@ -87,7 +88,7 @@ object JewelInputComponents {
                 }
             }
 
-            LaunchedEffect(initialValue) {
+            IdeaLaunchedEffect(initialValue) {
                 if (textFieldState.text.toString() != initialValue) {
                     textFieldState.setTextAndPlaceCursorAtEnd(initialValue)
                 }
@@ -144,7 +145,7 @@ object JewelInputComponents {
 
             val textFieldState = rememberTextFieldState(initialValue)
 
-            LaunchedEffect(textFieldState.text) {
+            IdeaLaunchedEffect(textFieldState.text) {
                 val newValue = textFieldState.text.toString()
                 if (newValue.matches(Regex("-?\\d*\\.?\\d*")) && newValue != initialValue) {
                     statePath?.let { ctx.onAction(NanoActionFactory.set(it, newValue)) }
@@ -152,7 +153,7 @@ object JewelInputComponents {
                 }
             }
 
-            LaunchedEffect(initialValue) {
+            IdeaLaunchedEffect(initialValue) {
                 if (textFieldState.text.toString() != initialValue) {
                     textFieldState.setTextAndPlaceCursorAtEnd(initialValue)
                 }
@@ -177,7 +178,7 @@ object JewelInputComponents {
 
             val textFieldState = rememberTextFieldState(initialValue)
 
-            LaunchedEffect(textFieldState.text) {
+            IdeaLaunchedEffect(textFieldState.text) {
                 val newValue = textFieldState.text.toString()
                 if (newValue != initialValue) {
                     statePath?.let { ctx.onAction(NanoActionFactory.set(it, newValue)) }
@@ -185,7 +186,7 @@ object JewelInputComponents {
                 }
             }
 
-            LaunchedEffect(initialValue) {
+            IdeaLaunchedEffect(initialValue) {
                 if (textFieldState.text.toString() != initialValue) {
                     textFieldState.setTextAndPlaceCursorAtEnd(initialValue)
                 }

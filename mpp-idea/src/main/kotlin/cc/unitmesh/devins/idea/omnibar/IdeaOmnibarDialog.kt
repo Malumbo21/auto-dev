@@ -23,6 +23,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import cc.unitmesh.devins.idea.compose.IdeaLaunchedEffect
+import cc.unitmesh.devins.idea.compose.rememberIdeaCoroutineScope
 import cc.unitmesh.devins.idea.omnibar.model.OmnibarActionResult
 import cc.unitmesh.devins.idea.omnibar.model.OmnibarItem
 import cc.unitmesh.devins.idea.omnibar.model.OmnibarItemType
@@ -99,10 +101,10 @@ fun IdeaOmnibarContent(
     val dataProvider = remember { IdeaOmnibarDataProvider.getInstance(project) }
     val focusRequester = remember { FocusRequester() }
     val listState = rememberLazyListState()
-    val scope = rememberCoroutineScope()
+    val scope = rememberIdeaCoroutineScope(project)
     
     // Load items
-    LaunchedEffect(Unit) {
+    IdeaLaunchedEffect(Unit, project = project) {
         isLoading = true
         try {
             val items = dataProvider.getItems()
@@ -117,14 +119,14 @@ fun IdeaOmnibarContent(
     }
     
     // Update filtered items on query change
-    LaunchedEffect(searchQuery, allItems) {
+    IdeaLaunchedEffect(searchQuery, allItems, project = project) {
         delay(50)
         filteredItems = OmnibarSearchEngine.search(allItems, searchQuery)
         selectedIndex = 0
     }
     
     // Auto-scroll
-    LaunchedEffect(selectedIndex) {
+    IdeaLaunchedEffect(selectedIndex, filteredItems, project = project) {
         if (filteredItems.isNotEmpty() && selectedIndex in filteredItems.indices) {
             listState.animateScrollToItem(selectedIndex)
         }
@@ -318,7 +320,7 @@ private fun IdeaOmnibarResultItem(
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
 
-    LaunchedEffect(isHovered) {
+    SideEffect {
         if (isHovered) onHover()
     }
 
@@ -385,4 +387,3 @@ private fun IdeaOmnibarResultItem(
         }
     }
 }
-

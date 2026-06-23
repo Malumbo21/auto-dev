@@ -235,8 +235,7 @@ class IdeaAgentViewModel(
 
                 // Use IdeaToolConfigService to get and cache tool config
                 val toolConfigService = IdeaToolConfigService.getInstance(project)
-                toolConfigService.reloadConfig()
-                val toolConfig = toolConfigService.getToolConfig()
+                val toolConfig = toolConfigService.reloadConfigNow()
                 cachedToolConfig = toolConfig
                 vmLogger.warn("Tool config loaded - ${toolConfig.mcpServers.size} MCP servers configured")
 
@@ -885,4 +884,3 @@ data class ToolLoadingStatus(
     val mcpToolsTotal: Int = 0,
     val isLoading: Boolean = false
 )
-

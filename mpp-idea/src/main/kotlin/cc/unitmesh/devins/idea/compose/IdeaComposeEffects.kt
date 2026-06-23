@@ -18,6 +18,7 @@ import com.intellij.openapi.project.Project
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import org.jetbrains.jewel.foundation.theme.JewelTheme
 import javax.swing.Timer
@@ -39,15 +40,29 @@ private val appScope: CoroutineScope by lazy {
     CoroutineScope(SupervisorJob() + Dispatchers.EDT)
 }
 
-/**
- * Gets a coroutine scope from the project's CoroutineScopeHolder service,
- * or falls back to an application-level scope if no project is provided.
- */
-private fun getScope(project: Project?): CoroutineScope {
+internal class IdeaComposeScopeHandle(
+    val scope: CoroutineScope,
+    private val ownsScope: Boolean
+) {
+    fun dispose() {
+        if (ownsScope) {
+            scope.cancel()
+        }
+    }
+}
+
+internal fun createIdeaComposeScopeHandle(
+    project: Project?,
+    name: String = "IdeaComposeEffect",
+    projectScopeFactory: (Project, String) -> CoroutineScope = { scopeProject, scopeName ->
+        scopeProject.service<CoroutineScopeHolder>().createScope(scopeName)
+    },
+    fallbackScope: CoroutineScope = appScope
+): IdeaComposeScopeHandle {
     return if (project != null && !project.isDisposed) {
-        project.service<CoroutineScopeHolder>().createScope("IdeaComposeEffect")
+        IdeaComposeScopeHandle(projectScopeFactory(project, name), ownsScope = true)
     } else {
-        appScope
+        IdeaComposeScopeHandle(fallbackScope, ownsScope = false)
     }
 }
 
@@ -57,9 +72,15 @@ private fun getScope(project: Project?): CoroutineScope {
  */
 @Composable
 fun rememberIdeaCoroutineScope(project: Project? = null): CoroutineScope {
-    return remember(project) {
-        getScope(project)
+    val handle = remember(project) {
+        createIdeaComposeScopeHandle(project, name = "IdeaRememberedCoroutineScope")
     }
+
+    DisposableEffect(handle) {
+        onDispose { handle.dispose() }
+    }
+
+    return handle.scope
 }
 
 /**
@@ -76,11 +97,13 @@ fun IdeaLaunchedEffect(
     project: Project? = null,
     block: suspend CoroutineScope.() -> Unit
 ) {
-    val scope = getScope(project)
-
-    DisposableEffect(key1) {
-        val job = scope.launch { block() }
-        onDispose { job.cancel() }
+    DisposableEffect(key1, project) {
+        val handle = createIdeaComposeScopeHandle(project)
+        val job = handle.scope.launch { block() }
+        onDispose {
+            job.cancel()
+            handle.dispose()
+        }
     }
 }
 
@@ -94,11 +117,13 @@ fun IdeaLaunchedEffect(
     project: Project? = null,
     block: suspend CoroutineScope.() -> Unit
 ) {
-    val scope = getScope(project)
-
-    DisposableEffect(key1, key2) {
-        val job = scope.launch { block() }
-        onDispose { job.cancel() }
+    DisposableEffect(key1, key2, project) {
+        val handle = createIdeaComposeScopeHandle(project)
+        val job = handle.scope.launch { block() }
+        onDispose {
+            job.cancel()
+            handle.dispose()
+        }
     }
 }
 
@@ -113,11 +138,13 @@ fun IdeaLaunchedEffect(
     project: Project? = null,
     block: suspend CoroutineScope.() -> Unit
 ) {
-    val scope = getScope(project)
-
-    DisposableEffect(key1, key2, key3) {
-        val job = scope.launch { block() }
-        onDispose { job.cancel() }
+    DisposableEffect(key1, key2, key3, project) {
+        val handle = createIdeaComposeScopeHandle(project)
+        val job = handle.scope.launch { block() }
+        onDispose {
+            job.cancel()
+            handle.dispose()
+        }
     }
 }
 

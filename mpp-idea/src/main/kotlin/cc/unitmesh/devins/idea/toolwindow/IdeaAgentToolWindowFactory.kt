@@ -1,11 +1,13 @@
 package cc.unitmesh.devins.idea.toolwindow
 
+import cc.unitmesh.devins.idea.services.CoroutineScopeHolder
+import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.CoroutineScope
 import org.jetbrains.jewel.bridge.addComposeTab
 
 /**
@@ -59,20 +61,13 @@ class IdeaAgentToolWindowFactory : ToolWindowFactory {
 
         // Create ViewModel OUTSIDE of Compose to prevent recreation when Compose tree is rebuilt
         // Jewel's addComposeTab may rebuild the Compose tree multiple times during initialization
-        thisLogger().warn("Creating coroutine scope with Dispatchers.Main")
-        val coroutineScope = kotlinx.coroutines.CoroutineScope(
-            kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main
-        )
+        thisLogger().warn("Creating project coroutine scope for Agent tool window")
+        val coroutineScope = createAgentToolWindowScope(project)
 
         thisLogger().warn("Creating IdeaAgentViewModel...")
         val viewModel = IdeaAgentViewModel(project, coroutineScope)
         thisLogger().warn("IdeaAgentViewModel created - registering disposable")
         Disposer.register(toolWindowDisposable, viewModel)
-
-        Disposer.register(toolWindowDisposable) {
-            thisLogger().warn("ToolWindow disposable triggered - cancelling coroutine scope")
-            coroutineScope.cancel()
-        }
 
         thisLogger().warn("Adding Compose tab to tool window...")
         toolWindow.addComposeTab("Agent") {
@@ -81,8 +76,8 @@ class IdeaAgentToolWindowFactory : ToolWindowFactory {
         }
         thisLogger().warn("Compose tab added successfully")
     }
+}
 
-    private fun kotlinx.coroutines.CoroutineScope.cancel() {
-        (coroutineContext[Job] as? Job)?.cancel()
-    }
+internal fun createAgentToolWindowScope(project: Project): CoroutineScope {
+    return project.service<CoroutineScopeHolder>().createScope("IdeaAgentToolWindow")
 }

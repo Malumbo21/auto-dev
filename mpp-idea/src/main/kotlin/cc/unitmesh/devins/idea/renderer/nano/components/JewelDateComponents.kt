@@ -7,6 +7,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import cc.unitmesh.devins.idea.compose.IdeaLaunchedEffect
 import cc.unitmesh.xuiper.action.NanoActionFactory
 import cc.unitmesh.xuiper.ir.stringProp
 import cc.unitmesh.xuiper.props.NanoBindingResolver
@@ -34,7 +35,7 @@ object JewelDateComponents {
 
             val textFieldState = rememberTextFieldState(initialValue)
 
-            LaunchedEffect(textFieldState.text) {
+            IdeaLaunchedEffect(textFieldState.text) {
                 val newValue = textFieldState.text.toString()
                 if (newValue != initialValue) {
                     statePath?.let { ctx.onAction(NanoActionFactory.set(it, newValue)) }
@@ -42,7 +43,7 @@ object JewelDateComponents {
                 }
             }
 
-            LaunchedEffect(initialValue) {
+            IdeaLaunchedEffect(initialValue) {
                 if (textFieldState.text.toString() != initialValue) {
                     textFieldState.setTextAndPlaceCursorAtEnd(initialValue)
                 }
@@ -78,7 +79,7 @@ object JewelDateComponents {
             val startTextFieldState = rememberTextFieldState(startInitialValue)
             val endTextFieldState = rememberTextFieldState(endInitialValue)
 
-            LaunchedEffect(startTextFieldState.text) {
+            IdeaLaunchedEffect(startTextFieldState.text) {
                 val newValue = startTextFieldState.text.toString()
                 if (newValue != startInitialValue) {
                     startPath?.let { ctx.onAction(NanoActionFactory.set(it, newValue)) }
@@ -86,7 +87,7 @@ object JewelDateComponents {
                 }
             }
 
-            LaunchedEffect(endTextFieldState.text) {
+            IdeaLaunchedEffect(endTextFieldState.text) {
                 val newValue = endTextFieldState.text.toString()
                 if (newValue != endInitialValue) {
                     endPath?.let { ctx.onAction(NanoActionFactory.set(it, newValue)) }
@@ -94,13 +95,13 @@ object JewelDateComponents {
                 }
             }
 
-            LaunchedEffect(startInitialValue) {
+            IdeaLaunchedEffect(startInitialValue) {
                 if (startTextFieldState.text.toString() != startInitialValue) {
                     startTextFieldState.setTextAndPlaceCursorAtEnd(startInitialValue)
                 }
             }
 
-            LaunchedEffect(endInitialValue) {
+            IdeaLaunchedEffect(endInitialValue) {
                 if (endTextFieldState.text.toString() != endInitialValue) {
                     endTextFieldState.setTextAndPlaceCursorAtEnd(endInitialValue)
                 }

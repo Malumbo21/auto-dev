@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import cc.unitmesh.devins.idea.compose.IdeaLaunchedEffect
 import cc.unitmesh.agent.parser.NanoDSLValidator
 import cc.unitmesh.agent.parser.NanoDSLParseResult
 import org.jetbrains.jewel.foundation.theme.JewelTheme
@@ -41,7 +42,7 @@ fun IdeaNanoDSLBlockRenderer(
     var isValid by remember { mutableStateOf(false) }
 
     // Validate NanoDSL when code changes
-    LaunchedEffect(nanodslCode, isComplete) {
+    IdeaLaunchedEffect(nanodslCode, isComplete) {
         if (isComplete && nanodslCode.isNotBlank()) {
             try {
                 val validator = NanoDSLValidator()
@@ -192,4 +193,3 @@ fun IdeaNanoDSLBlockRenderer(
         }
     }
 }
-

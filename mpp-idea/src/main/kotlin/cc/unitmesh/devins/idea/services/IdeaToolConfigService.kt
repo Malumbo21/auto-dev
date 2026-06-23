@@ -17,6 +17,15 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
+internal suspend fun loadFreshToolConfig(
+    load: suspend () -> ToolConfigFile,
+    publish: (ToolConfigFile) -> Unit
+): ToolConfigFile {
+    val toolConfig = load()
+    publish(toolConfig)
+    return toolConfig
+}
+
 /**
  * Project-level service for managing tool configuration state.
  *
@@ -56,13 +65,22 @@ class IdeaToolConfigService(private val project: Project) : Disposable {
     fun reloadConfigAsync() {
         serviceScope.launch {
             try {
-                val toolConfig = ConfigManager.loadToolConfig()
-                updateState(toolConfig)
+                val toolConfig = reloadConfigNow()
                 logger.debug("Tool configuration reloaded: ${toolConfig.enabledMcpTools.size} enabled tools")
             } catch (e: Exception) {
                 logger.warn("Failed to reload tool configuration: ${e.message}")
             }
         }
+    }
+
+    /**
+     * Reload configuration from disk and publish the updated state before returning.
+     */
+    suspend fun reloadConfigNow(): ToolConfigFile {
+        return loadFreshToolConfig(
+            load = { ConfigManager.loadToolConfig() },
+            publish = ::updateState
+        )
     }
 
     /**
@@ -146,4 +164,3 @@ data class ToolConfigState(
     val mcpServersCount: Int = 0,
     val lastUpdated: Long = 0L
 )
-

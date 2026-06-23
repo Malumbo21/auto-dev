@@ -68,6 +68,8 @@ class AutoDevCoroutineScope : Disposable {
             replaceWith = ReplaceWith("AutoDevCoroutineScope.workScope(project)", imports = ["cc.unitmesh.devti.util.AutoDevCoroutineScope"])
         )
         fun workerThread(): CoroutineScope = CoroutineScope(SupervisorJob() + workerThread)
-        fun workerScope(project: Project): CoroutineScope = project.service<AutoDevCoroutineScope>().coroutineScope
+        fun workerScope(project: Project): CoroutineScope = selectWorkerScope(project.service())
     }
 }
+
+internal fun selectWorkerScope(service: AutoDevCoroutineScope): CoroutineScope = service.workerScope

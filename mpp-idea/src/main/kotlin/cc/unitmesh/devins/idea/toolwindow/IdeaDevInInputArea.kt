@@ -164,92 +164,30 @@ fun IdeaDevInInputArea(
         area
     }
 
-    // Update SwingDevInInputArea properties when they change
-    LaunchedEffect(isProcessing) {
+    // Update SwingDevInInputArea properties after every successful recomposition.
+    SideEffect {
         swingInputArea.setProcessing(isProcessing)
-    }
-
-    LaunchedEffect(totalTokens) {
         swingInputArea.setTotalTokens(totalTokens)
-    }
-
-    LaunchedEffect(availableConfigs) {
         swingInputArea.setAvailableConfigs(availableConfigs)
-    }
-
-    LaunchedEffect(currentConfigName) {
         swingInputArea.setCurrentConfigName(currentConfigName)
-    }
-
-    LaunchedEffect(onConfigSelect) {
         swingInputArea.setOnConfigSelect(onConfigSelect)
-    }
-
-    LaunchedEffect(onConfigureClick) {
         swingInputArea.setOnConfigureClick(onConfigureClick)
-    }
-
-    LaunchedEffect(onAddNewConfig) {
         swingInputArea.setOnAddNewConfig(onAddNewConfig)
-    }
-
-    LaunchedEffect(onRefreshCopilot) {
         if (onRefreshCopilot != null) {
             swingInputArea.setOnRefreshCopilot(onRefreshCopilot)
         }
-    }
-
-    LaunchedEffect(isRefreshingCopilot) {
         swingInputArea.setRefreshingCopilot(isRefreshingCopilot)
-    }
-
-    LaunchedEffect(currentPlan) {
         swingInputArea.setCurrentPlan(currentPlan)
-    }
-
-    // ACP engine integration
-    LaunchedEffect(currentEngine) {
         swingInputArea.setCurrentEngine(currentEngine)
-    }
-
-    LaunchedEffect(acpAgents) {
         swingInputArea.setAcpAgents(acpAgents)
-    }
-
-    LaunchedEffect(currentAcpAgentKey) {
         swingInputArea.setCurrentAcpAgent(currentAcpAgentKey)
-    }
-
-    LaunchedEffect(onAcpAgentSelect) {
         swingInputArea.setOnAcpAgentSelect(onAcpAgentSelect)
-    }
-
-    LaunchedEffect(onConfigureAcp) {
         swingInputArea.setOnConfigureAcp(onConfigureAcp)
-    }
-
-    LaunchedEffect(onSwitchToAutodev) {
         swingInputArea.setOnSwitchToAutodev(onSwitchToAutodev)
-    }
-
-    LaunchedEffect(onSwitchToAcp) {
         swingInputArea.setOnSwitchToAcp(onSwitchToAcp)
-    }
-
-    LaunchedEffect(onMultimodalAnalysisStart) {
         onMultimodalAnalysisStart?.let { swingInputArea.setOnMultimodalAnalysisStart(it) }
-    }
-
-    LaunchedEffect(onMultimodalAnalysisChunk) {
         onMultimodalAnalysisChunk?.let { swingInputArea.setOnMultimodalAnalysisChunk(it) }
-    }
-
-    LaunchedEffect(onMultimodalAnalysisComplete) {
         onMultimodalAnalysisComplete?.let { swingInputArea.setOnMultimodalAnalysisComplete(it) }
-    }
-
-    // Update onSend and onAbort callbacks when they change
-    LaunchedEffect(onSend, onAbort) {
         swingInputArea.updateCallbacks(onSend, onAbort)
     }
 
@@ -261,7 +199,7 @@ fun IdeaDevInInputArea(
             swingInputArea
         },
         update = { panel ->
-            // Panel updates are handled via LaunchedEffect above
+            // Panel updates are handled via SideEffect above
         }
     )
 }

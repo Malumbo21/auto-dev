@@ -9,6 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import cc.unitmesh.devins.idea.compose.IdeaLaunchedEffect
 import cc.unitmesh.xuiper.ir.NanoIR
 import cc.unitmesh.xuiper.dsl.NanoDSL
 import cc.unitmesh.xuiper.render.stateful.NanoNodeRegistry
@@ -107,7 +108,12 @@ object IdeaNanoRenderer {
         // Subscribe to declared state keys for recomposition
         val observedKeys = remember(session) { session.observedKeys }
         observedKeys.forEach { key ->
-            session.flow(key).collectAsState().value
+            val flow = remember(session, key) { session.flow(key) }
+            var observedValue by remember(session, key) { mutableStateOf(flow.value) }
+            IdeaLaunchedEffect(session, key) {
+                flow.collect { observedValue = it }
+            }
+            observedValue
         }
 
         // Create dispatcher from registry
@@ -146,4 +152,3 @@ object IdeaNanoRenderer {
         }
     }
 }
-
