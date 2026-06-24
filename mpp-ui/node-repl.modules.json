@@ -33,6 +33,7 @@
     "fsevents": "2.3.2"
   },
   "codexPrivatePackages": {
-    "@oai/sky": "0.4.13"
+    "@oai/sky": "0.4.19",
+    "@oai/cdp-browser-backend": "0.2.0"
   }
 }

@@ -2,6 +2,7 @@ package cc.unitmesh.devins.idea.services
 
 import cc.unitmesh.agent.config.ToolConfigFile
 import cc.unitmesh.config.ConfigManager
+import cc.unitmesh.devins.idea.mcp.IdeaNodeReplMcpServer
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
@@ -78,7 +79,7 @@ class IdeaToolConfigService(private val project: Project) : Disposable {
      */
     suspend fun reloadConfigNow(): ToolConfigFile {
         return loadFreshToolConfig(
-            load = { ConfigManager.loadToolConfig() },
+            load = { IdeaNodeReplMcpServer.merge(project, ConfigManager.loadToolConfig()) },
             publish = ::updateState
         )
     }
@@ -119,8 +120,9 @@ class IdeaToolConfigService(private val project: Project) : Disposable {
     fun saveAndUpdateConfigAsync(toolConfig: ToolConfigFile, onComplete: (() -> Unit)? = null) {
         serviceScope.launch {
             try {
-                ConfigManager.saveToolConfig(toolConfig)
-                updateState(toolConfig)
+                val persistedConfig = IdeaNodeReplMcpServer.stripGeneratedDefault(toolConfig)
+                ConfigManager.saveToolConfig(persistedConfig)
+                updateState(IdeaNodeReplMcpServer.merge(project, persistedConfig))
                 logger.debug("Tool configuration saved and state updated")
                 onComplete?.let {
                     ApplicationManager.getApplication().invokeLater { it() }
